@@ -5,7 +5,7 @@ import type { ReadModels } from '../projections/index.ts';
 import { graphOf } from './graph.ts';
 import { sparkline } from './sparkline.ts';
 import { jobEntries, messageEntries, questionEntries, referencedBy, requestEntries, resetEntries, sessionEntries } from './collections.ts';
-import { pageOf, type Page, type PageCollection, type PageParams } from './paging.ts';
+import { pageOf, type Entry, type Page, type PageCollection, type PageParams } from './paging.ts';
 import { screenSnapshot } from './screen-snapshot.ts';
 import { repositoryName, resetsOf, toJob, toMessage, toQuestion, toRequest, toSession } from './entities.ts';
 
@@ -153,16 +153,24 @@ export class ConsoleQueries {
 
   /** One keyset page of a list, in the list's total order (or its exact reverse). */
   page(collection: PageCollection, query: PageQuery): Page<Session | Request | Question | Message | Job | Reset> {
+    return pageOf<Session | Request | Question | Message | Job | Reset>(collection, this.#pageEntries(collection, query), query);
+  }
+
+  /** Every entry of one list, narrowed to the queried session where the list belongs to sessions. */
+  #pageEntries(collection: PageCollection, query: PageQuery): Entry<Session | Request | Question | Message | Job | Reset>[] {
     const models = this.#models();
-    const owned = (id: string | undefined) => (entry: { build: () => { sessionId: string } }) => id === undefined || entry.build().sessionId === id;
-    switch (collection) {
-      case 'sessions': return pageOf(collection, sessionEntries(models, this.needsYou()), query);
-      case 'requests': return pageOf(collection, requestEntries(models, referencedBy([]), query.filter).filter(owned(query.sessionId)), query);
-      case 'questions': return pageOf(collection, questionEntries(models, referencedBy([])).filter(owned(query.sessionId)), query);
-      case 'messages': return pageOf(collection, messageEntries(models).filter(entry => query.sessionId === undefined || [entry.build().fromSessionId, entry.build().toSessionId].includes(query.sessionId)), query);
-      case 'jobs': return pageOf(collection, jobEntries(models).filter(owned(query.sessionId)), query);
-      case 'resets': return pageOf(collection, resetEntries(models).filter(owned(query.sessionId)), query);
-    }
+    const session = query.sessionId;
+    const owned = (entry: { build: () => { sessionId: string } }) => session === undefined || entry.build().sessionId === session;
+    const between = (entry: { build: () => Message }) => session === undefined || [entry.build().fromSessionId, entry.build().toSessionId].includes(session);
+    const lists: Record<PageCollection, () => Entry<Session | Request | Question | Message | Job | Reset>[]> = {
+      sessions: () => sessionEntries(models, this.needsYou()),
+      requests: () => requestEntries(models, referencedBy([]), query.filter).filter(owned),
+      questions: () => questionEntries(models, referencedBy([])).filter(owned),
+      messages: () => messageEntries(models).filter(between),
+      jobs: () => jobEntries(models).filter(owned),
+      resets: () => resetEntries(models).filter(owned),
+    };
+    return lists[collection]();
   }
 }
 
