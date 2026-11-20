@@ -29,7 +29,7 @@ export function buildSettings(state: ConsoleState): SettingsViewModel {
       { label: 'Messages', value: String(state.messages.length) }, { label: 'Work items', value: String(state.jobs.length) },
       { label: 'Needs you', value: plural(state.needsYou.length, 'item') }, { label: 'Snapshot refreshes after a gap', value: String(state.gapCount) },
     ],
-    themes: [{ id: 'midnight', label: 'Midnight (default)' }, { id: 'contrast', label: 'High contrast' }],
+    themes: [{ id: 'midnight', label: 'Midnight (default)' }, { id: 'dawn', label: 'Dawn (light)' }, { id: 'contrast', label: 'High contrast' }],
     tokenNote: 'The token lives in memory and session storage of this tab only. Closing the tab forgets it.',
     palette: Object.entries(themeTokens).map(([token, color]) => ({ token, color })),
   };

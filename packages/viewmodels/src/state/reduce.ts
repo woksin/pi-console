@@ -54,3 +54,11 @@ function fromSnapshot(state: ConsoleState, snapshot: SnapshotPayload): ConsoleSt
     gapCount: state.gapCount + (known ? 1 : 0),
   };
 }
+
+/** Merges transcript history fetched over HTTP (older entries the stream never carried). Does not touch `seq`. */
+export function mergeTranscript(state: ConsoleState, sessionId: string, entries: readonly TranscriptEntry[]): ConsoleState {
+  const byId = new Map((state.transcripts[sessionId] ?? []).map(entry => [entry.id, entry]));
+  for (const entry of entries) byId.set(entry.id, entry);
+  const merged = [...byId.values()].sort((a, b) => a.cursor - b.cursor).slice(-transcriptRetention);
+  return { ...state, transcripts: { ...state.transcripts, [sessionId]: merged } };
+}
