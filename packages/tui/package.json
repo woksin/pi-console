@@ -10,7 +10,16 @@
     "test": "node --test \"src/**/*.test.ts\""
   },
   "dependencies": {
+    "@opentui/core": "0.9.6",
+    "@opentui/react": "0.9.6",
     "@pi-console/contract": "*",
-    "@pi-console/viewmodels": "*"
+    "@pi-console/viewmodels": "*",
+    "react": "19.3.1",
+    "react-devtools-core": "7.0.1",
+    "ws": "8.18.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@xterm/headless": "6.0.0"
   }
 }

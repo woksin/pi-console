@@ -1,0 +1,416 @@
+{
+  "headline": "19 things need you",
+  "cards": [
+    {
+      "id": "need-r1",
+      "reason": "open-request",
+      "reasonLabel": "Open request",
+      "status": {
+        "status": "open",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Open"
+      },
+      "title": "aurora/L192",
+      "text": "Compare the queue strategies and explain the trade-offs.",
+      "age": "25m",
+      "sessionId": "s2",
+      "pointer": {
+        "sessionId": "s2",
+        "entryId": "entry1",
+        "fileOffset": 128
+      }
+    },
+    {
+      "id": "need-r2",
+      "reason": "open-request",
+      "reasonLabel": "Open request",
+      "status": {
+        "status": "open",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Open"
+      },
+      "title": "aurora/L192",
+      "text": "Write the handoff and preserve the pending decisions.",
+      "age": "24m",
+      "sessionId": "s2",
+      "pointer": {
+        "sessionId": "s2",
+        "entryId": "entry9",
+        "fileOffset": 1152
+      }
+    },
+    {
+      "id": "need-r4",
+      "reason": "answer-possibly-unseen",
+      "reasonLabel": "Answer possibly unseen",
+      "status": {
+        "status": "unanswered",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Unanswered"
+      },
+      "title": "aurora/L194",
+      "text": "Compare the queue strategies and explain the trade-offs.",
+      "age": "24m",
+      "sessionId": "s4",
+      "pointer": null
+    },
+    {
+      "id": "need-r5",
+      "reason": "open-request",
+      "reasonLabel": "Open request",
+      "status": {
+        "status": "open",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Open"
+      },
+      "title": "aurora/L195",
+      "text": "Write the handoff and preserve the pending decisions.",
+      "age": "24m",
+      "sessionId": "s5",
+      "pointer": null
+    },
+    {
+      "id": "need-r7",
+      "reason": "open-request",
+      "reasonLabel": "Open request",
+      "status": {
+        "status": "open",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Open"
+      },
+      "title": "harbor/L192",
+      "text": "Compare the queue strategies and explain the trade-offs.",
+      "age": "24m",
+      "sessionId": "s7",
+      "pointer": null
+    },
+    {
+      "id": "need-r10",
+      "reason": "open-request",
+      "reasonLabel": "Open request",
+      "status": {
+        "status": "open",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Open"
+      },
+      "title": "harbor/L195",
+      "text": "Compare the queue strategies and explain the trade-offs.",
+      "age": "24m",
+      "sessionId": "s10",
+      "pointer": null
+    },
+    {
+      "id": "need-r11",
+      "reason": "open-request",
+      "reasonLabel": "Open request",
+      "status": {
+        "status": "open",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Open"
+      },
+      "title": "meadow/L0",
+      "text": "Write the handoff and preserve the pending decisions.",
+      "age": "24m",
+      "sessionId": "s11",
+      "pointer": null
+    },
+    {
+      "id": "need-q1",
+      "reason": "blocking-question",
+      "reasonLabel": "Blocking question",
+      "status": {
+        "status": "needs-you",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Needs you"
+      },
+      "title": "aurora/L0",
+      "text": "Which retention window should the cache use?",
+      "age": "25m",
+      "sessionId": "s1",
+      "pointer": null
+    },
+    {
+      "id": "need-q3",
+      "reason": "blocking-question",
+      "reasonLabel": "Blocking question",
+      "status": {
+        "status": "needs-you",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Needs you"
+      },
+      "title": "aurora/L193",
+      "text": "Which retention window should the cache use?",
+      "age": "24m",
+      "sessionId": "s3",
+      "pointer": null
+    },
+    {
+      "id": "need-q5",
+      "reason": "blocking-question",
+      "reasonLabel": "Blocking question",
+      "status": {
+        "status": "needs-you",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Needs you"
+      },
+      "title": "aurora/L195",
+      "text": "Which retention window should the cache use?",
+      "age": "24m",
+      "sessionId": "s5",
+      "pointer": null
+    },
+    {
+      "id": "need-q7",
+      "reason": "blocking-question",
+      "reasonLabel": "Blocking question",
+      "status": {
+        "status": "needs-you",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Needs you"
+      },
+      "title": "harbor/L192",
+      "text": "Which retention window should the cache use?",
+      "age": "24m",
+      "sessionId": "s7",
+      "pointer": null
+    },
+    {
+      "id": "need-s3-stale-session",
+      "reason": "stale-session",
+      "reasonLabel": "Stale session",
+      "status": {
+        "status": "idle",
+        "glyph": "–",
+        "color": "faint",
+        "label": "Idle"
+      },
+      "title": "aurora/L193",
+      "text": "aurora review has not progressed",
+      "age": "2m",
+      "sessionId": "s3",
+      "pointer": null
+    },
+    {
+      "id": "need-s4-lane-waiting-on-user",
+      "reason": "lane-waiting-on-user",
+      "reasonLabel": "Lane waiting on you",
+      "status": {
+        "status": "waiting",
+        "glyph": "~",
+        "color": "violet",
+        "label": "Waiting"
+      },
+      "title": "aurora/L194",
+      "text": "Lane L194 is waiting on you",
+      "age": "2m",
+      "sessionId": "s4",
+      "pointer": null
+    },
+    {
+      "id": "need-s10-stale-session",
+      "reason": "stale-session",
+      "reasonLabel": "Stale session",
+      "status": {
+        "status": "idle",
+        "glyph": "–",
+        "color": "faint",
+        "label": "Idle"
+      },
+      "title": "harbor/L195",
+      "text": "harbor scout has not progressed",
+      "age": "2m",
+      "sessionId": "s10",
+      "pointer": null
+    },
+    {
+      "id": "need-s11-lane-waiting-on-user",
+      "reason": "lane-waiting-on-user",
+      "reasonLabel": "Lane waiting on you",
+      "status": {
+        "status": "waiting",
+        "glyph": "~",
+        "color": "violet",
+        "label": "Waiting"
+      },
+      "title": "meadow/L0",
+      "text": "Lane L0 is waiting on you",
+      "age": "2m",
+      "sessionId": "s11",
+      "pointer": null
+    },
+    {
+      "id": "need-s17-stale-session",
+      "reason": "stale-session",
+      "reasonLabel": "Stale session",
+      "status": {
+        "status": "idle",
+        "glyph": "–",
+        "color": "faint",
+        "label": "Idle"
+      },
+      "title": "quartz/L192",
+      "text": "quartz implementation has not progressed",
+      "age": "2m",
+      "sessionId": "s17",
+      "pointer": null
+    },
+    {
+      "id": "need-s18-lane-waiting-on-user",
+      "reason": "lane-waiting-on-user",
+      "reasonLabel": "Lane waiting on you",
+      "status": {
+        "status": "waiting",
+        "glyph": "~",
+        "color": "violet",
+        "label": "Waiting"
+      },
+      "title": "quartz/L193",
+      "text": "Lane L193 is waiting on you",
+      "age": "2m",
+      "sessionId": "s18",
+      "pointer": null
+    },
+    {
+      "id": "need-s24-stale-session",
+      "reason": "stale-session",
+      "reasonLabel": "Stale session",
+      "status": {
+        "status": "idle",
+        "glyph": "–",
+        "color": "faint",
+        "label": "Idle"
+      },
+      "title": "willow/L194",
+      "text": "willow explore has not progressed",
+      "age": "2m",
+      "sessionId": "s24",
+      "pointer": null
+    },
+    {
+      "id": "need-s25-lane-waiting-on-user",
+      "reason": "lane-waiting-on-user",
+      "reasonLabel": "Lane waiting on you",
+      "status": {
+        "status": "waiting",
+        "glyph": "~",
+        "color": "violet",
+        "label": "Waiting"
+      },
+      "title": "willow/L195",
+      "text": "Lane L195 is waiting on you",
+      "age": "2m",
+      "sessionId": "s25",
+      "pointer": null
+    }
+  ],
+  "counts": [
+    {
+      "status": {
+        "status": "needs-you",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Needs you"
+      },
+      "count": 5
+    },
+    {
+      "status": {
+        "status": "blocked",
+        "glyph": "×",
+        "color": "orange",
+        "label": "Blocked"
+      },
+      "count": 4
+    },
+    {
+      "status": {
+        "status": "failed",
+        "glyph": "×",
+        "color": "red",
+        "label": "Failed"
+      },
+      "count": 4
+    },
+    {
+      "status": {
+        "status": "working",
+        "glyph": "*",
+        "color": "cyan",
+        "label": "Working"
+      },
+      "count": 5
+    },
+    {
+      "status": {
+        "status": "waiting",
+        "glyph": "~",
+        "color": "violet",
+        "label": "Waiting"
+      },
+      "count": 4
+    },
+    {
+      "status": {
+        "status": "idle",
+        "glyph": "–",
+        "color": "faint",
+        "label": "Idle"
+      },
+      "count": 4
+    },
+    {
+      "status": {
+        "status": "done",
+        "glyph": "✓",
+        "color": "green",
+        "label": "Done"
+      },
+      "count": 4
+    }
+  ],
+  "fleet": {
+    "sessions": 30,
+    "repositories": 6,
+    "working": 5,
+    "tokens": "1.8M",
+    "cost": "$327.15",
+    "contextSeries": [
+      58,
+      58,
+      55,
+      52,
+      49,
+      48,
+      48,
+      51,
+      54,
+      50,
+      46,
+      51,
+      56,
+      50,
+      46,
+      49,
+      53,
+      57,
+      49,
+      56,
+      51,
+      55,
+      56,
+      54
+    ],
+    "contextSpark": "▅▅▅▅▄▄▄▅▅▄▄▅▅▄▄▄▅▅▄▅▅▅▅▅"
+  }
+}

@@ -1,0 +1,670 @@
+{
+  "groups": [
+    {
+      "repositoryId": "aurora",
+      "edges": [
+        {
+          "from": "s1",
+          "to": "s2",
+          "kind": "message",
+          "count": 2,
+          "lastAt": "2026-11-20T09:01:12.000Z",
+          "thickness": 2
+        },
+        {
+          "from": "s1",
+          "to": "s3",
+          "kind": "message",
+          "count": 2,
+          "lastAt": "2026-11-20T09:01:15.000Z",
+          "thickness": 2
+        },
+        {
+          "from": "s1",
+          "to": "s4",
+          "kind": "message",
+          "count": 2,
+          "lastAt": "2026-11-20T09:01:18.000Z",
+          "thickness": 2
+        },
+        {
+          "from": "s1",
+          "to": "s5",
+          "kind": "message",
+          "count": 2,
+          "lastAt": "2026-11-20T09:01:21.000Z",
+          "thickness": 2
+        },
+        {
+          "from": "s2",
+          "to": "s4",
+          "kind": "spawn",
+          "count": 1,
+          "lastAt": "2026-11-20T09:00:00.000Z",
+          "thickness": 1
+        },
+        {
+          "from": "s2",
+          "to": "s5",
+          "kind": "spawn",
+          "count": 1,
+          "lastAt": "2026-11-20T09:00:00.000Z",
+          "thickness": 1
+        }
+      ],
+      "nodes": [
+        {
+          "sessionId": "s1",
+          "label": "L0 orchestrator",
+          "status": {
+            "status": "working",
+            "glyph": "*",
+            "color": "cyan",
+            "label": "Working"
+          },
+          "role": "orchestrator"
+        },
+        {
+          "sessionId": "s2",
+          "label": "L192 main",
+          "status": {
+            "status": "needs-you",
+            "glyph": "!",
+            "color": "amber",
+            "label": "Needs you"
+          },
+          "role": "main"
+        },
+        {
+          "sessionId": "s3",
+          "label": "L193 main",
+          "status": {
+            "status": "blocked",
+            "glyph": "×",
+            "color": "orange",
+            "label": "Blocked"
+          },
+          "role": "main"
+        },
+        {
+          "sessionId": "s4",
+          "label": "L194 subagent",
+          "status": {
+            "status": "waiting",
+            "glyph": "~",
+            "color": "violet",
+            "label": "Waiting"
+          },
+          "role": "subagent"
+        },
+        {
+          "sessionId": "s5",
+          "label": "L195 subagent",
+          "status": {
+            "status": "idle",
+            "glyph": "–",
+            "color": "faint",
+            "label": "Idle"
+          },
+          "role": "subagent"
+        }
+      ],
+      "messages": 8
+    },
+    {
+      "repositoryId": "harbor",
+      "edges": [
+        {
+          "from": "s6",
+          "to": "s7",
+          "kind": "message",
+          "count": 2,
+          "lastAt": "2026-11-20T09:01:24.000Z",
+          "thickness": 2
+        },
+        {
+          "from": "s6",
+          "to": "s8",
+          "kind": "message",
+          "count": 2,
+          "lastAt": "2026-11-20T09:01:27.000Z",
+          "thickness": 2
+        },
+        {
+          "from": "s6",
+          "to": "s9",
+          "kind": "message",
+          "count": 2,
+          "lastAt": "2026-11-20T09:01:30.000Z",
+          "thickness": 2
+        },
+        {
+          "from": "s6",
+          "to": "s10",
+          "kind": "message",
+          "count": 2,
+          "lastAt": "2026-11-20T09:01:33.000Z",
+          "thickness": 2
+        },
+        {
+          "from": "s7",
+          "to": "s9",
+          "kind": "spawn",
+          "count": 1,
+          "lastAt": "2026-11-20T09:00:00.000Z",
+          "thickness": 1
+        },
+        {
+          "from": "s7",
+          "to": "s10",
+          "kind": "spawn",
+          "count": 1,
+          "lastAt": "2026-11-20T09:00:00.000Z",
+          "thickness": 1
+        }
+      ],
+      "nodes": [
+        {
+          "sessionId": "s6",
+          "label": "L0 orchestrator",
+          "status": {
+            "status": "done",
+            "glyph": "✓",
+            "color": "green",
+            "label": "Done"
+          },
+          "role": "orchestrator"
+        },
+        {
+          "sessionId": "s7",
+          "label": "L192 main",
+          "status": {
+            "status": "failed",
+            "glyph": "×",
+            "color": "red",
+            "label": "Failed"
+          },
+          "role": "main"
+        },
+        {
+          "sessionId": "s8",
+          "label": "L193 main",
+          "status": {
+            "status": "working",
+            "glyph": "*",
+            "color": "cyan",
+            "label": "Working"
+          },
+          "role": "main"
+        },
+        {
+          "sessionId": "s9",
+          "label": "L194 subagent",
+          "status": {
+            "status": "needs-you",
+            "glyph": "!",
+            "color": "amber",
+            "label": "Needs you"
+          },
+          "role": "subagent"
+        },
+        {
+          "sessionId": "s10",
+          "label": "L195 subagent",
+          "status": {
+            "status": "blocked",
+            "glyph": "×",
+            "color": "orange",
+            "label": "Blocked"
+          },
+          "role": "subagent"
+        }
+      ],
+      "messages": 8
+    },
+    {
+      "repositoryId": "meadow",
+      "edges": [
+        {
+          "from": "s11",
+          "to": "s12",
+          "kind": "message",
+          "count": 2,
+          "lastAt": "2026-11-20T09:01:36.000Z",
+          "thickness": 2
+        },
+        {
+          "from": "s11",
+          "to": "s13",
+          "kind": "message",
+          "count": 2,
+          "lastAt": "2026-11-20T09:01:39.000Z",
+          "thickness": 2
+        },
+        {
+          "from": "s11",
+          "to": "s14",
+          "kind": "message",
+          "count": 2,
+          "lastAt": "2026-11-20T09:01:42.000Z",
+          "thickness": 2
+        },
+        {
+          "from": "s11",
+          "to": "s15",
+          "kind": "message",
+          "count": 2,
+          "lastAt": "2026-11-20T09:01:45.000Z",
+          "thickness": 2
+        },
+        {
+          "from": "s12",
+          "to": "s14",
+          "kind": "spawn",
+          "count": 1,
+          "lastAt": "2026-11-20T09:00:00.000Z",
+          "thickness": 1
+        },
+        {
+          "from": "s12",
+          "to": "s15",
+          "kind": "spawn",
+          "count": 1,
+          "lastAt": "2026-11-20T09:00:00.000Z",
+          "thickness": 1
+        }
+      ],
+      "nodes": [
+        {
+          "sessionId": "s11",
+          "label": "L0 orchestrator",
+          "status": {
+            "status": "waiting",
+            "glyph": "~",
+            "color": "violet",
+            "label": "Waiting"
+          },
+          "role": "orchestrator"
+        },
+        {
+          "sessionId": "s12",
+          "label": "L192 main",
+          "status": {
+            "status": "idle",
+            "glyph": "–",
+            "color": "faint",
+            "label": "Idle"
+          },
+          "role": "main"
+        },
+        {
+          "sessionId": "s13",
+          "label": "L193 main",
+          "status": {
+            "status": "done",
+            "glyph": "✓",
+            "color": "green",
+            "label": "Done"
+          },
+          "role": "main"
+        },
+        {
+          "sessionId": "s14",
+          "label": "L194 subagent",
+          "status": {
+            "status": "failed",
+            "glyph": "×",
+            "color": "red",
+            "label": "Failed"
+          },
+          "role": "subagent"
+        },
+        {
+          "sessionId": "s15",
+          "label": "L195 subagent",
+          "status": {
+            "status": "working",
+            "glyph": "*",
+            "color": "cyan",
+            "label": "Working"
+          },
+          "role": "subagent"
+        }
+      ],
+      "messages": 8
+    },
+    {
+      "repositoryId": "quartz",
+      "edges": [
+        {
+          "from": "s16",
+          "to": "s17",
+          "kind": "message",
+          "count": 2,
+          "lastAt": "2026-11-20T09:01:48.000Z",
+          "thickness": 2
+        },
+        {
+          "from": "s16",
+          "to": "s18",
+          "kind": "message",
+          "count": 2,
+          "lastAt": "2026-11-20T09:01:51.000Z",
+          "thickness": 2
+        },
+        {
+          "from": "s16",
+          "to": "s19",
+          "kind": "message",
+          "count": 2,
+          "lastAt": "2026-11-20T09:01:54.000Z",
+          "thickness": 2
+        },
+        {
+          "from": "s16",
+          "to": "s20",
+          "kind": "message",
+          "count": 2,
+          "lastAt": "2026-11-20T09:01:57.000Z",
+          "thickness": 2
+        },
+        {
+          "from": "s17",
+          "to": "s19",
+          "kind": "spawn",
+          "count": 1,
+          "lastAt": "2026-11-20T09:00:00.000Z",
+          "thickness": 1
+        },
+        {
+          "from": "s17",
+          "to": "s20",
+          "kind": "spawn",
+          "count": 1,
+          "lastAt": "2026-11-20T09:00:00.000Z",
+          "thickness": 1
+        }
+      ],
+      "nodes": [
+        {
+          "sessionId": "s16",
+          "label": "L0 orchestrator",
+          "status": {
+            "status": "needs-you",
+            "glyph": "!",
+            "color": "amber",
+            "label": "Needs you"
+          },
+          "role": "orchestrator"
+        },
+        {
+          "sessionId": "s17",
+          "label": "L192 main",
+          "status": {
+            "status": "blocked",
+            "glyph": "×",
+            "color": "orange",
+            "label": "Blocked"
+          },
+          "role": "main"
+        },
+        {
+          "sessionId": "s18",
+          "label": "L193 main",
+          "status": {
+            "status": "waiting",
+            "glyph": "~",
+            "color": "violet",
+            "label": "Waiting"
+          },
+          "role": "main"
+        },
+        {
+          "sessionId": "s19",
+          "label": "L194 subagent",
+          "status": {
+            "status": "idle",
+            "glyph": "–",
+            "color": "faint",
+            "label": "Idle"
+          },
+          "role": "subagent"
+        },
+        {
+          "sessionId": "s20",
+          "label": "L195 subagent",
+          "status": {
+            "status": "done",
+            "glyph": "✓",
+            "color": "green",
+            "label": "Done"
+          },
+          "role": "subagent"
+        }
+      ],
+      "messages": 8
+    },
+    {
+      "repositoryId": "willow",
+      "edges": [
+        {
+          "from": "s21",
+          "to": "s22",
+          "kind": "message",
+          "count": 1,
+          "lastAt": "2026-11-20T09:00:48.000Z",
+          "thickness": 1
+        },
+        {
+          "from": "s21",
+          "to": "s23",
+          "kind": "message",
+          "count": 1,
+          "lastAt": "2026-11-20T09:00:51.000Z",
+          "thickness": 1
+        },
+        {
+          "from": "s21",
+          "to": "s24",
+          "kind": "message",
+          "count": 1,
+          "lastAt": "2026-11-20T09:00:54.000Z",
+          "thickness": 1
+        },
+        {
+          "from": "s21",
+          "to": "s25",
+          "kind": "message",
+          "count": 1,
+          "lastAt": "2026-11-20T09:00:57.000Z",
+          "thickness": 1
+        },
+        {
+          "from": "s22",
+          "to": "s24",
+          "kind": "spawn",
+          "count": 1,
+          "lastAt": "2026-11-20T09:00:00.000Z",
+          "thickness": 1
+        },
+        {
+          "from": "s22",
+          "to": "s25",
+          "kind": "spawn",
+          "count": 1,
+          "lastAt": "2026-11-20T09:00:00.000Z",
+          "thickness": 1
+        }
+      ],
+      "nodes": [
+        {
+          "sessionId": "s21",
+          "label": "L0 orchestrator",
+          "status": {
+            "status": "failed",
+            "glyph": "×",
+            "color": "red",
+            "label": "Failed"
+          },
+          "role": "orchestrator"
+        },
+        {
+          "sessionId": "s22",
+          "label": "L192 main",
+          "status": {
+            "status": "working",
+            "glyph": "*",
+            "color": "cyan",
+            "label": "Working"
+          },
+          "role": "main"
+        },
+        {
+          "sessionId": "s23",
+          "label": "L193 main",
+          "status": {
+            "status": "needs-you",
+            "glyph": "!",
+            "color": "amber",
+            "label": "Needs you"
+          },
+          "role": "main"
+        },
+        {
+          "sessionId": "s24",
+          "label": "L194 subagent",
+          "status": {
+            "status": "blocked",
+            "glyph": "×",
+            "color": "orange",
+            "label": "Blocked"
+          },
+          "role": "subagent"
+        },
+        {
+          "sessionId": "s25",
+          "label": "L195 subagent",
+          "status": {
+            "status": "waiting",
+            "glyph": "~",
+            "color": "violet",
+            "label": "Waiting"
+          },
+          "role": "subagent"
+        }
+      ],
+      "messages": 4
+    },
+    {
+      "repositoryId": "zenith",
+      "edges": [
+        {
+          "from": "s26",
+          "to": "s27",
+          "kind": "message",
+          "count": 1,
+          "lastAt": "2026-11-20T09:01:00.000Z",
+          "thickness": 1
+        },
+        {
+          "from": "s26",
+          "to": "s28",
+          "kind": "message",
+          "count": 1,
+          "lastAt": "2026-11-20T09:01:03.000Z",
+          "thickness": 1
+        },
+        {
+          "from": "s26",
+          "to": "s29",
+          "kind": "message",
+          "count": 1,
+          "lastAt": "2026-11-20T09:01:06.000Z",
+          "thickness": 1
+        },
+        {
+          "from": "s26",
+          "to": "s30",
+          "kind": "message",
+          "count": 1,
+          "lastAt": "2026-11-20T09:01:09.000Z",
+          "thickness": 1
+        },
+        {
+          "from": "s27",
+          "to": "s29",
+          "kind": "spawn",
+          "count": 1,
+          "lastAt": "2026-11-20T09:00:00.000Z",
+          "thickness": 1
+        },
+        {
+          "from": "s27",
+          "to": "s30",
+          "kind": "spawn",
+          "count": 1,
+          "lastAt": "2026-11-20T09:00:00.000Z",
+          "thickness": 1
+        }
+      ],
+      "nodes": [
+        {
+          "sessionId": "s26",
+          "label": "L0 orchestrator",
+          "status": {
+            "status": "idle",
+            "glyph": "–",
+            "color": "faint",
+            "label": "Idle"
+          },
+          "role": "orchestrator"
+        },
+        {
+          "sessionId": "s27",
+          "label": "L192 main",
+          "status": {
+            "status": "done",
+            "glyph": "✓",
+            "color": "green",
+            "label": "Done"
+          },
+          "role": "main"
+        },
+        {
+          "sessionId": "s28",
+          "label": "L193 main",
+          "status": {
+            "status": "failed",
+            "glyph": "×",
+            "color": "red",
+            "label": "Failed"
+          },
+          "role": "main"
+        },
+        {
+          "sessionId": "s29",
+          "label": "L194 subagent",
+          "status": {
+            "status": "working",
+            "glyph": "*",
+            "color": "cyan",
+            "label": "Working"
+          },
+          "role": "subagent"
+        },
+        {
+          "sessionId": "s30",
+          "label": "L195 subagent",
+          "status": {
+            "status": "needs-you",
+            "glyph": "!",
+            "color": "amber",
+            "label": "Needs you"
+          },
+          "role": "subagent"
+        }
+      ],
+      "messages": 4
+    }
+  ]
+}
