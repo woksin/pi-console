@@ -42,7 +42,7 @@ function transcriptLines(env: Env, model: SessionViewModel, key: unknown, width:
 function header(model: SessionViewModel, width: number, phase: number): Line[] {
   return [
     split([...statusParts(model.status, phase), t('  '), t(model.title, 'text', { bold: true })], [t(`updated ${model.age} ago`, 'faint')], width),
-    fit([t(`${model.role} · `, 'muted'), t(model.branch, 'violet'), t(` · ${model.model} · `, 'muted'), t(`${model.cost}`, 'text'), t('  ctx ', 'muted'), ...bar(model.context.percent, 14, pressureTone(model.context.pressure)), t(` ${String(model.context.percent)}% `, pressureTone(model.context.pressure)), t(model.context.spark.slice(-16), 'faint')], width),
+    fit([t(`${model.role} · `, 'muted'), t(model.branch, 'violet'), t(` · ${model.model} · `, 'muted'), t(model.cost, 'text'), t('  ctx ', 'muted'), ...bar(model.context.percent, 14, pressureTone(model.context.pressure)), t(` ${String(model.context.percent)}% `, pressureTone(model.context.pressure)), t(model.context.spark.slice(-16), 'faint')], width),
   ];
 }
 
@@ -107,7 +107,7 @@ function buildDetail(env: Env): { model: SessionViewModel; entries: unknown } | 
   const entries = env.data.transcripts.get(id) ?? [];
   const deps = [id, session, env.data.requests, env.data.questions, env.data.jobs, env.data.resets, env.data.sessions, entries, env.ui.search, Math.floor(env.now / 1000)];
   const hit = modelCache;
-  if (hit && hit.deps.every((dep, index) => dep === deps[index])) return { model: hit.model, entries };
+  if (hit?.deps.every((dep, index) => dep === deps[index])) return { model: hit.model, entries };
   const model = sessionViewModel({
     detail: { session, requests: own(env.data.requests), questions: own(env.data.questions), jobs: own(env.data.jobs), resets: own(env.data.resets), subagents: env.data.sessions.filter(item => item.parentSessionId === id) },
     transcript: entries, now: env.now, search: env.ui.search,

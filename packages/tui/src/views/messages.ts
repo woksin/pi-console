@@ -29,9 +29,8 @@ const arrow = (edge: GraphEdgeView, recent: boolean): { text: string; color: Col
   return { text: `${body}▶`, color: recent ? 'green' : edge.kind === 'spawn' ? 'violet' : 'cyan' };
 };
 
-interface FlatEdge { edge: GraphEdgeView; group: string }
 
-function graphLines(model: GraphViewModel, flat: readonly FlatEdge[], cursor: number, env: Env, width: number): { lines: Line[]; edgeLine: number[] } {
+function graphLines(model: GraphViewModel, cursor: number, env: Env, width: number): { lines: Line[]; edgeLine: number[] } {
   const lines: Line[] = [];
   const edgeLine: number[] = [];
   let index = 0;
@@ -52,7 +51,6 @@ function graphLines(model: GraphViewModel, flat: readonly FlatEdge[], cursor: nu
     }
     lines.push(blank);
   }
-  void flat;
   return { lines, edgeLine };
 }
 
@@ -73,7 +71,7 @@ function graphView(env: Env): SectionView {
   const wide = env.width >= 110;
   const width = (wide ? env.width - 48 : env.width) - 4;
   const cursor = Math.min(env.ui.cursor.messages, Math.max(0, flat.length - 1));
-  const { lines, edgeLine } = graphLines(model, flat, cursor, env, width);
+  const { lines, edgeLine } = graphLines(model, cursor, env, width);
   const visible = Math.max(1, env.height - 4);
   const focusLine = edgeLine[cursor] ?? 0;
   const { start, end } = windowOf(lines.length, focusLine, visible);

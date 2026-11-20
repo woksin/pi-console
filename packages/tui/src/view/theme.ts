@@ -21,7 +21,7 @@ export function quantize(hex: string, depth: ColorDepth): string {
 
 export function detectDepth(env: NodeJS.ProcessEnv = process.env): ColorDepth {
   if (/truecolor|24bit/.test(env.COLORTERM ?? '')) return 'truecolor';
-  return /256/.test(env.TERM ?? '') ? '256' : '16';
+  return (env.TERM ?? '').includes('256') ? '256' : '16';
 }
 
 /** Module-level on purpose: set once at start-up, read by the renderer. */

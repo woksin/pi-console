@@ -7,7 +7,9 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "test": "node --test \"src/**/*.test.ts\""
+    "start": "node --experimental-ffi src/main.ts",
+    "test": "node --experimental-ffi --test \"src/**/*.test.ts\"",
+    "build:check": "node --experimental-ffi -e \"await import('./src/index.ts')\""
   },
   "dependencies": {
     "@opentui/core": "0.9.6",
