@@ -36,7 +36,7 @@ function line(entry: TranscriptEntry, streaming = false): TranscriptLine {
   const result = entry.toolResult;
   return {
     id: entry.id, cursor: entry.cursor, time: clock(entry.at), kind, glyph, label, color, streaming,
-    text: sanitize(result?.withheld ? '[withheld by the daemon: secret-shaped content]' : entry.text), requestId: entry.requestId, resetId: entry.resetId,
+    text: sanitize(result?.withheld ? '[withheld by the daemon: secret-shaped content]' : entry.text), requestId: entry.requestId ?? null, resetId: entry.resetId ?? null,
     tool: result ? { name: result.toolName, args: sanitize(result.argsExcerpt), resultKind: result.resultKind, withheld: result.withheld, truncated: result.truncated } : null,
   };
 }
