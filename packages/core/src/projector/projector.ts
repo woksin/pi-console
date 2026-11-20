@@ -1,14 +1,14 @@
 import { decode, type EventEnvelope, type EventLog, type SkipReason } from '@pi-console/contract';
 import { MemoryProjectionStore, type AnyProjection, type DirtyReporter, type ProjectionStore, type ProjectionWrite } from './projection.ts';
-import { safeRecords } from './records.ts';
 
 interface Slot {
   projection: AnyProjection; state: unknown; position: number;
   dirty: Map<string, Set<string>>; dirtyRows: number; resetRows: boolean; report: DirtyReporter;
 }
 
-const flushEvents = 1000;
-const flushRows = 2000;
+/** Small enough that one flush (JSON + one SQLite transaction) stays a short slice of the event loop. */
+const flushEvents = 500;
+const flushRows = 500;
 const flushIntervalMs = 250;
 
 export interface SkippedEvents { position: number; counts: Record<SkipReason, number> }
@@ -142,7 +142,7 @@ function restore(store: ProjectionStore, projection: AnyProjection): Slot {
   const record = store.load(projection.name);
   const current = record?.version === projection.version;
   const slot: Slot = {
-    projection, state: current ? safeRecords(record.state) : projection.initial(), position: current ? record.position : 0,
+    projection, state: current ? record.state : projection.initial(), position: current ? record.position : 0,
     dirty: new Map(), dirtyRows: 0, resetRows: !current,
     report(collection, id) {
       let ids = slot.dirty.get(collection);

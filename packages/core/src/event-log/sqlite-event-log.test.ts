@@ -45,3 +45,21 @@ test('a process killed mid-append loses nothing and duplicates nothing', async (
   const final = await inspectCrashLog(path);
   assert.deepEqual(final, { events: total, distinct: total, checkpoint: total, maxOffset: total });
 });
+
+test('a large append reaches subscribers in slices across macrotasks, once and in order', async () => {
+  const log = new SqliteEventLog(':memory:', { sliceEvents: 100 });
+  try {
+    const seen: number[] = [];
+    const perTurn: number[] = [0];
+    let ticking = true;
+    const tick = (): void => { perTurn.push(0); if (ticking) setImmediate(tick); };
+    log.subscribe(0, event => { seen.push(event.seq); perTurn[perTurn.length - 1]++; });
+    await new Promise(resolve => setImmediate(resolve));
+    setImmediate(tick);
+    await log.append(Array.from({ length: 1_000 }, (_, n) => testEvent(n + 1, 'SessionHeartbeat', { sessionId: 's1' })));
+    while (seen.length < 1_000) await new Promise(resolve => setImmediate(resolve));
+    ticking = false;
+    assert.deepEqual(seen, Array.from({ length: 1_000 }, (_, n) => n + 1));
+    assert.ok(Math.max(...perTurn) <= 100, `max ${Math.max(...perTurn)} events in one turn`);
+  } finally { log.close(); }
+});

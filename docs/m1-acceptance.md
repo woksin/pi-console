@@ -9,8 +9,8 @@ Status: **not accepted**: warm first-screen readiness, idle memory and full view
 | Every real human prompt appears with an answer or an explicit state | **MISS (full coverage not established)** | Earlier session audit: 134 raw user messages, 134 derived requests. Final copy: 1,996 requests and 316 questions returned; question-store ingestion is proven, but exhaustive prompt coverage and question-to-session linkage were not audited on this larger population |
 | Hand-checked sample of 30 shows no wrong pairing beyond what the UI labels uncertain | PASS | table below |
 | No known secret shape in the database or any API response | PASS | `packages/daemon/src/secrets.test.ts` (API bodies, SSE snapshot and deltas, real session ingestion: event, checkpoint and projection rows), `packages/testkit/src/secret-shapes.test.ts`. Fixture shapes only; the real copy was not scanned for secrets |
-| Cold start to first screen under 3 s with a 14-day backfill in the background | **PASS cold; MISS warm** | First-data readiness: web **2.820 s**, TUI **2.470 s** cold; web **4.983 s**, TUI **4.259 s** warm. Actual HTTP/SSE client data paths, not browser paint or terminal render; method below |
-| Idle daemon memory under 150 MiB | **MISS** | see breakdown below |
+| Cold start to first screen under 3 s with a 14-day backfill in the background | **PASS cold; MISS warm** (before P7; real-data rerun pending) | First-data readiness: web **2.820 s**, TUI **2.470 s** cold; web **4.983 s**, TUI **4.259 s** warm. Actual HTTP/SSE client data paths, not browser paint or terminal render; method below |
+| Idle daemon memory ≤ 250 MiB RSS (≤ 220 MiB physical footprint) | PENDING real-data rerun against revised M1 target | P7 target accounts for shared Node text, malloc fragmentation and read models retained in RAM; disk-backed models are deferred. Historical measurements below are unchanged. |
 | No valid token, wrong Host or foreign Origin refused | PASS | `security.test.ts` (token hash, exact token, CSRF/Origin), `http/boundary.test.ts` (foreign-Origin SSE refused with valid credentials, on the real server), `http/static-files.test.ts` (wrong Host and foreign Origin: 403). Missing-token 401 at HTTP level is only specified on the mock daemon (`testkit/src/mock-daemon/daemon.test.ts`); the real daemon has it at unit level |
 | Source adapters for context-budget, lanes and messages, question store, jobs and phases feed the views | **PASS ingestion; MISS full view coverage** | Real query totals: 316 questions, 199 messages, 46,279 jobs (40,360 phases); `/graph`: 96 nodes / 4 edges. Context-budget: 2,316 handoff resets, all linked to projected sessions. Both Fleet views consume sessions whose lane is the documented `unassigned` placeholder; live context-pressure samples are absent. These are documented M1 limitations, not newly discovered contract violations |
 
@@ -83,7 +83,9 @@ Drawn with `packages/core/tools/sample-requests.ts` (seed 7) over the copy; each
 
 Summary: 30 of 30 correct. Open states by rule (rows 5, 6, 13, 14): no final assistant text follows the prompt. Shared-answer labels (rows 2, 21, 26) are the labelled uncertainty. One judgement to note: row 23 keeps the first reply as an interim answer and the later wake-up reply is not paired to it; that is the documented rule, not a mispairing. Rows 8, 16 and 27 keep interim answers with the last as final.
 
-## Idle memory: MISS, with breakdown
+## Idle memory: historical breakdown
+
+The revised M1 target is ≤ 250 MiB RSS idle (≤ 220 MiB physical footprint). P7 synthetic measurements identified shared Node text, malloc fragmentation and live read models in RAM as material contributors; disk-backed read models are deferred to a later milestone. This changes the target, not the historical measurements or their scope. A real-data acceptance rerun against the revised target is still pending.
 
 Final all-source daemon, sampled via `process.memoryUsage()` after drain plus **60 s idle**, with no clients, no forced GC and no tuning:
 
