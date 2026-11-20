@@ -88,7 +88,7 @@
 <text x="801.6" y="79" fill="#2b3b50" opacity="0.6" xml:space="preserve">┊───────────────┊────────────────┊</text>
 <text x="1104.0" y="79" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="20.4" y="97" fill="#66d9ef" xml:space="preserve">│</text>
-<text x="45.6" y="97" fill="#f49b6c" xml:space="preserve">×</text>
+<text x="45.6" y="97" fill="#f5bf65" font-weight="700" xml:space="preserve">!</text>
 <text x="62.4" y="97" fill="#8b9eb5" xml:space="preserve">L192 implementation  </text>
 <text x="238.8" y="97" fill="#e996d0" font-weight="700" xml:space="preserve">╳</text>
 <text x="247.2" y="97" fill="#819cff" font-weight="700" xml:space="preserve">◆◆</text>
@@ -99,14 +99,14 @@
 <text x="373.2" y="97" fill="#2b3b50" opacity="0.6" xml:space="preserve">─┊───────────────┊────────────────┊────────────────┊───────────────┊────────────────┊</text>
 <text x="1104.0" y="97" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="20.4" y="115" fill="#66d9ef" xml:space="preserve">│</text>
-<text x="45.6" y="115" fill="#b49afa" xml:space="preserve">~</text>
+<text x="45.6" y="115" fill="#f49b6c" xml:space="preserve">×</text>
 <text x="62.4" y="115" fill="#8b9eb5" xml:space="preserve">L193 review          </text>
 <text x="238.8" y="115" fill="#2b3b50" opacity="0.6" xml:space="preserve">┊──</text>
 <text x="264.0" y="115" fill="#f5bf65" font-weight="700" xml:space="preserve">?</text>
 <text x="272.4" y="115" fill="#2b3b50" opacity="0.6" xml:space="preserve">─────────────┊───────────────┊────────────────┊────────────────┊───────────────┊────────────────┊</text>
 <text x="1104.0" y="115" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="20.4" y="133" fill="#66d9ef" xml:space="preserve">│</text>
-<text x="45.6" y="133" fill="#627992" xml:space="preserve">–</text>
+<text x="45.6" y="133" fill="#b49afa" xml:space="preserve">~</text>
 <text x="62.4" y="133" fill="#8b9eb5" xml:space="preserve">L194 explore         </text>
 <text x="238.8" y="133" fill="#2b3b50" opacity="0.6" xml:space="preserve">┊─</text>
 <text x="255.6" y="133" fill="#819cff" font-weight="700" xml:space="preserve">◆</text>
@@ -117,7 +117,7 @@
 <text x="339.6" y="133" fill="#2b3b50" opacity="0.6" xml:space="preserve">─────┊───────────────┊────────────────┊────────────────┊───────────────┊────────────────┊</text>
 <text x="1104.0" y="133" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="20.4" y="151" fill="#66d9ef" xml:space="preserve">│</text>
-<text x="45.6" y="151" fill="#85d9a0" xml:space="preserve">✓</text>
+<text x="45.6" y="151" fill="#627992" xml:space="preserve">–</text>
 <text x="62.4" y="151" fill="#8b9eb5" xml:space="preserve">L195 scout           </text>
 <text x="238.8" y="151" fill="#2b3b50" opacity="0.6" xml:space="preserve">┊──</text>
 <text x="264.0" y="151" fill="#e996d0" font-weight="700" xml:space="preserve">╳</text>
@@ -126,7 +126,7 @@
 <text x="306.0" y="151" fill="#2b3b50" opacity="0.6" xml:space="preserve">─────────┊───────────────┊────────────────┊────────────────┊───────────────┊────────────────┊</text>
 <text x="1104.0" y="151" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="20.4" y="169" fill="#66d9ef" xml:space="preserve">│</text>
-<text x="45.6" y="169" fill="#fa7989" xml:space="preserve">×</text>
+<text x="45.6" y="169" fill="#85d9a0" xml:space="preserve">✓</text>
 <text x="62.4" y="169" fill="#8b9eb5" xml:space="preserve">L0 coordinator       </text>
 <text x="238.8" y="169" fill="#2b3b50" opacity="0.6" xml:space="preserve">┊───</text>
 <text x="272.4" y="169" fill="#819cff" font-weight="700" xml:space="preserve">◆</text>
@@ -151,7 +151,7 @@
 <text x="885.6" y="169" fill="#2b3b50" opacity="0.6" xml:space="preserve">──────┊────────────────┊</text>
 <text x="1104.0" y="169" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="20.4" y="187" fill="#66d9ef" xml:space="preserve">│</text>
-<text x="37.2" y="187" fill="#66d9ef" xml:space="preserve"> ⠋</text>
+<text x="45.6" y="187" fill="#fa7989" xml:space="preserve">×</text>
 <text x="62.4" y="187" fill="#8b9eb5" xml:space="preserve">L192 implementation  </text>
 <text x="238.8" y="187" fill="#2b3b50" opacity="0.6" xml:space="preserve">┊────</text>
 <text x="280.8" y="187" fill="#819cff" font-weight="700" xml:space="preserve">◆</text>
@@ -160,7 +160,7 @@
 <text x="331.2" y="187" fill="#2b3b50" opacity="0.6" xml:space="preserve">──────┊───────────────┊────────────────┊────────────────┊───────────────┊────────────────┊</text>
 <text x="1104.0" y="187" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="20.4" y="205" fill="#66d9ef" xml:space="preserve">│</text>
-<text x="45.6" y="205" fill="#f5bf65" font-weight="700" xml:space="preserve">!</text>
+<text x="37.2" y="205" fill="#66d9ef" xml:space="preserve"> ⠋</text>
 <text x="62.4" y="205" fill="#8b9eb5" xml:space="preserve">L193 review          </text>
 <text x="238.8" y="205" fill="#2b3b50" opacity="0.6" xml:space="preserve">┊─────</text>
 <text x="289.2" y="205" fill="#819cff" font-weight="700" xml:space="preserve">◆</text>

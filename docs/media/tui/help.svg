@@ -181,7 +181,7 @@
 <text x="264.0" y="133" fill="#66d9ef" xml:space="preserve">3                   </text>
 <text x="432.0" y="133" fill="#d8e2ef" xml:space="preserve">Go to Requests</text>
 <text x="877.2" y="133" fill="#66d9ef" xml:space="preserve">│</text>
-<text x="885.6" y="133" fill="#d8e2ef" xml:space="preserve">you   5</text>
+<text x="885.6" y="133" fill="#d8e2ef" xml:space="preserve">you   6</text>
 <text x="952.8" y="133" fill="#f5bf65" xml:space="preserve">██████████████</text>
 <text x="1104.0" y="133" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="151" fill="#f5bf65" xml:space="preserve">│</text>
@@ -190,8 +190,8 @@
 <text x="432.0" y="151" fill="#d8e2ef" xml:space="preserve">Go to Questions</text>
 <text x="877.2" y="151" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="885.6" y="151" fill="#d8e2ef" xml:space="preserve">d     4</text>
-<text x="952.8" y="151" fill="#f49b6c" xml:space="preserve">███████████</text>
-<text x="1045.2" y="151" fill="#2b3b50" xml:space="preserve">░░░</text>
+<text x="952.8" y="151" fill="#f49b6c" xml:space="preserve">█████████</text>
+<text x="1028.4" y="151" fill="#2b3b50" xml:space="preserve">░░░░░</text>
 <text x="1104.0" y="151" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="169" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="45.6" y="169" fill="#f5bf65" xml:space="preserve">!</text>
@@ -201,8 +201,8 @@
 <text x="432.0" y="169" fill="#d8e2ef" xml:space="preserve">Go to Messages</text>
 <text x="877.2" y="169" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="885.6" y="169" fill="#d8e2ef" xml:space="preserve">      4</text>
-<text x="952.8" y="169" fill="#fa7989" xml:space="preserve">███████████</text>
-<text x="1045.2" y="169" fill="#2b3b50" xml:space="preserve">░░░</text>
+<text x="952.8" y="169" fill="#fa7989" xml:space="preserve">█████████</text>
+<text x="1028.4" y="169" fill="#2b3b50" xml:space="preserve">░░░░░</text>
 <text x="1104.0" y="169" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="187" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="62.4" y="187" fill="#8b9eb5" xml:space="preserve">Compare the queue stra</text>
@@ -211,16 +211,17 @@
 <text x="432.0" y="187" fill="#d8e2ef" xml:space="preserve">Go to Timeline</text>
 <text x="877.2" y="187" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="885.6" y="187" fill="#d8e2ef" xml:space="preserve">g     4</text>
-<text x="952.8" y="187" fill="#66d9ef" xml:space="preserve">███████████</text>
-<text x="1045.2" y="187" fill="#2b3b50" xml:space="preserve">░░░</text>
+<text x="952.8" y="187" fill="#66d9ef" xml:space="preserve">█████████</text>
+<text x="1028.4" y="187" fill="#2b3b50" xml:space="preserve">░░░░░</text>
 <text x="1104.0" y="187" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="205" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="247.2" y="205" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="264.0" y="205" fill="#66d9ef" xml:space="preserve">7                   </text>
 <text x="432.0" y="205" fill="#d8e2ef" xml:space="preserve">Go to Work</text>
 <text x="877.2" y="205" fill="#66d9ef" xml:space="preserve">│</text>
-<text x="885.6" y="205" fill="#d8e2ef" xml:space="preserve">g     5</text>
-<text x="952.8" y="205" fill="#b49afa" xml:space="preserve">██████████████</text>
+<text x="885.6" y="205" fill="#d8e2ef" xml:space="preserve">g     4</text>
+<text x="952.8" y="205" fill="#b49afa" xml:space="preserve">█████████</text>
+<text x="1028.4" y="205" fill="#2b3b50" xml:space="preserve">░░░░░</text>
 <text x="1104.0" y="205" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="223" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="45.6" y="223" fill="#f5bf65" xml:space="preserve">!</text>
@@ -231,8 +232,8 @@
 <text x="432.0" y="223" fill="#d8e2ef" xml:space="preserve">Command palette</text>
 <text x="877.2" y="223" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="885.6" y="223" fill="#d8e2ef" xml:space="preserve">      4</text>
-<text x="952.8" y="223" fill="#627992" xml:space="preserve">███████████</text>
-<text x="1045.2" y="223" fill="#2b3b50" xml:space="preserve">░░░</text>
+<text x="952.8" y="223" fill="#627992" xml:space="preserve">█████████</text>
+<text x="1028.4" y="223" fill="#2b3b50" xml:space="preserve">░░░░░</text>
 <text x="1104.0" y="223" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="241" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="62.4" y="241" fill="#8b9eb5" xml:space="preserve">Write the handoff and </text>
@@ -241,8 +242,8 @@
 <text x="432.0" y="241" fill="#d8e2ef" xml:space="preserve">Filter list; in a transcript, search</text>
 <text x="877.2" y="241" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="885.6" y="241" fill="#d8e2ef" xml:space="preserve">      4</text>
-<text x="952.8" y="241" fill="#85d9a0" xml:space="preserve">███████████</text>
-<text x="1045.2" y="241" fill="#2b3b50" xml:space="preserve">░░░</text>
+<text x="952.8" y="241" fill="#85d9a0" xml:space="preserve">█████████</text>
+<text x="1028.4" y="241" fill="#2b3b50" xml:space="preserve">░░░░░</text>
 <text x="1104.0" y="241" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="259" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="247.2" y="259" fill="#66d9ef" xml:space="preserve">│</text>

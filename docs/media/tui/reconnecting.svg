@@ -105,7 +105,7 @@
 <text x="910.8" y="25" fill="#f5bf65" font-weight="700" xml:space="preserve">● 19 need you </text>
 <text x="1028.4" y="25" fill="#fa7989" font-weight="700" xml:space="preserve">◌ offline </text>
 <text x="12.0" y="43" fill="#0b1019" font-weight="700" xml:space="preserve"> ⚠ </text>
-<text x="37.2" y="43" fill="#f5bf65" xml:space="preserve"> terminated · will resume after #98 · retrying</text>
+<text x="37.2" y="43" fill="#f5bf65" xml:space="preserve"> terminated · will resume after #6 · retrying</text>
 <text x="20.4" y="61" fill="#f5bf65" xml:space="preserve">╭─ 19 things need you ─────────────────────────────────────────────────────────────────────╮</text>
 <text x="801.6" y="61" fill="#2b3b50" xml:space="preserve">╭─ Fleet ───────────────────────────╮</text>
 <text x="20.4" y="79" fill="#f5bf65" xml:space="preserve">│</text>
@@ -135,7 +135,7 @@
 <text x="45.6" y="133" fill="#f5bf65" xml:space="preserve">!</text>
 <text x="62.4" y="133" fill="#f5bf65" font-weight="700" xml:space="preserve">Open request</text>
 <text x="180.0" y="133" fill="#d8e2ef" xml:space="preserve">aurora/L192</text>
-<text x="759.6" y="133" fill="#627992" xml:space="preserve">3h</text>
+<text x="759.6" y="133" fill="#627992" xml:space="preserve">2h</text>
 <text x="784.8" y="133" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="801.6" y="133" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="818.4" y="133" fill="#8b9eb5" font-weight="700" xml:space="preserve">STATUS</text>
@@ -145,7 +145,7 @@
 <text x="784.8" y="151" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="801.6" y="151" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="818.4" y="151" fill="#f5bf65" font-weight="700" xml:space="preserve">!</text>
-<text x="826.8" y="151" fill="#d8e2ef" xml:space="preserve"> Needs you   5</text>
+<text x="826.8" y="151" fill="#d8e2ef" xml:space="preserve"> Needs you   6</text>
 <text x="952.8" y="151" fill="#f5bf65" xml:space="preserve">██████████████</text>
 <text x="1104.0" y="151" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="169" fill="#f5bf65" xml:space="preserve">│</text>
@@ -153,20 +153,20 @@
 <text x="801.6" y="169" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="818.4" y="169" fill="#f49b6c" xml:space="preserve">×</text>
 <text x="826.8" y="169" fill="#d8e2ef" xml:space="preserve"> Blocked     4</text>
-<text x="952.8" y="169" fill="#f49b6c" xml:space="preserve">███████████</text>
-<text x="1045.2" y="169" fill="#2b3b50" xml:space="preserve">░░░</text>
+<text x="952.8" y="169" fill="#f49b6c" xml:space="preserve">█████████</text>
+<text x="1028.4" y="169" fill="#2b3b50" xml:space="preserve">░░░░░</text>
 <text x="1104.0" y="169" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="187" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="45.6" y="187" fill="#f5bf65" xml:space="preserve">!</text>
 <text x="62.4" y="187" fill="#f5bf65" font-weight="700" xml:space="preserve">Answer possibly unseen</text>
 <text x="264.0" y="187" fill="#d8e2ef" xml:space="preserve">aurora/L194</text>
-<text x="759.6" y="187" fill="#627992" xml:space="preserve">3h</text>
+<text x="759.6" y="187" fill="#627992" xml:space="preserve">2h</text>
 <text x="784.8" y="187" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="801.6" y="187" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="818.4" y="187" fill="#fa7989" xml:space="preserve">×</text>
 <text x="826.8" y="187" fill="#d8e2ef" xml:space="preserve"> Failed      4</text>
-<text x="952.8" y="187" fill="#fa7989" xml:space="preserve">███████████</text>
-<text x="1045.2" y="187" fill="#2b3b50" xml:space="preserve">░░░</text>
+<text x="952.8" y="187" fill="#fa7989" xml:space="preserve">█████████</text>
+<text x="1028.4" y="187" fill="#2b3b50" xml:space="preserve">░░░░░</text>
 <text x="1104.0" y="187" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="205" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="62.4" y="205" fill="#8b9eb5" xml:space="preserve">Compare the queue strategies and explain the trade-offs.</text>
@@ -174,36 +174,37 @@
 <text x="801.6" y="205" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="818.4" y="205" fill="#66d9ef" xml:space="preserve">⠋</text>
 <text x="826.8" y="205" fill="#d8e2ef" xml:space="preserve"> Working     4</text>
-<text x="952.8" y="205" fill="#66d9ef" xml:space="preserve">███████████</text>
-<text x="1045.2" y="205" fill="#2b3b50" xml:space="preserve">░░░</text>
+<text x="952.8" y="205" fill="#66d9ef" xml:space="preserve">█████████</text>
+<text x="1028.4" y="205" fill="#2b3b50" xml:space="preserve">░░░░░</text>
 <text x="1104.0" y="205" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="223" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="784.8" y="223" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="801.6" y="223" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="818.4" y="223" fill="#b49afa" xml:space="preserve">~</text>
 <text x="826.8" y="223" fill="#d8e2ef" xml:space="preserve"> Waiting     4</text>
-<text x="952.8" y="223" fill="#b49afa" xml:space="preserve">███████████</text>
-<text x="1045.2" y="223" fill="#2b3b50" xml:space="preserve">░░░</text>
+<text x="952.8" y="223" fill="#b49afa" xml:space="preserve">█████████</text>
+<text x="1028.4" y="223" fill="#2b3b50" xml:space="preserve">░░░░░</text>
 <text x="1104.0" y="223" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="241" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="45.6" y="241" fill="#f5bf65" xml:space="preserve">!</text>
 <text x="62.4" y="241" fill="#f5bf65" font-weight="700" xml:space="preserve">Open request</text>
 <text x="180.0" y="241" fill="#d8e2ef" xml:space="preserve">aurora/L195</text>
-<text x="759.6" y="241" fill="#627992" xml:space="preserve">3h</text>
+<text x="759.6" y="241" fill="#627992" xml:space="preserve">2h</text>
 <text x="784.8" y="241" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="801.6" y="241" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="818.4" y="241" fill="#627992" xml:space="preserve">–</text>
 <text x="826.8" y="241" fill="#d8e2ef" xml:space="preserve"> Idle        4</text>
-<text x="952.8" y="241" fill="#627992" xml:space="preserve">███████████</text>
-<text x="1045.2" y="241" fill="#2b3b50" xml:space="preserve">░░░</text>
+<text x="952.8" y="241" fill="#627992" xml:space="preserve">█████████</text>
+<text x="1028.4" y="241" fill="#2b3b50" xml:space="preserve">░░░░░</text>
 <text x="1104.0" y="241" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="259" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="62.4" y="259" fill="#8b9eb5" xml:space="preserve">Write the handoff and preserve the pending decisions.</text>
 <text x="784.8" y="259" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="801.6" y="259" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="818.4" y="259" fill="#85d9a0" xml:space="preserve">✓</text>
-<text x="826.8" y="259" fill="#d8e2ef" xml:space="preserve"> Done        5</text>
-<text x="952.8" y="259" fill="#85d9a0" xml:space="preserve">██████████████</text>
+<text x="826.8" y="259" fill="#d8e2ef" xml:space="preserve"> Done        4</text>
+<text x="952.8" y="259" fill="#85d9a0" xml:space="preserve">█████████</text>
+<text x="1028.4" y="259" fill="#2b3b50" xml:space="preserve">░░░░░</text>
 <text x="1104.0" y="259" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="277" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="784.8" y="277" fill="#f5bf65" xml:space="preserve">│</text>
@@ -213,7 +214,7 @@
 <text x="45.6" y="295" fill="#f5bf65" xml:space="preserve">!</text>
 <text x="62.4" y="295" fill="#f5bf65" font-weight="700" xml:space="preserve">Open request</text>
 <text x="180.0" y="295" fill="#d8e2ef" xml:space="preserve">harbor/L192</text>
-<text x="759.6" y="295" fill="#627992" xml:space="preserve">3h</text>
+<text x="759.6" y="295" fill="#627992" xml:space="preserve">2h</text>
 <text x="784.8" y="295" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="801.6" y="295" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="818.4" y="295" fill="#8b9eb5" font-weight="700" xml:space="preserve">CONTEXT, FLEET AVERAGE</text>
@@ -232,7 +233,7 @@
 <text x="45.6" y="349" fill="#f5bf65" xml:space="preserve">!</text>
 <text x="62.4" y="349" fill="#f5bf65" font-weight="700" xml:space="preserve">Open request</text>
 <text x="180.0" y="349" fill="#d8e2ef" xml:space="preserve">harbor/L195</text>
-<text x="759.6" y="349" fill="#627992" xml:space="preserve">3h</text>
+<text x="759.6" y="349" fill="#627992" xml:space="preserve">2h</text>
 <text x="784.8" y="349" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="801.6" y="349" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="818.4" y="349" fill="#8b9eb5" xml:space="preserve">tokens </text>
@@ -253,7 +254,7 @@
 <text x="45.6" y="403" fill="#f5bf65" xml:space="preserve">!</text>
 <text x="62.4" y="403" fill="#f5bf65" font-weight="700" xml:space="preserve">Open request</text>
 <text x="180.0" y="403" fill="#d8e2ef" xml:space="preserve">meadow/L0</text>
-<text x="759.6" y="403" fill="#627992" xml:space="preserve">3h</text>
+<text x="759.6" y="403" fill="#627992" xml:space="preserve">2h</text>
 <text x="784.8" y="403" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="801.6" y="403" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="1104.0" y="403" fill="#2b3b50" xml:space="preserve">│</text>
@@ -287,7 +288,7 @@
 <text x="45.6" y="511" fill="#f5bf65" font-weight="700" xml:space="preserve">!</text>
 <text x="62.4" y="511" fill="#f5bf65" font-weight="700" xml:space="preserve">Blocking question</text>
 <text x="222.0" y="511" fill="#d8e2ef" xml:space="preserve">aurora/L193</text>
-<text x="759.6" y="511" fill="#627992" xml:space="preserve">3h</text>
+<text x="759.6" y="511" fill="#627992" xml:space="preserve">2h</text>
 <text x="784.8" y="511" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="801.6" y="511" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="1104.0" y="511" fill="#2b3b50" xml:space="preserve">│</text>
@@ -304,7 +305,7 @@
 <text x="45.6" y="565" fill="#f5bf65" font-weight="700" xml:space="preserve">!</text>
 <text x="62.4" y="565" fill="#f5bf65" font-weight="700" xml:space="preserve">Blocking question</text>
 <text x="222.0" y="565" fill="#d8e2ef" xml:space="preserve">aurora/L195</text>
-<text x="759.6" y="565" fill="#627992" xml:space="preserve">3h</text>
+<text x="759.6" y="565" fill="#627992" xml:space="preserve">2h</text>
 <text x="784.8" y="565" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="801.6" y="565" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="1104.0" y="565" fill="#2b3b50" xml:space="preserve">│</text>
@@ -321,7 +322,7 @@
 <text x="45.6" y="619" fill="#f5bf65" font-weight="700" xml:space="preserve">!</text>
 <text x="62.4" y="619" fill="#f5bf65" font-weight="700" xml:space="preserve">Blocking question</text>
 <text x="222.0" y="619" fill="#d8e2ef" xml:space="preserve">harbor/L192</text>
-<text x="759.6" y="619" fill="#627992" xml:space="preserve">3h</text>
+<text x="759.6" y="619" fill="#627992" xml:space="preserve">2h</text>
 <text x="784.8" y="619" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="801.6" y="619" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="1104.0" y="619" fill="#2b3b50" xml:space="preserve">│</text>

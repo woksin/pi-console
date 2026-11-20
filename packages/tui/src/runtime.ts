@@ -33,11 +33,13 @@ export async function run(options: RunOptions = {}): Promise<number> {
   palette.configure(detectDepth(env), env.PI_CONSOLE_HIGH_CONTRAST === '1');
   const runtime = connect(credentials);
   const animate = env.PI_CONSOLE_REDUCED_MOTION !== '1' && env.NO_MOTION === undefined;
+  const fixed = Date.parse(env.PI_CONSOLE_NOW ?? '');
+  const clock = Number.isNaN(fixed) ? undefined : () => fixed;
   return await new Promise<number>(resolveRun => {
     let handle: Awaited<ReturnType<typeof launch>> | undefined;
     const finish = () => { runtime.stop(); resolveRun(0); };
     const node = createElement(App, {
-      store: runtime.store, endpoint: credentials.baseUrl, tokenSource: credentials.tokenSource, animate,
+      store: runtime.store, endpoint: credentials.baseUrl, tokenSource: credentials.tokenSource, animate, clock,
       loadTranscript: id => { void runtime.client.transcript(id).then(entries => { runtime.store.mergeTranscript(id, entries); }, () => { runtime.store.mergeTranscript(id, []); }); },
       onQuit: () => { handle?.destroy(); finish(); },
     });

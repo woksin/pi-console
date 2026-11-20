@@ -3,14 +3,14 @@
  │ ▌! Open request  aurora/L192                                                          3h │ │ 30 sessions in 6 repositories     │
  │ ▌  Compare the queue strategies and explain the trade-offs.                              │ │ 4 working right now               │
  │                                                                                          │ │                                   │
- │  ! Open request  aurora/L192                                                          3h │ │ STATUS                            │
- │    Write the handoff and ╭─ Settings ───────────────────────────────────────────────────────────────╮you   5 ██████████████    │
- │                          │ HEALTH                                                                   │d     4 ███████████░░░    │
- │  ! Answer possibly unseen│ Daemon            http://127.0.0.1:56453                                 │      4 ███████████░░░    │
- │    Compare the queue stra│ Stream            connected                                              │g     4 ███████████░░░    │
- │                          │ Last event        0s ago                                                 │g     4 ███████████░░░    │
- │  ! Open request  aurora/L│ Sequence          94                                                     │      5 ██████████████    │
- │    Write the handoff and │ Events this run   89                                                     │      4 ███████████░░░    │
+ │  ! Open request  aurora/L192                                                          2h │ │ STATUS                            │
+ │    Write the handoff and ╭─ Settings ───────────────────────────────────────────────────────────────╮you   6 ██████████████    │
+ │                          │ HEALTH                                                                   │d     4 █████████░░░░░    │
+ │  ! Answer possibly unseen│ Daemon            http://127.0.0.1:47777                                 │      4 █████████░░░░░    │
+ │    Compare the queue stra│ Stream            connected                                              │g     4 █████████░░░░░    │
+ │                          │ Last event        0s ago                                                 │g     4 █████████░░░░░    │
+ │  ! Open request  aurora/L│ Sequence          6                                                      │      4 █████████░░░░░    │
+ │    Write the handoff and │ Events this run   1                                                      │      4 █████████░░░░░    │
  │                          │ Token             PI_CONSOLE_TOKEN                                       │                          │
  │  ! Open request  harbor/L│                                                                          │ FLEET AVERAGE            │
  │    Compare the queue stra│ DATA                                                                     │▅▄▄▅▅▄▄▄▅▅▄▅▅▅▅▅          │
@@ -27,10 +27,10 @@
  │  ! Blocking question  aur│                                                                          │                          │
  │    Which retention window╰───────────────────────────────────────────────────────────── esc closes ─╯                          │
  │                                                                                          │ │                                   │
- │  ! Blocking question  aurora/L195                                                     3h │ │                                   │
+ │  ! Blocking question  aurora/L195                                                     2h │ │                                   │
  │    Which retention window should the cache use?                                          │ │                                   │
  │                                                                                          │ │                                   │
- │  ! Blocking question  harbor/L192                                                     3h │ │                                   │
+ │  ! Blocking question  harbor/L192                                                     2h │ │                                   │
  │    Which retention window should the cache use?                                          │ │                                   │
  │                                                                                          │ │                                   │
  │                                                                                          │ │                                   │

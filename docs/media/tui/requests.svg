@@ -111,18 +111,18 @@
 <text x="154.8" y="61" fill="#f5bf65" xml:space="preserve">Unproven origin</text>
 <text x="280.8" y="61" fill="#d8e2ef" xml:space="preserve">Check whether the…</text>
 <text x="440.4" y="61" fill="#8b9eb5" xml:space="preserve">meadow implementation </text>
-<text x="625.2" y="61" fill="#627992" xml:space="preserve">  3</text>
+<text x="625.2" y="61" fill="#627992" xml:space="preserve">  2</text>
 <text x="658.8" y="61" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="675.6" y="61" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="692.4" y="61" fill="#85d9a0" xml:space="preserve">✓ Answered</text>
-<text x="776.4" y="61" fill="#627992" xml:space="preserve">  3h ago</text>
+<text x="776.4" y="61" fill="#627992" xml:space="preserve">  2h ago</text>
 <text x="1104.0" y="61" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="79" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="45.6" y="79" fill="#f5bf65" xml:space="preserve">!</text>
 <text x="62.4" y="79" fill="#f5bf65" xml:space="preserve">Unanswered Initial prompt </text>
 <text x="280.8" y="79" fill="#d8e2ef" xml:space="preserve">Write the handoff…</text>
 <text x="440.4" y="79" fill="#8b9eb5" xml:space="preserve">meadow coordinator    </text>
-<text x="625.2" y="79" fill="#627992" xml:space="preserve">  3</text>
+<text x="625.2" y="79" fill="#627992" xml:space="preserve">  2</text>
 <text x="658.8" y="79" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="675.6" y="79" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="692.4" y="79" fill="#f5bf65" font-weight="700" xml:space="preserve">Unproven origin</text>
@@ -133,7 +133,7 @@
 <text x="154.8" y="97" fill="#819cff" xml:space="preserve">Human request  </text>
 <text x="280.8" y="97" fill="#d8e2ef" xml:space="preserve">Compare the queue…</text>
 <text x="440.4" y="97" fill="#8b9eb5" xml:space="preserve">harbor scout          </text>
-<text x="625.2" y="97" fill="#627992" xml:space="preserve">  3</text>
+<text x="625.2" y="97" fill="#627992" xml:space="preserve">  2</text>
 <text x="658.8" y="97" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="675.6" y="97" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="692.4" y="97" fill="#627992" font-style="italic" xml:space="preserve">No positive origin evidence</text>
@@ -144,7 +144,7 @@
 <text x="154.8" y="115" fill="#f5bf65" xml:space="preserve">Unproven origin</text>
 <text x="280.8" y="115" fill="#d8e2ef" xml:space="preserve">Check whether the…</text>
 <text x="440.4" y="115" fill="#8b9eb5" xml:space="preserve">harbor explore        </text>
-<text x="625.2" y="115" fill="#627992" xml:space="preserve">  3</text>
+<text x="625.2" y="115" fill="#627992" xml:space="preserve">  2</text>
 <text x="658.8" y="115" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="675.6" y="115" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="1104.0" y="115" fill="#2b3b50" xml:space="preserve">│</text>
@@ -154,7 +154,7 @@
 <text x="154.8" y="133" fill="#f5bf65" xml:space="preserve">Initial prompt </text>
 <text x="280.8" y="133" fill="#d8e2ef" xml:space="preserve">Write the handoff…</text>
 <text x="440.4" y="133" fill="#8b9eb5" xml:space="preserve">harbor review         </text>
-<text x="625.2" y="133" fill="#627992" xml:space="preserve">  3</text>
+<text x="625.2" y="133" fill="#627992" xml:space="preserve">  2</text>
 <text x="658.8" y="133" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="675.6" y="133" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="692.4" y="133" fill="#8b9eb5" font-weight="700" xml:space="preserve">REQUEST</text>
@@ -165,7 +165,7 @@
 <text x="154.8" y="151" fill="#819cff" xml:space="preserve">Human request  </text>
 <text x="280.8" y="151" fill="#d8e2ef" xml:space="preserve">Compare the queue…</text>
 <text x="440.4" y="151" fill="#8b9eb5" xml:space="preserve">harbor implementation </text>
-<text x="625.2" y="151" fill="#627992" xml:space="preserve">  3</text>
+<text x="625.2" y="151" fill="#627992" xml:space="preserve">  2</text>
 <text x="658.8" y="151" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="675.6" y="151" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="692.4" y="151" fill="#d8e2ef" xml:space="preserve">Check whether the retry policy handles partial</text>
@@ -175,7 +175,7 @@
 <text x="62.4" y="169" fill="#f5bf65" xml:space="preserve">Open       Unproven origin</text>
 <text x="280.8" y="169" fill="#d8e2ef" xml:space="preserve">Check whether the…</text>
 <text x="440.4" y="169" fill="#8b9eb5" xml:space="preserve">harbor coordinator    </text>
-<text x="625.2" y="169" fill="#627992" xml:space="preserve">  3</text>
+<text x="625.2" y="169" fill="#627992" xml:space="preserve">  2</text>
 <text x="658.8" y="169" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="675.6" y="169" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="692.4" y="169" fill="#d8e2ef" xml:space="preserve">results.</text>
@@ -186,7 +186,7 @@
 <text x="154.8" y="187" fill="#f5bf65" xml:space="preserve">Initial prompt </text>
 <text x="280.8" y="187" fill="#d8e2ef" xml:space="preserve">Write the handoff…</text>
 <text x="440.4" y="187" fill="#8b9eb5" xml:space="preserve">aurora scout          </text>
-<text x="625.2" y="187" fill="#627992" xml:space="preserve">  3</text>
+<text x="625.2" y="187" fill="#627992" xml:space="preserve">  2</text>
 <text x="658.8" y="187" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="675.6" y="187" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="1104.0" y="187" fill="#2b3b50" xml:space="preserve">│</text>
@@ -196,7 +196,7 @@
 <text x="154.8" y="205" fill="#819cff" xml:space="preserve">Human request  </text>
 <text x="280.8" y="205" fill="#d8e2ef" xml:space="preserve">Compare the queue…</text>
 <text x="440.4" y="205" fill="#8b9eb5" xml:space="preserve">aurora explore        </text>
-<text x="625.2" y="205" fill="#627992" xml:space="preserve">  3</text>
+<text x="625.2" y="205" fill="#627992" xml:space="preserve">  2</text>
 <text x="658.8" y="205" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="675.6" y="205" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="692.4" y="205" fill="#8b9eb5" font-weight="700" xml:space="preserve">ANSWER</text>
@@ -206,18 +206,18 @@
 <text x="62.4" y="223" fill="#f5bf65" xml:space="preserve">Unanswered Unproven origin</text>
 <text x="280.8" y="223" fill="#d8e2ef" xml:space="preserve">Check whether the…</text>
 <text x="440.4" y="223" fill="#8b9eb5" xml:space="preserve">aurora implementation </text>
-<text x="625.2" y="223" fill="#627992" xml:space="preserve">  3</text>
+<text x="625.2" y="223" fill="#627992" xml:space="preserve">  2</text>
 <text x="658.8" y="223" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="675.6" y="223" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="692.4" y="223" fill="#85d9a0" xml:space="preserve">✓ final · </text>
-<text x="776.4" y="223" fill="#627992" xml:space="preserve">3h ago</text>
+<text x="776.4" y="223" fill="#627992" xml:space="preserve">2h ago</text>
 <text x="1104.0" y="223" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="241" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="45.6" y="241" fill="#f5bf65" xml:space="preserve">!</text>
 <text x="62.4" y="241" fill="#f5bf65" xml:space="preserve">Open       Initial prompt </text>
 <text x="280.8" y="241" fill="#d8e2ef" xml:space="preserve">Write the handoff…</text>
 <text x="440.4" y="241" fill="#8b9eb5" xml:space="preserve">aurora implementation </text>
-<text x="625.2" y="241" fill="#627992" xml:space="preserve">  3</text>
+<text x="625.2" y="241" fill="#627992" xml:space="preserve">  2</text>
 <text x="658.8" y="241" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="675.6" y="241" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="692.4" y="241" fill="#d8e2ef" xml:space="preserve">Use bounded retries with an explicit checkpoint.</text>

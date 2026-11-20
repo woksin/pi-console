@@ -12,17 +12,13 @@
 <rect x="784.8" y="48" width="327.6" height="18" fill="#101925"/>
 <rect x="20.4" y="66" width="756.0" height="18" fill="#101925"/>
 <rect x="784.8" y="66" width="327.6" height="18" fill="#101925"/>
-<rect x="20.4" y="84" width="16.8" height="18" fill="#101925"/>
-<rect x="37.2" y="84" width="722.4" height="18" fill="#32413b"/>
-<rect x="759.6" y="84" width="16.8" height="18" fill="#101925"/>
+<rect x="20.4" y="84" width="756.0" height="18" fill="#101925"/>
 <rect x="784.8" y="84" width="327.6" height="18" fill="#101925"/>
 <rect x="20.4" y="102" width="756.0" height="18" fill="#101925"/>
 <rect x="784.8" y="102" width="327.6" height="18" fill="#101925"/>
 <rect x="20.4" y="120" width="756.0" height="18" fill="#101925"/>
 <rect x="784.8" y="120" width="327.6" height="18" fill="#101925"/>
-<rect x="20.4" y="138" width="16.8" height="18" fill="#101925"/>
-<rect x="37.2" y="138" width="722.4" height="18" fill="#32413b"/>
-<rect x="759.6" y="138" width="16.8" height="18" fill="#101925"/>
+<rect x="20.4" y="138" width="756.0" height="18" fill="#101925"/>
 <rect x="784.8" y="138" width="327.6" height="18" fill="#101925"/>
 <rect x="20.4" y="156" width="756.0" height="18" fill="#101925"/>
 <rect x="784.8" y="156" width="327.6" height="18" fill="#101925"/>
@@ -112,7 +108,7 @@
 <text x="37.2" y="61" fill="#66d9ef" xml:space="preserve">▌▾ </text>
 <text x="62.4" y="61" fill="#d8e2ef" font-weight="700" xml:space="preserve">aurora</text>
 <text x="112.8" y="61" fill="#627992" xml:space="preserve">  5</text>
-<text x="138.0" y="61" fill="#f5bf65" xml:space="preserve">  2 need attention</text>
+<text x="138.0" y="61" fill="#f5bf65" xml:space="preserve">  3 need attention</text>
 <text x="768.0" y="61" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="61" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="801.6" y="61" fill="#627992" xml:space="preserve">Select a session</text>
@@ -124,19 +120,19 @@
 <text x="490.8" y="79" fill="#fa7989" xml:space="preserve">█████████</text>
 <text x="566.4" y="79" fill="#2b3b50" xml:space="preserve">░</text>
 <text x="574.8" y="79" fill="#fa7989" xml:space="preserve">  85%</text>
-<text x="616.8" y="79" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="616.8" y="79" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="658.8" y="79" fill="#627992" xml:space="preserve">  $9.16</text>
 <text x="768.0" y="79" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="79" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="1104.0" y="79" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="97" fill="#66d9ef" xml:space="preserve">│</text>
-<text x="62.4" y="97" fill="#f49b6c" xml:space="preserve">×</text>
-<text x="79.2" y="97" fill="#f49b6c" xml:space="preserve">Blocked   </text>
+<text x="62.4" y="97" fill="#f5bf65" font-weight="700" xml:space="preserve">!</text>
+<text x="79.2" y="97" fill="#f5bf65" xml:space="preserve">Needs you </text>
 <text x="171.6" y="97" fill="#d8e2ef" xml:space="preserve">aurora implementation                </text>
 <text x="490.8" y="97" fill="#85d9a0" xml:space="preserve">█████</text>
 <text x="532.8" y="97" fill="#2b3b50" xml:space="preserve">░░░░░</text>
 <text x="574.8" y="97" fill="#85d9a0" xml:space="preserve">  51%</text>
-<text x="616.8" y="97" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="616.8" y="97" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="658.8" y="97" fill="#627992" xml:space="preserve">  $8.73</text>
 <text x="768.0" y="97" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="97" fill="#2b3b50" xml:space="preserve">│</text>
@@ -149,7 +145,7 @@
 <text x="507.6" y="115" fill="#85d9a0" xml:space="preserve">█████</text>
 <text x="549.6" y="115" fill="#2b3b50" xml:space="preserve">░░░░░</text>
 <text x="591.6" y="115" fill="#85d9a0" xml:space="preserve">  50%</text>
-<text x="633.6" y="115" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="633.6" y="115" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="675.6" y="115" fill="#627992" xml:space="preserve"> $12.21</text>
 <text x="768.0" y="115" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="115" fill="#2b3b50" xml:space="preserve">│</text>
@@ -162,19 +158,19 @@
 <text x="507.6" y="133" fill="#fa7989" xml:space="preserve">████████</text>
 <text x="574.8" y="133" fill="#2b3b50" xml:space="preserve">░░</text>
 <text x="591.6" y="133" fill="#fa7989" xml:space="preserve">  82%</text>
-<text x="633.6" y="133" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="633.6" y="133" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="675.6" y="133" fill="#627992" xml:space="preserve"> $10.88</text>
 <text x="768.0" y="133" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="133" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="1104.0" y="133" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="151" fill="#66d9ef" xml:space="preserve">│</text>
-<text x="62.4" y="151" fill="#b49afa" xml:space="preserve">~</text>
-<text x="79.2" y="151" fill="#b49afa" xml:space="preserve">Waiting   </text>
+<text x="62.4" y="151" fill="#f49b6c" xml:space="preserve">×</text>
+<text x="79.2" y="151" fill="#f49b6c" xml:space="preserve">Blocked   </text>
 <text x="171.6" y="151" fill="#d8e2ef" xml:space="preserve">aurora review                        </text>
 <text x="490.8" y="151" fill="#f5bf65" xml:space="preserve">███████</text>
 <text x="549.6" y="151" fill="#2b3b50" xml:space="preserve">░░░</text>
 <text x="574.8" y="151" fill="#f5bf65" xml:space="preserve">  67%</text>
-<text x="616.8" y="151" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="616.8" y="151" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="658.8" y="151" fill="#627992" xml:space="preserve"> $13.07</text>
 <text x="768.0" y="151" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="151" fill="#2b3b50" xml:space="preserve">│</text>
@@ -194,7 +190,7 @@
 <text x="490.8" y="187" fill="#f5bf65" xml:space="preserve">████████</text>
 <text x="558.0" y="187" fill="#2b3b50" xml:space="preserve">░░</text>
 <text x="574.8" y="187" fill="#f5bf65" xml:space="preserve">  77%</text>
-<text x="616.8" y="187" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="616.8" y="187" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="658.8" y="187" fill="#627992" xml:space="preserve"> $10.77</text>
 <text x="768.0" y="187" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="187" fill="#2b3b50" xml:space="preserve">│</text>
@@ -206,7 +202,7 @@
 <text x="490.8" y="205" fill="#85d9a0" xml:space="preserve">███</text>
 <text x="516.0" y="205" fill="#2b3b50" xml:space="preserve">░░░░░░░</text>
 <text x="574.8" y="205" fill="#85d9a0" xml:space="preserve">  31%</text>
-<text x="616.8" y="205" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="616.8" y="205" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="658.8" y="205" fill="#627992" xml:space="preserve"> $12.13</text>
 <text x="768.0" y="205" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="205" fill="#2b3b50" xml:space="preserve">│</text>
@@ -219,7 +215,7 @@
 <text x="507.6" y="223" fill="#85d9a0" xml:space="preserve">█████</text>
 <text x="549.6" y="223" fill="#2b3b50" xml:space="preserve">░░░░░</text>
 <text x="591.6" y="223" fill="#85d9a0" xml:space="preserve">  49%</text>
-<text x="633.6" y="223" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="633.6" y="223" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="675.6" y="223" fill="#627992" xml:space="preserve"> $12.71</text>
 <text x="768.0" y="223" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="223" fill="#2b3b50" xml:space="preserve">│</text>
@@ -232,7 +228,7 @@
 <text x="507.6" y="241" fill="#85d9a0" xml:space="preserve">████</text>
 <text x="541.2" y="241" fill="#2b3b50" xml:space="preserve">░░░░░░</text>
 <text x="591.6" y="241" fill="#85d9a0" xml:space="preserve">  35%</text>
-<text x="633.6" y="241" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="633.6" y="241" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="675.6" y="241" fill="#627992" xml:space="preserve">  $9.81</text>
 <text x="768.0" y="241" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="241" fill="#2b3b50" xml:space="preserve">│</text>
@@ -244,7 +240,7 @@
 <text x="490.8" y="259" fill="#85d9a0" xml:space="preserve">████</text>
 <text x="524.4" y="259" fill="#2b3b50" xml:space="preserve">░░░░░░</text>
 <text x="574.8" y="259" fill="#85d9a0" xml:space="preserve">  35%</text>
-<text x="616.8" y="259" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="616.8" y="259" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="658.8" y="259" fill="#627992" xml:space="preserve">  $9.85</text>
 <text x="768.0" y="259" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="259" fill="#2b3b50" xml:space="preserve">│</text>
@@ -264,7 +260,7 @@
 <text x="490.8" y="295" fill="#f5bf65" xml:space="preserve">████████</text>
 <text x="558.0" y="295" fill="#2b3b50" xml:space="preserve">░░</text>
 <text x="574.8" y="295" fill="#f5bf65" xml:space="preserve">  79%</text>
-<text x="616.8" y="295" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="616.8" y="295" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="658.8" y="295" fill="#627992" xml:space="preserve">  $9.78</text>
 <text x="768.0" y="295" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="295" fill="#2b3b50" xml:space="preserve">│</text>
@@ -276,7 +272,7 @@
 <text x="490.8" y="313" fill="#85d9a0" xml:space="preserve">████</text>
 <text x="524.4" y="313" fill="#2b3b50" xml:space="preserve">░░░░░░</text>
 <text x="574.8" y="313" fill="#85d9a0" xml:space="preserve">  43%</text>
-<text x="616.8" y="313" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="616.8" y="313" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="658.8" y="313" fill="#627992" xml:space="preserve"> $11.49</text>
 <text x="768.0" y="313" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="313" fill="#2b3b50" xml:space="preserve">│</text>
@@ -289,7 +285,7 @@
 <text x="507.6" y="331" fill="#85d9a0" xml:space="preserve">██████</text>
 <text x="558.0" y="331" fill="#2b3b50" xml:space="preserve">░░░░</text>
 <text x="591.6" y="331" fill="#85d9a0" xml:space="preserve">  55%</text>
-<text x="633.6" y="331" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="633.6" y="331" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="675.6" y="331" fill="#627992" xml:space="preserve"> $12.26</text>
 <text x="768.0" y="331" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="331" fill="#2b3b50" xml:space="preserve">│</text>
@@ -302,7 +298,7 @@
 <text x="507.6" y="349" fill="#fa7989" xml:space="preserve">████████</text>
 <text x="574.8" y="349" fill="#2b3b50" xml:space="preserve">░░</text>
 <text x="591.6" y="349" fill="#fa7989" xml:space="preserve">  84%</text>
-<text x="633.6" y="349" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="633.6" y="349" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="675.6" y="349" fill="#627992" xml:space="preserve">  $9.58</text>
 <text x="768.0" y="349" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="349" fill="#2b3b50" xml:space="preserve">│</text>
@@ -314,7 +310,7 @@
 <text x="490.8" y="367" fill="#85d9a0" xml:space="preserve">████</text>
 <text x="524.4" y="367" fill="#2b3b50" xml:space="preserve">░░░░░░</text>
 <text x="574.8" y="367" fill="#85d9a0" xml:space="preserve">  40%</text>
-<text x="616.8" y="367" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="616.8" y="367" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="658.8" y="367" fill="#627992" xml:space="preserve">  $6.63</text>
 <text x="768.0" y="367" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="367" fill="#2b3b50" xml:space="preserve">│</text>
@@ -334,7 +330,7 @@
 <text x="490.8" y="403" fill="#85d9a0" xml:space="preserve">████</text>
 <text x="524.4" y="403" fill="#2b3b50" xml:space="preserve">░░░░░░</text>
 <text x="574.8" y="403" fill="#85d9a0" xml:space="preserve">  41%</text>
-<text x="616.8" y="403" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="616.8" y="403" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="658.8" y="403" fill="#627992" xml:space="preserve"> $10.82</text>
 <text x="768.0" y="403" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="403" fill="#2b3b50" xml:space="preserve">│</text>
@@ -346,7 +342,7 @@
 <text x="490.8" y="421" fill="#fa7989" xml:space="preserve">█████████</text>
 <text x="566.4" y="421" fill="#2b3b50" xml:space="preserve">░</text>
 <text x="574.8" y="421" fill="#fa7989" xml:space="preserve">  87%</text>
-<text x="616.8" y="421" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="616.8" y="421" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="658.8" y="421" fill="#627992" xml:space="preserve">  $9.47</text>
 <text x="768.0" y="421" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="421" fill="#2b3b50" xml:space="preserve">│</text>
@@ -359,7 +355,7 @@
 <text x="507.6" y="439" fill="#85d9a0" xml:space="preserve">█████</text>
 <text x="549.6" y="439" fill="#2b3b50" xml:space="preserve">░░░░░</text>
 <text x="591.6" y="439" fill="#85d9a0" xml:space="preserve">  49%</text>
-<text x="633.6" y="439" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="633.6" y="439" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="675.6" y="439" fill="#627992" xml:space="preserve">  $9.29</text>
 <text x="768.0" y="439" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="439" fill="#2b3b50" xml:space="preserve">│</text>
@@ -372,7 +368,7 @@
 <text x="507.6" y="457" fill="#fa7989" xml:space="preserve">█████████</text>
 <text x="583.2" y="457" fill="#2b3b50" xml:space="preserve">░</text>
 <text x="591.6" y="457" fill="#fa7989" xml:space="preserve">  85%</text>
-<text x="633.6" y="457" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="633.6" y="457" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="675.6" y="457" fill="#627992" xml:space="preserve"> $11.68</text>
 <text x="768.0" y="457" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="457" fill="#2b3b50" xml:space="preserve">│</text>
@@ -384,7 +380,7 @@
 <text x="490.8" y="475" fill="#85d9a0" xml:space="preserve">█████</text>
 <text x="532.8" y="475" fill="#2b3b50" xml:space="preserve">░░░░░</text>
 <text x="574.8" y="475" fill="#85d9a0" xml:space="preserve">  52%</text>
-<text x="616.8" y="475" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="616.8" y="475" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="658.8" y="475" fill="#627992" xml:space="preserve"> $11.41</text>
 <text x="768.0" y="475" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="475" fill="#2b3b50" xml:space="preserve">│</text>
@@ -404,7 +400,7 @@
 <text x="490.8" y="511" fill="#85d9a0" xml:space="preserve">█████</text>
 <text x="532.8" y="511" fill="#2b3b50" xml:space="preserve">░░░░░</text>
 <text x="574.8" y="511" fill="#85d9a0" xml:space="preserve">  47%</text>
-<text x="616.8" y="511" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="616.8" y="511" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="658.8" y="511" fill="#627992" xml:space="preserve"> $11.69</text>
 <text x="768.0" y="511" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="511" fill="#2b3b50" xml:space="preserve">│</text>
@@ -416,7 +412,7 @@
 <text x="490.8" y="529" fill="#85d9a0" xml:space="preserve">████</text>
 <text x="524.4" y="529" fill="#2b3b50" xml:space="preserve">░░░░░░</text>
 <text x="574.8" y="529" fill="#85d9a0" xml:space="preserve">  37%</text>
-<text x="616.8" y="529" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="616.8" y="529" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="658.8" y="529" fill="#627992" xml:space="preserve">  $9.32</text>
 <text x="768.0" y="529" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="529" fill="#2b3b50" xml:space="preserve">│</text>
@@ -429,7 +425,7 @@
 <text x="507.6" y="547" fill="#85d9a0" xml:space="preserve">██</text>
 <text x="524.4" y="547" fill="#2b3b50" xml:space="preserve">░░░░░░░░</text>
 <text x="591.6" y="547" fill="#85d9a0" xml:space="preserve">  23%</text>
-<text x="633.6" y="547" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="633.6" y="547" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="675.6" y="547" fill="#627992" xml:space="preserve"> $12.42</text>
 <text x="768.0" y="547" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="547" fill="#2b3b50" xml:space="preserve">│</text>
@@ -442,7 +438,7 @@
 <text x="507.6" y="565" fill="#85d9a0" xml:space="preserve">██████</text>
 <text x="558.0" y="565" fill="#2b3b50" xml:space="preserve">░░░░</text>
 <text x="591.6" y="565" fill="#85d9a0" xml:space="preserve">  58%</text>
-<text x="633.6" y="565" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="633.6" y="565" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="675.6" y="565" fill="#627992" xml:space="preserve"> $13.14</text>
 <text x="768.0" y="565" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="565" fill="#2b3b50" xml:space="preserve">│</text>
@@ -454,7 +450,7 @@
 <text x="490.8" y="583" fill="#85d9a0" xml:space="preserve">███</text>
 <text x="516.0" y="583" fill="#2b3b50" xml:space="preserve">░░░░░░░</text>
 <text x="574.8" y="583" fill="#85d9a0" xml:space="preserve">  27%</text>
-<text x="616.8" y="583" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="616.8" y="583" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="658.8" y="583" fill="#627992" xml:space="preserve"> $11.66</text>
 <text x="768.0" y="583" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="583" fill="#2b3b50" xml:space="preserve">│</text>
@@ -474,7 +470,7 @@
 <text x="490.8" y="619" fill="#85d9a0" xml:space="preserve">███</text>
 <text x="516.0" y="619" fill="#2b3b50" xml:space="preserve">░░░░░░░</text>
 <text x="574.8" y="619" fill="#85d9a0" xml:space="preserve">  31%</text>
-<text x="616.8" y="619" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="616.8" y="619" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="658.8" y="619" fill="#627992" xml:space="preserve"> $12.09</text>
 <text x="768.0" y="619" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="619" fill="#2b3b50" xml:space="preserve">│</text>
@@ -486,7 +482,7 @@
 <text x="490.8" y="637" fill="#85d9a0" xml:space="preserve">█████</text>
 <text x="532.8" y="637" fill="#2b3b50" xml:space="preserve">░░░░░</text>
 <text x="574.8" y="637" fill="#85d9a0" xml:space="preserve">  50%</text>
-<text x="616.8" y="637" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="616.8" y="637" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="658.8" y="637" fill="#627992" xml:space="preserve"> $11.21</text>
 <text x="768.0" y="637" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="637" fill="#2b3b50" xml:space="preserve">│</text>
@@ -499,7 +495,7 @@
 <text x="507.6" y="655" fill="#fa7989" xml:space="preserve">████████</text>
 <text x="574.8" y="655" fill="#2b3b50" xml:space="preserve">░░</text>
 <text x="591.6" y="655" fill="#fa7989" xml:space="preserve">  84%</text>
-<text x="633.6" y="655" fill="#8b9eb5" xml:space="preserve">   3h</text>
+<text x="633.6" y="655" fill="#8b9eb5" xml:space="preserve">   2h</text>
 <text x="675.6" y="655" fill="#627992" xml:space="preserve">  $9.94</text>
 <text x="768.0" y="655" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="784.8" y="655" fill="#2b3b50" xml:space="preserve">│</text>

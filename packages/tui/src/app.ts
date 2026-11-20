@@ -28,6 +28,8 @@ export interface AppProps {
   /** Spinner and pulse motion; off for reduced-motion and tests. */
   animate: boolean;
   initialState?: Partial<UiState>;
+  /** The wall clock for relative ages; fixed by the media harness so pictures are reproducible. Defaults to `Date.now`. */
+  clock?: () => number;
 }
 
 const boundsOf = (view: SectionView, height: number): Bounds => ({
@@ -54,11 +56,11 @@ export function App(props: AppProps): ReactElement {
   const size = useSize();
   const copy = useClipboard();
   const [ui, setUi] = useState<UiState>({ ...initial, ...props.initialState });
-  const [clock, setClock] = useState({ now: Date.now(), phase: 0 });
+  const [clock, setClock] = useState({ now: (props.clock ?? Date.now)(), phase: 0 });
   const uiRef = useRef(ui);
   const apply = (next: UiState) => { uiRef.current = next; setUi(next); };
 
-  useTick(props.animate ? 6 : 1, () => { setClock(previous => ({ now: Date.now(), phase: props.animate ? previous.phase + 1 : 0 })); });
+  useTick(props.animate ? 6 : 1, () => { setClock(previous => ({ now: (props.clock ?? Date.now)(), phase: props.animate ? previous.phase + 1 : 0 })); });
   useUiEffects(ui, props, uiRef, apply);
 
   const showBanner = !data.connection.connected;

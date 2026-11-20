@@ -122,7 +122,7 @@
 <text x="54.0" y="79" fill="#fa7989" xml:space="preserve"> ‼ </text>
 <text x="79.2" y="79" fill="#d8e2ef" xml:space="preserve">Which retention window should the cache use?</text>
 <text x="474.0" y="79" fill="#8b9eb5" xml:space="preserve">aurora review         </text>
-<text x="658.8" y="79" fill="#627992" xml:space="preserve">  3</text>
+<text x="658.8" y="79" fill="#627992" xml:space="preserve">  2</text>
 <text x="692.4" y="79" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="709.2" y="79" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="726.0" y="79" fill="#b49afa" font-weight="700" xml:space="preserve">question</text>
@@ -134,7 +134,7 @@
 <text x="54.0" y="97" fill="#fa7989" xml:space="preserve"> ‼ </text>
 <text x="79.2" y="97" fill="#d8e2ef" xml:space="preserve">Which retention window should the cache use?</text>
 <text x="474.0" y="97" fill="#8b9eb5" xml:space="preserve">aurora scout          </text>
-<text x="658.8" y="97" fill="#627992" xml:space="preserve">  3</text>
+<text x="658.8" y="97" fill="#627992" xml:space="preserve">  2</text>
 <text x="692.4" y="97" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="709.2" y="97" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="1104.0" y="97" fill="#2b3b50" xml:space="preserve">│</text>
@@ -143,7 +143,7 @@
 <text x="54.0" y="115" fill="#fa7989" xml:space="preserve"> ‼ </text>
 <text x="79.2" y="115" fill="#d8e2ef" xml:space="preserve">Which retention window should the cache use?</text>
 <text x="474.0" y="115" fill="#8b9eb5" xml:space="preserve">harbor implementation </text>
-<text x="658.8" y="115" fill="#627992" xml:space="preserve">  3</text>
+<text x="658.8" y="115" fill="#627992" xml:space="preserve">  2</text>
 <text x="692.4" y="115" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="709.2" y="115" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="726.0" y="115" fill="#d8e2ef" xml:space="preserve">Which retention window should the cache use?</text>
@@ -152,7 +152,7 @@
 <text x="45.6" y="133" fill="#f5bf65" xml:space="preserve">!</text>
 <text x="79.2" y="133" fill="#d8e2ef" xml:space="preserve">May the synthetic migration proceed?</text>
 <text x="474.0" y="133" fill="#8b9eb5" xml:space="preserve">aurora implementation </text>
-<text x="658.8" y="133" fill="#627992" xml:space="preserve">  3</text>
+<text x="658.8" y="133" fill="#627992" xml:space="preserve">  2</text>
 <text x="692.4" y="133" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="709.2" y="133" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="1104.0" y="133" fill="#2b3b50" xml:space="preserve">│</text>
@@ -160,7 +160,7 @@
 <text x="45.6" y="151" fill="#f5bf65" xml:space="preserve">!</text>
 <text x="79.2" y="151" fill="#d8e2ef" xml:space="preserve">May the synthetic migration proceed?</text>
 <text x="474.0" y="151" fill="#8b9eb5" xml:space="preserve">aurora explore        </text>
-<text x="658.8" y="151" fill="#627992" xml:space="preserve">  3</text>
+<text x="658.8" y="151" fill="#627992" xml:space="preserve">  2</text>
 <text x="692.4" y="151" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="709.2" y="151" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="726.0" y="151" fill="#8b9eb5" font-weight="700" xml:space="preserve">OPTIONS</text>
@@ -169,7 +169,7 @@
 <text x="45.6" y="169" fill="#f5bf65" xml:space="preserve">!</text>
 <text x="79.2" y="169" fill="#d8e2ef" xml:space="preserve">May the synthetic migration proceed?</text>
 <text x="474.0" y="169" fill="#8b9eb5" xml:space="preserve">harbor coordinator    </text>
-<text x="658.8" y="169" fill="#627992" xml:space="preserve">  3</text>
+<text x="658.8" y="169" fill="#627992" xml:space="preserve">  2</text>
 <text x="692.4" y="169" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="709.2" y="169" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="726.0" y="169" fill="#66d9ef" xml:space="preserve">  1 </text>
@@ -179,7 +179,7 @@
 <text x="45.6" y="187" fill="#f5bf65" xml:space="preserve">!</text>
 <text x="79.2" y="187" fill="#d8e2ef" xml:space="preserve">May the synthetic migration proceed?</text>
 <text x="474.0" y="187" fill="#8b9eb5" xml:space="preserve">harbor review         </text>
-<text x="658.8" y="187" fill="#627992" xml:space="preserve">  3</text>
+<text x="658.8" y="187" fill="#627992" xml:space="preserve">  2</text>
 <text x="692.4" y="187" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="709.2" y="187" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="726.0" y="187" fill="#66d9ef" xml:space="preserve">  2 </text>

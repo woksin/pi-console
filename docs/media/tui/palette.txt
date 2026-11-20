@@ -3,14 +3,14 @@
  │ ▌! Open request  aurora/L192                                                          3h │ │ 30 sessions in 6 repositories     │
  │ ▌  Compare the queue strategies and explain the trade-offs.                              │ │ 4 working right now               │
  │                                                                                          │ │                                   │
- │  ! Open request  aurora/L192                                                          3h │ │ STATUS                            │
- │    Write the handoff and preserve the pending decisions.                                 │ │ ! Needs you   5 ██████████████    │
- │                                                                                          │ │ × Blocked     5 ██████████████    │
- │  ! Answer possibly unseen  ╭─ Command palette ────────────────────────────────────────────────────╮ed      4 ███████████░░░    │
- │    Compare the queue strate│ ❯ ▌                                                                  │ing     4 ███████████░░░    │
- │                            │                                                                      │ing     4 ███████████░░░    │
- │  ! Open request  aurora/L19│ ▌› Go to Overview  [1]                                               │        4 ███████████░░░    │
- │    Write the handoff and pr│  › Go to Fleet  [2]                                                  │        4 ███████████░░░    │
+ │  ! Open request  aurora/L192                                                          2h │ │ STATUS                            │
+ │    Write the handoff and preserve the pending decisions.                                 │ │ ! Needs you   6 ██████████████    │
+ │                                                                                          │ │ × Blocked     4 █████████░░░░░    │
+ │  ! Answer possibly unseen  ╭─ Command palette ────────────────────────────────────────────────────╮ed      4 █████████░░░░░    │
+ │    Compare the queue strate│ ❯ ▌                                                                  │ing     4 █████████░░░░░    │
+ │                            │                                                                      │ing     4 █████████░░░░░    │
+ │  ! Open request  aurora/L19│ ▌› Go to Overview  [1]                                               │        4 █████████░░░░░    │
+ │    Write the handoff and pr│  › Go to Fleet  [2]                                                  │        4 █████████░░░░░    │
  │                            │  › Go to Requests  [3]                                               │                            │
  │  ! Open request  harbor/L19│  › Go to Questions  [4]                                              │T, FLEET AVERAGE            │
  │    Compare the queue strate│  › Go to Messages  [5]                                               │▄▅▅▄▄▅▅▄▄▄▅▅▄▅▅▅▅▅          │
@@ -24,13 +24,13 @@
  │  ! Blocking question  auror╰────────────────────────────────────── ↑↓ choose · ⏎ run · esc close ─╯                            │
  │    Which retention window should the cache use?                                          │ │                                   │
  │                                                                                          │ │                                   │
- │  ! Blocking question  aurora/L193                                                     3h │ │                                   │
+ │  ! Blocking question  aurora/L193                                                     2h │ │                                   │
  │    Which retention window should the cache use?                                          │ │                                   │
  │                                                                                          │ │                                   │
- │  ! Blocking question  aurora/L195                                                     3h │ │                                   │
+ │  ! Blocking question  aurora/L195                                                     2h │ │                                   │
  │    Which retention window should the cache use?                                          │ │                                   │
  │                                                                                          │ │                                   │
- │  ! Blocking question  harbor/L192                                                     3h │ │                                   │
+ │  ! Blocking question  harbor/L192                                                     2h │ │                                   │
  │    Which retention window should the cache use?                                          │ │                                   │
  │                                                                                          │ │                                   │
  │                                                                                          │ │                                   │

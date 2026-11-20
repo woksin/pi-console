@@ -116,9 +116,9 @@
 <text x="37.2" y="79" fill="#66d9ef" xml:space="preserve">▌</text>
 <text x="62.4" y="79" fill="#f5bf65" xml:space="preserve">L0 orchestrator   </text>
 <text x="222.0" y="79" fill="#66d9ef" xml:space="preserve">──────▶</text>
-<text x="289.2" y="79" fill="#f49b6c" xml:space="preserve">L192 main         </text>
+<text x="289.2" y="79" fill="#f5bf65" xml:space="preserve">L192 main         </text>
 <text x="440.4" y="79" fill="#d8e2ef" xml:space="preserve">  ×2</text>
-<text x="474.0" y="79" fill="#627992" xml:space="preserve">  3h ago</text>
+<text x="474.0" y="79" fill="#627992" xml:space="preserve">  2h ago</text>
 <text x="692.4" y="79" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="709.2" y="79" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="726.0" y="79" fill="#8b9eb5" xml:space="preserve">2 messages</text>
@@ -126,18 +126,18 @@
 <text x="20.4" y="97" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="62.4" y="97" fill="#f5bf65" xml:space="preserve">L0 orchestrator   </text>
 <text x="222.0" y="97" fill="#66d9ef" xml:space="preserve">──────▶</text>
-<text x="289.2" y="97" fill="#b49afa" xml:space="preserve">L193 main         </text>
+<text x="289.2" y="97" fill="#f49b6c" xml:space="preserve">L193 main         </text>
 <text x="440.4" y="97" fill="#d8e2ef" xml:space="preserve">  ×2</text>
-<text x="474.0" y="97" fill="#627992" xml:space="preserve">  3h ago</text>
+<text x="474.0" y="97" fill="#627992" xml:space="preserve">  2h ago</text>
 <text x="692.4" y="97" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="709.2" y="97" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="1104.0" y="97" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="115" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="62.4" y="115" fill="#f5bf65" xml:space="preserve">L0 orchestrator   </text>
 <text x="222.0" y="115" fill="#66d9ef" xml:space="preserve">──────▶</text>
-<text x="289.2" y="115" fill="#627992" xml:space="preserve">L194 subagent     </text>
+<text x="289.2" y="115" fill="#b49afa" xml:space="preserve">L194 subagent     </text>
 <text x="440.4" y="115" fill="#d8e2ef" xml:space="preserve">  ×2</text>
-<text x="474.0" y="115" fill="#627992" xml:space="preserve">  3h ago</text>
+<text x="474.0" y="115" fill="#627992" xml:space="preserve">  2h ago</text>
 <text x="692.4" y="115" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="709.2" y="115" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="726.0" y="115" fill="#8b9eb5" font-weight="700" xml:space="preserve">RECENT</text>
@@ -145,27 +145,26 @@
 <text x="20.4" y="133" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="62.4" y="133" fill="#f5bf65" xml:space="preserve">L0 orchestrator   </text>
 <text x="222.0" y="133" fill="#66d9ef" xml:space="preserve">──────▶</text>
-<text x="289.2" y="133" fill="#85d9a0" xml:space="preserve">L195 subagent     </text>
+<text x="289.2" y="133" fill="#627992" xml:space="preserve">L195 subagent     </text>
 <text x="440.4" y="133" fill="#d8e2ef" xml:space="preserve">  ×2</text>
-<text x="474.0" y="133" fill="#627992" xml:space="preserve">  3h ago</text>
+<text x="474.0" y="133" fill="#627992" xml:space="preserve">  2h ago</text>
 <text x="692.4" y="133" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="709.2" y="133" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="726.0" y="133" fill="#627992" xml:space="preserve">09:01:12 sent</text>
 <text x="1104.0" y="133" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="151" fill="#66d9ef" xml:space="preserve">│</text>
-<text x="62.4" y="151" fill="#f49b6c" xml:space="preserve">L192 main         </text>
+<text x="62.4" y="151" fill="#f5bf65" xml:space="preserve">L192 main         </text>
 <text x="222.0" y="151" fill="#b49afa" xml:space="preserve">╌╌╌╌╌╌▶</text>
-<text x="289.2" y="151" fill="#627992" xml:space="preserve">L194 subagent     </text>
-<text x="440.4" y="151" fill="#b49afa" xml:space="preserve">  spawn</text>
+<text x="289.2" y="151" fill="#b49afa" xml:space="preserve">L194 subagent       spawn</text>
 <text x="499.2" y="151" fill="#627992" xml:space="preserve">  3h ago</text>
 <text x="692.4" y="151" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="709.2" y="151" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="726.0" y="151" fill="#d8e2ef" xml:space="preserve">  Please verify the checkpoint contract.</text>
 <text x="1104.0" y="151" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="169" fill="#66d9ef" xml:space="preserve">│</text>
-<text x="62.4" y="169" fill="#f49b6c" xml:space="preserve">L192 main         </text>
+<text x="62.4" y="169" fill="#f5bf65" xml:space="preserve">L192 main         </text>
 <text x="222.0" y="169" fill="#b49afa" xml:space="preserve">╌╌╌╌╌╌▶</text>
-<text x="289.2" y="169" fill="#85d9a0" xml:space="preserve">L195 subagent     </text>
+<text x="289.2" y="169" fill="#627992" xml:space="preserve">L195 subagent     </text>
 <text x="440.4" y="169" fill="#b49afa" xml:space="preserve">  spawn</text>
 <text x="499.2" y="169" fill="#627992" xml:space="preserve">  3h ago</text>
 <text x="692.4" y="169" fill="#66d9ef" xml:space="preserve">│</text>
@@ -185,43 +184,43 @@
 <text x="709.2" y="205" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="1104.0" y="205" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="223" fill="#66d9ef" xml:space="preserve">│</text>
-<text x="62.4" y="223" fill="#fa7989" xml:space="preserve">L0 orchestrator   </text>
+<text x="62.4" y="223" fill="#85d9a0" xml:space="preserve">L0 orchestrator   </text>
 <text x="222.0" y="223" fill="#66d9ef" xml:space="preserve">──────▶</text>
-<text x="289.2" y="223" fill="#66d9ef" xml:space="preserve">L192 main         </text>
+<text x="289.2" y="223" fill="#fa7989" xml:space="preserve">L192 main         </text>
 <text x="440.4" y="223" fill="#d8e2ef" xml:space="preserve">  ×2</text>
-<text x="474.0" y="223" fill="#627992" xml:space="preserve">  3h ago</text>
+<text x="474.0" y="223" fill="#627992" xml:space="preserve">  2h ago</text>
 <text x="692.4" y="223" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="709.2" y="223" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="1104.0" y="223" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="241" fill="#66d9ef" xml:space="preserve">│</text>
-<text x="62.4" y="241" fill="#fa7989" xml:space="preserve">L0 orchestrator   </text>
+<text x="62.4" y="241" fill="#85d9a0" xml:space="preserve">L0 orchestrator   </text>
 <text x="222.0" y="241" fill="#66d9ef" xml:space="preserve">──────▶</text>
 <text x="289.2" y="241" fill="#66d9ef" xml:space="preserve">L193 main         </text>
 <text x="440.4" y="241" fill="#d8e2ef" xml:space="preserve">  ×2</text>
-<text x="474.0" y="241" fill="#627992" xml:space="preserve">  3h ago</text>
+<text x="474.0" y="241" fill="#627992" xml:space="preserve">  2h ago</text>
 <text x="692.4" y="241" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="709.2" y="241" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="1104.0" y="241" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="259" fill="#66d9ef" xml:space="preserve">│</text>
-<text x="62.4" y="259" fill="#fa7989" xml:space="preserve">L0 orchestrator   </text>
+<text x="62.4" y="259" fill="#85d9a0" xml:space="preserve">L0 orchestrator   </text>
 <text x="222.0" y="259" fill="#66d9ef" xml:space="preserve">──────▶</text>
 <text x="289.2" y="259" fill="#f5bf65" xml:space="preserve">L194 subagent     </text>
 <text x="440.4" y="259" fill="#d8e2ef" xml:space="preserve">  ×2</text>
-<text x="474.0" y="259" fill="#627992" xml:space="preserve">  3h ago</text>
+<text x="474.0" y="259" fill="#627992" xml:space="preserve">  2h ago</text>
 <text x="692.4" y="259" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="709.2" y="259" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="1104.0" y="259" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="277" fill="#66d9ef" xml:space="preserve">│</text>
-<text x="62.4" y="277" fill="#fa7989" xml:space="preserve">L0 orchestrator   </text>
+<text x="62.4" y="277" fill="#85d9a0" xml:space="preserve">L0 orchestrator   </text>
 <text x="222.0" y="277" fill="#66d9ef" xml:space="preserve">──────▶</text>
 <text x="289.2" y="277" fill="#f49b6c" xml:space="preserve">L195 subagent     </text>
 <text x="440.4" y="277" fill="#d8e2ef" xml:space="preserve">  ×2</text>
-<text x="474.0" y="277" fill="#627992" xml:space="preserve">  3h ago</text>
+<text x="474.0" y="277" fill="#627992" xml:space="preserve">  2h ago</text>
 <text x="692.4" y="277" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="709.2" y="277" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="1104.0" y="277" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="295" fill="#66d9ef" xml:space="preserve">│</text>
-<text x="62.4" y="295" fill="#66d9ef" xml:space="preserve">L192 main         </text>
+<text x="62.4" y="295" fill="#fa7989" xml:space="preserve">L192 main         </text>
 <text x="222.0" y="295" fill="#b49afa" xml:space="preserve">╌╌╌╌╌╌▶</text>
 <text x="289.2" y="295" fill="#f5bf65" xml:space="preserve">L194 subagent     </text>
 <text x="440.4" y="295" fill="#b49afa" xml:space="preserve">  spawn</text>
@@ -230,7 +229,7 @@
 <text x="709.2" y="295" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="1104.0" y="295" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="313" fill="#66d9ef" xml:space="preserve">│</text>
-<text x="62.4" y="313" fill="#66d9ef" xml:space="preserve">L192 main         </text>
+<text x="62.4" y="313" fill="#fa7989" xml:space="preserve">L192 main         </text>
 <text x="222.0" y="313" fill="#b49afa" xml:space="preserve">╌╌╌╌╌╌▶</text>
 <text x="289.2" y="313" fill="#f49b6c" xml:space="preserve">L195 subagent     </text>
 <text x="440.4" y="313" fill="#b49afa" xml:space="preserve">  spawn</text>
@@ -254,7 +253,7 @@
 <text x="222.0" y="367" fill="#66d9ef" xml:space="preserve">──────▶</text>
 <text x="289.2" y="367" fill="#627992" xml:space="preserve">L192 main         </text>
 <text x="440.4" y="367" fill="#d8e2ef" xml:space="preserve">  ×2</text>
-<text x="474.0" y="367" fill="#627992" xml:space="preserve">  3h ago</text>
+<text x="474.0" y="367" fill="#627992" xml:space="preserve">  2h ago</text>
 <text x="692.4" y="367" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="709.2" y="367" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="1104.0" y="367" fill="#2b3b50" xml:space="preserve">│</text>
@@ -263,7 +262,7 @@
 <text x="222.0" y="385" fill="#66d9ef" xml:space="preserve">──────▶</text>
 <text x="289.2" y="385" fill="#85d9a0" xml:space="preserve">L193 main         </text>
 <text x="440.4" y="385" fill="#d8e2ef" xml:space="preserve">  ×2</text>
-<text x="474.0" y="385" fill="#627992" xml:space="preserve">  3h ago</text>
+<text x="474.0" y="385" fill="#627992" xml:space="preserve">  2h ago</text>
 <text x="692.4" y="385" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="709.2" y="385" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="1104.0" y="385" fill="#2b3b50" xml:space="preserve">│</text>
@@ -272,7 +271,7 @@
 <text x="222.0" y="403" fill="#66d9ef" xml:space="preserve">──────▶</text>
 <text x="289.2" y="403" fill="#fa7989" xml:space="preserve">L194 subagent     </text>
 <text x="440.4" y="403" fill="#d8e2ef" xml:space="preserve">  ×2</text>
-<text x="474.0" y="403" fill="#627992" xml:space="preserve">  3h ago</text>
+<text x="474.0" y="403" fill="#627992" xml:space="preserve">  2h ago</text>
 <text x="692.4" y="403" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="709.2" y="403" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="1104.0" y="403" fill="#2b3b50" xml:space="preserve">│</text>
@@ -281,7 +280,7 @@
 <text x="222.0" y="421" fill="#66d9ef" xml:space="preserve">──────▶</text>
 <text x="289.2" y="421" fill="#66d9ef" xml:space="preserve">L195 subagent     </text>
 <text x="440.4" y="421" fill="#d8e2ef" xml:space="preserve">  ×2</text>
-<text x="474.0" y="421" fill="#627992" xml:space="preserve">  3h ago</text>
+<text x="474.0" y="421" fill="#627992" xml:space="preserve">  2h ago</text>
 <text x="692.4" y="421" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="709.2" y="421" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="1104.0" y="421" fill="#2b3b50" xml:space="preserve">│</text>
@@ -319,7 +318,7 @@
 <text x="222.0" y="511" fill="#66d9ef" xml:space="preserve">──────▶</text>
 <text x="289.2" y="511" fill="#f49b6c" xml:space="preserve">L192 main         </text>
 <text x="440.4" y="511" fill="#d8e2ef" xml:space="preserve">  ×2</text>
-<text x="474.0" y="511" fill="#627992" xml:space="preserve">  3h ago</text>
+<text x="474.0" y="511" fill="#627992" xml:space="preserve">  2h ago</text>
 <text x="692.4" y="511" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="709.2" y="511" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="1104.0" y="511" fill="#2b3b50" xml:space="preserve">│</text>
@@ -328,7 +327,7 @@
 <text x="222.0" y="529" fill="#66d9ef" xml:space="preserve">──────▶</text>
 <text x="289.2" y="529" fill="#b49afa" xml:space="preserve">L193 main         </text>
 <text x="440.4" y="529" fill="#d8e2ef" xml:space="preserve">  ×2</text>
-<text x="474.0" y="529" fill="#627992" xml:space="preserve">  3h ago</text>
+<text x="474.0" y="529" fill="#627992" xml:space="preserve">  2h ago</text>
 <text x="692.4" y="529" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="709.2" y="529" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="1104.0" y="529" fill="#2b3b50" xml:space="preserve">│</text>
@@ -337,7 +336,7 @@
 <text x="222.0" y="547" fill="#66d9ef" xml:space="preserve">──────▶</text>
 <text x="289.2" y="547" fill="#627992" xml:space="preserve">L194 subagent     </text>
 <text x="440.4" y="547" fill="#d8e2ef" xml:space="preserve">  ×2</text>
-<text x="474.0" y="547" fill="#627992" xml:space="preserve">  3h ago</text>
+<text x="474.0" y="547" fill="#627992" xml:space="preserve">  2h ago</text>
 <text x="692.4" y="547" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="709.2" y="547" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="1104.0" y="547" fill="#2b3b50" xml:space="preserve">│</text>
@@ -346,7 +345,7 @@
 <text x="222.0" y="565" fill="#66d9ef" xml:space="preserve">──────▶</text>
 <text x="289.2" y="565" fill="#85d9a0" xml:space="preserve">L195 subagent     </text>
 <text x="440.4" y="565" fill="#d8e2ef" xml:space="preserve">  ×2</text>
-<text x="474.0" y="565" fill="#627992" xml:space="preserve">  3h ago</text>
+<text x="474.0" y="565" fill="#627992" xml:space="preserve">  2h ago</text>
 <text x="692.4" y="565" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="709.2" y="565" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="1104.0" y="565" fill="#2b3b50" xml:space="preserve">│</text>
@@ -384,7 +383,7 @@
 <text x="222.0" y="655" fill="#66d9ef" xml:space="preserve">┄┄┄┄┄┄▶</text>
 <text x="289.2" y="655" fill="#66d9ef" xml:space="preserve">L192 main         </text>
 <text x="440.4" y="655" fill="#d8e2ef" xml:space="preserve">  ×1</text>
-<text x="474.0" y="655" fill="#627992" xml:space="preserve">  3h ago</text>
+<text x="474.0" y="655" fill="#627992" xml:space="preserve">  2h ago</text>
 <text x="692.4" y="655" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="709.2" y="655" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="1104.0" y="655" fill="#2b3b50" xml:space="preserve">│</text>

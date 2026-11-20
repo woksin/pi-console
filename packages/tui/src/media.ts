@@ -3,7 +3,6 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { createServer } from 'node:net';
 import { fileURLToPath } from 'node:url';
 import { themeTokens } from '@pi-console/contract';
 import { startDaemon } from '@pi-console/testkit';
@@ -14,21 +13,22 @@ const main = fileURLToPath(new URL('./main.ts', import.meta.url));
 const out = fileURLToPath(new URL('../../../docs/media/tui/', import.meta.url));
 const size = { cols: 132, rows: 40 };
 const pause = async (ms: number) => { await new Promise(resolveWait => setTimeout(resolveWait, ms)); };
-const freePort = async (): Promise<number> => await new Promise((resolvePort, reject) => {
-  const probe = createServer();
-  probe.once('error', reject);
-  probe.listen(0, '127.0.0.1', () => { const { port } = probe.address() as { port: number }; probe.close(() => { resolvePort(port); }); });
-});
 
 mkdirSync(out, { recursive: true });
 const directory = mkdtempSync(join(tmpdir(), 'pi-console-media-'));
-const daemon = await startDaemon({ port: await freePort(), dataDirectory: directory });
+// Deterministic pictures: fixed port (shown in Settings), a frozen mock stream (speed ≈ 0 publishes only the t=0 events) and a fixed clock.
+const daemon = await startDaemon({ port: Number(process.env.PI_CONSOLE_MEDIA_PORT ?? 47777), speed: 1e-9, dataDirectory: directory });
 const pty = startPty(`exec node --experimental-ffi --disable-warning=ExperimentalWarning ${main}`, {
-  ...size, env: { ...process.env, COLORTERM: 'truecolor', PI_CONSOLE_URL: `http://127.0.0.1:${String(daemon.port)}`, PI_CONSOLE_TOKEN: daemon.token, PI_CONSOLE_REDUCED_MOTION: '1' },
+  ...size, env: { ...process.env, COLORTERM: 'truecolor', PI_CONSOLE_URL: `http://127.0.0.1:${String(daemon.port)}`, PI_CONSOLE_TOKEN: daemon.token, PI_CONSOLE_REDUCED_MOTION: '1', PI_CONSOLE_NOW: '2026-11-20T12:00:00Z' },
 });
 const theme = { background: themeTokens.bg, foreground: themeTokens.text };
 
+// The tour is one frame per picture on a fixed one-second beat, each the settled screen text (the same as the .txt): the raw
+// bytes and timing the pty delivers vary run to run, which would make the cast differ on every regeneration.
+const frames: { at: number; data: string }[] = [];
+const markFrame = () => { frames.push({ at: (frames.length + 1) * 1000, data: `\u001b[2J\u001b[H${pty.screen().replace(/ +$/gm, '').replace(/\n/g, '\r\n')}` }); };
 const shoot = (name: string, title: string) => {
+  markFrame();
   writeFileSync(join(out, `${name}.svg`), screenToSvg(pty.terminal, theme, title));
   writeFileSync(join(out, `${name}.txt`), `${pty.screen().replace(/ +$/gm, '')}\n`);
   console.log(`wrote ${name}`);
@@ -68,8 +68,8 @@ try {
   await pty.waitFor('retrying', 20000);
   await pause(300);
   shoot('reconnecting', 'Reconnect banner while the daemon is away');
-  writeFileSync(join(out, 'tour.cast'), toCast(pty.recording, size, 'pi-console TUI tour against the mock daemon'));
-  console.log(`wrote tour.cast (${String(pty.recording.length)} frames)`);
+  writeFileSync(join(out, 'tour.cast'), toCast(frames, size, 'pi-console TUI tour against the mock daemon'));
+  console.log(`wrote tour.cast (${String(frames.length)} frames)`);
 } finally {
   pty.kill();
   rmSync(directory, { recursive: true, force: true });
