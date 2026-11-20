@@ -4,12 +4,13 @@ import { burnProjection, type BurnState } from './burn.ts';
 import { lanesProjection, type LanesState } from './lanes.ts';
 import { messagesProjection, type MessagesState } from './messages.ts';
 import { questionsProjection, type QuestionsState } from './questions.ts';
-import { requestsProjection, type RequestDerivation, type RequestsState } from './requests.ts';
+import { requestDerivation } from '../requests/derivation.ts';
+import type { RequestDerivation, RequestsState } from './requests.ts';
 import { sessionsProjection, type SessionsState } from './sessions.ts';
 import { workProjection, type WorkState } from './work.ts';
 
-/** Every M1 read model. `requests` is replaceable so P5's derivation registers in one line. */
-export function consoleProjections(requests: RequestDerivation = requestsProjection): AnyProjection[] {
+/** Every M1 read model. `requests` is replaceable; the default is the request/answer derivation (docs/requests.md). */
+export function consoleProjections(requests: RequestDerivation = requestDerivation): AnyProjection[] {
   return [sessionsProjection, burnProjection, lanesProjection, questionsProjection, messagesProjection, workProjection, requests] as AnyProjection[];
 }
 

@@ -7,7 +7,7 @@ import { apiV0Schema } from './api.ts';
 test('every v0 session status and request/job status word has a glyph, label and a real theme colour', () => {
   const session = (apiV0Schema.$defs.session as { properties: { status: { enum: string[] } } }).properties.status.enum;
   assert.deepEqual([...sessionStatuses], session);
-  for (const word of [...session, 'running', 'interrupted', 'answered', 'unanswered', 'open']) {
+  for (const word of [...session, 'running', 'interrupted', 'answered', 'unanswered', 'open', 'answer-possibly-unseen']) {
     const token = statusToken(word);
     assert.notEqual(token.label, 'Unknown', word);
     assert.equal(token.glyph.length, 1, word);

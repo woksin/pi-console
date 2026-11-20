@@ -15,7 +15,7 @@ import type { Projection } from './projection.ts';
 const directory = mkdtempSync(join(tmpdir(), 'pi-console-projector-'));
 let files = 0;
 const freshPath = () => join(directory, `db-${++files}.db`);
-const events = scenario({ count: 3000, jitterSeconds: 120 });
+const events = scenario({ count: 3000, jitterSeconds: 120, rawRequests: true });
 const settle = () => new Promise(resolve => setImmediate(resolve));
 
 const serialise = (projector: Projector) => canonicalJson({ models: readModels(projector), skipped: projector.skipped });

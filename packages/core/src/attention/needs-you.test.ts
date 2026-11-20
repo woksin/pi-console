@@ -37,6 +37,18 @@ test('answered or interrupted requests no longer need you', async () => {
   assert.deepEqual(items, []);
 });
 
+test('an answer a reset may have hidden needs you, from the derivation of raw transcript facts', async () => {
+  const raw = { raw: true, sessionId: 's1', withheld: false };
+  const items = await attention([
+    testEvent(1, 'SessionStarted', { sessionId: 's1', cwd: '/r', model: null, role: 'main', parentSessionId: null, parentSessionKnown: true }, { occurredAt: at(0) }),
+    testEvent(2, 'RequestObserved', { ...raw, entryId: 'e1', requestId: 's1:e1', origin: 'unproven', originEvidence: 'raw', excerpt: 'ship it' }, { occurredAt: at(1), refs: ref }),
+    testEvent(3, 'AnswerObserved', { ...raw, entryId: 'e2', answerId: 's1:e2', interim: false, excerpt: 'shipped' }, { occurredAt: at(2) }),
+    testEvent(4, 'ResetOccurred', { sessionId: 's1', resetId: 'c1', kind: 'compaction' }, { occurredAt: at(3) }),
+  ]);
+  assert.deepEqual(items.map(item => [item.reason, item.id, item.since]), [['answer-possibly-unseen', 'answer:s1:e1', at(2)]]);
+  assert.deepEqual(items[0].pointer, { sessionId: 's1', entryId: 'e1', fileOffset: 120 });
+});
+
 test('only open blocking questions need you', async () => {
   const asked = (n: number, blocking: boolean) => testEvent(n, 'QuestionAsked', { questionId: `k${n}`, asker: 'lane-a', kind: 'decision', urgency: 'high', blocking, excerpt: `q${n}` }, { occurredAt: at(n) });
   const items = await attention([asked(1, true), asked(2, false), asked(3, true), testEvent(4, 'QuestionAnswered', { questionId: 'k3' }, { occurredAt: at(4) })]);

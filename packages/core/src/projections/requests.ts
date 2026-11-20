@@ -1,4 +1,4 @@
-import type { EventEnvelope, SourceRef } from '@pi-console/contract';
+import type { DerivedFrom, EventEnvelope, RequestEvidence, RequestUncertainty, SourceRef } from '@pi-console/contract';
 import { entry, insertSorted, orderKey, projection } from '../projector/handlers.ts';
 import type { Projection } from '../projector/projection.ts';
 
@@ -16,6 +16,13 @@ export interface RequestModel {
   answer: AnswerModel | null;
   interimAnswers: AnswerModel[];
   ref: SourceRef | null;
+  /** Derivation fields (packages/core/src/requests, docs/requests.md); absent from this pass-through projection. */
+  withheld?: boolean;
+  answerWithheld?: boolean;
+  answerPossiblyUnseen?: boolean;
+  uncertainReason?: RequestUncertainty | null;
+  evidence?: RequestEvidence[];
+  derivedFrom?: DerivedFrom;
   stamps: Partial<Record<string, string>>;
   interruptedResetId: string | null;
 }

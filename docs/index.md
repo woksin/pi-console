@@ -10,6 +10,8 @@ Design documents for pi-console (status: design, name provisional). Read in this
 6. [Milestones](milestones.md): M0 to M5 and the MVP slice list.
 7. [Research summary](research-summary.md): evidence behind the decisions.
 
+Requests and answers (pairing, origin, uncertainty): [requests](requests.md).
+
 API: [v1](api/v1.md) (daemon, M1) and [v0](api/v0.md) (M0 mock).
 
 ## Architecture decision records

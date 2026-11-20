@@ -44,14 +44,22 @@ const makers: Maker[] = [
   (n) => ['ReviewRecorded', { reviewId: `v${n % 3}`, headSha: 'abc', verdict: 'approve' }],
 ];
 
-export interface ScenarioOptions { count: number; seed?: number; jitterSeconds?: number }
+/** Raw, unpaired session-JSONL observations (S1 adapter shape) for the request derivation. */
+const rawRequestMakers: Maker[] = [
+  (n, pick) => ['RequestObserved', { raw: true, requestId: `${n}`, sessionId: pick(sessions), entryId: `e${n}`, origin: 'unproven', originEvidence: 'spec', excerpt: `prompt ${n}`, withheld: false }],
+  (n, pick) => ['AnswerObserved', { raw: true, sessionId: pick(sessions), entryId: `e${n}`, answerId: `ra${n}`, interim: false, excerpt: `reply ${n}`, withheld: n % 13 === 0 }],
+  (n, pick) => ['RequestInterrupted', { raw: true, sessionId: pick(sessions), entryId: `e${n}`, reason: 'aborted' }],
+];
+
+export interface ScenarioOptions { count: number; seed?: number; jitterSeconds?: number; rawRequests?: boolean }
 
 /**
  * A mixed stream over every M1 event type plus some the console must skip (unknown type, future version, bad
- * payload). `jitterSeconds` moves occurredAt off arrival order to imitate backfill late arrivals.
+ * payload). `rawRequests` adds unpaired session-JSONL request facts. `jitterSeconds` moves occurredAt off arrival order to imitate backfill late arrivals.
  */
-export function scenario({ count, seed = 7, jitterSeconds = 0 }: ScenarioOptions): NewEvent[] {
+export function scenario({ count, seed = 7, jitterSeconds = 0, rawRequests = false }: ScenarioOptions): NewEvent[] {
   const random = seeded(seed);
+  const all = rawRequests ? [...makers, ...rawRequestMakers, ...rawRequestMakers] : makers;
   const pick = <T>(items: readonly T[]): T => items[Math.floor(random() * items.length)];
   return Array.from({ length: count }, (_, n) => {
     const offset = Math.round((random() - 0.5) * 2 * jitterSeconds) * 1000;
@@ -59,7 +67,7 @@ export function scenario({ count, seed = 7, jitterSeconds = 0 }: ScenarioOptions
     if (n % 97 === 13) return { ...testEvent(n, 'SessionHeartbeat', { sessionId: 's1' }, { occurredAt }), version: 9 };
     if (n % 89 === 5) return testEvent(n, 'SomethingNew', { anything: true }, { occurredAt });
     if (n % 83 === 3) return testEvent(n, 'TurnStarted', { sessionId: 's1' }, { occurredAt });
-    const [type, payload] = pick(makers)(n, pick);
+    const [type, payload] = pick(all)(n, pick);
     return testEvent(n, type, payload, { occurredAt, refs: { file: '/s.jsonl', offset: n * 100, entryId: `e${n}` } });
   });
 }

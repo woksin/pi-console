@@ -24,6 +24,7 @@ export const statusTaxonomy: Record<string, StatusToken> = {
   answered: { glyph: '✓', color: 'green', label: 'Answered' },
   unanswered: { glyph: '!', color: 'amber', label: 'Unanswered' },
   open: { glyph: '!', color: 'amber', label: 'Open' },
+  'answer-possibly-unseen': { glyph: '?', color: 'orange', label: 'Answer possibly unseen' },
   idle: { glyph: '–', color: 'faint', label: 'Idle' },
 };
 

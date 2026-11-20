@@ -7,6 +7,7 @@ export { Projector, type AppliedListener, type SkippedEvents } from './projector
 export { projection, type Handlers } from './projector/handlers.ts';
 export { consoleProjections, readModels, type ReadModels } from './projections/index.ts';
 export type { RequestDerivation, RequestModel, RequestsState } from './projections/requests.ts';
+export { requestDerivation } from './requests/derivation.ts';
 export { needsYou, type AttentionItem, type AttentionOptions, type AttentionReason } from './attention/needs-you.ts';
 export { ConsoleQueries, requestFilters, type RequestFilter } from './queries/console-queries.ts';
 export { deltaFor, type Delta } from './queries/deltas.ts';
