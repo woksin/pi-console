@@ -1,0 +1,40 @@
+ π console  1 Overview  2 Fleet  3 Requests  4  Questions  5 Messages  6 Timeline  7 Work                     ● 19 need you ◉ live
+ ╭─ Questions · 8 open · 4 blocking ─────────────────────────────────────────────╮ ╭─ Question ───────────────────────────────────╮
+ │ ▌! ‼ Which retention window should the cache use?   aurora coordinator      3 │ │ ! Needs you  3h ago                          │
+ │  ! ‼ Which retention window should the cache use?   aurora review           3 │ │ question  urgent  blocking                   │
+ │  ! ‼ Which retention window should the cache use?   aurora scout            3 │ │                                              │
+ │  ! ‼ Which retention window should the cache use?   harbor implementation   3 │ │ Which retention window should the cache use? │
+ │  !   May the synthetic migration proceed?           aurora implementation   3 │ │                                              │
+ │  !   May the synthetic migration proceed?           aurora explore          3 │ │ OPTIONS                                      │
+ │  !   May the synthetic migration proceed?           harbor coordinator      3 │ │   1 Keep 14 days                             │
+ │  !   May the synthetic migration proceed?           harbor review           3 │ │   2 Keep 30 days                             │
+ │                                                                               │ │                                              │
+ │                                                                               │ │ Answering from the console arrives in M4.    │
+ │                                                                               │ │                                              │
+ │                                                                               │ │                                              │
+ │                                                                               │ │                                              │
+ │                                                                               │ │                                              │
+ │                                                                               │ │                                              │
+ │                                                                               │ │                                              │
+ │                                                                               │ │                                              │
+ │                                                                               │ │                                              │
+ │                                                                               │ │                                              │
+ │                                                                               │ │                                              │
+ │                                                                               │ │                                              │
+ │                                                                               │ │                                              │
+ │                                                                               │ │                                              │
+ │                                                                               │ │                                              │
+ │                                                                               │ │                                              │
+ │                                                                               │ │                                              │
+ │                                                                               │ │                                              │
+ │                                                                               │ │                                              │
+ │                                                                               │ │                                              │
+ │                                                                               │ │                                              │
+ │                                                                               │ │                                              │
+ │                                                                               │ │                                              │
+ │                                                                               │ │                                              │
+ │                                                                               │ │                                              │
+ │                                                                               │ │                                              │
+ │                                                                               │ │                                              │
+ ╰───────────────────────────────────────────────────────────────────────────────╯ ╰──────────────────────────────────────────────╯
+ / filter  j/k move  ⏎ open  esc back  y copy id  v graph  space fold  : palette  ? help

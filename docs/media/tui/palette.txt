@@ -1,0 +1,40 @@
+ π console  1  Overview  2 Fleet  3 Requests  4 Questions  5 Messages  6 Timeline  7 Work                     ● 19 need you ◉ live
+ ╭─ 19 things need you ─────────────────────────────────────────────────────────────────────╮ ╭─ Fleet ───────────────────────────╮
+ │ ▌! Open request  aurora/L192                                                          3h │ │ 30 sessions in 6 repositories     │
+ │ ▌  Compare the queue strategies and explain the trade-offs.                              │ │ 4 working right now               │
+ │                                                                                          │ │                                   │
+ │  ! Open request  aurora/L192                                                          3h │ │ STATUS                            │
+ │    Write the handoff and preserve the pending decisions.                                 │ │ ! Needs you   5 ██████████████    │
+ │                                                                                          │ │ × Blocked     5 ██████████████    │
+ │  ! Answer possibly unseen  ╭─ Command palette ────────────────────────────────────────────────────╮ed      4 ███████████░░░    │
+ │    Compare the queue strate│ ❯ ▌                                                                  │ing     4 ███████████░░░    │
+ │                            │                                                                      │ing     4 ███████████░░░    │
+ │  ! Open request  aurora/L19│ ▌› Go to Overview  [1]                                               │        4 ███████████░░░    │
+ │    Write the handoff and pr│  › Go to Fleet  [2]                                                  │        4 ███████████░░░    │
+ │                            │  › Go to Requests  [3]                                               │                            │
+ │  ! Open request  harbor/L19│  › Go to Questions  [4]                                              │T, FLEET AVERAGE            │
+ │    Compare the queue strate│  › Go to Messages  [5]                                               │▄▅▅▄▄▅▅▄▄▄▅▅▄▅▅▅▅▅          │
+ │                            │  › Go to Timeline  [6]                                               │                            │
+ │  ! Open request  harbor/L19│  › Go to Work  [7]                                                   │ 1.8M   cost $327.15        │
+ │    Compare the queue strate│  › Open settings  [,]                                                │                            │
+ │                            │  › Show help  [?]                                                    │                            │
+ │  ! Open request  meadow/L0 │  › Toggle messages list or graph  [v]                                │                            │
+ │    Write the handoff and pr│  › Quit  [Ctrl+C]                                                    │                            │
+ │                            │  ◆ aurora coordinator  aurora/L0 · needs-you                         │                            │
+ │  ! Blocking question  auror╰────────────────────────────────────── ↑↓ choose · ⏎ run · esc close ─╯                            │
+ │    Which retention window should the cache use?                                          │ │                                   │
+ │                                                                                          │ │                                   │
+ │  ! Blocking question  aurora/L193                                                     3h │ │                                   │
+ │    Which retention window should the cache use?                                          │ │                                   │
+ │                                                                                          │ │                                   │
+ │  ! Blocking question  aurora/L195                                                     3h │ │                                   │
+ │    Which retention window should the cache use?                                          │ │                                   │
+ │                                                                                          │ │                                   │
+ │  ! Blocking question  harbor/L192                                                     3h │ │                                   │
+ │    Which retention window should the cache use?                                          │ │                                   │
+ │                                                                                          │ │                                   │
+ │                                                                                          │ │                                   │
+ │                                                                                          │ │                                   │
+ │                                                                                          │ │                                   │
+ ╰─────────────────────────────────────────────────────────────────────────────── ↓ 8 more ─╯ ╰───────────────────────────────────╯
+ j/k move  ⏎ open  esc back

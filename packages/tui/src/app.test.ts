@@ -98,9 +98,13 @@ test('messages toggle to the graph and back', async () => {
 test('terminal escapes in transcript text never reach the screen as control characters', async () => {
   await go('2', 'Fleet ·');
   await harness.ui.press('j');
+  await harness.ui.press('j');
   await harness.ui.press('RETURN');
   await harness.ui.waitFor('Transcript');
-  assert.doesNotMatch(harness.ui.frame(), /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]/);
+  await new Promise(resolveWait => setTimeout(resolveWait, 300));
+  await harness.ui.settle();
+  const controls = [...harness.ui.frame()].filter(character => { const code = character.codePointAt(0) ?? 0; return (code < 32 && code !== 10) || (code >= 127 && code <= 159); });
+  assert.deepEqual(controls, []);
   await harness.ui.press('ESCAPE');
 });
 

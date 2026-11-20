@@ -75,6 +75,8 @@ export class Store {
   /** Merges a backfill page with live entries by cursor, oldest first, bounded. */
   mergeTranscript(sessionId: string, entries: readonly TranscriptEntry[]): void {
     this.appendTranscript(entries, sessionId);
+    // An empty transcript is still a loaded one; without this the view would say "Loading" forever.
+    if (!this.pendingTranscripts.has(sessionId)) this.pendingTranscripts.set(sessionId, [...(this.data.transcripts.get(sessionId) ?? [])]);
     this.schedule();
   }
 

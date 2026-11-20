@@ -1,0 +1,40 @@
+ π console  1 Overview  2 Fleet  3 Requests  4 Questions  5  Messages  6 Timeline  7 Work                     ● 19 need you ◉ live
+ ╭─ Communication graph · v for list ────────────────────────────────────────────╮ ╭─ Conversation ───────────────────────────────╮
+ │ ◆ aurora  8 messages · 5 sessions                                             │ │ L0 → L192                                    │
+ │ ▌  L0 orchestrator    ──────▶ L192 main           ×2  3h ago                  │ │ 2 messages                                   │
+ │    L0 orchestrator    ──────▶ L193 main           ×2  3h ago                  │ │                                              │
+ │    L0 orchestrator    ──────▶ L194 subagent       ×2  3h ago                  │ │ RECENT                                       │
+ │    L0 orchestrator    ──────▶ L195 subagent       ×2  3h ago                  │ │ 09:01:12 sent                                │
+ │    L192 main          ╌╌╌╌╌╌▶ L194 subagent       spawn  3h ago               │ │   Please verify the checkpoint contract.     │
+ │    L192 main          ╌╌╌╌╌╌▶ L195 subagent       spawn  3h ago               │ │ 09:00:00 sent                                │
+ │                                                                               │ │   Please verify the checkpoint contract.     │
+ │ ◆ harbor  8 messages · 5 sessions                                             │ │                                              │
+ │    L0 orchestrator    ──────▶ L192 main           ×2  3h ago                  │ │                                              │
+ │    L0 orchestrator    ──────▶ L193 main           ×2  3h ago                  │ │                                              │
+ │    L0 orchestrator    ──────▶ L194 subagent       ×2  3h ago                  │ │                                              │
+ │    L0 orchestrator    ──────▶ L195 subagent       ×2  3h ago                  │ │                                              │
+ │    L192 main          ╌╌╌╌╌╌▶ L194 subagent       spawn  3h ago               │ │                                              │
+ │    L192 main          ╌╌╌╌╌╌▶ L195 subagent       spawn  3h ago               │ │                                              │
+ │                                                                               │ │                                              │
+ │ ◆ meadow  8 messages · 5 sessions                                             │ │                                              │
+ │    L0 orchestrator    ──────▶ L192 main           ×2  3h ago                  │ │                                              │
+ │    L0 orchestrator    ──────▶ L193 main           ×2  3h ago                  │ │                                              │
+ │    L0 orchestrator    ──────▶ L194 subagent       ×2  3h ago                  │ │                                              │
+ │    L0 orchestrator    ──────▶ L195 subagent       ×2  3h ago                  │ │                                              │
+ │    L192 main          ╌╌╌╌╌╌▶ L194 subagent       spawn  3h ago               │ │                                              │
+ │    L192 main          ╌╌╌╌╌╌▶ L195 subagent       spawn  3h ago               │ │                                              │
+ │                                                                               │ │                                              │
+ │ ◆ quartz  8 messages · 5 sessions                                             │ │                                              │
+ │    L0 orchestrator    ──────▶ L192 main           ×2  3h ago                  │ │                                              │
+ │    L0 orchestrator    ──────▶ L193 main           ×2  3h ago                  │ │                                              │
+ │    L0 orchestrator    ──────▶ L194 subagent       ×2  3h ago                  │ │                                              │
+ │    L0 orchestrator    ──────▶ L195 subagent       ×2  3h ago                  │ │                                              │
+ │    L192 main          ╌╌╌╌╌╌▶ L194 subagent       spawn  3h ago               │ │                                              │
+ │    L192 main          ╌╌╌╌╌╌▶ L195 subagent       spawn  3h ago               │ │                                              │
+ │                                                                               │ │                                              │
+ │ ◆ willow  4 messages · 5 sessions                                             │ │                                              │
+ │    L0 orchestrator    ┄┄┄┄┄┄▶ L192 main           ×1  3h ago                  │ │                                              │
+ │                                                                               │ │                                              │
+ │                                                                               │ │                                              │
+ ╰──────────────────────────────────────────────────────────────────── 36 edges ─╯ ╰──────────────────────────────────────────────╯
+ j/k move  ⏎ open  esc back  v graph  : palette  ? help

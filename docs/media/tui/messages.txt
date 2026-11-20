@@ -1,0 +1,40 @@
+ π console  1 Overview  2 Fleet  3 Requests  4 Questions  5  Messages  6 Timeline  7 Work                     ● 19 need you ◉ live
+ ╭─ Messages · 40 · v for graph ──────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ▌09:01:57  L0     → L195   ○ sent      The focused checks passed; ready for handoff.                                        3h │
+ │  09:01:54  L0     → L194   ● read      Waiting for the migration decision.                                                  3h │
+ │  09:01:51  L0     → L193   ◐ delivered Review complete; the bounded queue looks consistent.                                 3h │
+ │  09:01:48  L0     → L192   ○ sent      Please verify the checkpoint contract.                                               3h │
+ │  09:01:45  L0     → L195   ● read      The focused checks passed; ready for handoff.                                        3h │
+ │  09:01:42  L0     → L194   ◐ delivered Waiting for the migration decision.                                                  3h │
+ │  09:01:39  L0     → L193   ○ sent      Review complete; the bounded queue looks consistent.                                 3h │
+ │  09:01:36  L0     → L192   ● read      Please verify the checkpoint contract.                                               3h │
+ │  09:01:33  L0     → L195   ◐ delivered The focused checks passed; ready for handoff.                                        3h │
+ │  09:01:30  L0     → L194   ○ sent      Waiting for the migration decision.                                                  3h │
+ │  09:01:27  L0     → L193   ● read      Review complete; the bounded queue looks consistent.                                 3h │
+ │  09:01:24  L0     → L192   ◐ delivered Please verify the checkpoint contract.                                               3h │
+ │  09:01:21  L0     → L195   ○ sent      The focused checks passed; ready for handoff.                                        3h │
+ │  09:01:18  L0     → L194   ● read      Waiting for the migration decision.                                                  3h │
+ │  09:01:15  L0     → L193   ◐ delivered Review complete; the bounded queue looks consistent.                                 3h │
+ │  09:01:12  L0     → L192   ○ sent      Please verify the checkpoint contract.                                               3h │
+ │  09:01:09  L0     → L195   ● read      The focused checks passed; ready for handoff.                                        3h │
+ │  09:01:06  L0     → L194   ◐ delivered Waiting for the migration decision.                                                  3h │
+ │  09:01:03  L0     → L193   ○ sent      Review complete; the bounded queue looks consistent.                                 3h │
+ │  09:01:00  L0     → L192   ● read      Please verify the checkpoint contract.                                               3h │
+ │  09:00:57  L0     → L195   ◐ delivered The focused checks passed; ready for handoff.                                        3h │
+ │  09:00:54  L0     → L194   ○ sent      Waiting for the migration decision.                                                  3h │
+ │  09:00:51  L0     → L193   ● read      Review complete; the bounded queue looks consistent.                                 3h │
+ │  09:00:48  L0     → L192   ◐ delivered Please verify the checkpoint contract.                                               3h │
+ │  09:00:45  L0     → L195   ○ sent      The focused checks passed; ready for handoff.                                        3h │
+ │  09:00:42  L0     → L194   ● read      Waiting for the migration decision.                                                  3h │
+ │  09:00:39  L0     → L193   ◐ delivered Review complete; the bounded queue looks consistent.                                 3h │
+ │  09:00:36  L0     → L192   ○ sent      Please verify the checkpoint contract.                                               3h │
+ │  09:00:33  L0     → L195   ● read      The focused checks passed; ready for handoff.                                        3h │
+ │  09:00:30  L0     → L194   ◐ delivered Waiting for the migration decision.                                                  3h │
+ │  09:00:27  L0     → L193   ○ sent      Review complete; the bounded queue looks consistent.                                 3h │
+ │  09:00:24  L0     → L192   ● read      Please verify the checkpoint contract.                                               3h │
+ │  09:00:21  L0     → L195   ◐ delivered The focused checks passed; ready for handoff.                                        3h │
+ │  09:00:18  L0     → L194   ○ sent      Waiting for the migration decision.                                                  3h │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ / filter  j/k move  ⏎ open  esc back  y copy id  v graph  space fold  : palette  ? help

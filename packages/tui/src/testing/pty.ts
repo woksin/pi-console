@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import xterm from '@xterm/headless';
 
 const { Terminal } = xterm;
-export interface Pty { screen: () => string; send: (keys: string) => void; waitFor: (text: string | RegExp, timeoutMs?: number) => Promise<string>; exit: Promise<number>; kill: () => void }
+export interface Pty { terminal: InstanceType<typeof Terminal>; recording: { at: number; data: string }[]; screen: () => string; send: (keys: string) => void; waitFor: (text: string | RegExp, timeoutMs?: number) => Promise<string>; exit: Promise<number>; kill: () => void }
 
 /** `script` allocates the pty on both macOS and Linux; the flags differ. */
 export function scriptArgs(platform: string, command: string): string[] {
@@ -34,6 +34,8 @@ export function startPty(command: string, options: { cols: number; rows: number;
   const write = (text: string) => { if (!closed) writeSync(input, text); };
   /** The emulator answers the terminal queries OpenTUI sends at startup (cursor position, device attributes). */
   terminal.onData(write);
+  const recording: { at: number; data: string }[] = [];
+  const started = Date.now();
   let offset = 0;
   const tail = setInterval(() => {
     const size = statSync(outputPath).size;
@@ -42,6 +44,7 @@ export function startPty(command: string, options: { cols: number; rows: number;
     readSync(output, chunk, 0, chunk.length, offset);
     offset = size;
     terminal.write(chunk);
+    recording.push({ at: Date.now() - started, data: chunk.toString('utf8') });
   }, 25);
   const exit = new Promise<number>(resolveExit => {
     const watch = setInterval(() => {
@@ -64,5 +67,5 @@ export function startPty(command: string, options: { cols: number; rows: number;
     }
     throw new Error(`Timed out waiting for ${String(text)}. Screen:\n${screen()}`);
   };
-  return { screen, send: write, waitFor, exit, kill: () => { child.kill('SIGKILL'); spawnSync('pkill', ['-KILL', '-f', fifo]); } };
+  return { terminal, recording, screen, send: write, waitFor, exit, kill: () => { child.kill('SIGKILL'); spawnSync('pkill', ['-KILL', '-f', fifo]); } };
 }

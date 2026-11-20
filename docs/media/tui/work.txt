@@ -1,0 +1,40 @@
+ π console  1 Overview  2 Fleet  3 Requests  4 Questions  5 Messages  6 Timeline  7  Work                     ● 19 need you ◉ live
+ ╭─ Work · 3 running · 2 failed ──────────────────────────────────────────────────────────────────────────────────────────────────╮
+ │ ▌× Failed   phase unit checks  exit 1                                                             harbor review             3h │
+ │  × Failed   job   watch inbox  exit 1                                                             aurora explore            3h │
+ │  ⠋ Running  ci    release verification                                                            harbor explore            3h │
+ │  ⠋ Running  phase unit checks                                                                     aurora scout              3h │
+ │  ⠋ Running  job   watch inbox                                                                     aurora coordinator        3h │
+ │  · Unknown  ci    release verification                                                            harbor coordinator        3h │
+ │  · Unknown  phase unit checks                                                                     aurora implementation     3h │
+ │  ✓ Done     job   watch inbox                                                                     harbor implementation     3h │
+ │  ✓ Done     ci    release verification                                                            aurora review             3h │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ │                                                                                                                                │
+ ╰────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+ / filter  j/k move  ⏎ open  esc back  y copy id  v graph  space fold  : palette  ? help
