@@ -1,61 +1,47 @@
-import type { TranscriptRow } from '@pi-console/viewmodels';
-import { useEffect, useRef } from 'react';
+import type { TranscriptLine } from '@pi-console/viewmodels';
+import { useEffect, useRef, useState } from 'react';
+import { useActions } from '../app/commands.ts';
+import { useListNav } from '../app/hooks.ts';
+import { EmptyState } from '../ui/primitives.tsx';
 
-function DiffText({ text }: { text: string }) {
-  return (
-    <pre className="diff">
-      {text.split('\n').map((line, index) => {
-        const kind = line.startsWith('+') && !line.startsWith('+++') ? 'add' : line.startsWith('-') && !line.startsWith('---') ? 'del' : line.startsWith('@@') ? 'hunk' : 'ctx';
-        return <span key={index} className={`diff-${kind}`}>{line}{'\n'}</span>;
-      })}
-    </pre>
-  );
-}
+interface TranscriptProps { lines: readonly TranscriptLine[]; focusEntry: string | null; searching: boolean }
 
-function ToolBody({ row }: { row: TranscriptRow }) {
-  const tool = row.tool;
-  if (!tool) return null;
+/** Every character is rendered as a React text node (escaped); transcript text is never interpreted as markup. */
+export function Transcript({ lines, focusEntry, searching }: TranscriptProps) {
+  const [follow, setFollow] = useState(focusEntry === null);
+  const ids = lines.map(line => line.id);
+  const nav = useListNav(ids, { initial: focusEntry });
+  const end = useRef<HTMLDivElement>(null);
+  useActions(action => { if (action === 'follow.toggle') { setFollow(value => !value); return true; } return false; });
+  const last = lines.at(-1)?.id;
+  useEffect(() => { if (follow) end.current?.scrollIntoView({ block: 'end' }); }, [follow, last, lines.length]);
+  const jumped = useRef<string | null>(null);
+  useEffect(() => {
+    const target = focusEntry && jumped.current !== focusEntry ? document.getElementById(`line-${focusEntry}`) : null;
+    if (!target) return;
+    target.scrollIntoView({ block: 'center' });
+    jumped.current = focusEntry;
+  }, [focusEntry, lines.length]);
+  if (lines.length === 0) return <EmptyState title={searching ? 'No lines match' : 'No transcript yet'} mark="…">{searching ? 'Clear the search to see the whole transcript.' : 'Lines stream in here as the agent works.'}</EmptyState>;
   return (
-    <div className="tool-body">
-      {tool.args && <pre className="args">{tool.args}</pre>}
-      {tool.withheld && <p className="note warn">Result withheld: it looked like a secret.</p>}
-      {!tool.withheld && tool.result && (tool.resultKind === 'diff' ? <DiffText text={tool.result} /> : <pre className={`result kind-${tool.resultKind}`}>{tool.result}</pre>)}
-      {tool.truncated && <p className="note">Result truncated at the daemon.</p>}
+    <div className="transcript" role="log" aria-live="off" aria-label="Transcript lines">
+      <button type="button" className="btn follow" aria-pressed={follow} onClick={() => { setFollow(value => !value); }}>{follow ? '● Following' : '○ Follow tail'} <kbd className="kbd">f</kbd></button>
+      {lines.map(line => <Line key={line.id} line={line} selected={nav.selected === line.id} focused={line.id === focusEntry} onSelect={() => { nav.select(line.id); setFollow(false); }} />)}
+      <div ref={end} />
     </div>
   );
 }
 
-function Body({ row }: { row: TranscriptRow }) {
-  if (row.kind === 'diff') return <DiffText text={row.text} />;
-  if (row.tool) return <ToolBody row={row} />;
-  return <div className="text">{row.text}{row.streaming && <span className="caret" aria-hidden="true" />}</div>;
-}
-
-export function Entry({ row, onToggle }: { row: TranscriptRow; onToggle: (id: string) => void }) {
-  const ref = useRef<HTMLDivElement | null>(null);
-  useEffect(() => { if (row.target) ref.current?.scrollIntoView({ block: 'center' }); }, [row.target]);
-  if (row.reset) {
-    return (
-      <div ref={ref} className="reset-marker" role="separator" data-entry={row.id}>
-        <span>{row.reset.kind} at {row.reset.at}</span>
-        <small>{row.reset.carried.length} requests carried · {row.reset.interrupted.length} interrupted</small>
-      </div>
-    );
-  }
-  const cls = `entry kind-${row.kind}${row.match ? ' match' : ''}${row.target ? ' target' : ''}${row.collapsed ? ' collapsed' : ''}`;
-  const toggle = row.expandable ? (
-    <button type="button" className="entry-head" aria-expanded={!row.collapsed} onClick={() => { onToggle(row.id); }}>
-      <span className="glyph" aria-hidden="true">{row.glyph}</span><span className="who">{row.tool?.name ?? row.label}</span>
-      <span className="summary truncate">{row.collapsed ? row.summary : ''}</span><time className="tnum">{row.at}</time>
-    </button>
-  ) : (
-    <div className="entry-head static"><span className="glyph" aria-hidden="true">{row.glyph}</span><span className="who">{row.label}</span><span className="grow" /><time className="tnum">{row.at}</time></div>
-  );
+function Line({ line, selected, focused, onSelect }: { line: TranscriptLine; selected: boolean; focused: boolean; onSelect: () => void }) {
+  if (line.kind === 'reset') return <div id={`line-${line.id}`} className="reset-marker" role="separator"><span>┃ {line.text || 'context reset'}</span><time>{line.time}</time></div>;
   return (
-    <div ref={ref} className={cls} data-entry={row.id} data-kind={row.kind}>
-      {toggle}
-      {!row.collapsed && <Body row={row} />}
-      {row.requestId && <span className="request-tag" title="Request">{row.requestId}</span>}
+    <div id={`line-${line.id}`} className={`tline kind-${line.kind} tone-${line.color}${selected ? ' selected' : ''}${focused ? ' target' : ''}${line.streaming ? ' streaming' : ''}`} onClick={onSelect} data-kind={line.kind}>
+      <span className="tglyph" aria-hidden="true">{line.glyph}</span>
+      <div className="tbody">
+        <div className="tmeta"><span className="tlabel">{line.label}</span><time>{line.time}</time>{line.streaming && <span className="live-dot">streaming</span>}{line.tool && <span className="tool-name mono">{line.tool.name}</span>}{line.tool?.truncated && <span className="faint">truncated</span>}</div>
+        {line.tool && line.tool.args && <pre className="targs">{line.tool.args}</pre>}
+        <pre className={`ttext${line.tool?.withheld ? ' withheld' : ''}`}>{line.text}</pre>
+      </div>
     </div>
   );
 }

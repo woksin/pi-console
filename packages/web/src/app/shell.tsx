@@ -1,74 +1,61 @@
-import { availableSections, bindingsFor, buildOverview, buildQuestions, sections, type ConsoleState, type SectionId } from '@pi-console/viewmodels';
-import { hrefFor } from './routes.ts';
-import { useConsole } from './hooks.ts';
+import type { ConsoleState } from '../state/state.ts';
 import { Kbd } from '../ui/primitives.tsx';
+import { hrefFor, sectionIds, sectionMeta, type SectionId } from './routes.ts';
 
-export function badgeCounts(state: ConsoleState): Partial<Record<SectionId, number>> {
-  return {
-    overview: buildOverview(state).needs.length,
-    questions: buildQuestions(state, { filter: 'blocking' }).rows.length,
-  };
-}
+interface SidebarProps { active: SectionId | null; settings: boolean; attention: number; questions: number; collapsed: boolean; onCollapse: () => void }
 
-const sectionIcons: Record<SectionId, string> = {
-  overview: '◉', fleet: '▤', requests: '⇄', questions: '?', messages: '⌬', timeline: '▭', work: '⚙', direct: '⌁', activity: '☰',
-};
-
-export function Sidebar({ active, collapsed, onToggle }: { active: string; collapsed: boolean; onToggle: () => void }) {
-  const state = useConsole();
-  const counts = badgeCounts(state);
+export function Sidebar({ active, settings, attention, questions, collapsed, onCollapse }: SidebarProps) {
+  const badge = (id: SectionId): number => (id === 'overview' ? attention : id === 'questions' ? questions : 0);
   return (
     <nav className={`sidebar${collapsed ? ' collapsed' : ''}`} aria-label="Sections">
-      <div className="brand"><span className="logo" aria-hidden="true">π</span><span className="brand-name">console</span></div>
+      <div className="brand"><span className="logo" aria-hidden="true">π</span><span className="brand-name">pi console</span></div>
       <ul>
-        {sections.map(section => {
-          const count = counts[section.id] ?? 0;
-          const unavailable = !availableSections.includes(section.id);
-          return (
-            <li key={section.id}>
-              <a href={hrefFor(section.id)} aria-current={active === section.id ? 'page' : undefined} className={unavailable ? 'dim' : ''} title={`${section.label}: ${section.hint}`}>
-                <span className="nav-icon" aria-hidden="true">{sectionIcons[section.id]}</span>
-                <span className="nav-label">{section.label}</span>
-                {count > 0 && <span className={`nav-badge${section.id === 'overview' ? ' hot' : ''}`} aria-label={`${String(count)} need attention`}>{count}</span>}
-                <Kbd>{section.key}</Kbd>
-              </a>
-            </li>
-          );
-        })}
+        {sectionIds.map((id, index) => (
+          <li key={id}>
+            <a href={hrefFor(id)} aria-current={active === id ? 'page' : undefined} title={sectionMeta[id].hint}>
+              <span className="nav-icon" aria-hidden="true">{sectionMeta[id].icon}</span>
+              <span className="nav-label">{sectionMeta[id].label}</span>
+              {badge(id) > 0 && <span className={`nav-badge${id === 'overview' ? ' hot' : ''}`} aria-label={`${String(badge(id))} waiting`}>{badge(id)}</span>}
+              <Kbd>{index + 1}</Kbd>
+            </a>
+          </li>
+        ))}
       </ul>
       <div className="sidebar-foot">
-        <a href={hrefFor('settings')} aria-current={active === 'settings' ? 'page' : undefined}><span className="nav-icon" aria-hidden="true">⚙</span><span className="nav-label">Settings</span><Kbd>,</Kbd></a>
-        <button type="button" className="collapse" onClick={onToggle} aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}>{collapsed ? '»' : '«'}</button>
+        <a className="navlink" href={hrefFor('settings')} aria-current={settings ? 'page' : undefined}><span className="nav-icon" aria-hidden="true">⚙</span><span className="nav-label">Settings</span><Kbd>,</Kbd></a>
+        <button type="button" className="collapse" onClick={onCollapse} aria-pressed={collapsed}>{collapsed ? '»' : '« Collapse'}</button>
       </div>
     </nav>
   );
 }
 
-const connectionCopy = {
-  connecting: { tone: 'violet', text: 'Connecting to the daemon…' },
-  reconnecting: { tone: 'amber', text: 'Disconnected. Reconnecting and resuming from the last event…' },
-  offline: { tone: 'red', text: 'The daemon is not reachable. Data below may be out of date. Retrying…' },
-  unauthorized: { tone: 'red', text: 'The daemon rejected the token.' },
-  live: { tone: 'green', text: 'Live' },
-} as const;
+const connectionTone: Record<ConsoleState['connection'], string> = { live: 'green', connecting: 'amber', reconnecting: 'amber', offline: 'red', unauthorized: 'red' };
 
-export function ConnectionPill({ state }: { state: ConsoleState }) {
-  const copy = connectionCopy[state.connection];
-  return <span className={`conn tone-${copy.tone}`} role="status"><span className="dot" aria-hidden="true" />{state.connection === 'live' ? 'Live' : state.connection}</span>;
-}
+interface TopBarProps { title: string; hint: string; state: ConsoleState; onPalette: () => void; onHelp: () => void }
 
-export function Banner({ state }: { state: ConsoleState }) {
-  if (state.connection === 'live') return null;
-  const copy = connectionCopy[state.connection];
-  return <div className={`banner tone-${copy.tone}`} role="alert">{copy.text}</div>;
-}
-
-export function KeyHints({ scopes }: { scopes: Parameters<typeof bindingsFor> }) {
-  const hints = bindingsFor(...scopes).filter(binding => !binding.mutating).slice(0, 12);
+export function TopBar({ title, hint, state, onPalette, onHelp }: TopBarProps) {
   return (
-    <footer className="hints" aria-label="Keyboard hints">
-      {hints.map(binding => <span key={binding.description}><Kbd>{binding.keys[0] === ' ' ? 'Space' : binding.keys[0]}</Kbd> {binding.description}</span>)}
-      <span className="grow" /><span><Kbd>?</Kbd> Help</span>
-    </footer>
+    <header className="topbar">
+      <h1 className="crumb">{title}</h1>
+      {hint && <span className="muted">{hint}</span>}
+      <span className="grow" />
+      <span className={`conn tone-${connectionTone[state.connection]}`} role="status" data-connection={state.connection}><span className="dot" />{state.connection}</span>
+      <button type="button" className="btn ghost" onClick={onPalette}>Palette <Kbd>:</Kbd></button>
+      <button type="button" className="btn ghost" onClick={onHelp}>Help <Kbd>?</Kbd></button>
+    </header>
   );
+}
+
+/** Visible stale/disconnected banner: the screen never silently shows old data as live. */
+export function Banner({ state, wall }: { state: ConsoleState; wall: number }) {
+  const silent = state.lastFrameAt > 0 && wall - state.lastFrameAt > 20_000 && state.connection === 'live';
+  if (state.connection === 'live' && !silent) return null;
+  const text = state.connection === 'connecting' ? 'Connecting to the daemon…'
+    : silent ? `No frames for ${String(Math.round((wall - state.lastFrameAt) / 1000))}s: the data below may be stale.`
+      : `Disconnected: showing the last data received${state.seq > 0 ? ` (event ${String(state.seq)})` : ''}. Reconnecting…`;
+  return <div className={`banner tone-${state.connection === 'connecting' ? 'amber' : 'red'}`} role="alert" data-testid="banner">{text}</div>;
+}
+
+export function Hints({ items }: { items: string[] }) {
+  return <footer className="hints" aria-label="Key hints">{items.map(item => { const [key, ...rest] = item.split(' '); return <span key={item}><Kbd>{key}</Kbd>{rest.join(' ')}</span>; })}</footer>;
 }

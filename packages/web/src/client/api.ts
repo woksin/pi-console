@@ -1,5 +1,5 @@
 import type { Event as ApiEvent, AttentionItem, NeedsYou, Transcript, TranscriptEntry } from '@pi-console/contract';
-import type { HealthRecord } from '@pi-console/viewmodels';
+import type { HealthRecord } from '../state/state.ts';
 import { SseParser } from './sse.ts';
 
 export class Unauthorized extends Error {}
@@ -42,12 +42,13 @@ export function createApi(token: string, base = '', fetcher: typeof fetch = (...
 }
 
 async function pump(body: ReadableStream<Uint8Array>, onFrame: (event: ApiEvent | 'heartbeat') => void): Promise<void> {
-  const reader = body.pipeThrough(new TextDecoderStream()).getReader();
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
   const parser = new SseParser();
   for (;;) {
     const { done, value } = await reader.read();
     if (done) return;
-    for (const frame of parser.push(value)) {
+    for (const frame of parser.push(decoder.decode(value, { stream: true }))) {
       if (frame.comment) onFrame('heartbeat');
       else onFrame(JSON.parse(frame.data) as ApiEvent);
     }

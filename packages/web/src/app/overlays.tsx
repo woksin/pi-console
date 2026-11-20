@@ -1,81 +1,64 @@
-import { bindings, fuzzyScore, sections, type ConsoleState } from '@pi-console/viewmodels';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { copyText, navigate } from './hooks.ts';
-import { hrefFor, sessionHref } from './routes.ts';
-import { setPrefs, usePrefs } from './prefs.ts';
-import { themeIds } from './theme.ts';
+import { activeBindings, paletteItems, resolve, type Action, type PaletteItem } from '@pi-console/viewmodels';
+import type { Session } from '@pi-console/contract';
+import { neutralKey } from './keys.ts';
 import { Kbd } from '../ui/primitives.tsx';
 
-interface Action { id: string; label: string; hint: string; run: () => void }
+interface PaletteProps { sessions: readonly Session[]; onClose: () => void; onPick: (item: PaletteItem) => void }
 
-function actionsFor(state: ConsoleState, prefs: ReturnType<typeof usePrefs>): Action[] {
-  const go = sections.map(section => ({ id: `go-${section.id}`, label: `Go to ${section.label}`, hint: section.key, run: () => { navigate(hrefFor(section.id)); } }));
-  const open = state.sessions.map(session => ({ id: `s-${session.id}`, label: `Open ${session.laneId} ${session.name}`, hint: session.id, run: () => { navigate(sessionHref(session.id)); } }));
-  const preferences: Action[] = [
-    { id: 'settings', label: 'Open settings', hint: ',', run: () => { navigate(hrefFor('settings')); } },
-    { id: 'theme', label: `Switch theme (now ${prefs.theme})`, hint: 'theme', run: () => { setPrefs({ theme: themeIds[(themeIds.indexOf(prefs.theme) + 1) % themeIds.length] }); } },
-    { id: 'motion', label: prefs.reducedMotion ? 'Enable motion' : 'Reduce motion', hint: 'motion', run: () => { setPrefs({ reducedMotion: !prefs.reducedMotion }); } },
-    { id: 'link', label: 'Copy link to this view', hint: 'copy', run: () => { void copyText(window.location.href); } },
-  ];
-  return [...go, ...preferences, ...open];
-}
-
-export function Palette({ state, onClose }: { state: ConsoleState; onClose: () => void }) {
-  const prefs = usePrefs();
+/** Command palette: `>` commands, `@` sessions; the shared keymap drives selection in the `palette` context. */
+export function Palette({ sessions, onClose, onPick }: PaletteProps) {
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(0);
-  const input = useRef<HTMLInputElement | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const items = useMemo(() => paletteItems({ sessions, query }), [sessions, query]);
   useEffect(() => { input.current?.focus(); }, []);
-  const results = useMemo(() => actionsFor(state, prefs)
-    .flatMap(action => { const score = fuzzyScore(query, action.label); return score === null ? [] : [{ action, score }]; })
-    .sort((a, b) => a.score - b.score).slice(0, 12).map(item => item.action), [state, prefs, query]);
-  const choose = (action: Action | undefined): void => { if (action) { onClose(); action.run(); } };
+  const active = Math.min(index, Math.max(0, items.length - 1));
+  const onKey = (event: React.KeyboardEvent): void => {
+    const key = neutralKey(event.nativeEvent);
+    const action: Action | undefined = key ? resolve('palette', key === 'Ctrl+N' ? 'ArrowDown' : key === 'Ctrl+K' ? 'ArrowUp' : key) : undefined;
+    if (action === 'move.down' && key !== 'j') setIndex(Math.min(items.length - 1, active + 1));
+    else if (action === 'move.up' && key !== 'k') setIndex(Math.max(0, active - 1));
+    else if (action === 'back') onClose();
+    else if (action === 'open' && items[active]) onPick(items[active]);
+    else return;
+    event.preventDefault();
+  };
   return (
-    <div className="overlay" role="presentation" onClick={onClose}>
-      <div className="dialog palette" role="dialog" aria-modal="true" aria-label="Command palette" onClick={event => { event.stopPropagation(); }}>
-        <input ref={input} value={query} placeholder="Type a command or a session…" spellCheck={false} role="combobox" aria-expanded aria-controls="palette-list"
-          onChange={event => { setQuery(event.target.value); setIndex(0); }}
-          onKeyDown={event => {
-            if (event.key === 'Escape') onClose();
-            else if (event.key === 'ArrowDown' || (event.ctrlKey && event.key === 'n')) { event.preventDefault(); setIndex(value => Math.min(results.length - 1, value + 1)); }
-            else if (event.key === 'ArrowUp' || (event.ctrlKey && event.key === 'p')) { event.preventDefault(); setIndex(value => Math.max(0, value - 1)); }
-            else if (event.key === 'Enter') choose(results[index]);
-          }} />
+    <div className="overlay" onMouseDown={onClose}>
+      <div className="dialog palette" role="dialog" aria-modal="true" aria-label="Command palette" onMouseDown={event => { event.stopPropagation(); }}>
+        <input ref={input} value={query} placeholder="Type a command or session…  (> commands, @ sessions)" spellCheck={false} autoComplete="off"
+          role="combobox" aria-expanded="true" aria-controls="palette-list" aria-activedescendant={items[active] ? `pal-${items[active].id}` : undefined}
+          onChange={event => { setQuery(event.target.value); setIndex(0); }} onKeyDown={onKey} />
         <ul id="palette-list" role="listbox">
-          {results.map((action, position) => (
-            <li key={action.id} role="option" aria-selected={position === index} className={position === index ? 'active' : ''} onMouseEnter={() => { setIndex(position); }} onClick={() => { choose(action); }}>
-              <span>{action.label}</span><span className="muted mono small">{action.hint}</span>
+          {items.map((item, position) => (
+            <li key={item.id} id={`pal-${item.id}`} role="option" aria-selected={position === active} className={position === active ? 'active' : ''}
+              onMouseEnter={() => { setIndex(position); }} onMouseDown={() => { onPick(item); }}>
+              <span className="pal-group">{item.group}</span><span className="grow truncate">{item.label}</span>
+              <span className="muted small truncate">{item.detail}</span>{item.key && <Kbd>{item.key}</Kbd>}
             </li>
           ))}
-          {results.length === 0 && <li className="muted">No matches</li>}
+          {items.length === 0 && <li className="muted pal-empty">No matches</li>}
         </ul>
       </div>
     </div>
   );
 }
 
+/** Help is generated from the one keymap, so it can never disagree with what the keys do. */
 export function Help({ onClose }: { onClose: () => void }) {
-  const groups = ['global', 'list', 'transcript', 'graph', 'timeline'] as const;
-  const names = { global: 'Everywhere', list: 'Lists', transcript: 'Transcript', graph: 'Graph', timeline: 'Timeline' };
-  useEffect(() => {
-    const close = (event: KeyboardEvent): void => { if (event.key === 'Escape' || event.key === '?') onClose(); };
-    window.addEventListener('keydown', close);
-    return () => { window.removeEventListener('keydown', close); };
-  }, [onClose]);
+  const closer = useRef<HTMLButtonElement>(null);
+  useEffect(() => { closer.current?.focus(); }, []);
   return (
-    <div className="overlay" role="presentation" onClick={onClose}>
-      <div className="dialog help" role="dialog" aria-modal="true" aria-label="Keyboard help" onClick={event => { event.stopPropagation(); }}>
-        <h2>Keyboard</h2>
-        <div className="help-grid">
-          {groups.map(scope => (
-            <section key={scope}><h3>{names[scope]}</h3>
-              <dl>{bindings.filter(binding => binding.scope === scope && !/^[2-9]$/.test(binding.keys[0])).map(binding => (
-                <div key={binding.description}><dt>{binding.keys.map(key => <Kbd key={key}>{key === ' ' ? 'Space' : key}</Kbd>)}</dt><dd>{binding.keys[0] === '1' ? 'Switch section (1 to 9)' : binding.description}</dd></div>
-              ))}</dl>
-            </section>
+    <div className="overlay" onMouseDown={onClose}>
+      <div className="dialog help" role="dialog" aria-modal="true" aria-label="Keyboard help" onMouseDown={event => { event.stopPropagation(); }}>
+        <header className="help-head"><h2>Keyboard</h2><button ref={closer} type="button" className="btn ghost" onClick={onClose}>Close <Kbd>Esc</Kbd></button></header>
+        <p className="muted">Read-only console: nothing here can change a session. Same keys as the terminal UI.</p>
+        <dl className="help-list">
+          {activeBindings.map(binding => (
+            <div key={binding.action}><dt>{binding.keys.map(key => <Kbd key={key}>{key}</Kbd>)}</dt><dd>{binding.label}</dd></div>
           ))}
-        </div>
-        <p className="muted small">Destructive keys are uppercase and always confirm. In this release the console is read-only: mutating keys explain themselves and do nothing.</p>
+        </dl>
       </div>
     </div>
   );

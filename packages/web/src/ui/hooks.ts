@@ -20,3 +20,10 @@ export function useScrollIntoView<T extends HTMLElement>(active: boolean): React
   useEffect(() => { if (active) ref.current?.scrollIntoView({ block: 'nearest' }); }, [active]);
   return ref;
 }
+
+/** Wall-clock time that re-renders its component every `ms`: ages and the stale banner stay honest between events. */
+export function useTick(ms: number): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => { const timer = window.setInterval(() => { setNow(Date.now()); }, ms); return () => { window.clearInterval(timer); }; }, [ms]);
+  return now;
+}

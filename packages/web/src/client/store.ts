@@ -1,5 +1,6 @@
 import type { Event as ApiEvent } from '@pi-console/contract';
-import { applyEvent, emptyState, mergeTranscript, type Connection, type ConsoleState } from '@pi-console/viewmodels';
+import { applyEvent, mergeTranscript } from '../state/reduce.ts';
+import { emptyState, type Connection, type ConsoleState } from '../state/state.ts';
 import { Unauthorized, type Api } from './api.ts';
 
 export interface Clock { now(): number; setTimeout(callback: () => void, ms: number): number; clearTimeout(id: number): void }
@@ -101,8 +102,8 @@ export class ConsoleStore {
   #frame(frame: ApiEvent | 'heartbeat'): void {
     this.#attempt = 0;
     const now = this.#clock.now();
-    if (frame === 'heartbeat') { this.#set({ ...this.#state, lastFrameAt: now, connection: 'live' }); return; }
-    this.#set({ ...applyEvent(this.#state, frame), lastFrameAt: now, connection: 'live' });
+    if (frame === 'heartbeat') { this.#set({ ...this.#state, lastFrameAt: now, connection: 'live', received: this.#state.received + 1 }); return; }
+    this.#set({ ...applyEvent(this.#state, frame), lastFrameAt: now, connection: 'live', received: this.#state.received + 1 });
     this.#scheduleRefresh();
   }
 
@@ -116,24 +117,23 @@ export class ConsoleStore {
     const [needsYou, health] = await Promise.all([this.#api.needsYou().catch(() => null), this.#api.health().catch(() => null)]);
     this.#set({ ...this.#state, needsYou: needsYou ?? this.#state.needsYou, health: health ?? this.#state.health });
   }
-
-  /** Loads a session's transcript history once per gap; the live tail arrives over the stream. */
-  loadTranscript(sessionId: string): Promise<void> {
-    const key = `${sessionId}:${String(this.#state.gapCount)}`;
+  /** Loads a session's transcript history once per gap; the live tail arrives over the stream. `focus` pages on until that entry is present. */
+  loadTranscript(sessionId: string, focus: string | null = null): Promise<void> {
+    const key = `${sessionId}:${String(this.#state.gapCount)}:${focus ?? ''}`;
     const existing = this.#loaded.get(key);
     if (existing) return existing;
-    const task = this.#fetchTranscript(sessionId);
+    const task = this.#fetchTranscript(sessionId, focus);
     this.#loaded.set(key, task);
     return task;
   }
 
-  async #fetchTranscript(sessionId: string): Promise<void> {
+  async #fetchTranscript(sessionId: string, focus: string | null): Promise<void> {
     let after = 0;
-    for (let page = 0; page < 5; page++) {
+    for (let page = 0; page < (focus ? 40 : 5); page++) {
       const result = await this.#api.transcript(sessionId, after, 1000).catch(() => null);
       if (!result) return;
-      this.#set(mergeTranscript(this.#state, sessionId, result.items));
-      if (!result.hasMore) return;
+      this.#set(mergeTranscript(this.#state, sessionId, result.items, focus !== null));
+      if (!result.hasMore || (focus !== null && result.items.some(item => item.id === focus))) return;
       after = result.nextCursor;
     }
   }

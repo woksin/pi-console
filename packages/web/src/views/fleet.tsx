@@ -1,85 +1,66 @@
-import { buildFleet, fleetFilters, type FleetGrouping, type FleetRow } from '@pi-console/viewmodels';
+import { fleetViewModel, type FleetRow, type SessionRow } from '@pi-console/viewmodels';
 import { useMemo, useRef, useState } from 'react';
-import { copyText, navigate, useConsole, useSelection } from '../app/hooks.ts';
-import { useCommands } from '../app/commands.ts';
+import type { ViewProps } from '../app/view.tsx';
+import { navigate, useListNav, useSearchFocus } from '../app/hooks.ts';
+import { useActions } from '../app/commands.ts';
 import { sessionHref } from '../app/routes.ts';
 import { EmptyState, PressureBar, SearchBox, Sparkline, StatusBadge } from '../ui/primitives.tsx';
 import { useChangeFlash, useScrollIntoView } from '../ui/hooks.ts';
-import { useViewFocus } from '../app/focus.ts';
 
-function Row({ row, selected, onSelect }: { row: FleetRow; selected: boolean; onSelect: () => void }) {
-  const flash = useChangeFlash(row.badge.status);
-  const ref = useScrollIntoView<HTMLTableRowElement>(selected);
+const rowKey = (row: FleetRow): string => (row.kind === 'group' ? `group:${row.id}` : row.id);
+
+export function FleetView({ state, now }: ViewProps) {
+  const [query, setQuery] = useState('');
+  const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
+  const search = useRef<HTMLInputElement>(null);
+  useSearchFocus(search);
+  const view = useMemo(() => fleetViewModel({ sessions: state.sessions, now, query, collapsed }), [state.sessions, now, query, collapsed]);
+  const ids = view.rows.map(rowKey);
+  const nav = useListNav(ids, { onOpen: id => { if (!id.startsWith('group:')) navigate(sessionHref(id)); } });
+  const toggle = (group: string): void => setCollapsed(current => { const next = new Set(current); if (!next.delete(group)) next.add(group); return next; });
+  useActions(action => {
+    if (action !== 'group.toggle' || !nav.selected?.startsWith('group:')) return false;
+    toggle(nav.selected.slice('group:'.length));
+    return true;
+  });
   return (
-    <tr ref={ref} className={`row${selected ? ' selected' : ''}${flash ? ' flash' : ''}${row.attention ? ' attention' : ''}`} aria-selected={selected}
-      onClick={onSelect} onDoubleClick={() => { navigate(sessionHref(row.id)); }}>
-      <td className="col-status"><StatusBadge badge={row.badge} /></td>
-      <td className={`col-name depth-${String(row.depth)}`}><a href={sessionHref(row.id)}>{row.name}</a>{row.subagents > 0 && <span className="pill">{row.subagents} sub</span>}</td>
-      <td className="mono">{row.laneId}</td>
-      <td className="mono muted truncate">{row.branch}</td>
-      <td className="muted">{row.model}</td>
-      <td className="col-context"><PressureBar pressure={row.pressure} /></td>
-      <td><Sparkline values={row.trend} width={84} height={20} label="Context trend" /></td>
-      <td className="num">{row.openRequests > 0 ? <span className="pill amber">{row.openRequests}</span> : <span className="muted">–</span>}</td>
-      <td className="num muted tnum">{row.active}</td>
+    <div className="page">
+      <div className="toolbar"><SearchBox value={query} onChange={setQuery} placeholder="Filter sessions, lanes, branches…" inputRef={search} /><span className="muted">{view.matched} of {view.sessionCount} sessions</span></div>
+      {view.rows.length === 0 ? <EmptyState title={view.sessionCount === 0 ? 'No sessions yet' : 'No sessions match'}>{view.sessionCount === 0 ? 'Sessions appear as soon as the daemon sees agent activity.' : 'Clear the filter to see the whole fleet.'}</EmptyState> : (
+        <table className="grid" aria-label="Fleet">
+          <thead><tr><th>Session</th><th>Status</th><th>Context</th><th>Trend</th><th>Model</th><th className="num">Cost</th><th className="num">Age</th></tr></thead>
+          <tbody>{view.rows.map(row => row.kind === 'group'
+            ? <GroupRow key={rowKey(row)} row={row} selected={nav.selected === rowKey(row)} onToggle={() => { nav.select(rowKey(row)); setCollapsed(current => { const next = new Set(current); if (!next.delete(row.id)) next.add(row.id); return next; }); }} />
+            : <SessionLine key={row.id} row={row} selected={nav.selected === row.id} />)}</tbody>
+        </table>)}
+    </div>
+  );
+}
+
+function GroupRow({ row, selected, onToggle }: { row: Extract<FleetRow, { kind: 'group' }>; selected: boolean; onToggle: () => void }) {
+  return (
+    <tr className={`group-row${selected ? ' selected' : ''}`}><th colSpan={7} scope="colgroup">
+      <button type="button" className="group-toggle" aria-expanded={!row.collapsed} onClick={onToggle}>
+        <span aria-hidden="true">{row.collapsed ? '▸' : '▾'}</span> {row.label} <span className="pill">{row.sessions}</span>{row.attention > 0 && <span className="pill amber">{row.attention} need attention</span>}
+      </button>
+    </th></tr>
+  );
+}
+
+function SessionLine({ row, selected }: { row: SessionRow; selected: boolean }) {
+  const ref = useScrollIntoView<HTMLTableRowElement>(selected);
+  const flash = useChangeFlash(row.status.status);
+  const attention = row.status.status === 'needs-you' || row.status.status === 'blocked' || row.status.status === 'failed';
+  return (
+    <tr ref={ref} className={`row${selected ? ' selected' : ''}${flash ? ' flash' : ''}${attention ? ' attention' : ''}`} data-session={row.id} aria-selected={selected}>
+      <td><a href={sessionHref(row.id)} style={{ paddingLeft: `${String(row.depth * 18)}px` }}>{row.depth > 0 && <span className="faint" aria-hidden="true">↳ </span>}{row.name}</a><div className="faint small" style={{ paddingLeft: `${String(row.depth * 18)}px` }}>{row.lane} · {row.branch}</div></td>
+      <td><StatusBadge cell={row.status} /></td>
+      <td><PressureBar percent={row.contextPercent} pressure={row.pressure} /></td>
+      <td><Sparkline values={sparkValues(row.spark)} width={72} height={20} tone={row.pressure === 'hot' ? 'red' : row.pressure === 'warm' ? 'amber' : 'cyan'} label={`${row.name} context trend`} /></td>
+      <td className="muted truncate">{row.model}</td><td className="num tnum">{row.cost}</td><td className="num tnum muted">{row.age}</td>
     </tr>
   );
 }
 
-export function FleetView() {
-  const state = useConsole();
-  const [filter, setFilter] = useState('');
-  const [grouping, setGrouping] = useState<FleetGrouping>('repository');
-  const [collapsed, setCollapsed] = useState<string[]>([]);
-  const search = useRef<HTMLInputElement | null>(null);
-  const model = useMemo(() => buildFleet(state, { filter, grouping, collapsed }), [state, filter, grouping, collapsed]);
-  const [selected, setSelected, move, jump] = useSelection(model.order);
-  const savedIndex = fleetFilters.indexOf(filter as typeof fleetFilters[number]);
-  const step = (delta: number): void => { setFilter(fleetFilters[(Math.max(0, savedIndex) + delta + fleetFilters.length) % fleetFilters.length]); };
-  useViewFocus(search);
-  useCommands(command => {
-    switch (command.type) {
-      case 'move': move(command.delta); return true;
-      case 'top': case 'bottom': jump(command.type); return true;
-      case 'open': if (selected) navigate(sessionHref(selected)); return selected !== null;
-      case 'copyId': if (selected) void copyText(selected); return selected !== null;
-      case 'prevFilter': step(-1); return true;
-      case 'nextFilter': step(1); return true;
-      case 'toggle': {
-        const group = model.groups.find(item => item.rows.some(row => row.id === selected));
-        if (group) setCollapsed(list => list.includes(group.id) ? list.filter(id => id !== group.id) : [...list, group.id]);
-        return group !== undefined;
-      }
-      default: return false;
-    }
-  });
-  if (model.empty) return <div className="page"><EmptyState title="No pi sessions found yet." mark="◇">Sources checked: the pi session directory and the lane registry. Backfill progress shows here once the daemon has read them.</EmptyState></div>;
-  return (
-    <div className="page">
-      <header className="toolbar">
-        <SearchBox value={filter} onChange={setFilter} placeholder="Filter sessions (status:working repo name…)" inputRef={search} />
-        <div className="seg" role="group" aria-label="Saved filters">
-          {fleetFilters.map(saved => <button key={saved} type="button" aria-pressed={saved === filter} onClick={() => { setFilter(saved); }}>{saved === '' ? 'All' : saved.replace('status:', '')}</button>)}
-        </div>
-        <div className="seg" role="group" aria-label="Group by">
-          {(['repository', 'status'] as const).map(option => <button key={option} type="button" aria-pressed={grouping === option} onClick={() => { setGrouping(option); }}>{option}</button>)}
-        </div>
-        <span className="muted tnum grow end">{model.summary}</span>
-      </header>
-      <table className="grid fleet">
-        <thead><tr><th>Status</th><th>Session</th><th>Lane</th><th>Branch</th><th>Model</th><th>Context</th><th>Trend</th><th className="num">Open</th><th className="num">Active</th></tr></thead>
-        {model.groups.map(group => (
-          <tbody key={group.id}>
-            <tr className="group-row"><th colSpan={9}>
-              <button type="button" className="group-toggle" aria-expanded={!group.collapsed} onClick={() => { setCollapsed(list => list.includes(group.id) ? list.filter(id => id !== group.id) : [...list, group.id]); }}>
-                <span aria-hidden="true">{group.collapsed ? '▸' : '▾'}</span> {group.name} <span className="muted">{group.count}</span>
-              </button>
-            </th></tr>
-            {!group.collapsed && group.rows.map(row => <Row key={row.id} row={row} selected={row.id === selected} onSelect={() => { setSelected(row.id); }} />)}
-          </tbody>
-        ))}
-      </table>
-      {model.shown === 0 && <EmptyState title="No sessions match this filter." mark="⌕">Press Esc in the filter box to clear it.</EmptyState>}
-    </div>
-  );
-}
+/** The view model carries the trend as block glyphs (shared with the TUI); read their heights back as numbers for the SVG line. */
+const sparkValues = (glyphs: string): number[] => Array.from(glyphs, glyph => '▁▂▃▄▅▆▇█'.indexOf(glyph) + 1);

@@ -14,7 +14,7 @@
 .pressure-fill { background-size: 220px 100%; }
 .pressure-tick { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--text); opacity: 0.55; }
 .pressure-label { width: 34px; text-align: right; color: var(--muted); font-size: 11.5px; }
-.pressure.level-high .pressure-label { color: var(--red); font-weight: 700; } .pressure.level-warn .pressure-label { color: var(--amber); }
+.pressure.level-hot .pressure-label { color: var(--red); font-weight: 700; } .pressure.level-warm .pressure-label { color: var(--amber); }
 .spark { display: block; } .spark-line { fill: none; stroke: var(--tone, var(--cyan)); stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
 .spark-fill { fill: color-mix(in oklab, var(--tone, var(--cyan)) 18%, transparent); stroke: none; } .spark-mark { stroke: var(--pink); stroke-width: 1; stroke-dasharray: 2 2; }
 .empty { display: grid; justify-items: center; gap: 8px; text-align: center; padding: 56px 24px; color: var(--muted); max-width: 520px; margin: 0 auto; }

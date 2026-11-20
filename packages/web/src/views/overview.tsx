@@ -1,104 +1,49 @@
-import { buildOverview, type NeedCard, type OverviewViewModel } from '@pi-console/viewmodels';
+import { overviewViewModel } from '@pi-console/viewmodels';
 import { useMemo } from 'react';
-import { navigate, useConsole } from '../app/hooks.ts';
-import { useCommands } from '../app/commands.ts';
+import type { ViewProps } from '../app/view.tsx';
+import { navigate, useListNav } from '../app/hooks.ts';
 import { sessionHref } from '../app/routes.ts';
-import { useSelection } from '../app/hooks.ts';
-import { EmptyState, Kbd, Panel, PressureBar, Sparkline, StatusBadge } from '../ui/primitives.tsx';
+import { EmptyState, Panel, Sparkline, StatusBadge } from '../ui/primitives.tsx';
 import { useScrollIntoView } from '../ui/hooks.ts';
 
-function Card({ card, selected, onSelect }: { card: NeedCard; selected: boolean; onSelect: () => void }) {
-  const ref = useScrollIntoView<HTMLElement>(selected);
-  const open = (): void => { if (card.session) navigate(sessionHref(card.session.id, card.pointer?.entryId)); };
-  return (
-    <article ref={ref} className={`card tone-${card.badge.color}${selected ? ' selected' : ''}`} aria-current={selected} onClick={onSelect}>
-      <header className="card-head">
-        <StatusBadge badge={card.badge} />
-        <strong>{card.title}</strong>
-        <span className="muted grow">{card.session?.label ?? 'No session'}</span>
-        <time className="muted tnum">{card.age}</time>
-      </header>
-      <p className="card-text">{card.text}</p>
-      {card.question && (
-        <div className="options" aria-label="Answer options (read-only in M1)">
-          {card.question.options.map(option => (
-            <button key={option.key} type="button" className="chip" disabled title="Read-only in M1: answering arrives with control features">
-              <Kbd>{option.key}</Kbd>{option.text}
-            </button>
-          ))}
-        </div>
-      )}
-      <footer className="card-foot">
-        {card.request && <span className="muted">{card.request.origin} · {card.request.status}</span>}
-        <span className="grow" />
-        <button type="button" className="btn primary" disabled={!card.session} onClick={open}>
-          {card.pointer ? 'Open at the request' : 'Open session'} <Kbd>↵</Kbd>
-        </button>
-      </footer>
-    </article>
-  );
-}
-
-function Hero({ model }: { model: OverviewViewModel }) {
-  return (
-    <header className={`hero${model.empty ? ' calm' : ''}`}>
-      <span className="hero-orb" aria-hidden="true" />
-      <div>
-        <h1>{model.headline}</h1>
-        <p className="muted">{model.working.ratioText} working · median context {model.working.contextMedian}% · {model.working.cost} spent this window</p>
-      </div>
-    </header>
-  );
-}
-
-function WorkingPanel({ model }: { model: OverviewViewModel }) {
-  const { working } = model;
-  return (
-    <Panel title="Working" aside={working.ratioText}>
-      <div className="meter" role="img" aria-label={working.ratioText}><span style={{ width: `${String(Math.round(working.ratio * 100))}%` }} /></div>
-      <div className="spark-wide"><Sparkline values={working.tokenTrend} width={320} height={64} fill label="Token burn" /></div>
-      <p className="muted small">Fleet token burn per sample</p>
-      <ul className="mini-list">
-        {working.sessions.map(session => (
-          <li key={session.id}><a href={sessionHref(session.id)}>{session.laneId} {session.name}</a><PressureBar pressure={session.pressure} /></li>
-        ))}
-      </ul>
-    </Panel>
-  );
-}
-
-export function OverviewView() {
-  const state = useConsole();
-  const model = useMemo(() => buildOverview(state), [state]);
-  const [selected, setSelected, move, jump] = useSelection(model.needs.map(card => card.id));
-  useCommands(command => {
-    if (command.type === 'move') { move(command.delta); return true; }
-    if (command.type === 'top' || command.type === 'bottom') { jump(command.type); return true; }
-    if (command.type !== 'open') return false;
-    const card = model.needs.find(item => item.id === selected);
-    if (card?.session) navigate(sessionHref(card.session.id, card.pointer?.entryId));
-    return card !== undefined;
-  });
+export function OverviewView({ state, now }: ViewProps) {
+  const view = useMemo(() => overviewViewModel({ needsYou: state.needsYou, sessions: state.sessions, repositories: state.repositories.length, now }), [state.needsYou, state.sessions, state.repositories.length, now]);
+  const byId = new Map(view.cards.map(card => [card.id, card]));
+  const nav = useListNav(view.cards.map(card => card.id), { onOpen: id => { const card = byId.get(id); if (card?.sessionId) navigate(sessionHref(card.sessionId, card.pointer?.entryId)); } });
   return (
     <div className="page overview">
-      <Hero model={model} />
-      <div className="columns two">
-        <section aria-label="Needs you" className="stack">
-          {model.empty && <EmptyState title="Nothing needs you." mark="◌">Agents ask here when they need you. {model.working.count} working right now.</EmptyState>}
-          {model.needs.map(card => <Card key={card.id} card={card} selected={card.id === selected} onSelect={() => { setSelected(card.id); }} />)}
-        </section>
-        <aside className="stack">
-          <WorkingPanel model={model} />
-          {model.blocked.length > 0 && (
-            <Panel title="Blocked or failed" aside={String(model.blocked.length)}>
-              <ul className="mini-list">{model.blocked.map(session => <li key={session.id}><a href={sessionHref(session.id)}>{session.laneId} {session.name}</a><StatusBadge badge={session.badge} /></li>)}</ul>
-            </Panel>
-          )}
-          <Panel title="Host">
-            <dl className="kv">{model.host.map(row => <div key={row.label}><dt>{row.label}</dt><dd>{row.value}</dd></div>)}</dl>
+      <section className={`hero${view.cards.length === 0 ? ' clear' : ''}`} aria-labelledby="needs-you">
+        <h2 id="needs-you" className="hero-title">{view.headline}</h2>
+        <p className="muted">Ranked by the daemon. Open an item to jump to the exact line in its session.</p>
+      </section>
+      <div className="overview-grid">
+        <ol className="cards" aria-label="Needs you">
+          {view.cards.map(card => <AttentionCard key={card.id} card={card} selected={nav.selected === card.id} onSelect={() => { nav.select(card.id); }} />)}
+          {view.cards.length === 0 && <li><EmptyState title="Nothing needs you" mark="✓">Open requests, blocking questions and stale sessions appear here the moment they exist.</EmptyState></li>}
+        </ol>
+        <aside className="rail">
+          <Panel title="Fleet" aside={`${String(view.fleet.repositories)} repositories`}>
+            <dl className="kv"><div><dt>Sessions</dt><dd>{view.fleet.sessions}</dd></div><div><dt>Working</dt><dd>{view.fleet.working}</dd></div><div><dt>Tokens</dt><dd>{view.fleet.tokens}</dd></div><div><dt>Cost</dt><dd>{view.fleet.cost}</dd></div></dl>
+            <Sparkline values={view.fleet.contextSeries} width={240} height={44} fill label="Fleet context pressure" />
+            <span className="faint small">Average context use across the fleet</span>
+          </Panel>
+          <Panel title="By status">
+            <ul className="mini-list">{view.counts.map(entry => <li key={entry.status.status}><StatusBadge cell={entry.status} /><span className="tnum">{entry.count}</span></li>)}</ul>
           </Panel>
         </aside>
       </div>
     </div>
+  );
+}
+
+function AttentionCard({ card, selected, onSelect }: { card: ReturnType<typeof overviewViewModel>['cards'][number]; selected: boolean; onSelect: () => void }) {
+  const ref = useScrollIntoView<HTMLLIElement>(selected);
+  return (
+    <li ref={ref} className={`card tone-${card.status.color}${selected ? ' selected' : ''}`} data-reason={card.reason} aria-current={selected || undefined} onClick={onSelect}>
+      <div className="card-head"><StatusBadge cell={card.status} /><strong>{card.reasonLabel}</strong><span className="grow" /><span className="faint tnum">{card.age}</span></div>
+      <div className="card-title">{card.title}</div>
+      <p className="card-text">{card.text}</p>
+      {card.sessionId && <a className="btn ghost" href={sessionHref(card.sessionId, card.pointer?.entryId)}>Open in session →</a>}
+    </li>
   );
 }

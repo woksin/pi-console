@@ -2,20 +2,12 @@
   "extends": "../../tsconfig.packages.json",
   "compilerOptions": {
     "rootDir": "src",
-    "outDir": "dist"
+    "outDir": "dist",
+    "jsx": "react-jsx",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": ["node", "vite/client"]
   },
-  "include": [
-    "src"
-  ],
-  "references": [
-    {
-      "path": "../contract"
-    },
-    {
-      "path": "../viewmodels"
-    }
-  ],
-  "exclude": [
-    "src/generated"
-  ]
+  "include": ["src"],
+  "references": [{ "path": "../contract" }, { "path": "../viewmodels" }],
+  "exclude": ["src/generated"]
 }

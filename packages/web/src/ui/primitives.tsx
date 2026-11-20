@@ -1,25 +1,25 @@
 import type { ReactNode } from 'react';
-import { pressureThresholds, type Badge, type Pressure } from '@pi-console/viewmodels';
+import type { Pressure, StatusCell } from '@pi-console/viewmodels';
 
-export function StatusBadge({ badge, compact = false }: { badge: Badge; compact?: boolean }) {
+export function StatusBadge({ cell, compact = false }: { cell: StatusCell; compact?: boolean }) {
   return (
-    <span className={`badge tone-${badge.color}`} data-status={badge.status} title={badge.label}>
-      <span className="badge-glyph" aria-hidden="true">{badge.glyph}</span>
-      <span className={compact ? 'badge-label sr-only' : 'badge-label'}>{badge.label}</span>
+    <span className={`badge tone-${cell.color}`} data-status={cell.status} title={cell.label}>
+      <span className="badge-glyph" aria-hidden="true">{cell.glyph}</span>
+      <span className={compact ? 'badge-label sr-only' : 'badge-label'}>{cell.label}</span>
     </span>
   );
 }
 
-/** Context-pressure bar: green→amber→red gradient, soft and handoff thresholds drawn as ticks. */
-export function PressureBar({ pressure, wide = false }: { pressure: Pressure; wide?: boolean }) {
+/** Context-pressure bar: green→amber→red gradient with the 60% and 80% bands (the TUI's calm/warm/hot) drawn as ticks. */
+export function PressureBar({ percent, pressure }: { percent: number; pressure: Pressure }) {
   return (
-    <span className={`pressure level-${pressure.level}${wide ? ' wide' : ''}`} role="img" aria-label={`Context ${pressure.label}`}>
+    <span className={`pressure level-${pressure}`} role="img" aria-label={`Context ${String(percent)}%, ${pressure}`}>
       <span className="pressure-track">
-        <span className="pressure-fill" style={{ width: `${String(pressure.percent)}%` }} />
-        <span className="pressure-tick" style={{ left: `${String(pressureThresholds.soft)}%` }} />
-        <span className="pressure-tick" style={{ left: `${String(pressureThresholds.handoff)}%` }} />
+        <span className="pressure-fill" style={{ width: `${String(percent)}%` }} />
+        <span className="pressure-tick" style={{ left: '60%' }} />
+        <span className="pressure-tick" style={{ left: '80%' }} />
       </span>
-      <span className="pressure-label">{pressure.label}</span>
+      <span className="pressure-label">{percent}%</span>
     </span>
   );
 }
