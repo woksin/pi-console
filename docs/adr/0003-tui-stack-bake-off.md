@@ -44,7 +44,7 @@ Bake-off protocol (details in [milestones.md](../milestones.md#m0-spikes)):
 - The same two screens in each stack: **fleet overview** and **session detail with a live streaming transcript**, driven by **recorded fixture data** (a replayable event stream, so every stack renders identical content), including a reset marker, an interrupted request, a context-pressure sparkline and a status-colour gradient.
 - Compare screenshots and screen recordings side by side; also record frame time and CPU while streaming 5,000 lines per second of synthetic transcript, resize behaviour, mouse and overlay behaviour (a command palette over the screen), and 16-colour and 256-colour degrade.
 - Scoring uses the criteria above in order; the owner reviews screenshots and recordings. A stack that cannot deliver the signature views (graph canvas, swimlane timeline) at acceptable quality is out.
-- Ties on visual quality are broken by testability, distribution and maintenance, then by pi and TypeScript fit.
+- Ranking is lexicographic: visual quality decides first; ties go to UX and interaction quality (animation, streaming, mouse, overlays, layout); only if still tied do testability, distribution, maintenance and pi and TypeScript fit decide, in that order.
 
 Fixed regardless of the winner:
 

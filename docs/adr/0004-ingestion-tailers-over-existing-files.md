@@ -37,5 +37,5 @@ Option 3, tailers first.
 - Works with today's pi setup without changing any other repository.
 - Ingestion lag is visible per source and shown in the UI.
 - A large, careful ingestion layer (17 sources) is the main implementation risk; the MVP covers sessions, context-budget, lanes and messages, question store, jobs and phases ([milestones](../milestones.md)) and defers the rest.
-- Volatile sources (subagent outputs) must be indexed early or snapshotted on first sight.
+- Volatile sources (subagent `.output` transcripts and workflow journals under the temporary directory) are captured, not just indexed: the adapter makes a **durable, redacted copy-on-index** under the console data directory (`blobs/`) as the files grow, and projections read the copy. An offset index cannot preserve a transcript the operating system deletes. Required spec: ingest a fixture, delete the source file, then replay and read the transcript from the copy.
 - Source formats are owned by other tools and can change; each adapter has fixture-based specs and a schema-version guard that stops and reports on an unknown version instead of guessing.

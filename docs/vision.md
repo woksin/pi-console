@@ -21,7 +21,7 @@ pi runs many long-lived sessions: a coordinator, repository orchestrators, worke
 A professional, persistent console for the whole local pi setup, with two front ends over one daemon:
 
 - a **web UI** on localhost that can optionally be self-hosted for remote control;
-- a **TUI** for the terminal, built on pi's own TUI library.
+- a **TUI** for the terminal, with the toolkit chosen by a visual bake-off in milestone M0 ([ADR-0003](adr/0003-tui-stack-bake-off.md)).
 
 It visualises work, requests, answers, questions, lanes, orchestrators, sessions, subagents and AI-to-AI messages; it lets the human answer, interject, pause and abort; and it is event-sourced so the full history is auditable and can be learned from.
 

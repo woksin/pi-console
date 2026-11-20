@@ -41,11 +41,14 @@ Groups, with the source each event comes from ([research summary](research-summa
 
 | Event | Notes |
 |---|---|
-| `RequestObserved` | A human-origin prompt (id, session, text pointer, origin) |
+| `RequestObserved` | A prompt that needs an answer: id, session, text pointer, `origin` (`human`, `launch` for a non-relaunch initial prompt, or `unproven`), `originEvidence`. Origin is set only from positive evidence ([ADR-0008](adr/0008-relationship-to-intent-memory.md)); `launch` and `unproven` are labelled in the UI and never shown as the user's words |
 | `AnswerObserved` | Assistant final message for a request, or an interim answer (flag) |
 | `RequestInterrupted` | Run ended at a reset or abort before a final answer |
 | `RequestMarkedUnanswered` | Derived by projection, not emitted by adapters |
 | `RequestSeen` | Console-only display state ("seen"); never changes the source |
+| `RequestClosed` | From the intent-memory store: `request_close` (answered or abandoned, answer id, closer) |
+| `DirectiveRecorded`, `DirectiveRetired`, `DirectiveClassified` | From the intent-memory store (S3) when present; verbatim human directives and their lifecycle |
+| `BoundaryRecorded` | From the intent-memory store: boundary kind, open-request idSet (with `unresolved(count)` when a blob is missing), last answer id |
 
 **Questions**
 
@@ -57,7 +60,11 @@ Groups, with the source each event comes from ([research summary](research-summa
 
 **Work**
 
-`JobStarted`, `JobFinished`; `PhaseQueued`, `PhaseStarted`, `PhaseFinished`; `SubagentStarted`, `SubagentFinished`; `ReviewRecorded` (head SHA, verdict).
+`JobStarted`, `JobFinished`; `PhaseQueued`, `PhaseStarted`, `PhaseFinished`; `SubagentStarted`, `SubagentFinished`; `WorkflowStepCompleted` (workflow journal step, S7); `ScheduledSubagentDefined`; `ReviewRecorded` (head SHA, verdict).
+
+**Operations, recovery and setup** (secondary sources, deferred; see section 2.1)
+
+`RecoveryReportCreated` (S12); `TaskScopeCreated`, `TaskScopeLeased`, `TaskScopeFinished`, `UnfinishedTaskReported` (S14); `GuardDecided`, `DockerGcRan`, `DiskPressureSampled`, `HostMemorySampled`, `DelegationNudged` (S15); `ProviderLimitHit`, `ProviderFallbackActivated`, `ProviderFallbackRestored`, `ModelPinned`, `ConfigSnapshotTaken` (S16); `TrainStateChanged`, `RelaunchScheduled`, `FusionRunObserved` (S17).
 
 **Interventions** (produced by the console)
 
@@ -88,6 +95,32 @@ Pure reducers `(state, event) -> state`, with no I/O and no clock access, so rep
 | `Work` | job, phase, claim, review events | Work view |
 | `Audit` | intervention and system events | Activity view |
 | `Burn` | turn usage events | Sparklines and cost panels |
+
+### 2.1 Source to adapter to event mapping
+
+Every source in the data-source inventory (S1 to S17, [research summary](research-summary.md)) has a row. "MVP" means built in M1 ([milestones](milestones.md)); "Deferred" means designed but not built until the milestone named. Credentials, browser profiles and cookies (part of S17) are never read.
+
+| Source | What | Adapter strategy | Events | Status |
+|---|---|---|---|---|
+| S1 | Session JSONL | Tail by offset and inode; directory watch; backfill window | `SessionStarted`, `ModelChanged`, `TurnStarted`, `TurnEnded`, `RequestObserved`, `AnswerObserved`, `ResetOccurred`, `JobStarted`/`JobFinished` (from job messages), `SubagentStarted`/`SubagentFinished` (from notifications) | MVP |
+| S2 | context-budget status, events, turns, handoff files | Tail with rotation handling; watch status and handoff globs | `ContextPressureSampled`, `ResetOccurred` | MVP |
+| S3 | Intent-memory store (planned, absent today) | Feature-detect; tail `journal/`, `answers/`, `events.jsonl`, `blobs/` | `RequestObserved`, `AnswerObserved`, `RequestClosed`, `BoundaryRecorded`, `DirectiveRecorded`, `DirectiveRetired`, `DirectiveClassified` | Deferred to M4 (Phase A derivation in M1) |
+| S4 | Lanes registry, lane messages, lane-status, inbox markers | Directory watch; poll atomic-rename files; parse filename grammar | `LaneRegistered`, `LaneStatusChanged`, `LaneClosed`, `MessageSent`, `MessageRead`, `BroadcastSent` | MVP |
+| S5 | pi-orch heartbeats, sessions, inbox, receipts | Poll 2 to 5 s; watch inbox and receipts | `SessionHeartbeat`, `MessageDelivered`, `MessageRead` | MVP |
+| S6 | Session watchdog board | Poll 30 to 60 s | `SessionHeartbeat` (cross-check for stuck or waiting) | Deferred to M2 |
+| S7 | Subagent outputs and workflow journals (volatile) | Tail live; copy-on-index into `blobs/` as files grow | `SubagentStarted`, `SubagentFinished`, `WorkflowStepCompleted`, `ScheduledSubagentDefined` | MVP for outputs; workflow journals Deferred to M2 |
+| S8 | Question store | Watch new revision and receipt files; writes only through the store's CLI | `QuestionAsked`, `QuestionRevised`, `QuestionAnswered`, `QuestionDeferred`, `QuestionClosed`, `MessageDelivered` (receipts) | MVP (read); writes in M2 |
+| S9 | Issue-work register | Tail registry; poll cache | `IssueClaimed`, `IssueStatusChanged` | MVP |
+| S10 | Job logs | Bounded tail; lifecycle from S1 messages | `JobStarted`, `JobFinished` | MVP |
+| S11 | Phase queue ledger and live state | Tail today's ledger; poll waiters with a non-blocking shared lock probe | `PhaseQueued`, `PhaseStarted`, `PhaseFinished`, `HostMemorySampled` | MVP |
+| S12 | Recovery reports | Directory watch | `RecoveryReportCreated` | Deferred to M5 |
+| S13 | Review logs | Glob and tail append | `ReviewRecorded` | MVP |
+| S14 | Task lifecycle (read-only CLI report) | Poll 5 to 10 min | `TaskScopeCreated`, `TaskScopeLeased`, `TaskScopeFinished`, `UnfinishedTaskReported` | Deferred to M5 (schema unread) |
+| S15 | Ops logs: guard decisions, docker-guardian, cleanup, disk, memory | Tail | `GuardDecided`, `DockerGcRan`, `DiskPressureSampled`, `HostMemorySampled`, `DelegationNudged` | Deferred to M5 |
+| S16 | Provider limits, fallback, pins, configuration changes | Watch config; limit hits from S1 entries; poll usage CLI | `ProviderLimitHit`, `ProviderFallbackActivated`, `ProviderFallbackRestored`, `ModelPinned`, `ConfigSnapshotTaken` | Deferred to M5 |
+| S17 | Trains, fusion state, relaunch markers (secondary) | Low-rate poll | `TrainStateChanged`, `RelaunchScheduled`, `FusionRunObserved` | Deferred to M5 |
+
+Sources whose schema was not sampled (S12, S14, S17) get a fixture-based adapter spec before any implementation, and the adapter stops on an unknown schema version ([ADR-0004](adr/0004-ingestion-tailers-over-existing-files.md)).
 
 Projections run in a single projector inside the daemon, after the append transaction. A projection has a stored position (`seq`). A schema or reducer change bumps its version and triggers a rebuild from the log. Observable queries fan out from the projector ([ADR-0002](adr/0002-web-stack-node-arc-typescript-react.md)).
 

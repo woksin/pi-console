@@ -64,7 +64,7 @@ Default `~/.pi-console` (configurable; honours an `XDG_*` location if set). Perm
 | `events.db` (+ `-wal`, `-shm`) | Event log and read models (0600) |
 | `config.json` | Sources, backfill window, retention, remote settings |
 | `token` | Owner token (0600); scoped tokens stored hashed in the database |
-| `blobs/` | Optional redacted snapshots of volatile sources (subagent outputs) |
+| `blobs/` | Durable redacted copies of volatile sources (subagent outputs, workflow journals), written as the source files grow ([ADR-0004](adr/0004-ingestion-tailers-over-existing-files.md)); subject to the retention settings |
 | `logs/` | Daemon logs, rotated |
 
 ## 5. Performance and size budgets
@@ -80,7 +80,7 @@ Targets to be confirmed in M0 and M1; all UNVERIFIED until measured.
 | Database size | events hold pointers and excerpts, not bodies, to keep the database in the low GBs for 14 days |
 | TUI redraw | at most 30 frames per second, no frame over 33 ms during streaming |
 
-Facts behind the numbers: 30,451 session files totalling 20 GB, about 300 MB per day, and a 1 MiB median file with a long tail [R4]. Session bodies are read lazily from the source file by offset, not copied.
+Facts behind the numbers: 30,451 session files totalling 20 GB, and about 300 MB per day [R4]. File-size distribution (median, tail) was not measured: UNVERIFIED. Session bodies are read lazily from the source file by offset, not copied.
 
 ## 6. Testing strategy
 

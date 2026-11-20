@@ -44,7 +44,7 @@ Supported only through (a) Tailscale Serve (tailnet only) or (b) a TLS reverse p
 
 ## Specs required
 
-Every milestone includes hostile-case specs: wrong or missing token, wrong Host, foreign Origin, missing CSRF header, read-only token attempting a command, forged extension connect, oversized and malformed frames, a transcript containing terminal escape sequences and script tags, a fixture with known secret shapes, a scan failure (must withhold), and a replayed intervention (must not run twice).
+Every milestone includes hostile-case specs: wrong or missing token, wrong Host, foreign Origin (also on SSE and WebSocket), no Origin with cookie only, missing CSRF header, read-only token attempting a command, forged extension connect, oversized and malformed frames, a transcript containing terminal escape sequences and script tags, a fixture with known secret shapes, a scan failure (must withhold), and a replayed intervention (must not run twice).
 
 ## Reporting
 
