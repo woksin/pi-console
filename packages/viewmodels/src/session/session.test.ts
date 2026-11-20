@@ -54,6 +54,21 @@ test('a streaming run continues only within one request; aborts and other entrie
   for (const row of table) assert.deepEqual(transcriptLines(row.entries).map(line => [line.key, line.text]), row.lines, row.name);
 });
 
+test('transcript edge cases: null requests, a standalone final, a final after a reset, interleaved requests', () => {
+  const base = { sessionId: 's', at: '2026-01-01T00:00:00Z', toolCallId: null, resetId: null, toolResult: null } as const;
+  const e = (cursor: number, kind: TranscriptEntry['kind'], requestId: string | null, text = String(cursor)): TranscriptEntry => ({ ...base, id: `e${String(cursor)}`, cursor, kind, text, requestId });
+  const d = 'assistant.delta';
+  const table: { name: string; entries: TranscriptEntry[]; lines: [number, string, boolean][] }[] = [
+    { name: 'null requestId deltas form one run and a null final replaces it', entries: [e(1, d, null, 'a'), e(2, d, null, 'b'), e(3, 'assistant', null, 'AB')], lines: [[1, 'AB', false]] },
+    { name: 'a null run and a null final after a user entry are separate lines', entries: [e(1, d, null, 'a'), e(2, 'user', null, 'q'), e(3, 'assistant', null, 'A')], lines: [[1, 'a', true], [2, 'q', false], [3, 'A', false]] },
+    { name: 'a standalone final keeps its own key', entries: [e(7, 'assistant', 'r1', 'A')], lines: [[7, 'A', false]] },
+    { name: 'a final after a reset does not take over the run before it', entries: [e(1, d, 'r1', 'a'), e(2, 'reset', 'r1', 'reset'), e(3, 'assistant', 'r1', 'A')], lines: [[1, 'a', true], [2, 'reset', false], [3, 'A', false]] },
+    { name: 'interleaved requests start a new run at every switch', entries: [e(1, d, 'r1', 'a'), e(2, d, 'r2', 'b'), e(3, d, 'r1', 'c'), e(4, d, 'r2', 'd')], lines: [[1, 'a', true], [2, 'b', true], [3, 'c', true], [4, 'd', true]] },
+    { name: 'interleaved requests: a final replaces only the directly preceding run', entries: [e(1, d, 'r1', 'a'), e(2, d, 'r2', 'b'), e(3, 'assistant', 'r1', 'A')], lines: [[1, 'a', true], [2, 'b', true], [3, 'A', false]] },
+  ];
+  for (const row of table) assert.deepEqual(transcriptLines(row.entries).map(line => [line.key, line.text, line.streaming]), row.lines, row.name);
+});
+
 test('hostile transcript text and withheld results are neutralised', () => {
   const base = { sessionId: 's', at: '2026-01-01T00:00:00Z', toolCallId: null, resetId: null, requestId: null } as const;
   const lines = transcriptLines([

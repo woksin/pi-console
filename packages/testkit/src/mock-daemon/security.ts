@@ -7,12 +7,15 @@ export class HttpError extends Error {
   status: number;
   constructor(status: number, message: string) { super(message); this.status = status; }
 }
+function createTokenFile(path: string) {
+  try { writeFileSync(path, randomBytes(32).toString('hex') + '\n', { flag: 'wx', mode: 0o600 }); }
+  catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
+}
 export function loadToken(directory: string) {
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   chmodSync(directory, 0o700);
   const path = resolve(directory, 'token');
-  try { writeFileSync(path, randomBytes(32).toString('hex') + '\n', { flag: 'wx', mode: 0o600 }); }
-  catch (error) { if ((error as NodeJS.ErrnoException).code !== 'EEXIST') throw error; }
+  createTokenFile(path);
   chmodSync(path, 0o600);
   const token = readFileSync(path, 'utf8').trim();
   if (!/^[a-f0-9]{64}$/.test(token)) throw new Error('Invalid development token file');
@@ -23,12 +26,16 @@ function equalToken(candidate: string | undefined, token: string) {
   const expected = Buffer.from(token);
   return bytes.length === expected.length && timingSafeEqual(bytes, expected);
 }
+const allowedHosts = (port: number) => [`127.0.0.1:${port}`, `localhost:${port}`];
+function refuseUnless(allowed: boolean, message: string) {
+  if (!allowed) throw new HttpError(403, message);
+}
 function checkSource(req: IncomingMessage, port: number) {
-  const hosts = [`127.0.0.1:${port}`, `localhost:${port}`];
-  if (!hosts.includes(req.headers.host ?? '')) throw new HttpError(403, 'Host not allowed');
-  if (req.headers['sec-fetch-site'] === 'cross-site') throw new HttpError(403, 'Cross-site request refused');
-  if (!req.headers.origin) return;
-  if (!hosts.map(host => `http://${host}`).includes(req.headers.origin)) throw new HttpError(403, 'Origin not allowed');
+  const hosts = allowedHosts(port);
+  refuseUnless(hosts.includes(req.headers.host ?? ''), 'Host not allowed');
+  refuseUnless(req.headers['sec-fetch-site'] !== 'cross-site', 'Cross-site request refused');
+  const origins = hosts.map(host => `http://${host}`);
+  refuseUnless(!req.headers.origin || origins.includes(req.headers.origin), 'Origin not allowed');
 }
 function exchangeToken(req: IncomingMessage, res: ServerResponse, url: URL, token: string) {
   if (!equalToken(url.searchParams.get('token')!, token)) throw new HttpError(401, 'Unauthorized');
@@ -49,10 +56,9 @@ function cookieToken(req: IncomingMessage) {
   return cookies.find(value => value.startsWith('piConsoleToken='))?.slice(15);
 }
 function checkBrowserRequest(req: IncomingMessage, url: URL) {
-  const protectedRequest = req.method === 'POST' || url.pathname === '/api/v1/stream';
-  if (protectedRequest && !req.headers.origin) throw new HttpError(403, 'Bearer token required without Origin');
-  if (req.method !== 'POST') return;
-  if (req.headers['x-pi-console-csrf'] !== '1') throw new HttpError(403, 'CSRF header required');
+  const post = req.method === 'POST';
+  refuseUnless(!(post || url.pathname === '/api/v1/stream') || Boolean(req.headers.origin), 'Bearer token required without Origin');
+  refuseUnless(!post || req.headers['x-pi-console-csrf'] === '1', 'CSRF header required');
 }
 export function authenticate(req: IncomingMessage, res: ServerResponse, url: URL, credentials: { port: number; token: string }) {
   const { port, token } = credentials;

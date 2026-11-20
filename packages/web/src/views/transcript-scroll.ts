@@ -46,7 +46,15 @@ const tailSignature = (lines: readonly TranscriptLine[]): string => {
   return `${String(tail?.key)}:${String(lines.length)}:${String(tail?.text.length)}`;
 };
 
-export interface TranscriptScroll { follow: boolean; pause: () => void; toggleFollow: () => void; pane: RefObject<HTMLDivElement | null>; end: RefObject<HTMLDivElement | null>; onScroll: () => void; remember: () => void }
+export interface TranscriptScroll {
+  follow: boolean;
+  pause: () => void;
+  toggleFollow: () => void;
+  pane: RefObject<HTMLDivElement | null>;
+  end: RefObject<HTMLDivElement | null>;
+  onScroll: () => void;
+  remember: () => void;
+}
 
 /** Follow-the-tail, pause on user scroll, anchoring on a line id while paused, and the one-time scroll to a jump target. */
 export function useTranscriptScroll(lines: readonly TranscriptLine[], focusEntry: string | null): TranscriptScroll {

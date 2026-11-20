@@ -5,10 +5,10 @@ type Fixture = ReturnType<typeof generate>['fixture'];
 type MockSession = Fixture['sessions'][number];
 
 /** Entity updates invalidate attention queries; changed derived sessions also get their own upserts. */
-export function sessionDeltas(fixture: Fixture, bases: Map<string, MockSession['status']>, type: string, payload: unknown, apply: () => void): MockSession[] {
-  const collection = attentionCollection(fixture, type);
+export function sessionDeltas(fixture: Fixture, bases: Map<string, MockSession['status']>, change: { type: string; payload: unknown }, apply: () => void): MockSession[] {
+  const collection = attentionCollection(fixture, change.type);
   if (!collection) { apply(); return []; }
-  const entity = payload as { id: string; sessionId: string };
+  const entity = change.payload as { id: string; sessionId: string };
   const previous = collection.find(item => item.id === entity.id);
   const owners = new Set([previous?.sessionId, entity.sessionId]);
   const sessions = fixture.sessions.filter(session => owners.has(session.id));
