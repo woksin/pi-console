@@ -1,0 +1,39 @@
+{
+  "name": "m0-arc-ts-spike",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "generate": "node generate.mjs",
+    "build": "tsc -p tsconfig.server.json && tsc -p tsconfig.client.json --noEmit && vite build",
+    "start": "npm run build && node dist/server/main.js",
+    "test": "npm run build && node --test test/*.test.mjs"
+  },
+  "dependencies": {
+    "@cratis/arc": "22.45.0",
+    "@cratis/arc.core": "1.0.0",
+    "@cratis/arc.drizzle": "1.0.0",
+    "@cratis/arc.hono": "1.0.0",
+    "@cratis/arc.react": "22.45.0",
+    "@cratis/fundamentals": "7.19.6",
+    "@hono/node-server": "1.19.19",
+    "better-sqlite3": "13.2.0",
+    "drizzle-orm": "0.45.4",
+    "hono": "4.13.19",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "@cratis/arc.proxygenerator": "1.0.0",
+    "@types/better-sqlite3": "7.6.13",
+    "@types/node": "25.5.0",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "typescript": "5.9.3",
+    "vite": "8.3.8"
+  },
+  "allowScripts": {
+    "better-sqlite3@13.2.0": true
+  }
+}
