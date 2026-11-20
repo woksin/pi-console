@@ -27,10 +27,17 @@ export function applyEvent(state: ConsoleState, event: ApiEvent): ConsoleState {
     case 'snapshot': return fromSnapshot(base, event.payload);
     case 'session.updated': return { ...base, sessions: upsert(base.sessions, event.payload), liveAt: Math.max(base.liveAt, latest(event.payload.updatedAt)) };
     case 'transcript.appended': return withTranscript({ ...base, liveAt: Math.max(base.liveAt, latest(event.payload.at)) }, event.payload);
+    case 'message.sent': return { ...base, messages: upsert(base.messages, event.payload), liveAt: Math.max(base.liveAt, latest(event.payload.sentAt)) };
+    default: return applyEntityEvent(base, event);
+  }
+}
+
+/** The events that only upsert an entity into its list. */
+function applyEntityEvent(base: ConsoleState, event: Exclude<ApiEvent, { type: 'snapshot' | 'session.updated' | 'transcript.appended' | 'message.sent' }>): ConsoleState {
+  switch (event.type) {
     case 'request.observed':
     case 'request.interrupted': return { ...base, requests: upsert(base.requests, event.payload) };
     case 'question.asked': return { ...base, questions: upsert(base.questions, event.payload) };
-    case 'message.sent': return { ...base, messages: upsert(base.messages, event.payload), liveAt: Math.max(base.liveAt, latest(event.payload.sentAt)) };
     case 'job.updated':
     case 'job.finished': return { ...base, jobs: upsert(base.jobs, event.payload) };
     case 'reset.occurred': return { ...base, resets: upsert(base.resets, event.payload) };

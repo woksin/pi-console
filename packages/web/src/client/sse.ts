@@ -19,20 +19,25 @@ export class SseParser {
   }
 }
 
+interface Fields { id: string | null; event: string; data: string[]; comment: boolean }
+
+/** Splits `field: value` (one optional space after the colon is not part of the value). */
+function splitField(line: string): [string, string] {
+  const split = line.indexOf(':');
+  return split < 0 ? [line, ''] : [line.slice(0, split), line.slice(split + 1).replace(/^ /, '')];
+}
+
+function readLine(fields: Fields, line: string): void {
+  if (line.startsWith(':')) { fields.comment = true; return; }
+  const [field, value] = splitField(line);
+  if (field === 'id') fields.id = value;
+  else if (field === 'event') fields.event = value;
+  else if (field === 'data') fields.data.push(value);
+}
+
 function parseBlock(block: string): SseFrame | null {
-  let id: string | null = null;
-  let event = 'message';
-  const data: string[] = [];
-  let comment = false;
-  for (const line of block.split('\n')) {
-    if (line.startsWith(':')) { comment = true; continue; }
-    const split = line.indexOf(':');
-    const field = split < 0 ? line : line.slice(0, split);
-    const value = split < 0 ? '' : line.slice(split + 1).replace(/^ /, '');
-    if (field === 'id') id = value;
-    else if (field === 'event') event = value;
-    else if (field === 'data') data.push(value);
-  }
-  if (data.length === 0) return comment ? { comment: true } : null;
-  return { comment: false, id, event, data: data.join('\n') };
+  const fields: Fields = { id: null, event: 'message', data: [], comment: false };
+  for (const line of block.split('\n')) readLine(fields, line);
+  if (fields.data.length === 0) return fields.comment ? { comment: true } : null;
+  return { comment: false, id: fields.id, event: fields.event, data: fields.data.join('\n') };
 }

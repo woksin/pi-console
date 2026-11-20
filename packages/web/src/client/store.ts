@@ -21,6 +21,10 @@ type Listener = () => void;
  * The client's single source of truth: server-sent state plus connection status. It owns the stream loop (resume by
  * Last-Event-ID, snapshot refetch on gap, backoff) and the derived-model refresh (`/needs-you`, `/health`).
  */
+/** Paging stops at the end of history, or as soon as the entry being jumped to has been loaded. */
+const isLastPage = (result: { hasMore: boolean; items: readonly { id: string }[] }, focus: string | null): boolean =>
+  !result.hasMore || (focus !== null && result.items.some(item => item.id === focus));
+
 export class ConsoleStore {
   #state: ConsoleState = emptyState();
   readonly #listeners = new Set<Listener>();
@@ -144,7 +148,7 @@ export class ConsoleStore {
       const result = await this.#api.transcript(sessionId, after, 1000).catch(() => null);
       if (!result) return;
       this.#set(mergeTranscript(this.#state, sessionId, result.items, focus !== null));
-      if (!result.hasMore || (focus !== null && result.items.some(item => item.id === focus))) return;
+      if (isLastPage(result, focus)) return;
       after = result.nextCursor;
     }
   }

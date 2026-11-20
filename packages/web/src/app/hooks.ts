@@ -1,3 +1,4 @@
+import type { Action } from '@pi-console/viewmodels';
 import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import type { ConsoleStore } from '../client/store.ts';
 import type { ConsoleState } from '../state/state.ts';
@@ -43,24 +44,30 @@ export async function copyText(text: string): Promise<boolean> {
 
 export interface ListNav { selected: string | null; select: (id: string) => void }
 
+/** The index a move action lands on, clamped to the list; null when the action is not a move. */
+function moveTarget(action: Action, index: number, length: number): number | null {
+  const offsets: Partial<Record<Action, number>> = { 'move.down': index + 1, 'move.up': index - 1, 'page.down': index + 10, 'page.up': index - 10, 'move.top': 0, 'move.bottom': length - 1 };
+  const next = offsets[action];
+  return next === undefined ? null : Math.max(0, Math.min(length - 1, next));
+}
+
+/** The picked id if it is still listed, else the preferred fallback, else the first. */
+function resolveSelection(ids: readonly string[], picked: string | null, fallback: string | null | undefined): string | null {
+  if (picked !== null && ids.includes(picked)) return picked;
+  return fallback && ids.includes(fallback) ? fallback : ids.at(0) ?? null;
+}
+
 /** Keyboard selection over an ordered id list, bound to the shared move/open/copy actions. */
 export function useListNav(ids: readonly string[], options: { onOpen?: (id: string) => void; initial?: string | null; fallback?: string | null; enabled?: boolean } = {}): ListNav {
   const [picked, setPicked] = useState<string | null>(options.initial ?? null);
-  const selected = picked !== null && ids.includes(picked) ? picked : options.fallback && ids.includes(options.fallback) ? options.fallback : ids.at(0) ?? null;
+  const selected = resolveSelection(ids, picked, options.fallback);
   useActions(action => {
-    const index = selected === null ? -1 : ids.indexOf(selected);
-    const to = (next: number): boolean => { if (ids.length > 0) setPicked(ids[Math.max(0, Math.min(ids.length - 1, next))]); return true; };
-    switch (action) {
-      case 'move.down': return to(index + 1);
-      case 'move.up': return to(index - 1);
-      case 'page.down': return to(index + 10);
-      case 'page.up': return to(index - 10);
-      case 'move.top': return to(0);
-      case 'move.bottom': return to(ids.length - 1);
-      case 'open': if (selected !== null && options.onOpen) { options.onOpen(selected); return true; } return false;
-      case 'copy.id': if (selected !== null) { void copyText(selected); return true; } return false;
-      default: return false;
-    }
+    const target = moveTarget(action, selected === null ? -1 : ids.indexOf(selected), ids.length);
+    if (target !== null) { if (ids.length > 0) setPicked(ids[target]); return true; }
+    if (selected === null) return false;
+    if (action === 'open' && options.onOpen) { options.onOpen(selected); return true; }
+    if (action === 'copy.id') { void copyText(selected); return true; }
+    return false;
   }, options.enabled ?? true);
   return { selected, select: setPicked };
 }

@@ -6,6 +6,31 @@ import { Kbd } from '../ui/primitives.tsx';
 
 interface PaletteProps { sessions: readonly Session[]; onClose: () => void; onPick: (item: PaletteItem) => void }
 
+type PaletteStep = { kind: 'move'; index: number } | { kind: 'close' } | { kind: 'open' };
+
+/** Palette keys: j/k stay typeable text, Ctrl+N/Ctrl+K act as the arrows. */
+function paletteAction(event: KeyboardEvent): { action: Action | undefined; key: string | null } {
+  const key = neutralKey(event);
+  const aliases: Record<string, string> = { 'Ctrl+N': 'ArrowDown', 'Ctrl+K': 'ArrowUp' };
+  return { action: key === null ? undefined : resolve('palette', aliases[key] ?? key), key };
+}
+
+function paletteStep({ action, key }: ReturnType<typeof paletteAction>, active: number, count: number): PaletteStep | null {
+  if (action === 'move.down' && key !== 'j') return { kind: 'move', index: Math.min(count - 1, active + 1) };
+  if (action === 'move.up' && key !== 'k') return { kind: 'move', index: Math.max(0, active - 1) };
+  if (action === 'back') return { kind: 'close' };
+  return action === 'open' && count > 0 ? { kind: 'open' } : null;
+}
+
+function PaletteRow({ item, active, onHover, onPick }: { item: PaletteItem; active: boolean; onHover: () => void; onPick: () => void }) {
+  return (
+    <li id={`pal-${item.id}`} role="option" aria-selected={active} className={active ? 'active' : ''} onMouseEnter={onHover} onMouseDown={onPick}>
+      <span className="pal-group">{item.group}</span><span className="grow truncate">{item.label}</span>
+      <span className="muted small truncate">{item.detail}</span>{item.key && <Kbd>{item.key}</Kbd>}
+    </li>
+  );
+}
+
 /** Command palette: `>` commands, `@` sessions; the shared keymap drives selection in the `palette` context. */
 export function Palette({ sessions, onClose, onPick }: PaletteProps) {
   const [query, setQuery] = useState('');
@@ -15,14 +40,12 @@ export function Palette({ sessions, onClose, onPick }: PaletteProps) {
   useEffect(() => { input.current?.focus(); }, []);
   const active = Math.min(index, Math.max(0, items.length - 1));
   const onKey = (event: React.KeyboardEvent): void => {
-    const key = neutralKey(event.nativeEvent);
-    const action: Action | undefined = key ? resolve('palette', key === 'Ctrl+N' ? 'ArrowDown' : key === 'Ctrl+K' ? 'ArrowUp' : key) : undefined;
-    if (action === 'move.down' && key !== 'j') setIndex(Math.min(items.length - 1, active + 1));
-    else if (action === 'move.up' && key !== 'k') setIndex(Math.max(0, active - 1));
-    else if (action === 'back') onClose();
-    else if (action === 'open' && items[active]) onPick(items[active]);
-    else return;
+    const step = paletteStep(paletteAction(event.nativeEvent), active, items.length);
+    if (step === null) return;
     event.preventDefault();
+    if (step.kind === 'move') setIndex(step.index);
+    else if (step.kind === 'close') onClose();
+    else if (items[active]) onPick(items[active]);
   };
   return (
     <div className="overlay" onMouseDown={onClose}>
@@ -31,13 +54,7 @@ export function Palette({ sessions, onClose, onPick }: PaletteProps) {
           role="combobox" aria-expanded="true" aria-controls="palette-list" aria-activedescendant={items[active] ? `pal-${items[active].id}` : undefined}
           onChange={event => { setQuery(event.target.value); setIndex(0); }} onKeyDown={onKey} />
         <ul id="palette-list" role="listbox">
-          {items.map((item, position) => (
-            <li key={item.id} id={`pal-${item.id}`} role="option" aria-selected={position === active} className={position === active ? 'active' : ''}
-              onMouseEnter={() => { setIndex(position); }} onMouseDown={() => { onPick(item); }}>
-              <span className="pal-group">{item.group}</span><span className="grow truncate">{item.label}</span>
-              <span className="muted small truncate">{item.detail}</span>{item.key && <Kbd>{item.key}</Kbd>}
-            </li>
-          ))}
+          {items.map((item, position) => <PaletteRow key={item.id} item={item} active={position === active} onHover={() => { setIndex(position); }} onPick={() => { onPick(item); }} />)}
           {items.length === 0 && <li className="muted pal-empty">No matches</li>}
         </ul>
       </div>

@@ -9,6 +9,18 @@ import { useChangeFlash, useScrollIntoView } from '../ui/hooks.ts';
 
 const rowKey = (row: FleetRow): string => (row.kind === 'group' ? `group:${row.id}` : row.id);
 
+const groupOf = (key: string | null): string | null => (key !== null && key.startsWith('group:') ? key.slice('group:'.length) : null);
+
+const toggled = (set: ReadonlySet<string>, key: string): ReadonlySet<string> => {
+  const next = new Set(set);
+  if (!next.delete(key)) next.add(key);
+  return next;
+};
+
+function FleetEmpty({ none }: { none: boolean }) {
+  return <EmptyState title={none ? 'No sessions yet' : 'No sessions match'}>{none ? 'Sessions appear as soon as the daemon sees agent activity.' : 'Clear the filter to see the whole fleet.'}</EmptyState>;
+}
+
 export function FleetView({ state, now }: ViewProps) {
   const [query, setQuery] = useState('');
   const [collapsed, setCollapsed] = useState<ReadonlySet<string>>(new Set());
@@ -17,17 +29,18 @@ export function FleetView({ state, now }: ViewProps) {
   const view = useMemo(() => fleetViewModel({ sessions: state.sessions, now, query, collapsed }), [state.sessions, now, query, collapsed]);
   const ids = view.rows.map(rowKey);
   const firstSession = view.rows.find(row => row.kind !== 'group')?.id ?? null;
-  const toggle = (group: string): void => setCollapsed(current => { const next = new Set(current); if (!next.delete(group)) next.add(group); return next; });
-  const nav = useListNav(ids, { fallback: firstSession, onOpen: id => { if (id.startsWith('group:')) toggle(id.slice('group:'.length)); else navigate(sessionHref(id)); } });
+  const toggle = (group: string): void => { setCollapsed(current => toggled(current, group)); };
+  const nav = useListNav(ids, { fallback: firstSession, onOpen: id => { const group = groupOf(id); if (group === null) navigate(sessionHref(id)); else toggle(group); } });
+  const selectedGroup = groupOf(nav.selected);
   useActions(action => {
-    if (action !== 'group.toggle' || !nav.selected?.startsWith('group:')) return false;
-    toggle(nav.selected.slice('group:'.length));
+    if (action !== 'group.toggle' || selectedGroup === null) return false;
+    toggle(selectedGroup);
     return true;
   });
   return (
     <div className="page">
       <div className="toolbar"><SearchBox value={query} onChange={setQuery} placeholder="Filter sessions, lanes, branches…" inputRef={search} /><span className="muted">{view.matched} of {view.sessionCount} sessions</span></div>
-      {view.rows.length === 0 ? <EmptyState title={view.sessionCount === 0 ? 'No sessions yet' : 'No sessions match'}>{view.sessionCount === 0 ? 'Sessions appear as soon as the daemon sees agent activity.' : 'Clear the filter to see the whole fleet.'}</EmptyState> : (
+      {view.rows.length === 0 ? <FleetEmpty none={view.sessionCount === 0} /> : (
         <table className="grid" aria-label="Fleet">
           <thead><tr><th>Session</th><th>Status</th><th>Context</th><th>Trend</th><th>Model</th><th className="num">Cost</th><th className="num">Age</th></tr></thead>
           <tbody>{view.rows.map(row => row.kind === 'group'

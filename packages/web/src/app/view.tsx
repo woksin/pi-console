@@ -12,16 +12,20 @@ import type { Route } from './routes.ts';
 
 export interface ViewProps { state: ConsoleState; now: number }
 
+type Render = (props: ViewProps, route: Route) => React.ReactNode;
+
+const renderers: Record<Route['view'], Render> = {
+  overview: props => <OverviewView {...props} />,
+  fleet: props => <FleetView {...props} />,
+  session: (props, route) => <SessionView {...props} id={route.id ?? ''} entry={route.params.entry ?? null} />,
+  requests: props => <RequestsView {...props} />,
+  questions: props => <QuestionsView {...props} />,
+  messages: (props, route) => <MessagesView {...props} mode={route.params.view === 'graph' ? 'graph' : 'list'} />,
+  timeline: props => <TimelineView {...props} />,
+  work: props => <WorkView {...props} />,
+  settings: props => <SettingsView {...props} />,
+};
+
 export function View({ route, state, now }: { route: Route } & ViewProps) {
-  switch (route.view) {
-    case 'overview': return <OverviewView state={state} now={now} />;
-    case 'fleet': return <FleetView state={state} now={now} />;
-    case 'session': return <SessionView state={state} now={now} id={route.id ?? ''} entry={route.params.entry ?? null} />;
-    case 'requests': return <RequestsView state={state} now={now} />;
-    case 'questions': return <QuestionsView state={state} now={now} />;
-    case 'messages': return <MessagesView state={state} now={now} mode={route.params.view === 'graph' ? 'graph' : 'list'} />;
-    case 'timeline': return <TimelineView state={state} now={now} />;
-    case 'work': return <WorkView state={state} now={now} />;
-    case 'settings': return <SettingsView state={state} now={now} />;
-  }
+  return renderers[route.view]({ state, now }, route);
 }

@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { hints, resolve, type Action, type PaletteItem } from '@pi-console/viewmodels';
+import { useEffect, useMemo, useState } from 'react';
+import { hints, resolve, type Action, type KeyContext, type PaletteItem } from '@pi-console/viewmodels';
 import { dispatch } from './commands.ts';
 import { clockNow, navigate, useConsole, useRoute } from './hooks.ts';
 import { contextFor, isTyping, neutralKey } from './keys.ts';
@@ -26,6 +26,30 @@ function handleGlobal(action: Action, ctl: { overlay: Overlay; setOverlay: (over
   }
 }
 
+const ignoresKey = (key: string | null, overlay: Overlay, target: EventTarget | null): boolean =>
+  key === null || overlay === 'palette' || (isTyping(target) && key !== 'Ctrl+P');
+
+/** Routes one resolved action: an open help dialog only closes; otherwise global, then the focused view, then back. */
+function perform(action: Action, overlay: Overlay, setOverlay: (overlay: Overlay) => void): boolean {
+  if (overlay !== 'help') return handleGlobal(action, { overlay, setOverlay }) || dispatch(action) || goBack(action);
+  const closes = action === 'back' || action === 'help.toggle';
+  if (closes) setOverlay(null);
+  return closes;
+}
+
+function useShortcuts(context: KeyContext, overlay: Overlay, setOverlay: (overlay: Overlay) => void): void {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      const key = neutralKey(event);
+      if (key === null || ignoresKey(key, overlay, event.target)) return;
+      const action = resolve(context, key);
+      if (action && perform(action, overlay, setOverlay)) event.preventDefault();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => { window.removeEventListener('keydown', onKey); };
+  }, [context, overlay, setOverlay]);
+}
+
 export function App() {
   const state = useConsole();
   const route = useRoute();
@@ -35,22 +59,7 @@ export function App() {
   useEffect(() => { document.title = `${titleFor(route.view)} · pi console`; }, [route.view]);
 
   const context = contextFor({ route, palette: overlay === 'palette', help: overlay === 'help' });
-  const perform = useCallback((action: Action): boolean => {
-    if (overlay === 'help') {
-      const closes = action === 'back' || action === 'help.toggle';
-      if (closes) setOverlay(null);
-      return closes;
-    }
-    return handleGlobal(action, { overlay, setOverlay }) || dispatch(action) || goBack(action);
-  }, [overlay]);
-  const onKey = useCallback((event: KeyboardEvent): void => {
-    const key = neutralKey(event);
-    if (!key || overlay === 'palette' || (isTyping(event.target) && key !== 'Ctrl+P')) return;
-    const action = resolve(context, key);
-    if (action && perform(action)) event.preventDefault();
-  }, [context, overlay, perform]);
-  useEffect(() => { window.addEventListener('keydown', onKey); return () => { window.removeEventListener('keydown', onKey); }; }, [onKey]);
-
+  useShortcuts(context, overlay, setOverlay);
   const pick = (item: PaletteItem): void => {
     setOverlay(null);
     if (item.target.kind === 'session') navigate(sessionHref(item.target.sessionId));
@@ -74,11 +83,12 @@ export function App() {
   );
 }
 
+const backable: readonly string[] = ['session', 'settings'];
+
 /** Esc in a session or settings goes back to where the user came from. */
 /** Reads the live hash, not React state: a key pressed in the instant after a navigation must act on where the user really is. */
 function goBack(action: Action): boolean {
-  const { view } = parseRoute(window.location.hash);
-  if (action !== 'back' || (view !== 'session' && view !== 'settings')) return false;
+  if (action !== 'back' || !backable.includes(parseRoute(window.location.hash).view)) return false;
   if (window.history.length > 1) window.history.back(); else navigate(hrefFor('fleet'));
   return true;
 }
