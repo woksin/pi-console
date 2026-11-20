@@ -25,7 +25,7 @@ for (const name of readdirSync(packagesDirectory)) {
   if (specs.length === 0) continue;
   ran += specs.length;
   console.log(`\n=== integration: ${name} (${specs.length} spec files)`);
-  const result = spawnSync(process.execPath, ['--test', ...specs], { cwd: root, stdio: 'inherit' });
+  const result = spawnSync(process.execPath, ['--experimental-ffi', '--disable-warning=ExperimentalWarning', '--test', ...specs], { cwd: root, stdio: 'inherit' });
   status ||= result.status ?? 1;
 }
 if (ran === 0) console.log('No integration specs yet.');
