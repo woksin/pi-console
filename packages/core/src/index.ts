@@ -1,6 +1,5 @@
 export type { AppendResult, EventLog, SourceCheckpoint } from '@pi-console/contract';
 export { SqliteEventLog, type SqliteEventLogOptions } from './event-log/sqlite-event-log.ts';
-export { eventLogConformance, type EventLogHarness } from './event-log/conformance.ts';
 export { canonicalJson, compareText } from './projector/canonical.ts';
 export { MemoryProjectionStore, type AnyProjection, type Projection, type ProjectionRecord, type ProjectionStore } from './projector/projection.ts';
 export { SqliteProjectionStore } from './projector/sqlite-projection-store.ts';
