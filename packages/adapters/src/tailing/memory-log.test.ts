@@ -25,7 +25,7 @@ export class MemoryLog implements EventLog {
     yield* this.rows.filter(row => row.seq > afterSeq).slice(0, limit);
   }
 
-  subscribe(_afterSeq: number, _onEvent: (event: EventEnvelope) => void): () => void {
+  subscribe(): () => void {
     return () => undefined;
   }
 

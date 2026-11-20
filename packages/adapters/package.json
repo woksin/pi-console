@@ -7,7 +7,8 @@
     ".": "./src/index.ts"
   },
   "scripts": {
-    "test": "node --test \"src/**/*.test.ts\""
+    "test": "node --test \"src/**/*.test.ts\"",
+    "secret-sweep": "node --test src/tailing/redact.test.ts"
   },
   "dependencies": {
     "@pi-console/contract": "*"
