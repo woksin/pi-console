@@ -5,20 +5,24 @@ export type Session = {
   startedAt: string; updatedAt: string; contextPercent: number; samples: Sample[];
 };
 export type Request = {
-  id: string; sessionId: string; text: string; origin: string; status: string;
-  answer: { text: string } | null; interimAnswers: { text: string }[]; resetId: string | null;
+  id: string; sessionId: string; text: string; origin: string; status: string; createdAt: string;
+  answer: { text: string; at: string } | null; interimAnswers: { text: string; at: string }[]; resetId: string | null;
 };
-export type Question = { id: string; sessionId: string; text: string; status: string; blocking: boolean };
+export type Question = { id: string; sessionId: string; text: string; status: string; blocking: boolean; createdAt: string };
+export type Message = { id: string; fromSessionId: string; toSessionId: string; text: string; status: string; sentAt: string };
+export type Intervention = { id: string; type: string; sessionId: string; text: string; recordedAt: string; result: string };
 export type Job = { id: string; sessionId: string; name: string; status: string; exitCode: number | null };
-export type Reset = { id: string; sessionId: string; kind: string; carriedRequestIds: string[]; interruptedRequestIds: string[] };
+export type Reset = { id: string; sessionId: string; kind: string; at: string; carriedRequestIds: string[]; interruptedRequestIds: string[] };
 export type Entry = { id: string; sessionId: string; cursor: number; at: string; kind: string; text: string; resetId: string | null; toolCallId: string | null };
-export type Snapshot = { sessions: Session[]; requests: Request[]; questions: Question[]; jobs: Job[]; resets: Reset[] };
+export type Snapshot = { sessions: Session[]; requests: Request[]; questions: Question[]; jobs: Job[]; resets: Reset[]; messages: Message[]; interventions: Intervention[] };
 export type Event = { seq: number; type: string; payload: unknown };
 export type State = Snapshot & {
   connected: boolean; error: string; entries: Map<string, Entry[]>;
   changed: Map<string, number>; received: number; revision: number;
+  pulses: Map<string, number>; volumes: Map<string, number>; liveAt: number;
 };
-const empty = (): State => ({ sessions: [], requests: [], questions: [], jobs: [], resets: [], connected: false, error: '', entries: new Map(), changed: new Map(), received: 0, revision: 0 });
+export const edgeKey = (a: string, b: string) => [a, b].sort().join('~');
+const empty = (): State => ({ sessions: [], requests: [], questions: [], jobs: [], resets: [], messages: [], interventions: [], connected: false, error: '', entries: new Map(), changed: new Map(), pulses: new Map(), volumes: new Map(), liveAt: 0, received: 0, revision: 0 });
 function upsert<T extends { id: string }>(items: T[], item: T) {
   const index = items.findIndex(old => old.id === item.id);
   if (index < 0) items.push(item);
@@ -52,8 +56,17 @@ export class Store {
     const s = this.state;
     if (event.type === 'snapshot') {
       const snapshot = event.payload as Snapshot;
-      Object.assign(s, snapshot, { entries: new Map() });
-    } else if (event.type === 'transcript.appended') this.append([event.payload as Entry]);
+      Object.assign(s, snapshot, { entries: new Map(), pulses: new Map(), volumes: new Map() });
+      for (const message of s.messages) {
+        const key = edgeKey(message.fromSessionId, message.toSessionId);
+        s.volumes.set(key, (s.volumes.get(key) ?? 0) + 1);
+      }
+      s.liveAt = Math.max(0, ...s.messages.map(m => Date.parse(m.sentAt)));
+    } else if (event.type === 'transcript.appended') {
+      const entry = event.payload as Entry;
+      this.append([entry]);
+      s.liveAt = Date.parse(entry.at);
+    }
     else this.project(event);
     this.dirty = true;
   }
@@ -68,6 +81,18 @@ export class Store {
     if (event.type === 'question.asked') upsert(s.questions, event.payload as Question);
     if (event.type.startsWith('job.')) upsert(s.jobs, event.payload as Job);
     if (event.type === 'reset.occurred') upsert(s.resets, event.payload as Reset);
+    if (event.type === 'message.sent') {
+      const message = event.payload as Message;
+      upsert(s.messages, message);
+      const key = edgeKey(message.fromSessionId, message.toSessionId);
+      s.pulses.set(key, Date.now());
+      s.volumes.set(key, (s.volumes.get(key) ?? 0) + 1);
+      s.liveAt = Date.parse(message.sentAt);
+    }
+    if (event.type === 'intervention.recorded') {
+      upsert(s.interventions, event.payload as Intervention);
+      if (s.interventions.length > 100) s.interventions.shift();
+    }
   }
 }
 

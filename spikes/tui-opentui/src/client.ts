@@ -1,6 +1,8 @@
 import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import type { InterventionInput } from './signature-model.ts';
 import { setTimeout as delay } from 'node:timers/promises';
-import { Store, type Entry, type Event } from './model.ts';
+import { Store, type Entry, type Event, type Intervention } from './model.ts';
 
 export class Client {
   readonly store = new Store();
@@ -16,7 +18,7 @@ export class Client {
     if (!['127.0.0.1', 'localhost'].includes(url.hostname) || url.protocol !== 'http:') throw new Error('The mock client only connects to loopback HTTP.');
   }
   static local() {
-    const token = readFileSync(process.env.PI_CONSOLE_TOKEN_FILE ?? new URL('../../../.pi-console-dev/token', import.meta.url), 'utf8').trim();
+    const token = readFileSync(process.env.PI_CONSOLE_TOKEN_FILE ?? resolve('.pi-console-dev/token'), 'utf8').trim();
     return new Client(process.env.PI_CONSOLE_URL ?? 'http://127.0.0.1:4777', token);
   }
   private async get(path: string, stream = false) {
@@ -25,6 +27,18 @@ export class Client {
     const response = await fetch(`${this.base}/api/v0${path}`, { headers, signal: this.abort.signal });
     if (!response.ok) throw new Error(`Mock daemon HTTP ${response.status}`);
     return response;
+  }
+  async intervene(input: InterventionInput): Promise<Intervention> {
+    const response = await fetch(`${this.base}/api/v0/interventions`, {
+      method: 'POST', signal: this.abort.signal,
+      headers: { Authorization: `Bearer ${this.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    if (!response.ok) {
+      const body = await response.json() as { error: string };
+      throw new Error(`Mock daemon HTTP ${response.status}: ${body.error}`);
+    }
+    return await response.json() as Intervention;
   }
   async transcript(id: string) {
     let cursor = 0;
