@@ -1,0 +1,40 @@
+ π console  1 Overview  2  Fleet  3 Requests  4 Questions  5 Messages  6 Timeline  7 Work                     ● 19 need you ◉ live
+ ╭─ Fleet · 30 sessions ──────────────────────────────────────────────────────────────────╮ ╭─ Selected ──────────────────────────╮
+ │ ▌▾ aurora  5  3 need attention                                                         │ │ Select a session                    │
+ │    ! Needs you  aurora coordinator                    █████████░  85%   2h  $9.16      │ │                                     │
+ │    ! Needs you  aurora implementation                 █████░░░░░  51%   2h  $8.73      │ │                                     │
+ │      └ ~ Waiting    aurora explore                      █████░░░░░  50%   2h $12.21    │ │                                     │
+ │      └ – Idle       aurora scout                        ████████░░  82%   2h $10.88    │ │                                     │
+ │    × Blocked    aurora review                         ███████░░░  67%   2h $13.07      │ │                                     │
+ │  ▾ harbor  5  3 need attention                                                         │ │                                     │
+ │    ✓ Done       harbor coordinator                    ████████░░  77%   2h $10.77      │ │                                     │
+ │    × Failed     harbor implementation                 ███░░░░░░░  31%   2h $12.13      │ │                                     │
+ │      └ ! Needs you  harbor explore                      █████░░░░░  49%   2h $12.71    │ │                                     │
+ │      └ × Blocked    harbor scout                        ████░░░░░░  35%   2h  $9.81    │ │                                     │
+ │    ⠋ Working    harbor review                         ████░░░░░░  35%   2h  $9.85      │ │                                     │
+ │  ▾ meadow  5  1 need attention                                                         │ │                                     │
+ │    ~ Waiting    meadow coordinator                    ████████░░  79%   2h  $9.78      │ │                                     │
+ │    – Idle       meadow implementation                 ████░░░░░░  43%   2h $11.49      │ │                                     │
+ │      └ × Failed     meadow explore                      ██████░░░░  55%   2h $12.26    │ │                                     │
+ │      └ ⠋ Working    meadow scout                        ████████░░  84%   2h  $9.58    │ │                                     │
+ │    ✓ Done       meadow review                         ████░░░░░░  40%   2h  $6.63      │ │                                     │
+ │  ▾ quartz  5  2 need attention                                                         │ │                                     │
+ │    ! Needs you  quartz coordinator                    ████░░░░░░  41%   2h $10.82      │ │                                     │
+ │    × Blocked    quartz implementation                 █████████░  87%   2h  $9.47      │ │                                     │
+ │      └ – Idle       quartz explore                      █████░░░░░  49%   2h  $9.29    │ │                                     │
+ │      └ ✓ Done       quartz scout                        █████████░  85%   2h $11.68    │ │                                     │
+ │    ~ Waiting    quartz review                         █████░░░░░  52%   2h $11.41      │ │                                     │
+ │  ▾ willow  5  3 need attention                                                         │ │                                     │
+ │    × Failed     willow coordinator                    █████░░░░░  47%   2h $11.69      │ │                                     │
+ │    ⠋ Working    willow implementation                 ████░░░░░░  37%   2h  $9.32      │ │                                     │
+ │      └ × Blocked    willow explore                      ██░░░░░░░░  23%   2h $12.42    │ │                                     │
+ │      └ ~ Waiting    willow scout                        ██████░░░░  58%   2h $13.14    │ │                                     │
+ │    ! Needs you  willow review                         ███░░░░░░░  27%   2h $11.66      │ │                                     │
+ │  ▾ zenith  5  2 need attention                                                         │ │                                     │
+ │    – Idle       zenith coordinator                    ███░░░░░░░  31%   2h $12.09      │ │                                     │
+ │    ✓ Done       zenith implementation                 █████░░░░░  50%   2h $11.21      │ │                                     │
+ │      └ ⠋ Working    zenith explore                      ████████░░  84%   2h  $9.94    │ │                                     │
+ │                                                                                        │ │                                     │
+ │                                                                                        │ │                                     │
+ ╰───────────────────────────────────────────────────────────────────────────── ↓ 2 more ─╯ ╰─────────────────────────────────────╯
+ / filter  j/k move  ⏎ open  esc back  y copy id  v graph  space fold  : palette  ? help

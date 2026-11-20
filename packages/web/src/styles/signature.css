@@ -1,0 +1,25 @@
+/* Signature views: communication graph and timeline. Edges animate along their direction; reduced motion stops it (base.css). */
+.graph-page { display: flex; flex-direction: column; gap: 14px; }
+.graph-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; }
+.graph { width: 100%; height: auto; max-height: 520px; background: radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--cyan) 7%, transparent), transparent 70%); }
+.edge { fill: none; stroke: var(--violet); opacity: 0.8; stroke-linecap: round; }
+.edge.spawn { stroke: var(--cyan); stroke-dasharray: 3 5; }
+.edge.message { stroke-dasharray: 8 4; animation: pulse-dash 1.4s linear infinite; }
+.arrow { fill: var(--violet); }
+.node { cursor: pointer; }
+.node circle { fill: var(--raised); stroke: var(--tone, var(--border)); stroke-width: 2; transition: r 0.15s, filter 0.15s; }
+.node:hover circle, .node:focus-visible circle { r: 18; filter: drop-shadow(0 0 8px var(--tone, var(--cyan))); }
+.node:focus-visible { outline: none; }
+.node .glyph { fill: var(--tone, var(--text)); font-size: 14px; pointer-events: none; }
+.node .label { fill: var(--text); font-size: 11px; paint-order: stroke; stroke: var(--panel); stroke-width: 3px; pointer-events: none; }
+.scrubber { flex: 1; max-width: 420px; accent-color: var(--cyan); }
+.tl { width: 100%; height: auto; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); }
+.tl .tick { stroke: var(--border); stroke-dasharray: 2 4; opacity: 0.7; }
+.tl .axis { fill: var(--muted); font-size: 10px; }
+.lane-bg { fill: color-mix(in oklab, var(--raised) 45%, transparent); }
+.lane:hover .lane-bg { fill: var(--raised); }
+.lane-label { fill: var(--text); font-size: 12px; } .lane-glyph { fill: var(--tone, var(--muted)); }
+.lane-line { stroke: var(--border); }
+.mark { fill: var(--tone, var(--text)); font-size: 13px; cursor: default; }
+.legend { list-style: none; margin: 0; padding: 0; display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
+.legend li { display: inline-flex; gap: 5px; align-items: center; } .legend-glyph { color: var(--tone, var(--text)); }

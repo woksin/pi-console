@@ -1,0 +1,15 @@
+{
+  "name": "@pi-console-spike/bubbletea",
+  "version": "0.0.0-r2",
+  "description": "Local-only Bubble Tea TUI distribution spike",
+  "license": "UNLICENSED",
+  "type": "commonjs",
+  "bin": { "pi-console-bubbletea": "cli.cjs" },
+  "files": ["cli.cjs", "README.md"],
+  "engines": { "node": ">=22" },
+  "optionalDependencies": {
+    "@pi-console-spike/bubbletea-darwin-arm64": "0.0.0-r2",
+    "@pi-console-spike/bubbletea-linux-x64": "0.0.0-r2",
+    "@pi-console-spike/bubbletea-win32-x64": "0.0.0-r2"
+  }
+}

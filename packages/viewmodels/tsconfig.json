@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.packages.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": [
+    "src"
+  ],
+  "references": [
+    {
+      "path": "../contract"
+    },
+    {
+      "path": "../testkit"
+    }
+  ]
+}

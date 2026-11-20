@@ -1,0 +1,20 @@
+{
+  "name": "@pi-console/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --test \"src/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@pi-console/contract": "*",
+    "@pi-console/daemon": "*",
+    "@pi-console/tui": "*"
+  },
+  "bin": {
+    "pi-console": "./bin/pi-console.mjs"
+  }
+}

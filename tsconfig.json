@@ -1,0 +1,15 @@
+{
+  "files": [],
+  "references": [
+    { "path": "packages/contract" },
+    { "path": "packages/core" },
+    { "path": "packages/core/tools" },
+    { "path": "packages/adapters" },
+    { "path": "packages/daemon" },
+    { "path": "packages/viewmodels" },
+    { "path": "packages/web" },
+    { "path": "packages/tui" },
+    { "path": "packages/testkit" },
+    { "path": "packages/cli" }
+  ]
+}

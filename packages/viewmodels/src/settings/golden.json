@@ -1,0 +1,53 @@
+{
+  "health": [
+    {
+      "label": "Daemon",
+      "value": "http://127.0.0.1:4777",
+      "tone": "plain"
+    },
+    {
+      "label": "Stream",
+      "value": "connected",
+      "tone": "good"
+    },
+    {
+      "label": "Last event",
+      "value": "3s ago",
+      "tone": "good"
+    },
+    {
+      "label": "Sequence",
+      "value": "42",
+      "tone": "plain"
+    },
+    {
+      "label": "Events this run",
+      "value": "40",
+      "tone": "plain"
+    },
+    {
+      "label": "Token",
+      "value": "token file",
+      "tone": "plain"
+    }
+  ],
+  "data": [
+    {
+      "label": "sessions",
+      "value": "30",
+      "tone": "plain"
+    },
+    {
+      "label": "requests",
+      "value": "6",
+      "tone": "plain"
+    }
+  ],
+  "sources": [
+    {
+      "label": "Source adapters",
+      "value": "reported by the daemon once the sources endpoint ships",
+      "tone": "plain"
+    }
+  ]
+}

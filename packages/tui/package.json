@@ -1,0 +1,30 @@
+{
+  "name": "@pi-console/tui",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./main": "./src/main.ts"
+  },
+  "scripts": {
+    "start": "node --experimental-ffi src/main.ts",
+    "test": "node --experimental-ffi --test \"src/**/*.test.ts\"",
+    "build:check": "node --experimental-ffi -e \"await import('./src/index.ts')\"",
+    "media": "node --experimental-ffi --disable-warning=ExperimentalWarning src/media.ts"
+  },
+  "dependencies": {
+    "@opentui/core": "0.9.6",
+    "@opentui/react": "0.9.6",
+    "@pi-console/contract": "*",
+    "@pi-console/viewmodels": "*",
+    "react": "19.3.1",
+    "react-devtools-core": "7.0.1",
+    "ws": "8.18.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@xterm/headless": "6.0.0",
+    "@pi-console/testkit": "*"
+  }
+}

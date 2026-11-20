@@ -1,0 +1,141 @@
+{
+  "rows": [
+    {
+      "id": "j8",
+      "sessionId": "s8",
+      "session": "harbor review",
+      "kind": "phase",
+      "name": "unit checks",
+      "status": {
+        "status": "failed",
+        "glyph": "×",
+        "color": "red",
+        "label": "Failed"
+      },
+      "exit": "exit 1",
+      "age": "24m"
+    },
+    {
+      "id": "j4",
+      "sessionId": "s4",
+      "session": "aurora explore",
+      "kind": "job",
+      "name": "watch inbox",
+      "status": {
+        "status": "failed",
+        "glyph": "×",
+        "color": "red",
+        "label": "Failed"
+      },
+      "exit": "exit 1",
+      "age": "24m"
+    },
+    {
+      "id": "j9",
+      "sessionId": "s9",
+      "session": "harbor explore",
+      "kind": "ci",
+      "name": "release verification",
+      "status": {
+        "status": "running",
+        "glyph": "*",
+        "color": "cyan",
+        "label": "Running"
+      },
+      "exit": "",
+      "age": "24m"
+    },
+    {
+      "id": "j5",
+      "sessionId": "s5",
+      "session": "aurora scout",
+      "kind": "phase",
+      "name": "unit checks",
+      "status": {
+        "status": "running",
+        "glyph": "*",
+        "color": "cyan",
+        "label": "Running"
+      },
+      "exit": "",
+      "age": "24m"
+    },
+    {
+      "id": "j1",
+      "sessionId": "s1",
+      "session": "aurora coordinator",
+      "kind": "job",
+      "name": "watch inbox",
+      "status": {
+        "status": "running",
+        "glyph": "*",
+        "color": "cyan",
+        "label": "Running"
+      },
+      "exit": "",
+      "age": "25m"
+    },
+    {
+      "id": "j6",
+      "sessionId": "s6",
+      "session": "harbor coordinator",
+      "kind": "ci",
+      "name": "release verification",
+      "status": {
+        "status": "queued",
+        "glyph": "·",
+        "color": "muted",
+        "label": "Unknown"
+      },
+      "exit": "",
+      "age": "24m"
+    },
+    {
+      "id": "j2",
+      "sessionId": "s2",
+      "session": "aurora implementation",
+      "kind": "phase",
+      "name": "unit checks",
+      "status": {
+        "status": "queued",
+        "glyph": "·",
+        "color": "muted",
+        "label": "Unknown"
+      },
+      "exit": "",
+      "age": "24m"
+    },
+    {
+      "id": "j7",
+      "sessionId": "s7",
+      "session": "harbor implementation",
+      "kind": "job",
+      "name": "watch inbox",
+      "status": {
+        "status": "done",
+        "glyph": "✓",
+        "color": "green",
+        "label": "Done"
+      },
+      "exit": "",
+      "age": "24m"
+    },
+    {
+      "id": "j3",
+      "sessionId": "s3",
+      "session": "aurora review",
+      "kind": "ci",
+      "name": "release verification",
+      "status": {
+        "status": "done",
+        "glyph": "✓",
+        "color": "green",
+        "label": "Done"
+      },
+      "exit": "",
+      "age": "24m"
+    }
+  ],
+  "running": 3,
+  "failed": 2
+}
