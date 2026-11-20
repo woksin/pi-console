@@ -8,6 +8,23 @@ import (
 
 func (m *Model) keypress(key string) tea.Cmd {
 	switch key {
+	case "t":
+		m.screen = "timeline"
+		m.detail = false
+		m.motion = 0
+		return nil
+	case "g":
+		m.screen = "graph"
+		m.detail = false
+		m.motion = 0
+		return nil
+	case "i":
+		return m.openComposer()
+	}
+	if m.screen != "" {
+		return m.signatureKey(key)
+	}
+	switch key {
 	case "q":
 		return tea.Quit
 	case "ctrl+p", ":":
@@ -18,6 +35,7 @@ func (m *Model) keypress(key string) tea.Cmd {
 		return m.openOverlay("search")
 	case "esc":
 		m.detail = false
+		m.frozen = nil
 		m.anchor = 0
 		m.newCount = 0
 		m.search = ""
@@ -28,7 +46,7 @@ func (m *Model) keypress(key string) tea.Cmd {
 			m.newCount = 0
 			m.railTop = 0
 		} else {
-			m.expanded = !m.expanded
+			m.toggleBlock()
 		}
 	case "tab", "shift+tab":
 		m.focus = !m.focus
@@ -40,20 +58,25 @@ func (m *Model) keypress(key string) tea.Cmd {
 		m.move(10)
 	case "pgup":
 		m.move(-10)
-	case "g", "home":
+	case "home":
 		if m.detail && len(m.frame.Entries) > 0 {
 			m.anchor = m.frame.Entries[min(8, len(m.frame.Entries)-1)].Cursor
 		} else {
 			m.move(-10000)
 		}
 	case "G", "end", "f":
+		m.frozen = nil
 		m.anchor = 0
 		m.newCount = 0
 		if !m.detail {
 			m.move(10000)
 		}
 	case "space":
-		m.expanded = !m.expanded
+		m.toggleBlock()
+	case "[":
+		m.moveBlock(-1)
+	case "]":
+		m.moveBlock(1)
 	case "n":
 		if m.detail {
 			m.findSearch()
@@ -102,7 +125,7 @@ func (m *Model) move(delta int) {
 }
 
 func (m *Model) scrollTranscript(delta int) {
-	entries := m.frame.Entries
+	entries := m.transcriptEntries()
 	if len(entries) == 0 {
 		return
 	}
@@ -120,12 +143,30 @@ func (m *Model) scrollTranscript(delta int) {
 		m.newCount = 0
 		return
 	}
+	if m.anchor == 0 {
+		m.frozen = append([]Entry(nil), entries...)
+	}
 	m.anchor = entries[index].Cursor
 }
 
 func (m *Model) mouseClick(x, y int) {
 	if m.overlay != "" {
 		return
+	}
+	if m.screen == "timeline" {
+		m.timelineClick(x, y)
+		return
+	}
+	if m.screen == "graph" {
+		m.graphClick(x, y)
+		return
+	}
+	if m.detail {
+		if cursor, ok := m.transcriptHits[y-7]; ok {
+			m.blockCursor = cursor
+			m.toggleBlock()
+			return
+		}
 	}
 	m.focus = x >= m.leftWidth()
 	if m.focus || m.detail {
@@ -205,6 +246,7 @@ func (m *Model) findSearch() {
 	for n := 0; n < len(m.frame.Entries); n++ {
 		i := (start + n) % len(m.frame.Entries)
 		if strings.Contains(strings.ToLower(m.frame.Entries[i].Text), query) {
+			m.frozen = append([]Entry(nil), m.frame.Entries...)
 			m.anchor = m.frame.Entries[i].Cursor
 			return
 		}

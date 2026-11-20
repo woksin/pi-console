@@ -96,7 +96,8 @@ func TestTranscriptDisclosureOriginResetAndSearch(t *testing.T) {
 			t.Errorf("origin %s: %s", test.origin, got)
 		}
 	}
-	thinking := Entry{Kind: "thinking", Text: "private reasoning"}
+	thinking := Entry{Cursor: 1, Kind: "thinking", Text: "private reasoning"}
+	m.blockCursor = thinking.Cursor
 	if !strings.Contains(ansi.Strip(m.entryView(thinking, 76)), "▸ thinking") {
 		t.Fatal("thinking not collapsed")
 	}

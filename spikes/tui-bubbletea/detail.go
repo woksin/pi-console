@@ -9,6 +9,10 @@ import (
 
 func (m *Model) detailView() string {
 	w, h := m.leftWidth(), m.contentHeight()
+	totalH := h
+	if m.width < 100 {
+		h = max(5, h*2/3)
+	}
 	label := "TRANSCRIPT / following live"
 	if m.anchor > 0 {
 		label = fmt.Sprintf("TRANSCRIPT / paused · ↓ %d new", m.newCount)
@@ -18,7 +22,7 @@ func (m *Model) detailView() string {
 	}
 	left := panel(label, m.transcript(w-4, h-2), w, h, !m.focus, cyan)
 	if m.width < 100 {
-		return left
+		return left + "\n" + panel("SESSION / inspector", m.rail(w-4), w, max(3, totalH-h-1), m.focus, amber)
 	}
 	rail := strings.Split(m.rail(m.width-w-5), "\n")
 	start := min(m.railTop, max(0, len(rail)-h+2))
@@ -27,7 +31,7 @@ func (m *Model) detailView() string {
 }
 
 func (m *Model) transcript(w, h int) string {
-	entries := m.frame.Entries
+	entries := m.transcriptEntries()
 	if len(entries) == 0 {
 		return paint("\n No transcript recorded for this session.\n\n The mock records the streaming timeline for s2.\n Use : → aurora implementation to inspect it.", muted)
 	}
@@ -45,6 +49,7 @@ func (m *Model) transcript(w, h int) string {
 	}
 	start := max(0, end-80)
 	lines := []string{}
+	hits := map[int]int{}
 	if start > 0 {
 		lines = append(lines, paint("  ↑ earlier entries · scroll to explore retained history", dim))
 	}
@@ -60,7 +65,22 @@ func (m *Model) transcript(w, h int) string {
 		if m.search != "" && strings.Contains(strings.ToLower(entry.Text), strings.ToLower(m.search)) {
 			rendered = lg.NewStyle().Background(lg.Color("#453c2a")).Render(rendered)
 		}
+		if disclosed(entry) {
+			for n := range strings.Split(rendered, "\n") {
+				hits[len(lines)+n] = entry.Cursor
+			}
+		}
+		if entry.Cursor == m.blockCursor {
+			rendered = lg.NewStyle().Background(lg.Color(raised)).Render(rendered)
+		}
 		lines = append(lines, strings.Split(rendered, "\n")...)
+	}
+	offset := max(0, len(lines)-h)
+	m.transcriptHits = map[int]int{}
+	for row, cursor := range hits {
+		if row >= offset {
+			m.transcriptHits[row-offset] = cursor
+		}
 	}
 	if len(lines) > h {
 		lines = lines[len(lines)-h:]
@@ -75,6 +95,7 @@ func (m *Model) entryView(e Entry, w int) string {
 	}
 	stamp := paint(at+" ", dim)
 	text := safe(e.Text)
+	expanded := m.expanded || m.blocks[e.Cursor]
 	switch e.Kind {
 	case "user":
 		origin := "origin not verified"
@@ -89,22 +110,22 @@ func (m *Model) entryView(e Entry, w int) string {
 	case "assistant":
 		return stamp + strong("◂ assistant", cyan) + "\n" + paint(wrapped("  "+text, w), ink)
 	case "thinking":
-		if m.expanded {
+		if expanded {
 			return stamp + paint("▾ thinking", violet) + "\n" + paint(wrapped("  "+text, w), muted)
 		}
 		return stamp + paint("▸ thinking · ", violet) + paint(cut(text, w-23), dim)
 	case "tool.call":
 		disclosure := "▸"
-		if m.expanded {
+		if expanded {
 			disclosure = "▾"
 		}
 		line := stamp + paint(disclosure+" tool  ", violet) + paint(cut(text, w-27), ink) + paint("  [call]", dim)
-		if m.expanded {
+		if expanded {
 			line += "\n" + paint(wrapped("  args: "+text, w), muted)
 		}
 		return line
 	case "tool.result":
-		if m.expanded {
+		if expanded {
 			return stamp + paint("↳ result received", green) + "\n" + paint(wrapped("  "+text, w), muted)
 		}
 		return stamp + paint("↳ result received", green) + paint(" · space to expand", dim)

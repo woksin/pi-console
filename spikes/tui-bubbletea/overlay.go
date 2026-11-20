@@ -29,6 +29,7 @@ func fuzzy(query, text string) (int, bool) {
 }
 func (m *Model) actions() []action {
 	all := []action{{id: "fleet", label: "Go to fleet overview", kind: "navigation"}, {id: "needs", label: "Filter needs-you sessions", kind: "filter"}, {id: "theme", label: "Toggle Midnight / Contrast theme", kind: "appearance"}, {id: "quit", label: "Quit console (agents keep running)", kind: "application"}}
+	all = append(all, action{id: "timeline", label: "Swimlane timeline / Event Horizon", kind: "navigation"}, action{id: "graph", label: "Communication graph / Neural Switchboard", kind: "navigation"}, action{id: "composer", label: "Intervene in selected session", kind: "control"})
 	for _, s := range m.frame.Sessions {
 		all = append(all, action{id: "session:" + s.ID, label: s.LaneID + " · " + s.Name, kind: "session · " + s.Status})
 	}
@@ -48,7 +49,13 @@ func (m *Model) execute(id string) tea.Cmd {
 	switch id {
 	case "quit":
 		return tea.Quit
+	case "timeline", "graph":
+		m.screen = id
+		m.detail = false
+	case "composer":
+		return m.openComposer()
 	case "fleet":
+		m.screen = ""
 		m.detail = false
 	case "needs":
 		m.detail = false
@@ -60,6 +67,8 @@ func (m *Model) execute(id string) tea.Cmd {
 		setTheme(m.contrast)
 	default:
 		if strings.HasPrefix(id, "session:") {
+			m.screen = ""
+			m.frozen = nil
 			m.selected = strings.TrimPrefix(id, "session:")
 			m.key = "session-" + m.selected
 			m.frame = m.feed.frame(m.selected)
@@ -80,7 +89,7 @@ func (m *Model) overlayView(base string) string {
 	switch m.overlay {
 	case "help":
 		title = "KEYBOARD / help"
-		lines = []string{strong("A quieter place to run a busy fleet.", ink), "", paint("j / k · ↑ / ↓    Select session / scroll timeline", muted), paint("Enter            Open session; expand transcript", muted), paint("Esc              Back to fleet / dismiss overlay", muted), paint("Tab              Focus the other pane", muted), paint("Mouse            Click selects · wheel scrolls", muted), paint("g / G · Home/End  Oldest / follow latest", muted), paint("f                Resume follow · clear new counter", muted), paint("Space            Expand thinking and tool payloads", muted), paint("/ · n            Search transcript · next match", muted), paint("n (fleet)        Toggle needs-you filter", muted), paint("Ctrl+P / :       Fuzzy command & session palette", muted), paint("q / Ctrl+C       Quit UI, never abort agents", muted), "", paint("Mock-only · no interventions are sent.", amber)}
+		lines = []string{strong("A quieter place to run a busy fleet.", ink), "", paint("j / k · ↑ / ↓    Select session / scroll timeline", muted), paint("Enter            Open session; expand transcript", muted), paint("Esc              Back to fleet / dismiss overlay", muted), paint("Tab              Focus the other pane", muted), paint("Mouse            Click selects · wheel scrolls", muted), paint("g / G · Home/End  Oldest / follow latest", muted), paint("f                Resume follow · clear new counter", muted), paint("Space            Expand thinking and tool payloads", muted), paint("/ · n            Search transcript · next match", muted), paint("n (fleet)        Toggle needs-you filter", muted), paint("Ctrl+P / :       Fuzzy command & session palette", muted), paint("q / Ctrl+C       Quit UI, never abort agents", muted), "", paint("t timeline · g graph · i intervention (audit only)", amber)}
 	case "search":
 		title = "SEARCH / transcript"
 		lines = append(lines, paint("Enter jumps to a match · n finds the next · Esc cancels", muted))

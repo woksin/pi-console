@@ -17,6 +17,7 @@ func main() {
 	colors := flag.String("colors", "auto", "auto, 16, 256, or truecolor")
 	duration := flag.Duration("duration", 0, "optional automatic exit, useful for measurement")
 	detail := flag.Bool("detail", false, "open the recorded s2 transcript on startup")
+	screen := flag.String("screen", "", "startup screen: timeline, graph, composer, or transcript")
 	flag.Parse()
 	profile, err := colorMode(*colors)
 	if err != nil {
@@ -36,6 +37,18 @@ func main() {
 	go client.run(ctx)
 	model := newModel(feed)
 	model.detail = *detail
+	model.client = client
+	switch *screen {
+	case "timeline", "graph":
+		model.screen = *screen
+	case "transcript":
+		model.detail = true
+	case "composer":
+		model.detail = true
+		model.frame = feed.frame(model.selected)
+		model.openComposer()
+	}
+
 	program := tea.NewProgram(model, tea.WithColorProfile(profile))
 	if *duration > 0 {
 		go func() {

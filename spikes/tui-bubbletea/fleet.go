@@ -94,6 +94,10 @@ func (m *Model) selectRow(row fleetRow) {
 }
 func (m *Model) fleetView() string {
 	w, h := m.leftWidth(), m.contentHeight()
+	totalH := h
+	if m.width < 100 {
+		h = max(5, h*2/3)
+	}
 	rows := m.rows()
 	index := 0
 	for i, row := range rows {
@@ -128,7 +132,7 @@ func (m *Model) fleetView() string {
 	}
 	left := panel(fmt.Sprintf("FLEET / %02d", len(m.frame.Sessions)), strings.Join(lines, "\n"), w, h, !m.focus, cyan)
 	if m.width < 100 {
-		return left
+		return left + "\n" + panel("SESSION PREVIEW", m.preview(w-4), w, max(3, totalH-h-1), m.focus, ink)
 	}
 	rw := m.width - w - 1
 	previewH := max(12, h*62/100)

@@ -19,39 +19,44 @@ type Session struct {
 	ContextPercent                                                                   int
 	Samples                                                                          []Sample
 }
-type Answer struct{ Text string }
+type Answer struct{ Text, At string }
 type Request struct {
-	ID, SessionID, Text, Origin, Status, ResetID string
-	Answer                                       *Answer
-	InterimAnswers                               []Answer
+	ID, SessionID, Text, Origin, Status, ResetID, CreatedAt string
+	Answer                                                  *Answer
+	InterimAnswers                                          []Answer
 }
 type Question struct {
-	ID, SessionID, Text, Status string
-	Blocking                    bool
+	ID, SessionID, Text, Status, CreatedAt string
+	Blocking                               bool
 }
 type Job struct {
 	ID, SessionID, Name, Kind, Status string
 	ExitCode                          *int
 }
 type Reset struct {
-	ID, SessionID, Kind                      string
+	ID, SessionID, Kind, At                  string
 	CarriedRequestIDs, InterruptedRequestIDs []string
 }
 type Entry struct {
 	ID, SessionID, At, Kind, Text, ToolCallID, ResetID string
 	Cursor                                             int
 }
+type Message struct{ ID, FromSessionID, ToSessionID, Text, Status, SentAt string }
+type Audit struct{ ID, Type, SessionID, Result, RecordedAt string }
 type Snapshot struct {
-	Sessions  []Session
-	Requests  []Request
-	Questions []Question
-	Jobs      []Job
-	Resets    []Reset
+	Messages      []Message
+	Interventions []Audit
+	Sessions      []Session
+	Requests      []Request
+	Questions     []Question
+	Jobs          []Job
+	Resets        []Reset
 }
 type Event struct {
-	Seq     int
-	Type    string
-	Payload json.RawMessage
+	Seq        int
+	Type       string
+	OccurredAt string
+	Payload    json.RawMessage
 }
 
 // The network writer never drives the renderer. The UI samples a bounded read
@@ -64,6 +69,8 @@ type Feed struct {
 	connected     bool
 	problem       string
 	seq, received int
+	pulses        map[string]time.Time
+	liveAt        string
 }
 
 type Frame struct {
@@ -73,9 +80,13 @@ type Frame struct {
 	Connected     bool
 	Problem       string
 	Seq, Received int
+	Pulses        map[string]time.Time
+	LiveAt        string
 }
 
-func newFeed() *Feed { return &Feed{entries: map[string][]Entry{}, changed: map[string]time.Time{}} }
+func newFeed() *Feed {
+	return &Feed{entries: map[string][]Entry{}, changed: map[string]time.Time{}, pulses: map[string]time.Time{}}
+}
 
 func upsert[T any](items []T, value T, id func(T) string) []T {
 	for i, item := range items {
@@ -99,6 +110,17 @@ func (f *Feed) apply(event Event) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.seq = event.Seq
+	var clock struct{ At, CreatedAt, SentAt string }
+	if json.Unmarshal(event.Payload, &clock) == nil {
+		switch {
+		case clock.At != "":
+			f.liveAt = clock.At
+		case clock.CreatedAt != "":
+			f.liveAt = clock.CreatedAt
+		case clock.SentAt != "":
+			f.liveAt = clock.SentAt
+		}
+	}
 	f.connected = true
 	f.problem = ""
 	switch event.Type {
@@ -126,6 +148,14 @@ func (f *Feed) apply(event Event) {
 		f.state.Questions = decodeUpsert(event.Payload, f.state.Questions, func(q Question) string { return q.ID })
 	case "job.updated", "job.finished":
 		f.state.Jobs = decodeUpsert(event.Payload, f.state.Jobs, func(j Job) string { return j.ID })
+	case "message.sent":
+		var message Message
+		if json.Unmarshal(event.Payload, &message) == nil {
+			f.state.Messages = upsert(f.state.Messages, message, func(m Message) string { return m.ID })
+			f.pulses[message.ID] = time.Now()
+		}
+	case "intervention.recorded":
+		f.state.Interventions = decodeUpsert(event.Payload, f.state.Interventions, func(a Audit) string { return a.ID })
 	case "reset.occurred":
 		f.state.Resets = decodeUpsert(event.Payload, f.state.Resets, func(r Reset) string { return r.ID })
 	}
@@ -173,7 +203,13 @@ func (f *Feed) frame(id string) Frame {
 	for id, at := range f.changed {
 		changed[id] = at
 	}
-	return Frame{s, append([]Entry(nil), f.entries[id]...), changed, f.connected, f.problem, f.seq, f.received}
+	s.Messages = append([]Message(nil), s.Messages...)
+	s.Interventions = append([]Audit(nil), s.Interventions...)
+	pulses := make(map[string]time.Time, len(f.pulses))
+	for id, at := range f.pulses {
+		pulses[id] = at
+	}
+	return Frame{Snapshot: s, Entries: append([]Entry(nil), f.entries[id]...), Changed: changed, Connected: f.connected, Problem: f.problem, Seq: f.seq, Received: f.received, Pulses: pulses, LiveAt: f.liveAt}
 }
 
 func (f *Feed) disconnected(err error) {
