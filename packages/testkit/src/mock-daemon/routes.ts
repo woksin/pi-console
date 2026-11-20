@@ -2,6 +2,7 @@ import type { IncomingMessage } from 'node:http';
 import { apiV1Schema as schema, validate } from '@pi-console/contract';
 import { needsYou } from './needs-you.ts';
 import { HttpError } from './security.ts';
+import { graph, health, settings, transcriptAround } from './v1-extras.ts';
 import type { Store } from './store.ts';
 
 export function overview(store: Store) {
@@ -37,9 +38,11 @@ function sessionResponse(store: Store, url: URL) {
   return sessionDetail(store, session);
 }
 function transcriptResponse(store: Store, sessionId: string, url: URL) {
-  const after = queryInteger(url, 'after', 0, Number.MAX_SAFE_INTEGER);
   const limit = queryInteger(url, 'limit', 100, 1000);
   if (limit === 0) throw new HttpError(400, 'Invalid limit');
+  const around = url.searchParams.get('around');
+  if (around !== null) return transcriptAround(store, sessionId, around, limit);
+  const after = queryInteger(url, 'after', 0, Number.MAX_SAFE_INTEGER);
   const available = store.fixture.transcript.filter(entry => entry.sessionId === sessionId && entry.cursor > after);
   const items = available.slice(0, limit);
   return { items, nextCursor: items.at(-1)?.cursor ?? after, hasMore: available.length > items.length };
@@ -52,8 +55,12 @@ function sessionDetail(store: Store, session: Store['fixture']['sessions'][numbe
     subagents: store.fixture.sessions.filter(item => item.parentSessionId === session.id),
   };
 }
-export function query(store: Store, url: URL): unknown {
+export interface MockInfo { port: number; startedAt: string; replayWindow: number }
+export function query(store: Store, url: URL, info: MockInfo): unknown {
   const path = url.pathname;
+  if (path === '/api/v1/graph') return graph(store.fixture);
+  if (path === '/api/v1/health') return health(store, info.startedAt, info.replayWindow);
+  if (path === '/api/v1/settings') return settings(info.port, info.replayWindow);
   if (path === '/api/v1/overview') return overview(store);
   if (path === '/api/v1/needs-you') return needsYou(store.fixture);
   if (path.startsWith('/api/v1/sessions/')) return sessionResponse(store, url);

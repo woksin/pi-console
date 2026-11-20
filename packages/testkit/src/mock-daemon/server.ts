@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
 import { authenticate, HttpError, loadToken } from './security.ts';
 import { createStore, type Store } from './store.ts';
-import { intervene, query } from './routes.ts';
+import { intervene, query, type MockInfo } from './routes.ts';
 
 function json(res: ServerResponse, status: number, body: unknown) {
   res.writeHead(status, { 'Content-Type': 'application/json' });
@@ -14,7 +14,7 @@ function sendError(res: ServerResponse, error: unknown) {
   const message = status === 500 ? 'Internal error' : (error as Error).message;
   json(res, status, { error: message });
 }
-async function route(store: Store, req: IncomingMessage, res: ServerResponse, url: URL) {
+async function route(store: Store, req: IncomingMessage, res: ServerResponse, url: URL, info: MockInfo) {
   if (req.method === 'GET' && url.pathname === '/api/v1/stream') {
     store.connect(res, req.headers['last-event-id'] as string | undefined); // Node keeps a single value for this header
     return;
@@ -24,9 +24,9 @@ async function route(store: Store, req: IncomingMessage, res: ServerResponse, ur
     return;
   }
   if (req.method !== 'GET') throw new HttpError(405, 'Method not allowed');
-  json(res, 200, query(store, url));
+  json(res, 200, query(store, url, info));
 }
-function handler(store: Store, token: string) {
+function handler(store: Store, token: string, info: MockInfo) {
   return async (req: IncomingMessage, res: ServerResponse) => {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -34,14 +34,15 @@ function handler(store: Store, token: string) {
       const url = new URL(req.url ?? '/', 'http://127.0.0.1');
       const port = req.socket.localPort ?? 0;
       if (!authenticate(req, res, url, { port, token })) return;
-      await route(store, req, res, url);
+      await route(store, req, res, url, info);
     } catch (error) { sendError(res, error); }
   };
 }
-export async function startDaemon(options: { port?: number; speed?: number; rate?: number; dataDirectory?: string } = {}) {
+export async function startDaemon(options: { port?: number; speed?: number; rate?: number; dataDirectory?: string; replayWindow?: number } = {}) {
   const token = loadToken(options.dataDirectory ?? resolve('.pi-console-dev'));
-  const store = createStore(options.speed ?? 1, options.rate);
-  const server = createServer(handler(store, token));
+  const info: MockInfo = { port: 0, startedAt: new Date().toISOString(), replayWindow: options.replayWindow ?? 10000 };
+  const store = createStore(options.speed ?? 1, options.rate, info.replayWindow);
+  const server = createServer(handler(store, token, info));
   server.requestTimeout = 10000;
   server.headersTimeout = 10000;
   server.on('close', () => store.close());
@@ -51,9 +52,10 @@ export async function startDaemon(options: { port?: number; speed?: number; rate
       server.listen(options.port ?? 4777, '127.0.0.1', () => { server.removeListener('error', reject); resolveListen(); });
     });
   } catch (error) { store.close(); throw error; }
-  const address = server.address() as { port: number };
+  const address = server.address() as { port: number; address: string };
+  info.port = address.port;
   return {
-    server, store, token, port: address.port,
+    server, store, token, port: address.port, address: address.address,
     async close() {
       store.close();
       await new Promise<void>((done, reject) => server.close(error => error ? reject(error) : done()));

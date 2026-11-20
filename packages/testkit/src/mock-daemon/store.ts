@@ -29,7 +29,7 @@ function project(fixture: Fixture, type: string, payload: unknown) {
   const items = collections[type as keyof typeof collections];
   if (items) upsert(items as { id: string }[], payload as { id: string });
 }
-export function createStore(speed: number, rate?: number) {
+export function createStore(speed: number, rate?: number, replayWindow = 10000) {
   const fixture: Fixture = JSON.parse(readFileSync(new URL('../fixture/data/fixture.json', import.meta.url), 'utf8'));
   const timeline: TimelineEntry[] = readFileSync(new URL('../fixture/data/stream.jsonl', import.meta.url), 'utf8').trim().split('\n').map(line => JSON.parse(line));
   const entries = rate ? timeline.filter(event => event.type !== 'transcript.appended') : timeline;
@@ -56,7 +56,7 @@ export function createStore(speed: number, rate?: number) {
     } else project(fixture, type, payload);
     const event = { seq: ++seq, type, occurredAt: new Date().toISOString(), payload };
     history.push(event);
-    if (history.length > 10000) history.shift();
+    if (history.length > replayWindow) history.shift();
     for (const client of clients) send(client, event);
     return event;
   }
@@ -94,6 +94,7 @@ export function createStore(speed: number, rate?: number) {
   function connect(client: ServerResponse, lastId: string | undefined) {
     const after = resumeSequence(lastId, seq);
     client.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-store', Connection: 'keep-alive' });
+    client.flushHeaders();
     const earliest = history[0]?.seq ?? seq + 1;
     if (after === undefined || after < earliest - 1) {
       send(client, { seq, type: 'snapshot', occurredAt: new Date().toISOString(), payload: snapshot() });
@@ -106,7 +107,7 @@ export function createStore(speed: number, rate?: number) {
   const timer = setInterval(tick, 10);
   const heartbeat = setInterval(() => { for (const client of clients) client.write(': heartbeat\n\n'); }, 15000);
   return {
-    fixture, interventions, publish, connect, snapshot,
+    fixture, interventions, publish, connect, snapshot, seq: () => seq, clients: () => clients.size,
     close() { clearInterval(timer); clearInterval(heartbeat); for (const client of clients) client.destroy(); },
   };
 }
