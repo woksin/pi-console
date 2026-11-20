@@ -1,0 +1,25 @@
+{
+  "context": [
+    { "at": "2026-07-01T10:00:00Z", "event": "turn", "sessionId": "synthetic-session", "tokens": 900, "soft": 1000, "hard": 1200 },
+    { "at": "2026-07-01T10:01:00Z", "event": "handoff_committed", "sessionId": "synthetic-session", "path": "handoffs/synthetic.md" }
+  ],
+  "lanes": { "version": 1, "lanes": [{ "id": "M1", "repo": "example/console", "branch": "synthetic", "worktree": "console-m1", "prompt": "Synthetic task", "group": null }] },
+  "roster": { "id": "M1", "cwd": "/synthetic/console", "startedAt": "2026-07-01T10:00:00Z" },
+  "laneMessage": "From M1: task complete (synthetic prose, no date)",
+  "orch": [
+    { "id": "msg-1", "from": "M1", "to": "M2", "body": "Synthetic update", "createdAt": "2026-07-01T10:00:00Z" },
+    { "msgId": "msg-1", "by": "M2", "state": "acked", "at": "2026-07-01T10:01:00Z" },
+    { "sessionId": "synthetic-session", "status": "active", "at": "2026-07-01T10:02:00Z" }
+  ],
+  "question": { "v": 1, "id": "q-1", "rev": 1, "type": "decision", "priority": "normal", "blocking": "awaiting choice", "text": "Synthetic question?", "history": [{ "seq": 1, "type": "created", "ts": "2026-07-01T10:00:00Z" }] },
+  "legacyQuestion": { "id": "q-legacy", "rev": 1, "kind": "fyi", "urgency": "normal", "blocking": "", "title": "Synthetic FYI", "body": "Synthetic legacy body", "history": [{ "seq": 1, "type": "created", "at": "2026-07-01T10:00:00Z" }] },
+  "issue": { "repo": "example/console", "issue": 42, "sessionId": "synthetic-session", "state": "in-review", "ts": "2026-07-01T10:00:00Z" },
+  "phase": { "v": 1, "argvHash": "synthetic-hash", "label": "Synthetic test", "queuedAt": "2026-07-01T10:00:00Z", "startedAt": "2026-07-01T10:01:00Z", "endedAt": "2026-07-01T10:02:00Z", "outcome": "passed", "exit": 0 },
+  "jobLog": "job started\njob done\nsubagent failed\n",
+  "reviewLog": "head abcdef\nverdict: approved (synthetic command output)\n",
+  "jobs": { "type": "custom_message", "id": "entry-jobs", "timestamp": "2026-07-01T10:00:00Z", "customType": "pi-jobs", "content": "job done", "details": { "completions": [
+    { "completionId": "c1", "job": { "id": "job-1", "status": "succeeded", "exitCode": 0 } },
+    { "completionId": "c2", "job": { "id": "job-2", "status": "killed", "exitCode": null } }
+  ] } },
+  "jobStart": { "type": "message", "id": "entry-start", "timestamp": "2026-07-01T09:00:00Z", "message": { "role": "toolResult", "toolName": "job_start", "details": { "id": "job-1", "command": "echo synthetic", "startedAt": "2026-07-01T09:00:00Z", "status": "running" } } }
+}

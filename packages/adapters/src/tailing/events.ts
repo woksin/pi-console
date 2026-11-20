@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import { definitionOf, idempotencyKey, payloadValid, type NewEvent, type SourceCheckpoint } from '@pi-console/contract';
 import { redactValue, type Scanner } from './redact.ts';
 
-export interface Fact { type: string; subject: string; payload: Record<string, unknown>; occurredAt?: string; entryId?: string }
+export interface Fact { type: string; subject: string; payload: Record<string, unknown>; occurredAt?: string; entryId?: string; observationId?: string }
 export type Mapper = (record: Record<string, unknown>) => readonly Fact[];
 interface MappingContext { checkpoint: SourceCheckpoint; mapper: Mapper; scanner?: Scanner }
 
@@ -34,7 +34,7 @@ function envelope(checkpoint: SourceCheckpoint, offset: number, fact: Fact): New
   return {
     id: eventId(), type: fact.type, version: 1, occurredAt: fact.occurredAt ?? new Date(checkpoint.mtimeMs).toISOString(),
     source: checkpoint.source, subject: fact.subject, actor: 'system', payload: fact.payload,
-    idempotencyKey: idempotencyKey({ ...checkpoint, offset, type: fact.type }),
+    idempotencyKey: idempotencyKey({ ...checkpoint, offset, type: fact.observationId === undefined ? fact.type : `${fact.type}:${fact.observationId}` }),
     refs: { file: checkpoint.path, offset, entryId: fact.entryId ?? null },
   };
 }
