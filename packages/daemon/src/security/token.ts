@@ -10,10 +10,10 @@ const tokenPattern = /^[a-f0-9]{64}$/;
 const digest = (text: string): Buffer => createHash('sha256').update(text, 'utf8').digest();
 
 function ownerOnly(path: string, mode: number): void {
-  chmodSync(path, mode);
   const stat = lstatSync(path);
   if (stat.isSymbolicLink()) throw new Error(`Refusing symlinked credential path ${path}`);
   if (process.getuid && stat.uid !== process.getuid()) throw new Error(`Credential path ${path} is owned by another user`);
+  chmodSync(path, mode);
 }
 
 function createIfMissing(path: string): void {

@@ -44,8 +44,10 @@ test('loose permissions are tightened; malformed or symlinked token files are re
   const other = temp(t);
   writeFileSync(join(other, 'elsewhere'), 'b'.repeat(64));
   rmSync(join(directory, 'token'));
+  const originalMode = statSync(join(other, 'elsewhere')).mode;
   symlinkSync(join(other, 'elsewhere'), join(directory, 'token'));
   assert.throws(() => loadToken(directory));
+  assert.equal(statSync(join(other, 'elsewhere')).mode, originalMode, 'refusal never chmods the symlink target');
 });
 
 test('credentials keep only a hash and accept exactly the token with read scope', t => {

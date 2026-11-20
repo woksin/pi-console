@@ -37,6 +37,10 @@ export interface SessionRecord {
   requestIds: string[];
 }
 
+/** The pass-through projection's bookkeeping fields; derived requests never use them. */
+export const passThroughFields = (): Pick<RequestModel, 'stamps' | 'interruptedResetId'> =>
+  ({ stamps: Object.create(null) as Record<string, string>, interruptedResetId: null });
+
 export interface ExplicitAnswer extends AnswerModel { key: string; withheld: boolean }
 
 /**

@@ -78,7 +78,7 @@ const cases: { name: string; facts: Fact[]; expected: Record<string, Partial<Ret
   { name: 'a reset right after an answer, with no prompt between, marks the answer possibly unseen',
     facts: [top(), prompt('e1'), answer('e2'), reset('c1')], expected: { e1: { status: 'answered', unseen: true } } },
   { name: 'a prompt between the answer and the reset means the answer was seen',
-    facts: [top(), prompt('e1'), answer('e2'), prompt('e3'), reset('c1')], expected: { e1: { unseen: false }, e3: { status: 'open' } } },
+    facts: [top(), prompt('e1'), answer('e2'), prompt('e3'), reset('c1')], expected: { e1: { unseen: false }, e3: { status: 'interrupted' } } },
   { name: 'a second answer with no prompt between supersedes the first, which becomes interim',
     facts: [top(), prompt('e1'), answer('e2'), answer('e3')], expected: { e1: { answer: 's:e3', interim: ['s:e2'] } } },
   { name: 'an answer with nothing asked yet answers nothing',

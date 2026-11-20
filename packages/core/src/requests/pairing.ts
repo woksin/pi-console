@@ -1,6 +1,6 @@
 import type { RequestEvidence } from '@pi-console/contract';
 import type { AnswerModel, RequestModel } from '../projections/requests.ts';
-import type { AnswerObservation, Observation, PromptObservation, SessionFacts } from './model.ts';
+import { passThroughFields, type AnswerObservation, type Observation, type PromptObservation, type SessionFacts } from './model.ts';
 import { classifyOrigin } from './origin.ts';
 
 const evidence = (kind: RequestEvidence['kind'], observation: Observation, resetId: string | null = null): RequestEvidence =>
@@ -26,7 +26,7 @@ class Pairing {
   prompt(observation: PromptObservation): void {
     const request: RequestModel = {
       id: observation.requestId, sessionId: this.sessionId, text: observation.text,
-      ...classifyOrigin(this.requests.length === 0, this.facts),
+      ...passThroughFields(), ...classifyOrigin(this.requests.length === 0, this.facts),
       status: 'open', createdAt: observation.at, resetId: null, answer: null, interimAnswers: [], ref: observation.ref,
       withheld: observation.withheld, answerWithheld: false, answerPossiblyUnseen: false, uncertainReason: null,
       evidence: [evidence('prompt', observation)], derivedFrom: observation.derivedFrom,
@@ -50,8 +50,7 @@ class Pairing {
     }
     const newest = this.#pending.at(-1)?.resetsSince ?? 0;
     for (const { request, resetsSince } of this.#pending) {
-      Object.assign(request, { status: 'answered', answer, answerWithheld: observation.withheld });
-      request.evidence?.push(evidence('answer', observation));
+      close(request, answer, observation);
       if (resetsSince > newest) request.uncertainReason = 'reset-then-new-prompt';
       else if (this.#pending.length > 1) request.uncertainReason ??= 'shared-answer';
     }
@@ -93,6 +92,11 @@ class Pairing {
     }
     this.#pending = [];
   }
+}
+
+function close(request: RequestModel, answer: AnswerModel, observation: AnswerObservation): void {
+  Object.assign(request, { status: 'answered', answer, answerWithheld: observation.withheld });
+  request.evidence?.push(evidence('answer', observation));
 }
 
 function supersede(request: RequestModel, answer: AnswerModel, observation: AnswerObservation): void {

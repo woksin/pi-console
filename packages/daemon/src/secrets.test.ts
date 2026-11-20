@@ -5,6 +5,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { DatabaseSync } from 'node:sqlite';
 import type { NewEvent } from '@pi-console/contract';
 import { testEvent } from '@pi-console/core/testing';
 import { call, openStream, secretShapes, secretsIn } from '@pi-console/testkit';
@@ -58,7 +59,18 @@ test('terminal escapes and bidi overrides never reach a client', async t => {
   for (const code of [0x1b, 0x07, 0x202e, 0x85]) assert.equal(output.includes(String.fromCharCode(code)), false, code.toString(16));
 });
 
-test('secrets in session files never leave through the API after real ingestion', async t => {
+function assertPersistedSecretsAbsent(directory: string): void {
+  const database = new DatabaseSync(join(directory, 'console.db'), { readOnly: true });
+  try {
+    for (const table of ['events', 'checkpoints', 'projections']) {
+      const rows = database.prepare(`SELECT * FROM ${table}`).all();
+      assert.ok(rows.length > 0, `${table} was persisted`);
+      assert.deepEqual(secretsIn(JSON.stringify(rows)), [], `no plaintext secrets in ${table}`);
+    }
+  } finally { database.close(); }
+}
+
+test('secrets in real session ingestion never persist in event, checkpoint or projection rows or leave the API', async t => {
   const sessions = mkdtempSync(join(tmpdir(), 'pi-console-sessions-'));
   t.after(() => { rmSync(sessions, { recursive: true, force: true }); });
   const root = join(sessions, 'project');
@@ -70,9 +82,16 @@ test('secrets in session files never leave through the API after real ingestion'
     }))];
   writeFileSync(join(root, 'session.jsonl'), lines.map(line => JSON.stringify(line)).join('\n') + '\n');
   const ingesting = await specDaemon([], { ingest: true, pollMs: 20, sessionRoots: [sessions] });
-  t.after(() => ingesting.close());
+  let closed = false;
+  t.after(async () => {
+    if (!closed) await ingesting.daemon.close();
+    rmSync(ingesting.directory, { recursive: true, force: true });
+  });
   for (let i = 0; i < 200 && !ingesting.daemon.ingestion.backfillComplete; i++) await new Promise(resolve => setTimeout(resolve, 10));
   for (let i = 0; i < 200 && ingesting.daemon.log.lastSeq() === 0; i++) await new Promise(resolve => setTimeout(resolve, 10));
   assert.ok(ingesting.daemon.log.lastSeq() > 0, 'the session file was ingested');
   assert.deepEqual(secretsIn(await everything(ingesting.daemon.port, ingesting.token)), []);
+  await ingesting.daemon.close();
+  closed = true;
+  assertPersistedSecretsAbsent(ingesting.directory);
 });
