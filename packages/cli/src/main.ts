@@ -22,7 +22,7 @@ export async function main(argv: readonly string[]): Promise<number> {
   const [command, ...rest] = argv;
   if (command === 'daemon') return runDaemon(rest, { out: line => { console.log(line); }, stopSignal: daemonStopSignal() });
   if (command === 'tui') return await runTui();
-  if (command === undefined || command === '--help') {
+  if (argv.length === 0 || command === '--help') {
     console.error(usage);
     return 0;
   }
