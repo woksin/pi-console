@@ -55,7 +55,7 @@ Drawn with `packages/core/tools/sample-requests.ts` (seed 7) over the copy; each
 | 29 | 2709d8dd | answered | none | next human turn or first final reply in raw JSONL matches | correct |
 | 30 | e9ac4173 | answered | none | next human turn or first final reply in raw JSONL matches | correct |
 
-Summary: 30 of 30 correct. Open states by rule (rows 5, 6, 13, 14): no final assistant text follows the prompt. Shared-answer labels (rows 2, 21, 26 among others) are the labelled uncertainty. One judgement to note: row 23 keeps the first reply as an interim answer and the later wake-up reply is not paired to it; that is the documented rule, not a mispairing. Rows 8, 16 and 27 keep interim answers with the last as final.
+Summary: 30 of 30 correct. Open states by rule (rows 5, 6, 13, 14): no final assistant text follows the prompt. Shared-answer labels (rows 2, 21, 26) are the labelled uncertainty. One judgement to note: row 23 keeps the first reply as an interim answer and the later wake-up reply is not paired to it; that is the documented rule, not a mispairing. Rows 8, 16 and 27 keep interim answers with the last as final.
 
 ## Idle memory: MISS, with breakdown
 
