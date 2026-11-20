@@ -68,10 +68,14 @@ class Pairing {
     this.#lastAnswered = [];
   }
 
-  /** A reset neither answers nor closes a request; after an unanswered-by-prompt answer it may hide that answer. */
+  /**
+   * A reset cuts off what is pending (`interrupted`, contract v1.2 section 10: open and listed at a boundary) but does
+   * not close it: a later answer still pairs. Right after an answer, with no prompt between, it may hide that answer.
+   */
   reset(observation: Observation & { resetId: string }): void {
     for (const pending of this.#pending) {
       pending.resetsSince += 1;
+      pending.request.status = 'interrupted';
       pending.request.resetId = observation.resetId;
       pending.request.evidence?.push(evidence('reset', observation, observation.resetId));
     }

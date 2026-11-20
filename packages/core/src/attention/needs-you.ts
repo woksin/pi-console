@@ -1,6 +1,7 @@
 import type { SourceRef } from '@pi-console/contract';
 import { compareText } from '../projector/canonical.ts';
 import type { ReadModels } from '../projections/index.ts';
+import type { RequestModel } from '../projections/requests.ts';
 import type { SessionModel } from '../projections/sessions.ts';
 
 export type AttentionReason = 'open-request' | 'answer-possibly-unseen' | 'blocking-question' | 'lane-waiting-on-user' | 'stale-session';
@@ -36,19 +37,16 @@ const pointer = (sessionId: string | null, ref: SourceRef | null): AttentionPoin
  * Open requests, and answered requests whose answer a reset may have hidden (`answerPossiblyUnseen`, set by the
  * request derivation), human or launch only: an `unproven` request never raises a badge (ADR-0008).
  */
+function requestItem(request: RequestModel): AttentionItem | null {
+  if (request.origin === 'unproven') return null;
+  const item = { sessionId: request.sessionId, laneId: null, text: request.text, pointer: pointer(request.sessionId, request.ref) };
+  if (request.status === 'open') return { ...item, id: `request:${request.id}`, reason: 'open-request', since: request.createdAt };
+  if (request.answerPossiblyUnseen && request.answer) return { ...item, id: `answer:${request.id}`, reason: 'answer-possibly-unseen', since: request.answer.at };
+  return null;
+}
+
 function openRequests(models: ReadModels): AttentionItem[] {
-  return Object.values(models.requests.requests)
-    .filter(request => request.status === 'open' && request.origin !== 'unproven')
-    .map(request => ({
-      id: `request:${request.id}`, reason: 'open-request', sessionId: request.sessionId, laneId: null,
-      text: request.text, since: request.createdAt, pointer: pointer(request.sessionId, request.ref),
-    }))
-    .concat(Object.values(models.requests.requests)
-      .filter(request => request.answerPossiblyUnseen === true && request.answer !== null && request.origin !== 'unproven')
-      .map(request => ({
-        id: `answer:${request.id}`, reason: 'answer-possibly-unseen', sessionId: request.sessionId, laneId: null,
-        text: request.text, since: request.answer?.at ?? request.createdAt, pointer: pointer(request.sessionId, request.ref),
-      })));
+  return Object.values(models.requests.requests).flatMap(request => requestItem(request) ?? []);
 }
 
 /** The asker is a session id only when the console knows that session (askers may also be lanes or people). */

@@ -52,6 +52,14 @@ const cases: { name: string; facts: Fact[]; expected: Record<string, Partial<Ret
   { name: 'later prompts stay unproven: session JSONL never proves a human',
     facts: [top(), prompt('e1'), answer('e2'), prompt('e3'), answer('e4')],
     expected: { e1: { origin: 'launch', answer: 's:e2' }, e3: { status: 'answered', origin: 'unproven', answer: 's:e4', ...quiet } } },
+  { name: 'steering mid-run: a prompt before the final answer shares it (session JSONL cannot tell which it answers)',
+    facts: [top(), prompt('e1'), prompt('e2'), answer('e3'), prompt('e4'), answer('e5')],
+    expected: { e1: { uncertain: 'shared-answer' }, e2: { uncertain: 'shared-answer' }, e4: { answer: 's:e5', ...quiet } } },
+  { name: 'a queued follow-up delivered after the answer gets its own answer',
+    facts: [top(), prompt('e1'), answer('e2'), prompt('e3'), answer('e4')],
+    expected: { e1: { answer: 's:e2', ...quiet }, e3: { answer: 's:e4', ...quiet } } },
+  { name: 'an empty prompt is still a request',
+    facts: [top(), prompt('e1', { excerpt: '' }), answer('e2')], expected: { e1: { status: 'answered', answer: 's:e2' } } },
   { name: 'a prompt with no answer yet is open',
     facts: [top(), prompt('e1')], expected: { e1: { status: 'open', answer: null } } },
   { name: 'two prompts before one answer share it, and both are labelled uncertain',
@@ -60,7 +68,9 @@ const cases: { name: string; facts: Fact[]; expected: Record<string, Partial<Ret
   { name: 'an abort interrupts what is pending; the next prompt starts afresh',
     facts: [top(), prompt('e1'), abort('e2'), prompt('e3'), answer('e4')],
     expected: { e1: { status: 'interrupted', answer: null }, e3: { status: 'answered', answer: 's:e4', ...quiet } } },
-  { name: 'a reset does not close a request; the answer after it still pairs',
+  { name: 'a reset while a request is pending cuts it off: interrupted, not closed',
+    facts: [top(), prompt('e1'), reset('c1')], expected: { e1: { status: 'interrupted', answer: null } } },
+  { name: 'compaction between request and answer: the answer after the reset still pairs',
     facts: [top(), prompt('e1'), reset('c1'), answer('e2')], expected: { e1: { status: 'answered', answer: 's:e2', ...quiet } } },
   { name: 'a reset and then a new prompt before the answer: the older request is uncertain, the newer one is not',
     facts: [top(), prompt('e1'), reset('c1'), prompt('e2'), answer('e3')],
@@ -77,7 +87,7 @@ const cases: { name: string; facts: Fact[]; expected: Record<string, Partial<Ret
     facts: [top(), prompt('e1'), end], expected: { e1: { status: 'unanswered' } } },
   { name: 'every prompt of a subagent session is unproven (written by the parent agent)',
     facts: [child, prompt('e1'), answer('e2')], expected: { e1: { origin: 'unproven', status: 'answered' } } },
-  { name: 'a session with a parent link (fork, handoff, relaunch) has no launch',
+  { name: 'a relaunch (a session with a parent link: fork, handoff, relaunch) has no launch',
     facts: [top(true, 'p'), prompt('e1')], expected: { e1: { origin: 'unproven' } } },
   { name: 'a session whose parent link the source did not establish has no launch (fail closed)',
     facts: [top(false), prompt('e1')], expected: { e1: { origin: 'unproven' } } },
@@ -112,6 +122,15 @@ test('origin evidence and the evidence trail name the transcript entries behind 
   assert.equal(first.resetId, 'c1');
   assert.equal(first.derivedFrom, 'session-jsonl');
   assert.equal(first.ref?.entryId, 'e1');
+});
+
+test('parallel sessions pair independently, however their facts interleave', () => {
+  const other = (fact: Fact): Fact => [fact[0], { ...fact[1], sessionId: 't', ...(typeof fact[1].requestId === 'string' ? { requestId: `t:${String(fact[1].entryId)}` } : {}) }];
+  const requests = derive([top(), other(top()), prompt('e1'), other(prompt('e2')), answer('e3'), other(prompt('e4')), other(answer('e5'))]);
+  assert.equal(requests['s:e1'].answer?.id, 's:e3');
+  assert.equal(requests['s:e1'].uncertainReason, null);
+  assert.deepEqual([requests['t:e2'].origin, requests['t:e4'].origin, requests['t:e2'].uncertainReason], ['launch', 'unproven', 'shared-answer']);
+  assert.equal(requests['t:e2'].answer?.id, 's:e5', 'answer ids come from the payload');
 });
 
 test('withheld prompt and answer text stay visible gaps, never empty facts', () => {
