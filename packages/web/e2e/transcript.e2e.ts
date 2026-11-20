@@ -13,7 +13,7 @@ const publish = (kind: string, text: string, requestId: string | null = null): v
   cursor++;
   rig.daemon.store.publish('transcript.appended', {
     id: `t${String(cursor)}`, cursor, sessionId: 's2', at: new Date().toISOString(), kind, text, toolCallId: null, resetId: null, requestId, toolResult: null,
-  } as never);
+  });
 };
 
 /** The first line at or below the pane's top edge and its offset from it. */

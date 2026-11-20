@@ -29,7 +29,7 @@ function history(total: number, failFirst = 0): { api: Api; calls: () => number 
 test('opening a long session loads the newest history, not the oldest: it pages to the end and keeps the last 2,500', async () => {
   const store = new ConsoleStore(history(6000).api, clock);
   await store.loadTranscript('s1');
-  const loaded = store.getState().transcripts['s1'] ?? [];
+  const loaded = store.getState().transcripts.s1 ?? [];
   assert.equal(loaded.length, 2500);
   assert.equal(loaded.at(-1)?.cursor, 6000, 'the tail is present');
   assert.equal(loaded[0]?.cursor, 3501);
@@ -39,7 +39,7 @@ test('a failed history load is retried on the next open instead of being cached'
   const { api } = history(10, 1);
   const store = new ConsoleStore(api, clock);
   await store.loadTranscript('s1');
-  assert.equal((store.getState().transcripts['s1'] ?? []).length, 0);
+  assert.equal((store.getState().transcripts.s1 ?? []).length, 0);
   await store.loadTranscript('s1');
-  assert.equal((store.getState().transcripts['s1'] ?? []).length, 10);
+  assert.equal((store.getState().transcripts.s1 ?? []).length, 10);
 });
