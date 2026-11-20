@@ -169,3 +169,13 @@ No CI-equivalent gate script, whole-solution build or lint/format script exists
 in the root package. Tier 1 was attempted but is **not fully green** because of
 the existing native-check failure; no passing CI-equivalent gate is claimed.
 The bounded scratch harness supplies Tier 2 evidence, not production readiness.
+
+## Review findings for M2
+
+Independent review (PASS for M0) named three gaps that M2 production code must close:
+
+1. **No server authentication.** The spike extension signs any nonce the endpoint sends and then runs its commands, so a process that binds the port first could inject steers. M2: mutual authentication; accept commands only after the daemon proves it holds the token.
+2. **Repeat `session_start`** opens a second socket without closing the first and keeps stale per-connection state. M2: reset state and close the old socket first.
+3. **Events before hello.** Lifecycle events queued before the challenge go out ahead of hello. M2: hold events until authenticated.
+
+Also for M2: bind pid and cwd into the MAC (or check unix-socket peer credentials); gate `steer` on streaming state, because a steer to an idle session starts a new run; read the token by open plus `fstat` on the same descriptor.
