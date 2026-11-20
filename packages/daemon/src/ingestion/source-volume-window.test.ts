@@ -193,7 +193,7 @@ test('sources do not start before the gate opens and each starts only after the 
   set.start(() => open);
   try {
     await wait(80);
-    assert.deepEqual(order, [], 'nothing before the gate');
+    assert.equal(order.length, 0, 'nothing before the gate');
     assert.equal(set.backfillComplete, false);
     open = true;
     await waitFor(() => set.backfillComplete && order.includes('context-budget:end'), 5_000);
