@@ -3,6 +3,7 @@ import { useKeyboard } from '@opentui/react';
 import { clean, clip, type Entry, type Session, type State } from './model.ts';
 import { status, type Theme } from './theme.ts';
 import { Context, Label, Panel, Requests } from './widgets.tsx';
+import { blend, useMotion } from './motion.ts';
 
 export type Line = { id: string; text: string; color: string; expandable: boolean };
 export function timeline(entries: Entry[], state: State, t: Theme, width: number, expanded: Set<string>, search = '') {
@@ -44,12 +45,14 @@ export function timeline(entries: Entry[], state: State, t: Theme, width: number
   }
   return lines;
 }
-export function Detail({ state, session, t, width, height, focus, search, modal }: { state: State; session: Session; t: Theme; width: number; height: number; focus: number; search: string; modal: boolean }) {
+export function Detail({ state, session, t, width, height, focus, search, modal, at }: { state: State; session: Session; t: Theme; width: number; height: number; focus: number; search: string; modal: boolean; at?: number }) {
   const [follow, setFollow] = useState(true);
   const [anchor, setAnchor] = useState(0);
   const [frozen, setFrozen] = useState<Entry[]>([]);
   const [seenCursor, setSeenCursor] = useState(0);
   const [expanded, setExpanded] = useState(new Set<string>());
+  const [block, setBlock] = useState('');
+  const highlight = useMotion(block, 450);
   const narrow = width < 100;
   const railWidth = narrow ? width : Math.max(35, Math.floor(width * .29));
   const transcriptWidth = narrow ? width : width - railWidth - 1;
@@ -72,24 +75,42 @@ export function Detail({ state, session, t, width, height, focus, search, modal 
     if (next.has(id)) next.delete(id); else next.add(id);
     return next;
   });
-  useEffect(() => { setFollow(true); setAnchor(0); }, [session.id, search]);
+  useEffect(() => { setFollow(true); setAnchor(0); setBlock(''); }, [session.id, search]);
+  useEffect(() => {
+    if (at === undefined || !liveEntries.length) return;
+    const nearest = liveEntries.reduce((a, b) => Math.abs(Date.parse(a.at) - at) <= Math.abs(Date.parse(b.at) - at) ? a : b);
+    const projected = timeline(liveEntries, state, t, transcriptWidth - 6, expanded, search);
+    setFrozen([...liveEntries]); setFollow(false); setSeenCursor(lastCursor);
+    setAnchor(Math.max(0, projected.findIndex(line => line.id === nearest.id)));
+  }, [at, session.id]);
+  const moveBlock = (delta: number) => {
+    const projected = timeline(entries, state, t, transcriptWidth - 6, expanded, search);
+    const blocks = [...new Set(projected.filter(line => line.expandable).map(line => line.id))];
+    const current = blocks.indexOf(block || lines.slice(start, start + viewHeight).find(line => line.expandable)?.id || '');
+    const id = blocks[Math.max(0, Math.min(blocks.length - 1, current + delta))];
+    if (!id) return;
+    if (follow) { setFrozen([...liveEntries]); setSeenCursor(lastCursor); }
+    setFollow(false); setBlock(id);
+    setAnchor(Math.max(0, projected.findIndex(line => line.id === id) - 1));
+  };
   useKeyboard(key => {
     if (modal || focus !== 0) return;
     if (['up', 'k', 'pageup'].includes(key.name)) move(key.name === 'pageup' ? -viewHeight : -3);
     if (['down', 'j', 'pagedown'].includes(key.name)) move(key.name === 'pagedown' ? viewHeight : 3);
     if (key.name === 'f' || key.sequence === 'G' || key.name === 'end') setFollow(true);
-    if (key.name === 'g' && !key.shift) { setFrozen([...liveEntries]); setFollow(false); setAnchor(0); setSeenCursor(lastCursor); }
+    if (key.sequence === '[' || key.sequence === ']') moveBlock(key.sequence === ']' ? 1 : -1);
+    if (key.name === 'home') { setFrozen([...liveEntries]); setFollow(false); setAnchor(0); setSeenCursor(lastCursor); }
     if (key.name === 'return' || key.name === 'space') {
-      const line = lines.slice(start, start + viewHeight).find(l => l.expandable);
-      if (line) toggle(line.id);
+      const line = lines.find(l => l.id === block && l.expandable) ?? lines.slice(start, start + viewHeight).find(l => l.expandable);
+      if (line) { setBlock(line.id); toggle(line.id); }
     }
   });
   return <box flexDirection={narrow ? 'column' : 'row'} gap={1} height={height} flexShrink={0}>
     <box width={transcriptWidth} height={narrow ? Math.floor(height * .65) : height} flexDirection="column" onMouseScroll={event => move(event.scroll?.direction === 'up' ? -3 : 3)}>
       <Panel title={`TRANSCRIPT / ${session.laneId} · ${session.id}`} t={t} active={focus === 0} grow={1}>
-        <text height={1} fg={t.faint}>{entries.length} retained entries · {search ? `matching “${search}”` : 'click thinking / tools to expand'}</text>
+        <text height={1} fg={t.faint}>{entries.length} retained entries · {search ? `matching “${search}”` : '[ ] block cursor · Enter / click disclose'}</text>
         <text height={1} fg={t.pink}>{reset ? clip(`── ${reset.kind.toUpperCase()} ${reset.id} · carried ${reset.carriedRequestIds.join(', ')} · / ${reset.interruptedRequestIds.join(', ')} interrupted ──`, transcriptWidth - 6) : '── no reset boundary recorded ──'}</text>
-        {lines.slice(start, start + viewHeight).map((line, i) => <box key={`${start + i}`} height={1} flexShrink={0} backgroundColor={line.color === t.pink ? t.raised : undefined} onMouseDown={() => line.expandable && toggle(line.id)}>
+        {lines.slice(start, start + viewHeight).map((line, i) => <box key={`${start + i}`} height={1} flexShrink={0} backgroundColor={line.id === block ? blend(t.raised, t.select, highlight) : line.color === t.pink ? t.raised : undefined} onMouseDown={() => { if (line.expandable) { setBlock(line.id); toggle(line.id); } }}>
           <text height={1} fg={line.color}>{line.text}</text>
         </box>)}
         {!lines.length && <text fg={t.muted}>No transcript recorded for this session. The fixture records s2 only.</text>}

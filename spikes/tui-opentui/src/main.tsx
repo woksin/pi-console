@@ -11,6 +11,6 @@ if (!['16', '256', 'truecolor'].includes(colors)) throw new Error('Usage: npm st
 const client = Client.local();
 const renderer = await createCliRenderer({ targetFps: 20, maxFps: 30, useMouse: true, exitOnCtrlC: false, backgroundColor: '#0b1019', onDestroy: () => client.stop() });
 const quit = () => { client.stop(); renderer.destroy(); };
-createRoot(renderer).render(<App store={client.store} colors={colors} quit={quit} load={id => client.transcript(id)} />);
+createRoot(renderer).render(<App store={client.store} colors={colors} quit={quit} load={id => client.transcript(id)} submit={input => client.intervene(input)} />);
 client.start();
 metrics(client.store);
