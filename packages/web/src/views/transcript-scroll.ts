@@ -40,6 +40,29 @@ function usePauseOnUserScroll(pause: () => void): void {
   }, [pause]);
 }
 
+/** While paused the viewport is pinned to a line id (never an index or offset): eviction at the retention cap or a history merge moves content, and the pinned line is brought back to the same screen position. */
+function useAnchor(pane: RefObject<HTMLDivElement | null>, follow: boolean, lines: readonly TranscriptLine[]): { remember: () => void } {
+  const anchor = useRef<Anchor | null>(null);
+  useLayoutEffect(() => {
+    if (follow || !pane.current) return;
+    restore(pane.current, anchor.current, lines);
+    anchor.current = capture(pane.current);
+  }, [pane, follow, lines]);
+  return { remember: () => { if (!follow && pane.current) anchor.current = capture(pane.current); } };
+}
+
+/** Scrolls to the jump target once per target, after its line has loaded. */
+function useJumpOnce(focusEntry: string | null, loaded: number, onJumped: () => void): void {
+  const jumped = useRef<string | null>(null);
+  useEffect(() => {
+    const target = focusEntry && jumped.current !== focusEntry ? document.getElementById(`line-${focusEntry}`) : null;
+    if (!target) return;
+    target.scrollIntoView({ block: 'center' });
+    jumped.current = focusEntry;
+    onJumped();
+  }, [focusEntry, loaded, onJumped]);
+}
+
 export interface TranscriptScroll { follow: boolean; pause: () => void; toggleFollow: () => void; pane: RefObject<HTMLDivElement | null>; end: RefObject<HTMLDivElement | null>; onScroll: () => void }
 
 /** Follow-the-tail, pause on user scroll, anchoring on a line id while paused, and the one-time scroll to a jump target. */
@@ -47,27 +70,13 @@ export function useTranscriptScroll(lines: readonly TranscriptLine[], focusEntry
   const [follow, setFollow] = useState(focusEntry === null);
   const pane = useRef<HTMLDivElement>(null);
   const end = useRef<HTMLDivElement>(null);
-  const anchor = useRef<Anchor | null>(null);
-  const jumped = useRef<string | null>(null);
-  const toggleFollow = (): void => { setFollow(value => !value); };
-  useActions(action => { if (action === 'follow.toggle') { toggleFollow(); return true; } return false; });
   const pause = useCallback((): void => { setFollow(false); }, []);
+  const toggleFollow = (): void => { setFollow(value => !value); };
+  useActions(action => { if (action !== 'follow.toggle') return false; toggleFollow(); return true; });
   usePauseOnUserScroll(pause);
   const last = lines.at(-1)?.id;
   useEffect(() => { if (follow) end.current?.scrollIntoView({ block: 'end' }); }, [follow, last, lines.length]);
-  /** While paused the viewport is pinned to a line id (never an index or offset): eviction at the retention cap or a history merge moves content, and the pinned line is brought back to the same screen position. */
-  useLayoutEffect(() => {
-    if (follow || !pane.current) return;
-    restore(pane.current, anchor.current, lines);
-    anchor.current = capture(pane.current);
-  }, [follow, lines]);
-  useEffect(() => {
-    const target = focusEntry && jumped.current !== focusEntry ? document.getElementById(`line-${focusEntry}`) : null;
-    if (!target) return;
-    target.scrollIntoView({ block: 'center' });
-    jumped.current = focusEntry;
-    if (pane.current) anchor.current = capture(pane.current);
-  }, [focusEntry, lines.length]);
-  const onScroll = (): void => { if (!follow && pane.current) anchor.current = capture(pane.current); };
-  return { follow, pause, toggleFollow, pane, end, onScroll };
+  const { remember } = useAnchor(pane, follow, lines);
+  useJumpOnce(focusEntry, lines.length, remember);
+  return { follow, pause, toggleFollow, pane, end, onScroll: remember };
 }
