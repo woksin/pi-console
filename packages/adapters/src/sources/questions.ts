@@ -34,8 +34,9 @@ function questionRecord(value: unknown): Row {
   const row = object(value);
   if (row.v === 1) return row;
   if (row.v !== undefined) throw new Error('Unknown question version');
+  if (typeof row.body !== 'string') throw new Error('Expected string');
   return {
-    ...row, type: text(row.kind), priority: text(row.urgency), text: text(row.body),
+    ...row, type: text(row.kind), priority: text(row.urgency), text: row.body,
     history: list(row.history).map(event => ({ ...event, ts: event.at })),
   };
 }

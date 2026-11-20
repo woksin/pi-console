@@ -48,7 +48,7 @@ export function sessionMapper(sessionId: string): Mapper {
     const entryId = text(record.id);
     const occurredAt = text(record.timestamp);
     const emit: Emit = (type, payload) => [{ type, subject: `session:${sessionId}`, entryId, occurredAt, payload }];
-    if (['session_info', 'custom', 'label', 'branch_summary', 'context_edit', 'usage'].includes(text(record.type))) return [];
+    if (['session_info', 'custom', 'label', 'branch_summary'].includes(text(record.type))) return [];
     const handler = handlers[text(record.type)];
     if (!handler) throw new Error('Unknown session entry');
     return handler(record, emit);

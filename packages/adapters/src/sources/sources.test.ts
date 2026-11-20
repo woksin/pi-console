@@ -56,6 +56,7 @@ test('question revisions emit only their last explicit operation and unsupported
 
 test('unversioned local questions retain explicit timestamps, decisions, closures and comment gaps', () => {
   const base = fixture.legacyQuestion;
+  assert.equal(map({ ...base, body: '' }, questionMapper, 'question-store')[0].type, 'QuestionAsked');
   for (const [type, expected] of [['decided', 'QuestionAnswered'], ['closed', 'QuestionClosed'], ['edited', 'QuestionRevised']]) {
     const row = { ...base, rev: 2, answer: { text: 'Synthetic choice' }, history: [...base.history, { seq: 2, type, at: '2026-07-01T10:01:00Z' }] };
     const events = map(row, questionMapper, 'question-store');
@@ -81,6 +82,8 @@ test('S1 structured job deliveries retain each batch member, replay safely, and 
 test('unknown enums and future source versions are warnings, not normalized guesses', () => {
   const unsupported: [unknown, Mapper, string][] = [
     [{ sessionId: 's', event: 'future' }, contextMapper, 'context-budget'],
+    [{ type: 'usage' }, sessionMapper('s'), 'session-jsonl'],
+    [{ type: 'context_edit' }, sessionMapper('s'), 'session-jsonl'],
     [{ ...fixture.lanes, version: 9 }, laneMapper, 'lane-messages'],
     [{ ...fixture.orch[1], state: 'future' }, orchMapper, 'lane-messages'],
     [{ ...fixture.issue, state: 'future' }, issueMapper, 'issue-work'],
