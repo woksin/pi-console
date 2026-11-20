@@ -1,83 +1,81 @@
-import type { Session } from '@pi-console/contract';
-import { age, badge, sparkline, type Badge } from '../common/format.ts';
-import { displayStatus, summarise, type SessionSummary } from '../common/sessions.ts';
-import { repositoryName, sessionById, sessionLabel, type ConsoleState } from '../state/index.ts';
-import { foldEntries, finishRows, type TranscriptRow } from './transcript.ts';
+import type { Job, Question, Request, Reset, Session, SessionDetail, TranscriptEntry } from '@pi-console/contract';
+import type { ThemeToken } from '@pi-console/contract';
+import { age, clock, money, pressure, sanitize, sparkline, type Pressure } from '../format/format.ts';
+import { statusCell, type StatusCell } from '../format/status-cell.ts';
+import { requestListViewModel, type RequestRow } from '../request-list/request-list.ts';
 
-export interface SessionContext {
-  expanded?: readonly string[];
-  /** Transcript search (`/`). */
-  query?: string;
-  /** Entry to centre on after a signal-to-transcript jump. */
-  targetEntryId?: string | null;
-  /** Maximum rows rendered; the window follows the tail, or the target when set. */
-  limit?: number;
+export type LineKind = 'user' | 'thinking' | 'assistant' | 'tool' | 'result' | 'diff' | 'reset';
+export interface TranscriptLine {
+  id: string; cursor: number; time: string; kind: LineKind; glyph: string; label: string; color: ThemeToken; text: string;
+  streaming: boolean; requestId: string | null; resetId: string | null;
+  tool: { name: string; args: string; resultKind: string; withheld: boolean; truncated: boolean } | null;
 }
-
 export interface SessionViewModel {
-  found: boolean;
-  header: (SessionSummary & { cwd: string; parent: string | null; status: Badge }) | null;
-  rows: TranscriptRow[];
-  hiddenBefore: number;
-  matches: number;
-  targetFound: boolean;
-  rail: {
-    requests: { id: string; badge: Badge; text: string; entryId: string | null }[];
-    questions: { id: string; badge: Badge; text: string }[];
-    subagents: { id: string; label: string; badge: Badge; age: string }[];
-    jobs: { id: string; name: string; badge: Badge; age: string }[];
-    context: { values: number[]; text: string; resetIndexes: number[] };
-  };
+  id: string; title: string; status: StatusCell; branch: string; cwd: string; model: string; role: Session['role']; age: string; cost: string;
+  context: { percent: number; pressure: Pressure; spark: string };
+  requests: RequestRow[]; questions: { id: string; text: string; blocking: boolean; status: string }[];
+  jobs: { id: string; name: string; kind: string; status: StatusCell; exit: string }[];
+  resets: { id: string; kind: Reset['kind']; time: string; carried: number; interrupted: number }[];
+  subagents: { id: string; name: string; status: StatusCell }[];
+  transcript: TranscriptLine[];
 }
 
-const empty: SessionViewModel = {
-  found: false, header: null, rows: [], hiddenBefore: 0, matches: 0, targetFound: false,
-  rail: { requests: [], questions: [], subagents: [], jobs: [], context: { values: [], text: '', resetIndexes: [] } },
+const style: Record<TranscriptEntry['kind'], { kind: LineKind; glyph: string; label: string; color: ThemeToken }> = {
+  user: { kind: 'user', glyph: '▍', label: 'you', color: 'blue' },
+  thinking: { kind: 'thinking', glyph: '◌', label: 'thinking', color: 'faint' },
+  'assistant.delta': { kind: 'assistant', glyph: '●', label: 'assistant', color: 'text' },
+  assistant: { kind: 'assistant', glyph: '●', label: 'assistant', color: 'text' },
+  'tool.call': { kind: 'tool', glyph: '⚙', label: 'tool', color: 'cyan' },
+  'tool.result': { kind: 'result', glyph: '↳', label: 'result', color: 'muted' },
+  diff: { kind: 'diff', glyph: '±', label: 'diff', color: 'green' },
+  reset: { kind: 'reset', glyph: '┃', label: 'reset', color: 'pink' },
 };
 
-function windowOf<T extends { id: string }>(rows: T[], limit: number, target: string | null): { rows: T[]; hidden: number } {
-  if (rows.length <= limit) return { rows, hidden: 0 };
-  const at = target ? rows.findIndex(row => row.id === target) : -1;
-  const start = at < 0 ? rows.length - limit : Math.max(0, Math.min(rows.length - limit, at - Math.floor(limit / 2)));
-  return { rows: rows.slice(start, start + limit), hidden: start };
-}
-
-function contextTrend(state: ConsoleState, session: Session) {
-  const values = session.samples.map(sample => sample.contextPercent);
-  const resets = state.resets.filter(reset => reset.sessionId === session.id);
-  const resetIndexes = resets.map(reset => session.samples.findIndex(sample => sample.at >= reset.at)).filter(index => index >= 0);
-  return { values, text: sparkline(values), resetIndexes };
-}
-
-function rail(state: ConsoleState, session: Session): SessionViewModel['rail'] {
-  const own = <T extends { sessionId: string }>(items: readonly T[]) => items.filter(item => item.sessionId === session.id);
+function line(entry: TranscriptEntry, streaming = false): TranscriptLine {
+  const { kind, glyph, label, color } = style[entry.kind];
+  const result = entry.toolResult;
   return {
-    requests: own(state.requests).map(request => ({
-      id: request.id, badge: badge(request.status), text: request.text.slice(0, 120),
-      entryId: state.transcripts[session.id]?.find(entry => entry.requestId === request.id)?.id ?? null,
-    })),
-    questions: own(state.questions).map(question => ({ id: question.id, badge: badge(question.status === 'open' && question.blocking ? 'needs-you' : question.status), text: question.text.slice(0, 120) })),
-    subagents: state.sessions.filter(item => item.parentSessionId === session.id).map(item => ({
-      id: item.id, label: sessionLabel(state, item.id), badge: badge(displayStatus(state, item)), age: age(state.liveAt, item.updatedAt),
-    })),
-    jobs: own(state.jobs).map(job => ({ id: job.id, name: job.name, badge: badge(job.status), age: age(state.liveAt, job.startedAt) })),
-    context: contextTrend(state, session),
+    id: entry.id, cursor: entry.cursor, time: clock(entry.at), kind, glyph, label, color, streaming,
+    text: sanitize(result?.withheld ? '[withheld by the daemon: secret-shaped content]' : entry.text), requestId: entry.requestId, resetId: entry.resetId,
+    tool: result ? { name: result.toolName, args: sanitize(result.argsExcerpt), resultKind: result.resultKind, withheld: result.withheld, truncated: result.truncated } : null,
   };
 }
 
-export function buildSession(state: ConsoleState, sessionId: string, context: SessionContext = {}): SessionViewModel {
-  const session = sessionById(state, sessionId);
-  if (!session) return empty;
-  const target = context.targetEntryId ?? null;
-  const folded = foldEntries(state.transcripts[sessionId] ?? [], state.resets.filter(reset => reset.sessionId === sessionId));
-  const all = finishRows(folded, new Set(context.expanded ?? []), context.query ?? '', target);
-  const { rows, hidden } = windowOf(all, context.limit ?? 400, target);
-  const parent = session.parentSessionId ? sessionLabel(state, session.parentSessionId) : null;
-  return {
-    found: true,
-    header: { ...summarise(state, session), cwd: `${repositoryName(state, session.repositoryId)} · ${session.cwd}`, parent, status: badge(displayStatus(state, session)) },
-    rows, hiddenBefore: hidden, matches: all.filter(row => row.match).length, targetFound: target !== null && all.some(row => row.id === target),
-    rail: rail(state, session),
+/** Collapses a run of streaming deltas into one line; a final `assistant` entry replaces the run. */
+export function transcriptLines(entries: readonly TranscriptEntry[]): TranscriptLine[] {
+  const lines: TranscriptLine[] = [];
+  let run: TranscriptEntry[] = [];
+  const flush = () => {
+    if (run.length === 0) return;
+    const last = run[run.length - 1];
+    lines.push({ ...line({ ...last, text: run.map(entry => entry.text).join('') }, true), id: run[0].id, cursor: last.cursor });
+    run = [];
   };
+  for (const entry of entries) {
+    if (entry.kind === 'assistant.delta') { run.push(entry); continue; }
+    if (entry.kind === 'assistant') run = [];
+    flush();
+    lines.push(line(entry));
+  }
+  flush();
+  return lines;
 }
 
+const questionRows = (questions: readonly Question[]) => questions.map(question => ({ id: question.id, text: sanitize(question.text), blocking: question.blocking, status: question.status }));
+const jobRows = (jobs: readonly Job[]) => jobs.map(job => ({ id: job.id, name: job.name, kind: job.kind, status: statusCell(job.status), exit: job.exitCode === null ? '' : `exit ${String(job.exitCode)}` }));
+
+export function sessionViewModel(input: { detail: SessionDetail; transcript: readonly TranscriptEntry[]; now: number; search?: string }): SessionViewModel {
+  const { session } = input.detail;
+  const needle = input.search?.toLowerCase() ?? '';
+  const all = transcriptLines(input.transcript);
+  const requests: readonly Request[] = input.detail.requests;
+  return {
+    id: session.id, title: `${session.repositoryId} / ${session.laneId} / ${session.name}`, status: statusCell(session.status), branch: session.branch, cwd: session.cwd,
+    model: session.model, role: session.role, age: age(session.updatedAt, input.now), cost: money(session.samples.reduce((sum, sample) => sum + sample.costUsd, 0)),
+    context: { percent: session.contextPercent, pressure: pressure(session.contextPercent), spark: sparkline(session.samples.map(sample => sample.contextPercent), 100) },
+    requests: requestListViewModel({ requests, sessions: [session], now: input.now }).rows, questions: questionRows(input.detail.questions), jobs: jobRows(input.detail.jobs),
+    resets: input.detail.resets.map(reset => ({ id: reset.id, kind: reset.kind, time: clock(reset.at), carried: reset.carriedRequestIds.length, interrupted: reset.interruptedRequestIds.length })),
+    subagents: input.detail.subagents.map(sub => ({ id: sub.id, name: sub.name, status: statusCell(sub.status) })),
+    transcript: needle ? all.filter(item => item.text.toLowerCase().includes(needle) || item.kind === 'reset') : all,
+  };
+}

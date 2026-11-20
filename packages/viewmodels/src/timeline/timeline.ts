@@ -1,124 +1,81 @@
-import type { Session, ThemeToken } from '@pi-console/contract';
-import { badge, clean, clip, clock, type Badge } from '../common/format.ts';
-import { displayStatus } from '../common/sessions.ts';
-import { repositoryName, type ConsoleState } from '../state/index.ts';
+import type { Message, Question, Request, Reset, Session, ThemeToken } from '@pi-console/contract';
+import { clock, clip, sanitize } from '../format/format.ts';
+import { statusCell, type StatusCell } from '../format/status-cell.ts';
 
-export const zoomLevels = [300_000, 900_000, 1_800_000, 3_600_000, 7_200_000, 14_400_000, 28_800_000, 86_400_000] as const;
-
-export interface TimelineContext {
-  /** Index into `zoomLevels`; default is the smallest level that fits the data. */
-  zoom?: number;
-  /** Pan in ms relative to "now" (negative is earlier). */
-  offsetMs?: number;
-  subagents?: boolean;
-  messages?: boolean;
-}
-
-export type SpanKind = 'working' | 'waiting' | 'blocked' | 'idle';
-
-/** Spans and markers are positioned as fractions (0..1) of the window; each client maps them to pixels or terminal columns. */
-export interface TimelineSpan { kind: SpanKind; from: number; to: number }
-
-export interface TimelineMarker { id: string; sessionId: string; at: number; glyph: string; kind: 'request' | 'answer' | 'reset' | 'question' | 'intervention' | 'message'; label: string; color: ThemeToken; time: string }
-
-export interface TimelineRow { id: string; label: string; laneId: string; depth: 0 | 1; badge: Badge; spans: TimelineSpan[]; markers: TimelineMarker[] }
-
-export interface TimelineGroup { id: string; name: string; rows: TimelineRow[] }
-
+export interface TimeWindow { start: number; span: number }
+export interface Marker { id: string; sessionId: string; at: number; glyph: string; kind: string; text: string; color: ThemeToken; rank: number }
+export interface TimelineCell { column: number; glyph: string; color: ThemeToken; markerId: string }
+export interface TimelineLane { sessionId: string; label: string; status: StatusCell; cells: TimelineCell[] }
 export interface TimelineViewModel {
-  groups: TimelineGroup[];
-  order: string[];
-  window: { start: number; end: number; spanMs: number; zoom: number; label: string };
-  ticks: { at: number; label: string }[];
-  legend: { glyph: string; label: string }[];
-  empty: boolean;
+  window: TimeWindow; lanes: TimelineLane[]; axis: { column: number; label: string }[]; markers: Marker[];
+  legend: { glyph: string; color: ThemeToken; label: string }[];
+}
+export interface TimelineInput {
+  sessions: readonly Session[]; requests: readonly Request[]; resets: readonly Reset[]; questions: readonly Question[]; messages: readonly Message[];
+  window?: TimeWindow; width: number;
 }
 
-/** A sample interval is "working" when it burned at least this many tokens: the sample series is the only activity signal in the read models. */
-export const workingTokenThreshold = 1000;
-const sampleMs = 60_000;
+const MIN_SPAN = 5_000;
+const MAX_SPAN = 3_600_000;
+export const zoom = (window: TimeWindow, factor: number): TimeWindow => {
+  const span = Math.max(MIN_SPAN, Math.min(MAX_SPAN, window.span * factor));
+  return { start: window.start + (window.span - span) / 2, span };
+};
+export const pan = (window: TimeWindow, direction: number): TimeWindow => ({ ...window, start: window.start + window.span * 0.15 * direction });
 
-const legend = [
-  { glyph: '█', label: 'working' }, { glyph: '▒', label: 'waiting' }, { glyph: '▓', label: 'blocked' }, { glyph: '░', label: 'idle' },
-  { glyph: '┃', label: 'reset' }, { glyph: '▲', label: 'request' }, { glyph: '▼', label: 'answer' }, { glyph: '●', label: 'question' }, { glyph: '◆', label: 'intervention' },
-];
+const time = (iso: string) => Date.parse(iso);
 
-function dataStart(state: ConsoleState): number {
-  const times = state.sessions.flatMap(session => session.samples.map(sample => Date.parse(sample.at)));
-  return times.length > 0 ? Math.min(...times) : state.liveAt;
-}
-
-function windowFor(state: ConsoleState, context: TimelineContext): TimelineViewModel['window'] {
-  const end = state.liveAt + (context.offsetMs ?? 0);
-  const fit = zoomLevels.findIndex(level => level >= state.liveAt - dataStart(state));
-  const zoom = Math.max(0, Math.min(zoomLevels.length - 1, context.zoom ?? (fit < 0 ? zoomLevels.length - 1 : fit)));
-  const spanMs = zoomLevels[zoom];
-  return { start: end - spanMs, end, spanMs, zoom, label: spanMs >= 3_600_000 ? `${String(spanMs / 3_600_000)}h` : `${String(spanMs / 60_000)}m` };
-}
-
-const fraction = (at: number, window: TimelineViewModel['window']): number => (at - window.start) / window.spanMs;
-
-function spanKinds(session: Session): { from: number; to: number; kind: SpanKind }[] {
-  return session.samples.map((sample, index) => {
-    const from = Date.parse(sample.at);
-    const last = index === session.samples.length - 1;
-    const kind: SpanKind = sample.tokens >= workingTokenThreshold ? 'working' : 'idle';
-    const override: SpanKind = session.status === 'waiting' ? 'waiting' : session.status === 'blocked' ? 'blocked' : kind;
-    return { from, to: from + sampleMs, kind: last ? override : kind };
+function requestMarkers(requests: readonly Request[]): Marker[] {
+  return requests.flatMap(request => {
+    const interrupted = request.status === 'interrupted';
+    const base = { sessionId: request.sessionId, rank: interrupted ? 5 : 4 };
+    return [
+      { ...base, id: request.id, at: time(request.createdAt), glyph: interrupted ? '╳' : '◆', kind: `${request.originLabel} · ${request.status}`, text: request.text, color: interrupted ? 'pink' : 'blue' } satisfies Marker,
+      ...(request.answer ? [{ ...base, rank: 3, id: `${request.id}:answer`, at: time(request.answer.at), glyph: '●', kind: 'Final answer', text: request.answer.text, color: 'green' } satisfies Marker] : []),
+      ...request.interimAnswers.map((answer, index) => ({ ...base, rank: 2, id: `${request.id}:partial:${String(index)}`, at: time(answer.at), glyph: '◐', kind: 'Partial answer · not final', text: answer.text, color: 'amber' } satisfies Marker)),
+    ];
   });
 }
 
-function spansFor(session: Session, window: TimelineViewModel['window']): TimelineSpan[] {
-  const merged: TimelineSpan[] = [];
-  for (const span of spanKinds(session)) {
-    const from = Math.max(0, fraction(span.from, window));
-    const to = Math.min(1, fraction(span.to, window));
-    if (to <= from) continue;
-    const last = merged.at(-1);
-    if (last?.kind === span.kind && Math.abs(last.to - from) < 1e-9) last.to = to;
-    else merged.push({ kind: span.kind, from, to });
-  }
-  return merged;
+/** Everything that happened, as markers on a lane. Exact state intervals are not in the API, so none are drawn. */
+export function markers(input: Omit<TimelineInput, 'window' | 'width'>): Marker[] {
+  const resets = input.resets.map(reset => ({ id: reset.id, sessionId: reset.sessionId, at: time(reset.at), glyph: '┃', kind: `Reset · ${reset.kind}`, text: `carried ${reset.carriedRequestIds.join(', ') || 'none'} · interrupted ${reset.interruptedRequestIds.join(', ') || 'none'}`, color: 'pink', rank: 6 }) satisfies Marker);
+  const questions = input.questions.map(question => ({ id: question.id, sessionId: question.sessionId, at: time(question.createdAt), glyph: '?', kind: `Question · ${question.status}`, text: question.text, color: 'amber', rank: 1 }) satisfies Marker);
+  const messages = input.messages.map(message => ({ id: message.id, sessionId: message.fromSessionId, at: time(message.sentAt), glyph: '›', kind: `Message · ${message.status}`, text: message.text, color: 'cyan', rank: 0 }) satisfies Marker);
+  return [...requestMarkers(input.requests), ...resets, ...questions, ...messages].map(marker => ({ ...marker, text: sanitize(marker.text) })).sort((a, b) => a.at - b.at);
 }
 
-interface RawMarker extends Omit<TimelineMarker, 'at' | 'time'> { atMs: number }
-
-function rawMarkers(state: ConsoleState, withMessages: boolean): RawMarker[] {
-  const out: RawMarker[] = [];
-  for (const request of state.requests) {
-    out.push({ id: request.id, sessionId: request.sessionId, atMs: Date.parse(request.createdAt), glyph: '▲', kind: 'request', label: `${request.originLabel} · ${request.status}: ${clip(request.text, 80)}`, color: request.status === 'interrupted' ? 'pink' : 'blue' });
-    if (request.answer) out.push({ id: `${request.id}:answer`, sessionId: request.sessionId, atMs: Date.parse(request.answer.at), glyph: '▼', kind: 'answer', label: `Final answer: ${clip(request.answer.text, 80)}`, color: 'green' });
-  }
-  for (const reset of state.resets) out.push({ id: reset.id, sessionId: reset.sessionId, atMs: Date.parse(reset.at), glyph: '┃', kind: 'reset', label: `${reset.kind}: carried ${String(reset.carriedRequestIds.length)}, interrupted ${String(reset.interruptedRequestIds.length)}`, color: 'pink' });
-  for (const question of state.questions) out.push({ id: question.id, sessionId: question.sessionId, atMs: Date.parse(question.createdAt), glyph: '●', kind: 'question', label: `Question (${question.status}): ${clip(question.text, 80)}`, color: 'amber' });
-  for (const item of state.interventions) out.push({ id: item.id, sessionId: item.sessionId, atMs: Date.parse(item.recordedAt), glyph: '◆', kind: 'intervention', label: `${item.type}: ${clip(item.text, 80)}`, color: 'violet' });
-  if (withMessages) for (const message of state.messages) out.push({ id: message.id, sessionId: message.fromSessionId, atMs: Date.parse(message.sentAt), glyph: '›', kind: 'message', label: `Message: ${clip(message.text, 80)}`, color: 'cyan' });
-  return out;
+export function fitWindow(all: readonly Marker[]): TimeWindow {
+  if (all.length === 0) return { start: 0, span: MIN_SPAN };
+  const start = all[0].at;
+  return { start, span: Math.max(MIN_SPAN, all[all.length - 1].at - start) * 1.05 };
 }
 
-function ticksFor(window: TimelineViewModel['window']): { at: number; label: string }[] {
-  const steps = [60_000, 300_000, 600_000, 900_000, 1_800_000, 3_600_000, 7_200_000, 14_400_000];
-  const step = steps.find(candidate => window.spanMs / candidate <= 8) ?? steps[steps.length - 1];
-  const first = Math.ceil(window.start / step) * step;
-  const out: { at: number; label: string }[] = [];
-  for (let at = first; at <= window.end; at += step) out.push({ at: fraction(at, window), label: clock(new Date(at).toISOString()) });
-  return out;
-}
+export const columnOf = (at: number, window: TimeWindow, width: number): number => Math.round((at - window.start) / window.span * (width - 1));
 
-export function buildTimeline(state: ConsoleState, context: TimelineContext = {}): TimelineViewModel {
-  const window = windowFor(state, context);
-  const markers = rawMarkers(state, context.messages ?? false).filter(marker => marker.atMs >= window.start && marker.atMs <= window.end);
-  const showSubagents = context.subagents ?? true;
-  const groups = new Map<string, TimelineGroup>();
-  for (const session of state.sessions.filter(item => showSubagents || item.role !== 'subagent')) {
-    const group = groups.get(session.repositoryId) ?? { id: session.repositoryId, name: repositoryName(state, session.repositoryId), rows: [] };
-    group.rows.push({
-      id: session.id, label: clean(session.name), laneId: session.laneId, depth: session.role === 'subagent' ? 1 : 0, badge: badge(displayStatus(state, session)),
-      spans: spansFor(session, window),
-      markers: markers.filter(marker => marker.sessionId === session.id).map(({ atMs, ...rest }) => ({ ...rest, at: fraction(atMs, window), time: clock(new Date(atMs).toISOString()) })),
-    });
-    groups.set(session.repositoryId, group);
-  }
-  const list = [...groups.values()];
-  return { groups: list, order: list.flatMap(group => group.rows.map(row => row.id)), window, ticks: ticksFor(window), legend, empty: state.sessions.length === 0 };
+const legend = [
+  { glyph: '◆', color: 'blue', label: 'request' }, { glyph: '╳', color: 'pink', label: 'interrupted' }, { glyph: '●', color: 'green', label: 'final answer' },
+  { glyph: '◐', color: 'amber', label: 'partial' }, { glyph: '┃', color: 'pink', label: 'reset' }, { glyph: '?', color: 'amber', label: 'question' }, { glyph: '›', color: 'cyan', label: 'message' },
+] as const;
+
+export function timelineViewModel(input: TimelineInput): TimelineViewModel {
+  const all = markers(input);
+  const window = input.window ?? fitWindow(all);
+  const active = new Set(all.map(marker => marker.sessionId));
+  const lanes = input.sessions.filter(session => active.has(session.id)).map(session => {
+    const cells = new Map<number, TimelineCell & { rank: number }>();
+    for (const marker of all.filter(item => item.sessionId === session.id)) {
+      const column = columnOf(marker.at, window, input.width);
+      if (column < 0 || column >= input.width) continue;
+      const present = cells.get(column);
+      if (!present || present.rank <= marker.rank) cells.set(column, { column, glyph: marker.glyph, color: marker.color, markerId: marker.id, rank: marker.rank });
+    }
+    return { sessionId: session.id, label: clip(`${session.laneId} ${session.name.split(' ').slice(1).join(' ')}`, 22), status: statusCell(session.status), cells: [...cells.values()].map(cell => ({ column: cell.column, glyph: cell.glyph, color: cell.color, markerId: cell.markerId })) };
+  });
+  const ticks = Math.max(2, Math.floor(input.width / 14));
+  const axis = Array.from({ length: ticks }, (_, index) => {
+    const at = window.start + window.span * index / (ticks - 1);
+    return { column: columnOf(at, window, input.width), label: clock(new Date(at).toISOString()) };
+  });
+  return { window, lanes, axis, markers: all, legend: [...legend] };
 }

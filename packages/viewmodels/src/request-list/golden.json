@@ -1,0 +1,233 @@
+{
+  "rows": [
+    {
+      "id": "r12",
+      "sessionId": "s12",
+      "session": "meadow implementation",
+      "originLabel": "Unproven origin",
+      "originEvidence": "No positive origin evidence",
+      "status": {
+        "status": "answered",
+        "glyph": "✓",
+        "color": "green",
+        "label": "Answered"
+      },
+      "text": "Check whether the retry policy handles partial results.",
+      "age": "24m",
+      "answer": {
+        "text": "Use bounded retries with an explicit checkpoint.",
+        "age": "24m"
+      },
+      "partial": null,
+      "resetId": null
+    },
+    {
+      "id": "r11",
+      "sessionId": "s11",
+      "session": "meadow coordinator",
+      "originLabel": "Initial prompt",
+      "originEvidence": "Synthetic non-relaunch session-start marker",
+      "status": {
+        "status": "unanswered",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Unanswered"
+      },
+      "text": "Write the handoff and preserve the pending decisions.",
+      "age": "24m",
+      "answer": null,
+      "partial": null,
+      "resetId": null
+    },
+    {
+      "id": "r10",
+      "sessionId": "s10",
+      "session": "harbor scout",
+      "originLabel": "Human request",
+      "originEvidence": "Explicit synthetic user-input marker",
+      "status": {
+        "status": "open",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Open"
+      },
+      "text": "Compare the queue strategies and explain the trade-offs.",
+      "age": "24m",
+      "answer": null,
+      "partial": null,
+      "resetId": null
+    },
+    {
+      "id": "r9",
+      "sessionId": "s9",
+      "session": "harbor explore",
+      "originLabel": "Unproven origin",
+      "originEvidence": "No positive origin evidence",
+      "status": {
+        "status": "interrupted",
+        "glyph": "/",
+        "color": "pink",
+        "label": "Interrupted"
+      },
+      "text": "Check whether the retry policy handles partial results.",
+      "age": "24m",
+      "answer": null,
+      "partial": null,
+      "resetId": null
+    },
+    {
+      "id": "r8",
+      "sessionId": "s8",
+      "session": "harbor review",
+      "originLabel": "Initial prompt",
+      "originEvidence": "Synthetic non-relaunch session-start marker",
+      "status": {
+        "status": "answered",
+        "glyph": "✓",
+        "color": "green",
+        "label": "Answered"
+      },
+      "text": "Write the handoff and preserve the pending decisions.",
+      "age": "24m",
+      "answer": {
+        "text": "Use bounded retries with an explicit checkpoint.",
+        "age": "24m"
+      },
+      "partial": null,
+      "resetId": null
+    },
+    {
+      "id": "r7",
+      "sessionId": "s7",
+      "session": "harbor implementation",
+      "originLabel": "Human request",
+      "originEvidence": "Explicit synthetic user-input marker",
+      "status": {
+        "status": "unanswered",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Unanswered"
+      },
+      "text": "Compare the queue strategies and explain the trade-offs.",
+      "age": "24m",
+      "answer": null,
+      "partial": null,
+      "resetId": null
+    },
+    {
+      "id": "r6",
+      "sessionId": "s6",
+      "session": "harbor coordinator",
+      "originLabel": "Unproven origin",
+      "originEvidence": "No positive origin evidence",
+      "status": {
+        "status": "open",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Open"
+      },
+      "text": "Check whether the retry policy handles partial results.",
+      "age": "24m",
+      "answer": null,
+      "partial": null,
+      "resetId": null
+    },
+    {
+      "id": "r5",
+      "sessionId": "s5",
+      "session": "aurora scout",
+      "originLabel": "Initial prompt",
+      "originEvidence": "Synthetic non-relaunch session-start marker",
+      "status": {
+        "status": "interrupted",
+        "glyph": "/",
+        "color": "pink",
+        "label": "Interrupted"
+      },
+      "text": "Write the handoff and preserve the pending decisions.",
+      "age": "24m",
+      "answer": null,
+      "partial": null,
+      "resetId": null
+    },
+    {
+      "id": "r4",
+      "sessionId": "s4",
+      "session": "aurora explore",
+      "originLabel": "Human request",
+      "originEvidence": "Explicit synthetic user-input marker",
+      "status": {
+        "status": "answered",
+        "glyph": "✓",
+        "color": "green",
+        "label": "Answered"
+      },
+      "text": "Compare the queue strategies and explain the trade-offs.",
+      "age": "24m",
+      "answer": {
+        "text": "Use bounded retries with an explicit checkpoint.",
+        "age": "24m"
+      },
+      "partial": null,
+      "resetId": null
+    },
+    {
+      "id": "r3",
+      "sessionId": "s2",
+      "session": "aurora implementation",
+      "originLabel": "Unproven origin",
+      "originEvidence": "No positive origin evidence",
+      "status": {
+        "status": "unanswered",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Unanswered"
+      },
+      "text": "Check whether the retry policy handles partial results.",
+      "age": "24m",
+      "answer": null,
+      "partial": null,
+      "resetId": null
+    },
+    {
+      "id": "r2",
+      "sessionId": "s2",
+      "session": "aurora implementation",
+      "originLabel": "Initial prompt",
+      "originEvidence": "Synthetic non-relaunch session-start marker",
+      "status": {
+        "status": "open",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Open"
+      },
+      "text": "Write the handoff and preserve the pending decisions.",
+      "age": "24m",
+      "answer": null,
+      "partial": null,
+      "resetId": null
+    },
+    {
+      "id": "r1",
+      "sessionId": "s2",
+      "session": "aurora implementation",
+      "originLabel": "Human request",
+      "originEvidence": "Explicit synthetic user-input marker",
+      "status": {
+        "status": "interrupted",
+        "glyph": "/",
+        "color": "pink",
+        "label": "Interrupted"
+      },
+      "text": "Compare the queue strategies and explain the trade-offs.",
+      "age": "25m",
+      "answer": null,
+      "partial": {
+        "text": "The first option bounds memory, but the comparison",
+        "age": "24m"
+      },
+      "resetId": "reset1"
+    }
+  ],
+  "open": 6
+}

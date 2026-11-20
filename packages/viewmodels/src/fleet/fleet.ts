@@ -1,69 +1,50 @@
 import type { Session } from '@pi-console/contract';
-import { matches, parseFilter } from '../common/filter.ts';
-import { plural } from '../common/format.ts';
-import { summarise, type SessionSummary } from '../common/sessions.ts';
-import { repositoryName, type ConsoleState } from '../state/index.ts';
+import { age, fuzzy, money, pressure, sparkline, type Pressure } from '../format/format.ts';
+import { statusCell, type StatusCell } from '../format/status-cell.ts';
 
-export type FleetGrouping = 'repository' | 'status';
-
-export interface FleetContext { filter?: string; grouping?: FleetGrouping; collapsed?: readonly string[] }
-
-export interface FleetRow extends SessionSummary { depth: 0 | 1; subagents: number }
-
-export interface FleetGroup { id: string; name: string; count: number; collapsed: boolean; rows: FleetRow[] }
-
-export interface FleetViewModel {
-  grouping: FleetGrouping;
-  filter: string;
-  total: number;
-  shown: number;
-  summary: string;
-  groups: FleetGroup[];
-  /** Flat ids in display order, for keyboard movement. */
-  order: string[];
-  empty: boolean;
+export interface FleetInput {
+  sessions: readonly Session[]; now: number; query?: string; collapsed?: ReadonlySet<string>;
 }
+export interface GroupRow { kind: 'group'; id: string; label: string; sessions: number; attention: number; collapsed: boolean }
+export interface SessionRow {
+  kind: 'session'; id: string; name: string; lane: string; role: Session['role']; depth: number; status: StatusCell;
+  contextPercent: number; pressure: Pressure; spark: string; age: string; cost: string; model: string; branch: string; selectable: true;
+}
+export type FleetRow = GroupRow | SessionRow;
+export interface FleetViewModel { rows: FleetRow[]; sessionCount: number; matched: number; query: string }
 
-/** Saved filters stepped with `[` and `]`. */
-export const fleetFilters = ['', 'status:needs-you', 'status:working', 'status:blocked,failed', 'status:waiting,idle'] as const;
+const attentionStatuses = new Set(['needs-you', 'blocked', 'failed']);
+const text = (session: Session) => `${session.name} ${session.laneId} ${session.branch} ${session.status} ${session.role}`;
 
-function rowsFor(state: ConsoleState, sessions: readonly Session[]): FleetRow[] {
+/** Parents before their subagents, so a lane's workers sit directly beneath it. */
+function ordered(sessions: readonly Session[]): { session: Session; depth: number }[] {
+  const children = Map.groupBy(sessions.filter(session => session.parentSessionId), session => session.parentSessionId ?? '');
   const ids = new Set(sessions.map(session => session.id));
-  const children = (id: string) => sessions.filter(session => session.parentSessionId === id);
-  const top = sessions.filter(session => !session.parentSessionId || !ids.has(session.parentSessionId));
-  return top.flatMap(session => [
-    { ...summarise(state, session), depth: 0 as const, subagents: children(session.id).length },
-    ...children(session.id).map(child => ({ ...summarise(state, child), depth: 1 as const, subagents: 0 })),
-  ]);
+  const walk = (session: Session, depth: number): { session: Session; depth: number }[] =>
+    [{ session, depth }, ...(children.get(session.id) ?? []).flatMap(child => walk(child, depth + 1))];
+  const roots = sessions.filter(session => !session.parentSessionId || !ids.has(session.parentSessionId));
+  return roots.flatMap(root => walk(root, 0));
 }
 
-function searchable(state: ConsoleState, session: Session): string {
-  return `${session.name} ${session.laneId} ${repositoryName(state, session.repositoryId)} ${session.branch} ${session.model}`;
-}
-
-function groupKey(state: ConsoleState, session: Session, grouping: FleetGrouping): { id: string; name: string } {
-  if (grouping === 'status') return { id: summarise(state, session).badge.status, name: summarise(state, session).badge.label };
-  return { id: session.repositoryId, name: repositoryName(state, session.repositoryId) };
-}
-
-export function buildFleet(state: ConsoleState, context: FleetContext = {}): FleetViewModel {
-  const grouping = context.grouping ?? 'repository';
-  const filter = context.filter ?? '';
-  const parsed = parseFilter(filter);
-  const visible = state.sessions.filter(session => matches(parsed, searchable(state, session), { status: summarise(state, session).badge.status }));
-  const keyed = new Map<string, { name: string; sessions: Session[] }>();
-  for (const session of visible) {
-    const { id, name } = groupKey(state, session, grouping);
-    keyed.set(id, { name, sessions: [...keyed.get(id)?.sessions ?? [], session] });
-  }
-  const collapsed = new Set(context.collapsed ?? []);
-  const groups = [...keyed.entries()].map(([id, group]): FleetGroup => {
-    const rows = rowsFor(state, group.sessions);
-    return { id, name: group.name, count: group.sessions.length, collapsed: collapsed.has(id), rows };
-  });
-  const order = groups.flatMap(group => group.collapsed ? [] : group.rows.map(row => row.id));
+function sessionRow(session: Session, depth: number, now: number): SessionRow {
+  const series = session.samples.map(sample => sample.contextPercent);
   return {
-    grouping, filter, total: state.sessions.length, shown: visible.length, groups, order, empty: state.sessions.length === 0,
-    summary: `${String(visible.length)} of ${plural(state.sessions.length, 'session')}`,
+    kind: 'session', id: session.id, name: session.name, lane: session.laneId, role: session.role, depth,
+    status: statusCell(session.status), contextPercent: session.contextPercent, pressure: pressure(session.contextPercent),
+    spark: sparkline(series.slice(-12), 100), age: age(session.updatedAt, now),
+    cost: money(session.samples.reduce((sum, sample) => sum + sample.costUsd, 0)), model: session.model, branch: session.branch, selectable: true,
   };
+}
+
+export function fleetViewModel(input: FleetInput): FleetViewModel {
+  const query = input.query?.trim() ?? '';
+  const visible = query ? input.sessions.filter(session => fuzzy(query, text(session)) !== undefined) : input.sessions;
+  const groups = Map.groupBy(ordered(visible), entry => entry.session.repositoryId);
+  const rows: FleetRow[] = [];
+  for (const [repository, entries] of groups) {
+    const collapsed = input.collapsed?.has(repository) ?? false;
+    rows.push({ kind: 'group', id: repository, label: repository, sessions: entries.length, collapsed, attention: entries.filter(entry => attentionStatuses.has(entry.session.status)).length });
+    if (!collapsed) rows.push(...entries.map(entry => sessionRow(entry.session, entry.depth, input.now)));
+  }
+  return { rows, sessionCount: input.sessions.length, matched: visible.length, query };
 }

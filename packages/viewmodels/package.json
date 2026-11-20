@@ -10,7 +10,9 @@
     "test": "node --test \"src/**/*.test.ts\""
   },
   "dependencies": {
-    "@pi-console/contract": "*",
+    "@pi-console/contract": "*"
+  },
+  "devDependencies": {
     "@pi-console/testkit": "*"
   }
 }
