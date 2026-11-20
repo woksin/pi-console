@@ -53,7 +53,7 @@ export function createStore(speed: number, rate?: number, replayWindow = 10000) 
 
   function publish(type: string, original: unknown) {
     let event: StreamEvent | undefined;
-    const sessions = sessionDeltas(fixture, sessionBases, type, original, () => { event = publishEntity(type, original); });
+    const sessions = sessionDeltas(fixture, sessionBases, { type, payload: original }, () => { event = publishEntity(type, original); });
     for (const session of sessions) publishEntity('session.updated', session);
     return event!;
   }

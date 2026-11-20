@@ -6,6 +6,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { themeTokens } from '@pi-console/contract';
 import { startDaemon } from '@pi-console/testkit';
+import { screenToAnsi } from './testing/ansi.ts';
 import { startPty } from './testing/pty.ts';
 import { screenToSvg, toCast } from './testing/svg.ts';
 
@@ -26,7 +27,11 @@ const theme = { background: themeTokens.bg, foreground: themeTokens.text };
 // The tour is one frame per picture on a fixed one-second beat, each the settled screen text (the same as the .txt): the raw
 // bytes and timing the pty delivers vary run to run, which would make the cast differ on every regeneration.
 const frames: { at: number; data: string }[] = [];
-const markFrame = () => { frames.push({ at: (frames.length + 1) * 1000, data: `\u001b[2J\u001b[H${pty.screen().replace(/ +$/gm, '').replace(/\n/g, '\r\n')}` }); };
+const colourFrames: { at: number; data: string }[] = [];
+const markFrame = () => {
+  colourFrames.push({ at: (frames.length + 1) * 1000, data: screenToAnsi(pty.terminal) });
+  frames.push({ at: (frames.length + 1) * 1000, data: `\u001b[2J\u001b[H${pty.screen().replace(/ +$/gm, '').replace(/\n/g, '\r\n')}` });
+};
 const shoot = (name: string, title: string) => {
   markFrame();
   writeFileSync(join(out, `${name}.svg`), screenToSvg(pty.terminal, theme, title));
@@ -69,6 +74,7 @@ try {
   await pause(300);
   shoot('reconnecting', 'Reconnect banner while the daemon is away');
   writeFileSync(join(out, 'tour.cast'), toCast(frames, size, 'pi-console TUI tour against the mock daemon'));
+  writeFileSync(join(out, 'tour-colour.cast'), toCast(colourFrames, size, 'pi-console TUI tour in colour against the mock daemon'));
   console.log(`wrote tour.cast (${String(frames.length)} frames)`);
 } finally {
   pty.kill();

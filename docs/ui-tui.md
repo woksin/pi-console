@@ -41,7 +41,7 @@ Screenshots and a recording, all captured from the real TUI on a pty against the
 | [Requests](media/tui/requests.svg) | [Questions](media/tui/questions.svg) | [Messages](media/tui/messages.svg) |
 | [Graph](media/tui/graph.svg) | [Timeline](media/tui/timeline.svg) | [Work](media/tui/work.svg) |
 | [Palette](media/tui/palette.svg) | [Help](media/tui/help.svg) | [Settings](media/tui/settings.svg) |
-| [Reconnect banner](media/tui/reconnecting.svg) | [Tour (asciicast, `asciinema play`)](media/tui/tour.cast) | |
+| [Reconnect banner](media/tui/reconnecting.svg) | [Tour (asciicast, `asciinema play`)](media/tui/tour.cast) | [Tour in colour (asciicast, `asciinema play`)](media/tui/tour-colour.cast) |
 
 ![Overview](media/tui/overview.svg)
 ![Session](media/tui/session.svg)

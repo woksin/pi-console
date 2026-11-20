@@ -27,7 +27,7 @@ Everything is derived from an append-only event log, so every screen can be rebu
 
 ## Screenshots
 
-Screenshots will be added when the M1 web UI and TUI exist. ASCII wireframes are in [docs/information-architecture.md](docs/information-architecture.md).
+A coloured terminal tour of the TUI against the mock daemon: [docs/media/tui/tour-colour.cast](docs/media/tui/tour-colour.cast) (`asciinema play`); the pictures are in [docs/ui-tui.md](docs/ui-tui.md). Web screenshots will follow with the daemon-backed web UI. ASCII wireframes are in [docs/information-architecture.md](docs/information-architecture.md).
 
 ## Quick start (planned)
 
