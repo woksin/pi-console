@@ -1,5 +1,5 @@
 import type { EventEnvelope, EventPayloads } from '@pi-console/contract';
-import type { Projection } from './projection.ts';
+import type { DirtyReporter, Projection } from './projection.ts';
 import { safeRecords } from './records.ts';
 
 type EventType = keyof EventPayloads;
@@ -9,13 +9,23 @@ export type Handlers<State> = {
   [Type in EventType]?: (state: State, payload: EventPayloads[Type], event: EventEnvelope) => void;
 };
 
+const reporters = new WeakMap<object, DirtyReporter>();
+
+/** Mutation sites explicitly report touched row ids, including ids about to be deleted. */
+export function markDirty(state: object, collection: string, id: string): void {
+  reporters.get(state)?.(collection, id);
+}
+
 /** Builds a projection that dispatches each event to the handler for its type and ignores the rest. */
-export function projection<State>(name: string, version: number, initial: () => State, handlers: Handlers<State>): Projection<State> {
+export function projection<State>(name: string, version: number, initial: () => State, handlers: Handlers<State>, collections?: readonly string[]): Projection<State> {
   return {
     name, version, initial: () => safeRecords(initial()),
-    apply(state, event) {
+    ...(collections ? { collections } : {}),
+    apply(state, event, dirty) {
       const handler = (Object.hasOwn(handlers, event.type) ? handlers[event.type as EventType] : undefined) as ((state: State, payload: unknown, event: EventEnvelope) => void) | undefined;
-      handler?.(state, event.payload, event);
+      if (dirty) reporters.set(state as object, dirty);
+      try { handler?.(state, event.payload, event); }
+      finally { reporters.delete(state as object); }
       return state;
     },
   };

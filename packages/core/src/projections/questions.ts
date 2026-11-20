@@ -1,5 +1,5 @@
 import type { EventEnvelope, SourceRef } from '@pi-console/contract';
-import { entry, orderKey, projection } from '../projector/handlers.ts';
+import { entry, markDirty, orderKey, projection } from '../projector/handlers.ts';
 
 export interface QuestionModel {
   id: string;
@@ -18,6 +18,7 @@ export interface QuestionModel {
 export interface QuestionsState { questions: Record<string, QuestionModel> }
 
 function question(state: QuestionsState, id: string): QuestionModel {
+  markDirty(state, 'questions', id);
   return entry(state.questions, id, () => ({
     id, asker: null, kind: 'question', text: '', options: [], urgency: 'normal', blocking: false,
     status: 'open', createdAt: '', ref: null, stamps: Object.create(null) as Record<string, string>,
@@ -36,7 +37,7 @@ const setStatus = (status: QuestionModel['status']) => (state: QuestionsState, p
   update(row, 'status', event, () => { row.status = status; });
 };
 
-export const questionsProjection = projection<QuestionsState>('questions', 2, () => ({ questions: {} }), {
+export const questionsProjection = projection<QuestionsState>('questions', 3, () => ({ questions: {} }), {
   QuestionAsked(state, payload, event) {
     const row = question(state, payload.questionId);
     update(row, 'asked', event, () => {
@@ -55,4 +56,4 @@ export const questionsProjection = projection<QuestionsState>('questions', 2, ()
   QuestionAnswered: setStatus('answered'),
   QuestionDeferred: setStatus('deferred'),
   QuestionClosed: setStatus('closed'),
-});
+}, ['questions']);

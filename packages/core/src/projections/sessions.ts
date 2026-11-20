@@ -1,5 +1,5 @@
 import type { EventEnvelope, SourceRef } from '@pi-console/contract';
-import { entry, insertSorted, orderKey, projection } from '../projector/handlers.ts';
+import { entry, insertSorted, markDirty, orderKey, projection } from '../projector/handlers.ts';
 
 export interface ResetModel {
   id: string; kind: 'handoff' | 'compaction' | 'relaunch'; at: string;
@@ -55,6 +55,7 @@ const earlier = (a: string, b: string) => (a < b ? a : b);
 
 /** The session an event is about; created on first sight so mid-stream backfill still yields a row. */
 function touch(state: SessionsState, sessionId: string, event: EventEnvelope): SessionModel {
+  markDirty(state, 'sessions', sessionId);
   const session = entry(state.sessions, sessionId, () => blank(sessionId, event));
   session.startedAt = earlier(session.startedAt, event.occurredAt);
   session.updatedAt = later(session.updatedAt, event.occurredAt);
@@ -82,7 +83,7 @@ function turnFact(state: SessionsState, sessionId: string, turnId: string, event
   resolveTurn(session);
 }
 
-export const sessionsProjection = projection<SessionsState>('sessions', 2, () => ({ sessions: {} }), {
+export const sessionsProjection = projection<SessionsState>('sessions', 3, () => ({ sessions: {} }), {
   SessionStarted(state, payload, event) {
     const session = touch(state, payload.sessionId, event);
     setLatest(session, 'cwd', payload.cwd, event);
@@ -118,4 +119,4 @@ export const sessionsProjection = projection<SessionsState>('sessions', 2, () =>
     setLatest(session, 'role', 'subagent', event);
     setLatest(session, 'parentSessionId', payload.parentSessionId, event);
   },
-});
+}, ['sessions']);

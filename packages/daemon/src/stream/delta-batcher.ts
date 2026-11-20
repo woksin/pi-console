@@ -66,8 +66,9 @@ export class DeltaBatcher {
     this.#pending = [];
     const queries = new BatchQueries(this.#models, this.#now);
     const deltas = new Map<string, Delta>();
+    const seen = new Set<string>();
     for (const event of events) {
-      const delta = deltaFor(queries, event);
+      const delta = deltaFor(queries, event, seen);
       if (delta && !deltas.has(keyOf(delta))) deltas.set(keyOf(delta), delta);
     }
     this.#addDerivedSessions(queries, deltas);

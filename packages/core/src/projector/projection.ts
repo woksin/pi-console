@@ -9,7 +9,9 @@ export interface Projection<State = unknown> {
   readonly name: string;
   readonly version: number;
   initial(): State;
-  apply(state: State, event: EventEnvelope): State;
+  /** Dictionary collections persisted as independent rows; omitted for snapshot-only custom projections. */
+  readonly collections?: readonly string[];
+  apply(state: State, event: EventEnvelope, dirty?: DirtyReporter): State;
 }
 
 /** Erases the state type so differently-typed projections can live in one list. */
@@ -23,10 +25,26 @@ export interface ProjectionRecord {
   state: unknown;
 }
 
+export type DirtyReporter = (collection: string, id: string) => void;
+
+export interface ProjectionRow {
+  collection: string;
+  id: string;
+  /** Absent for a tombstone. */
+  value?: unknown;
+}
+
+export interface ProjectionWrite extends ProjectionRecord {
+  rows?: readonly ProjectionRow[];
+  resetRows?: boolean;
+}
+
 /** Where projection snapshots live between restarts. */
 export interface ProjectionStore {
   load(name: string): ProjectionRecord | undefined;
   save(records: readonly ProjectionRecord[]): void;
+  /** Optional row-aware persistence. Snapshot-only stores remain supported. */
+  saveChanges?(records: readonly ProjectionWrite[]): void;
 }
 
 /** Store that forgets on restart; for specs and replay comparisons. */

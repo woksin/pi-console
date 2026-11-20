@@ -9,6 +9,9 @@ import { repositoryName, resetsOf, toJob, toMessage, toQuestion, toRequest, toSe
 export type RequestFilter = 'all' | 'unanswered' | 'interrupted';
 export const requestFilters: readonly RequestFilter[] = ['all', 'unanswered', 'interrupted'];
 
+/** Own-property lookup: ingested ids may be JavaScript prototype property names. */
+const own = <Row>(rows: Record<string, Row>, id: string): Row | undefined => Object.hasOwn(rows, id) ? rows[id] : undefined;
+
 const statuses = ['working', 'needs-you', 'blocked', 'waiting', 'idle', 'done', 'failed'] as const;
 
 const by = <T>(...keys: ((item: T) => string)[]) => (a: T, b: T) => {
@@ -44,6 +47,12 @@ export class ConsoleQueries {
       .sort(by(session => session.startedAt, session => session.id));
   }
 
+  sessionById(id: string): Session | undefined {
+    const models = this.#models();
+    const row = own(models.sessions.sessions, id);
+    return row ? toSession(models, row, this.needsYou()) : undefined;
+  }
+
   session(id: string): SessionDetail | undefined {
     const sessions = this.sessions();
     const session = sessions.find(item => item.id === id);
@@ -64,9 +73,19 @@ export class ConsoleQueries {
       .sort(by(request => request.createdAt, request => request.id));
   }
 
+  requestById(id: string): Request | undefined {
+    const row = own(this.#models().requests.requests, id);
+    return row && row.createdAt !== '' ? toRequest(row) : undefined;
+  }
+
   questions(): Question[] {
     return Object.values(this.#models().questions.questions).filter(question => question.createdAt !== '')
       .map(toQuestion).sort(by(question => question.createdAt, question => question.id));
+  }
+
+  questionById(id: string): Question | undefined {
+    const row = own(this.#models().questions.questions, id);
+    return row && row.createdAt !== '' ? toQuestion(row) : undefined;
   }
 
   /** Messages whose send has been seen; receipts that arrived first wait until it is. */
@@ -77,6 +96,16 @@ export class ConsoleQueries {
       .sort(by(message => message.sentAt, message => message.id));
   }
 
+  messageById(id: string): Message | undefined {
+    const row = own(this.#models().messages.messages, id);
+    return row && row.sentAt !== '' ? toMessage(row) : undefined;
+  }
+
+  jobById(id: string): Job | undefined {
+    const row = own(this.#models().work.jobs, id);
+    return row ? toJob(row) : undefined;
+  }
+
   jobs(): Job[] {
     return Object.values(this.#models().work.jobs).map(toJob).sort(by(job => job.startedAt, job => job.id));
   }
@@ -84,6 +113,9 @@ export class ConsoleQueries {
   resets(): Reset[] {
     return Object.values(this.#models().sessions.sessions).flatMap(resetsOf).sort(by(reset => reset.at, reset => reset.id));
   }
+
+  // Reset ids are nested and need not be globally unique. Keep the list's existing tie-breaking semantics.
+  resetById(id: string): Reset | undefined { return this.resets().find(reset => reset.id === id); }
 
   repositories(): { id: string; name: string }[] {
     const ids = [...new Set(this.sessions().map(session => session.repositoryId))].sort(compareText);

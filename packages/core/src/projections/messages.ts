@@ -1,4 +1,4 @@
-import { projection } from '../projector/handlers.ts';
+import { markDirty, projection } from '../projector/handlers.ts';
 
 export interface MessageModel {
   id: string;
@@ -20,6 +20,7 @@ const placeholder = (id: string): MessageModel => ({ id, from: '', to: '', text:
 
 /** Status only moves forward, whatever order delivery and read receipts arrive in. */
 const advance = (status: 'delivered' | 'read') => (state: MessagesState, payload: { messageId: string }) => {
+  markDirty(state, 'messages', payload.messageId);
   const message = state.messages[payload.messageId] ??= placeholder(payload.messageId);
   if (rank[status] > rank[message.status]) message.status = status;
 };
@@ -27,15 +28,16 @@ const advance = (status: 'delivered' | 'read') => (state: MessagesState, payload
 interface Sent { messageId: string; from: string; excerpt?: string; withheld?: boolean }
 
 function send(state: MessagesState, payload: Sent, to: string, sentAt: string): void {
+  markDirty(state, 'messages', payload.messageId);
   const status = (state.messages[payload.messageId] as MessageModel | undefined)?.status ?? 'sent';
   state.messages[payload.messageId] = {
     id: payload.messageId, from: payload.from, to, text: payload.excerpt ?? '', withheld: payload.withheld ?? false, status, sentAt,
   };
 }
 
-export const messagesProjection = projection<MessagesState>('messages', 1, () => ({ messages: {} }), {
+export const messagesProjection = projection<MessagesState>('messages', 2, () => ({ messages: {} }), {
   MessageSent(state, payload, event) { send(state, payload, payload.to, event.occurredAt); },
   BroadcastSent(state, payload, event) { send(state, payload, '*', event.occurredAt); },
   MessageDelivered: advance('delivered'),
   MessageRead: advance('read'),
-});
+}, ['messages']);

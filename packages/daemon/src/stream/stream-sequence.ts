@@ -1,17 +1,29 @@
 import type { ProjectionStore } from '@pi-console/core';
 
+const name = '$stream';
+
 /**
- * Reserve ids durably before exposing them. A restart consumes one id as a snapshot barrier: even the last
- * pre-restart id must refresh, since the in-memory replay ring is gone and catch-up may have changed the models.
- * The projected position is a floor for databases created before the independent stream counter existed.
+ * A restart starts beyond the committed upper bound, since its in-memory replay ring was lost. A range is committed
+ * before any of its ids can reach a client; process death may waste ids, but can never reuse one. Live ids remain
+ * contiguous. Snapshot-only frames consume no ids and no writes.
  */
-export function streamSequence(store: ProjectionStore, projectedPosition: number): { base: number; persist: (seq: number) => void } {
-  const previous = store.load('$stream');
+export function streamSequence(store: ProjectionStore, projectedPosition: number, blockSize = 256): { base: number; persist: (seq: number) => void } {
+  if (!Number.isSafeInteger(blockSize) || blockSize < 1) throw new RangeError('Invalid stream reservation size');
+  const previous = store.load(name);
   const base = Math.max(projectedPosition, previous ? previous.position + 1 : 0);
-  const persist = (seq: number): void => {
-    if (!Number.isSafeInteger(seq)) throw new Error('Stream sequence exhausted');
-    store.save([{ name: '$stream', version: 1, position: seq, state: null }]);
+  let reserved = base;
+  const reserve = (first: number): void => {
+    const upper = first + blockSize - 1;
+    if (!Number.isSafeInteger(upper) || upper < first) throw new Error('Stream sequence exhausted');
+    store.save([{ name, version: 1, position: upper, state: null }]);
+    reserved = upper;
   };
-  persist(base);
-  return { base, persist };
+  reserve(base + 1);
+  return {
+    base,
+    persist(seq) {
+      if (!Number.isSafeInteger(seq)) throw new Error('Stream sequence exhausted');
+      if (seq > reserved) reserve(seq);
+    },
+  };
 }

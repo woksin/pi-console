@@ -1,4 +1,4 @@
-import { entry, insertSorted, orderKey, projection } from '../projector/handlers.ts';
+import { entry, insertSorted, markDirty, orderKey, projection } from '../projector/handlers.ts';
 
 export interface BurnSample { at: string; contextPercent: number; tokens: number }
 
@@ -26,8 +26,9 @@ function insertSample(burn: SessionBurn, sample: BurnSample): void {
 }
 
 /** Context pressure and token burn per session. */
-export const burnProjection = projection<BurnState>('burn', 1, () => ({ sessions: {} }), {
+export const burnProjection = projection<BurnState>('burn', 2, () => ({ sessions: {} }), {
   ContextPressureSampled(state, payload, event) {
+    markDirty(state, 'sessions', payload.sessionId);
     const burn = entry(state.sessions, payload.sessionId, blank);
     const key = orderKey(event);
     if (key >= burn.contextKey) {
@@ -38,6 +39,7 @@ export const burnProjection = projection<BurnState>('burn', 1, () => ({ sessions
   },
   TurnEnded(state, payload) {
     if (!payload.usage) return;
+    markDirty(state, 'sessions', payload.sessionId);
     entry(state.sessions, payload.sessionId, blank).tokens += payload.usage.inputTokens + payload.usage.outputTokens;
   },
-});
+}, ['sessions']);
