@@ -71,6 +71,27 @@ test('a windowed snapshot is paged older-ward on request; pages merge without du
   assert.equal(store.getState().totals?.jobs, 4);
 });
 
+test('a resnapshot voids exhausted paging so dropped rows can be reloaded', async () => {
+  let emit: (frame: unknown) => void = () => undefined;
+  let pages = 0;
+  const api = {
+    page: () => { pages++; return Promise.resolve({ ...emptyList, items: [job('j1', 'done', '2026-01-01T00:00:00Z')], total: 2 }); },
+    stream: (_seq: number, _signal: AbortSignal, onFrame: (frame: unknown) => void) => { emit = onFrame; onFrame(windowedSnapshot([job('j4', 'running', '2026-01-04T00:00:00Z')], 2)); return new Promise<void>(() => undefined); },
+    needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null),
+  } as unknown as Api;
+  const store = new ConsoleStore(api, clock);
+  store.start();
+  await store.loadMore('jobs');
+  assert.equal(store.getState().history.jobs?.more, false);
+  await store.loadMore('jobs');
+  assert.equal(pages, 1);
+  emit({ ...windowedSnapshot([job('j5', 'running', '2026-01-05T00:00:00Z')], 3), seq: 9 });
+  assert.equal(store.getState().history.jobs, undefined);
+  await store.loadMore('jobs');
+  assert.equal(pages, 2);
+  store.stop();
+});
+
 test('a complete (unbounded) snapshot never pages', async () => {
   let calls = 0;
   const store = new ConsoleStore({ page: () => { calls++; return Promise.resolve(null); } } as unknown as Api, clock);

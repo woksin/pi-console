@@ -84,3 +84,12 @@ test('a later windowed snapshot keeps loaded history and drops rows that stopped
   await settle(store);
   assert.deepEqual(store.getSnapshot().jobs.map(job => job.id), ['j1', 'j5']);
 });
+
+test('a resnapshot voids exhausted paging progress', async () => {
+  const store = new Store();
+  store.apply(windowed([jobAt('j4', 'running', '2026-01-04T00:00:00Z')], 2));
+  store.mergePage('jobs', { items: [jobAt('j1', 'done', '2026-01-01T00:00:00Z')], nextCursor: null, hasMore: false, total: 2 } as never);
+  store.apply({ ...windowed([jobAt('j5', 'running', '2026-01-05T00:00:00Z')], 3), seq: 4 } as Event);
+  await settle(store);
+  assert.deepEqual(store.getSnapshot().history, {});
+});

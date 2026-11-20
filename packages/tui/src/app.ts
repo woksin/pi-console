@@ -75,7 +75,7 @@ export function App(props: AppProps): ReactElement {
   const view = (ui.sessionId ? sessionView : sectionViews[ui.section])(env);
   const viewRef = useRef(view);
   viewRef.current = view;
-  const atEnd = view.length > 0 && ui.cursor[ui.section] >= view.length - 1;
+  const atEnd = view.length === 0 || ui.cursor[ui.section] >= view.length - 1;
   useEffect(() => { const collection = listCollection[ui.section]; if (collection && !ui.sessionId && atEnd) props.loadMore?.(collection); }, [ui.section, ui.sessionId, atEnd, view.length]);
   useUiEffects(ui, props, uiRef, apply);
   useFocusJump(ui, uiRef, viewRef, apply);

@@ -4,6 +4,7 @@ import type { ViewProps } from '../app/view.tsx';
 import { navigate, useListNav, useSearchFocus } from '../app/hooks.ts';
 import { useActions } from '../app/commands.ts';
 import { sessionHref } from '../app/routes.ts';
+import { LoadOlder } from './load-older.tsx';
 import { EmptyState, PressureBar, SearchBox, Sparkline, StatusBadge } from '../ui/primitives.tsx';
 import { useChangeFlash, useScrollIntoView } from '../ui/hooks.ts';
 
@@ -47,6 +48,7 @@ export function FleetView({ state, now }: ViewProps) {
             ? <GroupRow key={rowKey(row)} row={row} selected={nav.selected === rowKey(row)} onToggle={() => { nav.select(rowKey(row)); toggle(row.id); }} />
             : <SessionLine key={row.id} row={row} selected={nav.selected === row.id} />)}</tbody>
         </table>)}
+      <LoadOlder state={state} collection="sessions" shown={state.sessions.length} noun="sessions" />
     </div>
   );
 }

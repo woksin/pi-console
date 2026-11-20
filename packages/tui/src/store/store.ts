@@ -50,7 +50,7 @@ export class Store {
         const bounded = snapshot.bounded ?? [];
         const list = <T extends { id: string }>(name: WindowedCollection, previous: T[], incoming: T[]): T[] => (bounded.includes(name) ? mergeSnapshot(name, previous, incoming) : incoming);
         this.data = {
-          ...this.data, loaded: true, repositories: snapshot.repositories.length, resets: snapshot.resets, totals: snapshot.totals ?? null, bounded,
+          ...this.data, loaded: true, repositories: snapshot.repositories.length, resets: snapshot.resets, totals: snapshot.totals ?? null, bounded, history: {},
           sessions: list('sessions', this.data.sessions, snapshot.sessions), requests: list('requests', this.data.requests, snapshot.requests),
           questions: list('questions', this.data.questions, snapshot.questions), messages: list('messages', this.data.messages, snapshot.messages), jobs: list('jobs', this.data.jobs, snapshot.jobs),
         };
