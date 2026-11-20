@@ -3,11 +3,13 @@ import type { StatusCell } from '@pi-console/viewmodels';
 import type { Color } from './theme.ts';
 import type { Line, Part } from './renderer.ts';
 
+const isControl = (code: number): boolean => (code < 32 && code !== 10) || (code >= 127 && code <= 159);
+
 /** Cheap pre-check so the common, clean string skips `sanitize`: any control character other than newline. */
 const needsCleaning = (text: string): boolean => {
   for (let index = 0; index < text.length; index++) {
     const code = text.charCodeAt(index);
-    if ((code < 32 && code !== 10) || (code >= 127 && code <= 159)) return true;
+    if (isControl(code)) return true;
   }
   return false;
 };

@@ -42,14 +42,17 @@ export const initial: UiState = {
 /** What the reducer needs to know about the rendered world; supplied by the view layer. */
 export interface Bounds { length: number; page: number; fit: TimeWindow; width: number; rowAt: (index: number) => { sessionId: string | null; groupId: string | null }; transcriptLength: number }
 
+const contextRules: readonly (readonly [(state: UiState) => boolean, KeyContext])[] = [
+  [state => state.overlay === 'palette', 'palette'],
+  [state => state.overlay === 'filter' || state.overlay === 'search', 'filter'],
+  [state => state.overlay === 'help' || state.overlay === 'settings', 'help'],
+  [state => state.sessionId !== null, 'transcript'],
+  [state => state.section === 'timeline', 'timeline'],
+  [state => state.section === 'messages' && state.messagesGraph, 'graph'],
+];
+
 export function contextOf(state: UiState): KeyContext {
-  if (state.overlay === 'palette') return 'palette';
-  if (state.overlay === 'filter' || state.overlay === 'search') return 'filter';
-  if (state.overlay === 'help' || state.overlay === 'settings') return 'help';
-  if (state.sessionId) return 'transcript';
-  if (state.section === 'timeline') return 'timeline';
-  if (state.section === 'messages' && state.messagesGraph) return 'graph';
-  return 'list';
+  return contextRules.find(([applies]) => applies(state))?.[1] ?? 'list';
 }
 
 const clamp = (value: number, length: number) => Math.max(0, Math.min(Math.max(0, length - 1), value));
@@ -88,15 +91,22 @@ function back(state: UiState): UiState {
   return state.filter ? { ...state, filter: '' } : state;
 }
 
+const windowMoves: Partial<Record<Action, (window: TimeWindow) => TimeWindow>> = {
+  'time.left': window => pan(window, -1),
+  'time.right': window => pan(window, 1),
+  'time.zoomIn': window => zoom(window, 0.6),
+  'time.zoomOut': window => zoom(window, 1 / 0.6),
+};
+
+function scrubStep(state: UiState, action: Action, bounds: Bounds): UiState {
+  const step = (action === 'time.left' ? -1 : 1) * Math.max(1, Math.round(bounds.width / 40));
+  return { ...state, scrubColumn: Math.max(0, Math.min(bounds.width - 1, state.scrubColumn + step)) };
+}
+
 function timeline(state: UiState, action: Action, bounds: Bounds): UiState {
-  const window = state.window ?? bounds.fit;
-  if (state.scrub && (action === 'time.left' || action === 'time.right')) {
-    return { ...state, scrubColumn: Math.max(0, Math.min(bounds.width - 1, state.scrubColumn + (action === 'time.left' ? -1 : 1) * Math.max(1, Math.round(bounds.width / 40)))) };
-  }
-  if (action === 'time.left') return { ...state, window: pan(window, -1) };
-  if (action === 'time.right') return { ...state, window: pan(window, 1) };
-  if (action === 'time.zoomIn') return { ...state, window: zoom(window, 0.6) };
-  if (action === 'time.zoomOut') return { ...state, window: zoom(window, 1 / 0.6) };
+  if (state.scrub && (action === 'time.left' || action === 'time.right')) return scrubStep(state, action, bounds);
+  const move = windowMoves[action];
+  if (move) return { ...state, window: move(state.window ?? bounds.fit) };
   return { ...state, scrub: !state.scrub, scrubColumn: state.scrub ? state.scrubColumn : Math.floor(bounds.width / 2) };
 }
 
@@ -109,28 +119,36 @@ function cyclePane(state: UiState, direction: number): UiState {
   return { ...state, pane: sidePanes[next] };
 }
 
+type Handler = (state: UiState, bounds: Bounds, action: Action) => UiState;
+
+const moveHandler: Handler = (state, bounds, action) => (state.sessionId ? moveTranscript(state, action, bounds) : moveList(state, action, bounds));
+
+const handlers: Partial<Record<Action, Handler>> = {
+  'quit': state => ({ ...state, quit: true }),
+  'palette.open': state => ({ ...state, overlay: 'palette', input: '', paletteIndex: 0 }),
+  'filter.open': state => (state.sessionId ? { ...state, overlay: 'search', input: state.search } : { ...state, overlay: 'filter', input: state.filter }),
+  'settings.open': state => ({ ...state, overlay: 'settings' }),
+  'help.toggle': state => ({ ...state, overlay: state.overlay === 'help' ? 'none' : 'help' }),
+  'back': state => back(state),
+  'open': (state, bounds) => open(state, bounds),
+  'follow.toggle': (state, bounds) => (state.follow ? { ...state, follow: false, anchor: bounds.transcriptLength } : { ...state, follow: true, scroll: 0, anchor: null }),
+  'view.toggle': state => ({ ...state, messagesGraph: !state.messagesGraph, cursor: { ...state.cursor, messages: 0 } }),
+  'group.toggle': (state, bounds) => toggleGroup(state, bounds),
+  'pane.next': state => cyclePane(state, 1),
+  'pane.previous': state => cyclePane(state, -1),
+  'time.scrub': (state, bounds, action) => timeline(state, action, bounds),
+  'time.zoomIn': (state, bounds, action) => timeline(state, action, bounds),
+  'time.zoomOut': (state, bounds, action) => timeline(state, action, bounds),
+  'time.left': (state, bounds, action) => timeline(state, action, bounds),
+  'time.right': (state, bounds, action) => timeline(state, action, bounds),
+  'move.up': moveHandler, 'move.down': moveHandler, 'move.top': moveHandler, 'move.bottom': moveHandler, 'page.up': moveHandler, 'page.down': moveHandler,
+};
+
 /** Applies a resolved keymap action. Returns the same state object when nothing changed. */
 export function reduce(state: UiState, action: Action, bounds: Bounds): UiState {
   const target = sectionActions[action];
   if (target) return goto(state, target);
-  switch (action) {
-    case 'quit': return { ...state, quit: true };
-    case 'palette.open': return { ...state, overlay: 'palette', input: '', paletteIndex: 0 };
-    case 'filter.open': return state.sessionId ? { ...state, overlay: 'search', input: state.search } : { ...state, overlay: 'filter', input: state.filter };
-    case 'settings.open': return { ...state, overlay: 'settings' };
-    case 'help.toggle': return { ...state, overlay: state.overlay === 'help' ? 'none' : 'help' };
-    case 'back': return back(state);
-    case 'open': return open(state, bounds);
-    case 'follow.toggle': return state.follow ? { ...state, follow: false, anchor: bounds.transcriptLength } : { ...state, follow: true, scroll: 0, anchor: null };
-    case 'view.toggle': return { ...state, messagesGraph: !state.messagesGraph, cursor: { ...state.cursor, messages: 0 } };
-    case 'group.toggle': return toggleGroup(state, bounds);
-    case 'pane.next': return cyclePane(state, 1);
-    case 'pane.previous': return cyclePane(state, -1);
-    case 'time.scrub': case 'time.zoomIn': case 'time.zoomOut': case 'time.left': case 'time.right': return timeline(state, action, bounds);
-    case 'move.up': case 'move.down': case 'move.top': case 'move.bottom': case 'page.up': case 'page.down':
-      return state.sessionId ? moveTranscript(state, action, bounds) : moveList(state, action, bounds);
-    default: return state;
-  }
+  return handlers[action]?.(state, bounds, action) ?? state;
 }
 
 function toggleGroup(state: UiState, bounds: Bounds): UiState {
