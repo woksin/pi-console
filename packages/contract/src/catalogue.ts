@@ -31,9 +31,15 @@ const sessions = defs('sessions', ['session-jsonl', 'context-budget', 'lane-hear
 });
 
 const requests = defs('requests', ['session-jsonl', 'derivation'], {
-  RequestObserved: open({ requestId: id, ...sessionId, origin: oneOf('human', 'launch', 'unproven'), originEvidence: str, excerpt, withheld: bool }, ['requestId', 'sessionId', 'origin', 'originEvidence']),
-  AnswerObserved: open({ requestId: id, answerId: id, interim: bool, excerpt, withheld: bool }, ['requestId', 'answerId', 'interim']),
-  RequestInterrupted: open({ requestId: id, ...sessionId, resetId: nullable(id) }, ['requestId', 'sessionId']),
+  RequestObserved: open({ requestId: id, ...sessionId, entryId: id, raw: bool, origin: oneOf('human', 'launch', 'unproven'), originEvidence: str, excerpt, withheld: bool }, ['requestId', 'sessionId', 'origin', 'originEvidence']),
+  AnswerObserved: { anyOf: [
+    open({ requestId: id, answerId: id, interim: bool, excerpt, withheld: bool }, ['requestId', 'answerId', 'interim']),
+    open({ raw: { const: true }, ...sessionId, entryId: id, answerId: id, interim: { const: false }, excerpt, withheld: bool }),
+  ] },
+  RequestInterrupted: { anyOf: [
+    open({ requestId: id, ...sessionId, resetId: nullable(id) }, ['requestId', 'sessionId']),
+    open({ raw: { const: true }, ...sessionId, entryId: id, reason: { const: 'aborted' } }),
+  ] },
 });
 
 const questionId = { questionId: id };

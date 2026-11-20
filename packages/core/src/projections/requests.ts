@@ -36,6 +36,8 @@ export const requestsProjection: RequestDerivation = projection<RequestsState>('
     };
   },
   AnswerObserved(state, payload, event) {
+    // Raw (unpaired) observations carry no requestId; pairing them is P5's request derivation.
+    if ('raw' in payload) return;
     const request = state.requests[payload.requestId] as RequestModel | undefined;
     if (!request) return;
     const answer = { id: payload.answerId, text: payload.excerpt ?? '', at: event.occurredAt, interim: payload.interim };
@@ -47,6 +49,7 @@ export const requestsProjection: RequestDerivation = projection<RequestsState>('
     request.status = 'answered';
   },
   RequestInterrupted(state, payload) {
+    if ('raw' in payload) return;
     const request = state.requests[payload.requestId] as RequestModel | undefined;
     if (!request || request.status === 'answered') return;
     request.status = 'interrupted';
