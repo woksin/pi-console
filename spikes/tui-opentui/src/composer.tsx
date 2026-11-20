@@ -14,19 +14,21 @@ export function Composer({ state, session, width, height, t, submit, close }: { 
   const [pending, setPending] = useState(false);
   const [recorded, setRecorded] = useState<Intervention>();
   const editor = useRef<TextareaRenderable>(null);
+  const sending = useRef(false);
   const motion = useMotion(session.id, 650);
   const question = state.questions.find(q => q.sessionId === session.id && q.status === 'open');
   const request = state.requests.filter(r => r.sessionId === session.id).at(-1);
   const audit = state.interventions.find(i => i.id === recorded?.id);
   const send = async () => {
-    if (pending || recorded) return;
+    if (sending.current || recorded) return;
     setError('');
     try {
       const input = interventionInput(session, mode, editor.current?.plainText ?? text, question?.id, confirmation);
+      sending.current = true;
       setPending(true);
       setRecorded(await submit(input));
     } catch (failure) { setError(failure instanceof Error ? failure.message : String(failure)); }
-    finally { setPending(false); }
+    finally { sending.current = false; setPending(false); }
   };
   useKeyboard(key => {
     if (key.name === 'escape') close();

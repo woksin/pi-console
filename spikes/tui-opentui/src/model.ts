@@ -72,11 +72,7 @@ export class Store {
   }
   private project(event: Event) {
     const s = this.state;
-    if (event.type === 'session.updated') {
-      const item = event.payload as Session;
-      if (s.sessions.find(old => old.id === item.id)?.status !== item.status) s.changed.set(item.id, Date.now());
-      upsert(s.sessions, item);
-    }
+    if (event.type === 'session.updated') this.sessionUpdated(event.payload as Session);
     if (event.type.startsWith('request.')) upsert(s.requests, event.payload as Request);
     if (event.type === 'question.asked') upsert(s.questions, event.payload as Question);
     if (event.type.startsWith('job.')) upsert(s.jobs, event.payload as Job);
@@ -89,10 +85,16 @@ export class Store {
       s.volumes.set(key, (s.volumes.get(key) ?? 0) + 1);
       s.liveAt = Date.parse(message.sentAt);
     }
-    if (event.type === 'intervention.recorded') {
-      upsert(s.interventions, event.payload as Intervention);
-      if (s.interventions.length > 100) s.interventions.shift();
-    }
+    if (event.type === 'intervention.recorded') this.recordIntervention(event.payload as Intervention);
+  }
+  private sessionUpdated(item: Session) {
+    const s = this.state;
+    if (s.sessions.find(old => old.id === item.id)?.status !== item.status) s.changed.set(item.id, Date.now());
+    upsert(s.sessions, item);
+  }
+  private recordIntervention(item: Intervention) {
+    upsert(this.state.interventions, item);
+    if (this.state.interventions.length > 100) this.state.interventions.shift();
   }
 }
 

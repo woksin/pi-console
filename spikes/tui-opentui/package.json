@@ -1,7 +1,11 @@
 {
   "name": "pi-console-tui-opentui",
-  "private": true,
+  "version": "0.0.2",
+  "description": "Local mock-daemon OpenTUI signature-view spike",
   "type": "module",
+  "bin": { "pi-console-opentui": "bin/pi-console-opentui.mjs" },
+  "files": ["bin", "src", "!src/*.test.tsx", "!src/*.integration.tsx", "tsconfig.json", "README.md"],
+  "engines": { "node": ">=26.8.0" },
   "scripts": {
     "start": "node --experimental-ffi --import tsx src/main.tsx",
     "test": "node --experimental-ffi --import tsx --test src/*.test.tsx",
@@ -13,12 +17,12 @@
     "@opentui/react": "0.9.6",
     "react": "^19.2.0",
     "react-devtools-core": "^7.0.1",
-    "ws": "^8.18.0"
+    "ws": "^8.18.0",
+    "tsx": "^4.21.0"
   },
   "devDependencies": {
     "@types/node": "^26.0.0",
     "@types/react": "^19.2.0",
-    "tsx": "^4.21.0",
     "typescript": "^6.0.0"
   }
 }

@@ -9,10 +9,11 @@ export function useMotion(identity: unknown, duration = 500, loop = false) {
   useEffect(() => {
     const target = { value: 0 };
     setValue(0);
+    const engine = getTimelineEngine(renderer);
     const timeline = createTimeline({ duration, loop, frameRate: 20, autoplay: false }, renderer);
     timeline.add(target, { value: 1, duration, ease: loop ? 'linear' : 'outElastic', onUpdate: () => setValue(target.value) });
     timeline.play();
-    return () => { timeline.pause(); getTimelineEngine(renderer).unregister(timeline); };
+    return () => { timeline.pause(); engine.unregister(timeline); };
   }, [identity, duration, loop, renderer]);
   return value;
 }

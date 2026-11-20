@@ -1,64 +1,66 @@
-# OpenTUI / React — M0 candidate
+# OpenTUI React signature-view spike (M0 round 2)
 
-A real, read-only Node client of the shared mock daemon. No Bun fallback, screenshots-as-UI, or agent communication. Fleet overview and session detail share the same live projection.
-
-![Fleet, 120×36](overview-120.png)
-![Session, 120×36](session-120.png)
+A real `@opentui/react` terminal client of the existing mock daemon. Synthetic data only. Interventions record audit events: **no command is delivered and no session is changed**. Uses Node, not Bun; do not copy the experimental FFI flags into production without reviewing the runtime/security trade-off.
 
 ## Run
 
-Requires **Node 26.8+** (native experimental FFI), npm and a supported OpenTUI native binary (tested macOS arm64). From the repository root:
+Requires Node **26.8+**, npm and a supported OpenTUI native binary. Tested on macOS arm64 with Node 26.8.1. Start from the repository root:
 
 ```sh
-npm --prefix spikes/tui-opentui install
+npm --prefix spikes/tui-opentui ci
 node spikes/mock-daemon/server.ts
-# In another terminal:
-npm --prefix spikes/tui-opentui start -- --colors truecolor
+# In another terminal, at the repository root:
+PI_CONSOLE_TOKEN_FILE="$PWD/.pi-console-dev/token" \
+  npm --prefix spikes/tui-opentui start -- --colors truecolor
 ```
 
-The token is read from `.pi-console-dev/token`, never put in a URL. `PI_CONSOLE_URL` overrides the loopback URL; `PI_CONSOLE_TOKEN_FILE` overrides the token path. Only loopback HTTP is allowed. No intervention endpoint is called.
+The explicit token path matters: `npm --prefix … start` changes the working directory. `PI_CONSOLE_URL` defaults to `http://127.0.0.1:4777`; `PI_CONSOLE_TOKEN_FILE` defaults to `.pi-console-dev/token` relative to the client process. Never commit the token. `--colors 256` and `--colors 16` select terminal-safe palettes. Optional `PI_CONSOLE_REDUCED_MOTION=1` skips entrance/highlight interpolation (message activity still updates).
 
-`--colors 16|256|truecolor` selects palette quantization. Auto mode uses `COLORTERM`, then `TERM`. The renderer still owns the terminal escape encoding: these switches constrain RGB values, **not** a guarantee of indexed ANSI output on a truly 16-color-only terminal. A high-contrast palette is available in the command palette. Both fallback modes were captured in VHS; 16-color mode is readable but loses most hue distinctions. Status words and symbols remain.
+## Navigation
 
-React's DevTools and WebSocket packages are explicit dependencies because the React adapter imports them at startup; no DevTools connection is opened by this client. `tsx` supplies JSX loading. Native imports and the React headless renderer work under Node with `--experimental-ffi`; the experimental warning is expected.
-
-## Navigate
-
-| Key / gesture | Result |
+| Key | Action |
 | --- | --- |
-| j/k, ↑/↓ | Fleet selection; transcript scroll pauses tail |
-| Enter | Open session; expand first visible collapsible block |
-| Click | Select fleet row; expand/collapse tool or thinking block |
-| Wheel | Move fleet selection or scroll transcript/rail |
-| Tab | Switch focused pane; rail accepts native scrolling keys |
-| /, text, Enter | Filter fleet names/lanes/repos or search transcript |
-| ! | Toggle needs-you fleet filter |
-| g / G, End, f | Oldest retained transcript / resume live tail |
-| Ctrl+P or : | Fuzzy palette: session jump, fleet, needs-you, theme, quit |
-| ? | Help overlay |
-| Esc | Close overlay, clear search, then return to fleet |
-| q / Ctrl+C | Quit the client, never abort an agent |
+| `t` / `g` | Swimlane timeline / communication graph, from any non-modal view |
+| `Esc` | Close modal, then clear search, then fleet |
+| `Ctrl+P` / `:` | Fuzzy command palette; includes every view and intervention composer |
+| `?` / `/` | Help / search; transcript search is local to retained history |
+| `j/k`, arrows, click | Select session in fleet/timeline; select node **or edge** in graph |
+| `Enter` | Open session; in timeline open at selected signal's timestamp |
+| timeline `+/-`, `h/l`, arrows, wheel | Centered zoom, horizontal pan; `n` returns to recorded now |
+| timeline `c`, click repository | Collapse / expand selected repository |
+| timeline `[` / `]`, click marker | Select previous / next signal with provenance preview |
+| graph `[` / `]`, click repository | Switch repository; graph preserves orchestrator → lanes → subagents layers |
+| detail `Tab` | Transcript / context focus |
+| detail arrows, `PgUp/PgDn`, wheel | Pause and scroll without moving the anchor when SSE arrives |
+| detail `Home`, `End`, `f` | Oldest retained history / resume follow |
+| detail `[` / `]`, `Enter`, space, click | Move thinking/tool block cursor, disclose **that block** independently |
+| `i` | Intervention composer for the selected session |
+| composer `Tab` / `Shift+Tab`, click mode | Steer / follow-up / next-turn / abort / answer |
+| composer `Enter`, `Ctrl+S`, `Esc` | Newline / validate and submit / cancel |
+| `!`, `q`, `Ctrl+C` | Fleet needs-you filter / quit / quit |
 
-The clock ticks independently. Changed session statuses flash briefly. Below 100 columns, the panes stack. At 120 columns the fleet omits the explicit role/token columns to preserve names and activity; at 200 columns it exposes them. The graph is **recorded fixture sample burn**, not a fabricated live token rate; row age is the recorded session duration, not time since today.
+Abort requires typing the lane ID. Answer binds to the selected session's first open question. Target repository, lane, status and last request are always shown. The composer keeps the same target while open, blocks duplicate submissions, reports validation/HTTP errors, distinguishes HTTP 202 from `intervention.recorded` SSE, and explicitly labels the result as audit-only. When an edge is selected, `i` uses the last selected node, not an inferred conversation participant; inspect the target header before submitting.
 
-## Transcript and truthfulness
+## Signature views and motion
 
-- Streaming deltas, plain assistant prose, collapsed thinking/tool calls/results, red/green diff lines, reset markers and a persistent latest-reset summary are distinct blocks.
-- The rail preserves interrupted request R1 and its partial answer, open carried R2, and unanswered/unknown-origin R3 independently of transcript retention. Requests retain API provenance; unlinked transcript `user` entries say **origin not verified**.
-- The API supplies no tool exit/success field. A result is labelled **received**, not successful. Diffs use the fixture's synthetic `src/queue.ts` header; this is not filesystem inspection.
-- Only s2 has a recorded transcript in this fixture. Other sessions explicitly show no transcript rather than recycling s2.
-- SSE is decoded incrementally with UTF-8 framing, reconnection and `Last-Event-ID`. Backfill is cursor-based, deduplicated with concurrently arriving live entries, and capped at five pages. Initial backfill is not an archival loader.
-- A 2,500-entry ring bounds retention. Live rendering prepares only the last 120 entries and mounts only visible lines. Pausing snapshots retained entries so eviction cannot move the text underneath the reader; a cursor-based new-entry counter continues. Resuming discards the frozen view. Search covers retained text, not all daemon history.
-- UI notifications batch at 50 ms. There is no per-delta React update, unconditional full-screen clear, or unbounded rendered scrollback. Terminal controls and bidi overrides in payloads are stripped.
+- Swimlanes are grouped by repository, with two-line session rows, ticked time grid, recorded-now cursor, selectable request/answer/interruption/reset/question/message markers and a provenance/detail panel. `Enter` backfills the transcript and pauses at the nearest retained entry to that signal.
+- The graph uses positioned terminal boxes plus a cell raster of routed links, not an adjacency list. Nodes show lane/status; links show message volume through brightness and counts. SSE `message.sent` updates produce moving packets and a 1.5-second edge glow. Node/edge selection opens a scrollable recent-message/conversation pane.
+- OpenTUI's own `createTimeline` + `easings.outCubic` drive view/header and composer entrance. The composer has a damped overshoot; fleet selection, SSE status changes and selected transcript blocks interpolate their highlight. The graph pulse clock only runs while the graph is mounted. Cleanup unregisters timelines from the captured renderer engine.
+- No browser/webview or Ink compatibility renderer. The bounded store batches SSE notifications to ~30 Hz, de-duplicates cursors, caps each transcript at 2,500 entries; tool bodies are projected only when expanded. Audit storage is capped at 100 interventions. Follow-off uses a frozen projection with an unread count.
 
-## Captures and performance
+## Media
 
-`demo.gif` is a real 15.84-second VHS recording: overview → session → paused/following → palette → help. Four PNGs show both screens at **120×36** and **200×50**, confirmed with `stty size` before launch:
+The [33.56-second tour](signature-tour.gif) is an actual VHS PTY recording: timeline zoom/pan/collapse/marker opening, tool disclosure, graph selection and multiline intervention submission with streamed acknowledgement. Captures were visually inspected; no token is visible.
 
-- [Overview 120](overview-120.png), [session 120](session-120.png)
-- [Overview 200](overview-200.png), [session 200](session-200.png)
+| View | 120×40 | 200×60 |
+| --- | --- | --- |
+| Timeline | [PNG](timeline-120.png) | [PNG](timeline-200.png) |
+| Graph | [PNG](graph-120.png) | [PNG](graph-200.png) |
+| Composer | [PNG](composer-120.png) | [PNG](composer-200.png) |
 
-Reproduce from the repository root (VHS, ttyd, ffmpeg and Menlo font required; create `.ai-work/` first):
+Also: [selected edge](edge-120.png), [HTTP + SSE acknowledgement](recorded-120.png), [installed-package launch](distribution-120.png). [Original round-one fleet/detail media](demo.gif) remain available as baseline, not round-two evidence.
+
+Regenerate from the repository root (VHS/ttyd/ffmpeg and Menlo required):
 
 ```sh
 vhs spikes/tui-opentui/demo.tape
@@ -66,36 +68,71 @@ vhs spikes/tui-opentui/capture-wide.tape
 node spikes/tui-opentui/benchmark.mjs
 ```
 
-Measured macOS arm64, Node 26.8.1, OpenTUI 0.9.6, 120×36 real VHS PTY, daemon `--rate 5000`, approximately 25 seconds including detail, pause, follow and palette. After the initial five seconds: **16.90% mean CPU**, **23.05% peak one-second CPU**, **250.0 MiB mean RSS**, **269.25 MiB peak RSS**, **18.17 ms worst one-second event-loop p99**, **19.64 projection updates/s**. CPU is percent of one core using the TUI process's `process.cpuUsage()`; RSS excludes daemon, browser and encoder. Around 100k further entries arrived during the sampled 20 seconds; retention stayed at 2,500. Projection updates are not a measured presented-frame count. The paused and palette screenshots remained correct under load. This is a short spike measurement, not a long-run leak claim.
+The capture tapes write only disposable logs/sizing to ignored `.ai-work/`; committed PNG/GIF files are task deliverables. `stty size` verified 40×120 and 60×200.
 
-## Checks
+## Packaged distribution (no source checkout dependencies)
 
-All builds/tests were run through `pi-phase` with the brief's fast/direct policy:
+This is a tarball-installable **npm CLI**, not a standalone binary and not an `npm start` alias. The executable launcher checks Node/platform, resolves its own production `tsx` loader, ships/explicitly selects its JSX tsconfig, then spawns Node with experimental FFI. The package excludes tests. Production installation retains React, OpenTUI, tsx and the appropriate optional native OpenTUI package; a developer TypeScript installation is not needed to launch.
 
-- `npm --prefix spikes/tui-opentui run check` — passed strict TypeScript, no emit.
-- `npm test` — passed the root fixture/daemon suite (9 tests).
-- `npm --prefix spikes/tui-opentui test` — passed 2 tests: native headless fleet/detail/palette/search/pause/follow/mouse/resize plus projection/formatting/safety.
-- `npm --prefix spikes/tui-opentui run test:integration` — passed real authenticated HTTP/SSE/backfill at 5,000 entries/s.
-- `node spikes/tui-opentui/benchmark.mjs` — passed the PTY stress capture and reported the measurements above.
-- `git diff --check` — passed. No repository CI workflow, formatter, or local gate script was present.
-- **Tier 1 is not fully green:** `npm run check` fails in the untouched sibling `spikes/arc-ts/client/generated/All.ts` because the shared strip-only checker rejects TypeScript parameter properties. No sibling files were changed. The checker recursively scans dependency folders too; for the local attempt this candidate's ignored dependencies were moved under `.ai-work/` with a `node_modules` symlink. Normal candidate install/check commands above need no such arrangement. Other sibling spike test suites were not evaluated.
+```sh
+# From repository root; use a fresh install prefix for the proof.
+mkdir -p .ai-work/opentui-r2-dist
+(cd spikes/tui-opentui && npm pack --pack-destination ../../.ai-work/opentui-r2-dist)
+npm install --prefix "$PWD/.ai-work/opentui-r2-dist/install-final" --omit=dev \
+  "$PWD/.ai-work/opentui-r2-dist/pi-console-tui-opentui-0.0.2.tgz"
+.ai-work/opentui-r2-dist/install-final/node_modules/.bin/pi-console-opentui --version
+# With mock daemon running, at repository root:
+.ai-work/opentui-r2-dist/install-final/node_modules/.bin/pi-console-opentui --colors truecolor
+# Or capture the installed executable (starts its own mock daemon):
+vhs spikes/tui-opentui/distribution.tape
+```
 
-## Candid rubric (1–5)
+Only macOS arm64 was installed/launched here. Upstream 0.9.6 publishes native packages for macOS/Linux/Windows x64 and arm64 (plus Linux musl); these are **not locally verified**. Unsupported OS/architecture and older Node versions fail with explicit launcher errors. The tarball is small because native binaries arrive as npm dependencies, not because this is a single-file application. FFI is an experimental runtime prerequisite, not hidden bundling magic.
 
-| Dimension | Score | Assessment |
-| --- | --- | --- |
-| Visual polish | 4 | Dark layered surfaces, rounded panels, subtle header gradient, restrained accents; much stronger in truecolor. |
-| Fleet density | 4 | Grouped hierarchy, attention, charts, preview; role/token columns need the wide layout. |
-| Transcript ergonomics | 3 | Fast bounded window, honest provenance, persistent reset context; no full-history loader, Markdown parser or delta coalescing. |
-| Streaming performance | 4 | 5k/s stays interactive with 20 Hz batched projection; renderer/React/native baseline is about 250 MiB. |
-| Resize / responsiveness | 4 | Real 120×36 and 200×50 captures, automated narrow stacking; extreme tiny sizes and wide Unicode columns are not solved. |
-| Keyboard / mouse | 4 | Palette, focus, search, pause/follow, clickable blocks; keyboard expansion targets first visible block rather than a block cursor. |
-| Startup / distribution | 2 | Fast TSX startup, but Node 26 FFI and platform-native artifacts complicate packaging and portability. |
-| Testability | 4 | Native cell-frame, input/mouse/resize tests and real SSE test; no pixel goldens or long-duration soak. |
-| Accessibility | 3 | Text/glyph redundancy and contrast switch; no screen-reader validation, weak 16-color hue separation. |
-| Implementation complexity | 3 | Small client/projection and reusable panels; app/transcript state and rendering need decomposition before production. |
-| Maintenance / confidence | 3 | React UI is productive; experimental Node FFI and upstream terminal behavior remain material risks. |
+## Checks and limits
 
-Code Health: new files have no prior baseline. Nine source/test/benchmark files scored 10.0; `widgets.tsx` 9.68. **Exceptions:** `app.tsx` 8.4 and `transcript.tsx` 8.1, due to control/render complexity and the timeline's argument list. These two miss the 9.5 target and need uplift, not an unchecked claim of production readiness. They were reviewed; no additional score-chasing rounds were run.
+Measured animation/load results and exact whole-repository gate outcomes: [OpenTUI round-two report](../../docs/spikes/tui-bake-off-opentui.md).
 
-**Recommendation:** keep OpenTUI as a credible high-fidelity candidate. It handles the target stress rate and delivers attractive native terminal panels with good test hooks. Do not select it solely from these screenshots: resolve Node/native distribution, strict palette capability negotiation, long-history navigation and state decomposition first. This spike does not decide against the other stacks.
+```sh
+cd spikes/tui-opentui
+npm run check          # strict TypeScript, no emit
+npm test               # native renderer + projection/validation tests
+npm run test:integration # real authenticated mock HTTP/SSE, reconnect, five intervention modes
+```
+
+Native tests cover zoom/pan bounds, marker provenance, graph selection/volume/pulse projection, independent disclosure, modal navigation, multiline text, HTTP/SSE success, abort validation, transport error, cancellation and narrow stacking, in addition to baseline search/follow/bounding/mouse/resize tests. React test mode emits some non-failing `act` warnings from real animation ticks. Integration also verifies bad abort confirmation is rejected. Root fixture/mock tests are separate (`npm test` at root).
+
+Known partials/trade-offs:
+
+- One repository's five-node layered graph is shown at a time; there is no cross-repository routing/layout engine. Sparse cell routing can share segments, and generic future hierarchies need a proper graph-layout pass.
+- The timeline uses recorded fixture/SSE timestamps, not wall-clock session state intervals. Static fixture markers have incomplete start/end coverage. Selecting a signal jumps to the nearest **retained** entry, not an unavailable exact event cursor; thinking/tool entries are independently navigated in detail rather than all drawn as timeline glyphs.
+- At <100 columns graph/context panes stack; at very short heights the conversation viewport is small. Native test exercises 90×30; 120×40 is the recommended minimum for the full composition. Very narrow mode-tab/repository strips can clip rather than wrap.
+- Palette options are generated from existing view/session state. Search is bounded in-memory, not a daemon-wide query. No clipboard, OS notifications, live adapter delivery or durable intervention status tracking.
+- CPU measurements include native rendering/FFI and experimental runtime overhead. Render cadence is sampled from `renderer.getStats().frameCount`, distinct from store notification cadence. Synthetic load is not a long soak test.
+- No repository CI workflow or lint/format script exists here. Tier 1 attempted the root syntax check, native strict typecheck, all existing test suites and `git diff --check`; the root syntax check fails on the existing `spikes/arc-ts/client/generated/All.ts:16` TypeScript parameter property (`constructor(readonly query: All)` is unsupported in Node strip-only mode). This unrelated generated source/checker was not modified. Thus **no fully green CI-equivalent whole-repository gate is claimed**.
+
+## Code Health
+
+CodeScene review + final score were run on changed source/launcher/benchmark/tests. Before = round-one branch files; new = added in this round, including the resumed unfinished slice. One behavior-preserving extraction pass raised the existing low-score UI files and kept the store at 10. Scores below 9.5 remain explicit uplift exceptions; no issue was opened by this subagent.
+
+| File (under this directory) | Before | After |
+| --- | ---: | ---: |
+| `src/app.tsx` | 8.40 | 8.49 |
+| `src/transcript.tsx` | 8.10 | 8.34 |
+| `src/model.ts` | 10 | 10 |
+| `src/client.ts` | 10 | 10 |
+| `src/fleet.tsx` | 10 | 10 |
+| `src/main.tsx` | 10 | 10 |
+| `src/metrics.ts` | 10 | 10 |
+| `src/client.integration.tsx` | 10 | 10 |
+| `benchmark.mjs` | 10 | 10 |
+| `src/swimlane.tsx` | new | 10 |
+| `src/motion.ts` | new | 10 |
+| `src/graph.tsx` | new | 8.70 |
+| `src/composer.tsx` | new | 9.05 |
+| `src/signature-model.ts` | new | 8.45 |
+| `src/signature.test.tsx` | new | 10 |
+| `src/composer.test.tsx` | new | 10 |
+| `bin/pi-console-opentui.mjs` | new | 10 |
+
+Uplift follow-up: app/transcript still combine view state, keyboard handlers and projection; graph/composer combine control and rendering; signature-model retains branching provenance/validation helpers and the positional intervention API. Larger controller/component/API separation was not safe to expand into in this bounded visual spike. Config, Markdown and VHS tape files are not scored source languages.

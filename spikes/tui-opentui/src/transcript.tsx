@@ -6,25 +6,39 @@ import { Context, Label, Panel, Requests } from './widgets.tsx';
 import { blend, useMotion } from './motion.ts';
 
 export type Line = { id: string; text: string; color: string; expandable: boolean };
+function presentation(entry: Entry, state: State, t: Theme) {
+  const styles: Record<string, [string, string]> = {
+    user: ['▸ origin not verified', t.blue], thinking: ['◇ thinking', t.faint],
+    'tool.call': ['⚙ tool', t.cyan], 'tool.result': ['↳ result · received', t.green],
+    diff: ['± patch / src/queue.ts', t.muted],
+  };
+  const [label, color] = styles[entry.kind] ?? ['◂ assistant', t.text];
+  const text = clean(entry.text);
+  if (entry.kind !== 'reset') return { label, color, text };
+  const reset = state.resets.find(r => r.id === entry.resetId);
+  return {
+    label: `── ${reset?.kind.toUpperCase() ?? 'RESET'} / ${entry.resetId ?? 'boundary'} ──`, color: t.pink,
+    text: `carried: ${reset?.carriedRequestIds.join(', ') ?? 'not recorded'} · interrupted: ${reset?.interruptedRequestIds.join(', ') ?? 'not recorded'}\n${text}`,
+  };
+}
+function bodyLines(entry: Entry, body: { text: string; color: string; collapsed: boolean }, t: Theme, width: number): Line[] {
+  const lines: Line[] = [];
+  for (const paragraph of body.text.split('\n')) {
+    const chars = [...paragraph];
+    const bodyWidth = Math.max(8, width - 3);
+    const diffColor = paragraph.startsWith('+') ? t.green : paragraph.startsWith('-') ? t.red : t.faint;
+    for (let start = 0; start < Math.max(1, chars.length); start += bodyWidth) {
+      lines.push({ id: entry.id, text: `   ${chars.slice(start, start + bodyWidth).join('')}`, color: entry.kind === 'diff' ? diffColor : body.color, expandable: body.collapsed });
+    }
+  }
+  return lines;
+}
 export function timeline(entries: Entry[], state: State, t: Theme, width: number, expanded: Set<string>, search = '') {
   const lines: Line[] = [];
   for (const entry of entries) {
     const collapsed = ['thinking', 'tool.call', 'tool.result'].includes(entry.kind);
     const time = entry.at.slice(11, 19);
-    let color = t.text;
-    let label = '◂ assistant';
-    if (entry.kind === 'user') { label = '▸ origin not verified'; color = t.blue; }
-    if (entry.kind === 'thinking') { label = '◇ thinking'; color = t.faint; }
-    if (entry.kind === 'tool.call') { label = '⚙ tool'; color = t.cyan; }
-    if (entry.kind === 'tool.result') { label = '↳ result · received'; color = t.green; }
-    if (entry.kind === 'diff') { label = '± patch / src/queue.ts'; color = t.muted; }
-    let text = clean(entry.text);
-    if (entry.kind === 'reset') {
-      const reset = state.resets.find(r => r.id === entry.resetId);
-      label = `── ${reset?.kind.toUpperCase() ?? 'RESET'} / ${entry.resetId ?? 'boundary'} ──`;
-      text = `carried: ${reset?.carriedRequestIds.join(', ') ?? 'not recorded'} · interrupted: ${reset?.interruptedRequestIds.join(', ') ?? 'not recorded'}\n${text}`;
-      color = t.pink;
-    }
+    const { label, color, text } = presentation(entry, state, t);
     if (search && !`${label} ${text}`.toLowerCase().includes(search.toLowerCase())) continue;
     const open = expanded.has(entry.id);
     lines.push({ id: entry.id, text: clip(`${time}  ${label}${collapsed ? open ? ' ▾' : ' ▸' : ''}${entry.kind === 'assistant.delta' ? ' · streaming' : ''}`, width), color, expandable: collapsed });
@@ -32,15 +46,7 @@ export function timeline(entries: Entry[], state: State, t: Theme, width: number
       lines[lines.length - 1].text = clip(`${time}  ${label} ▸  ${text.replace(/\n/g, ' ')}`, width);
       continue;
     }
-    for (const paragraph of text.split('\n')) {
-      const chars = [...paragraph];
-      const bodyWidth = Math.max(8, width - 3);
-      for (let start = 0; start < Math.max(1, chars.length); start += bodyWidth) {
-        const body = chars.slice(start, start + bodyWidth).join('');
-        const diffColor = entry.kind !== 'diff' ? color : paragraph.startsWith('+') ? t.green : paragraph.startsWith('-') ? t.red : t.faint;
-        lines.push({ id: entry.id, text: `   ${body}`, color: diffColor, expandable: collapsed });
-      }
-    }
+    lines.push(...bodyLines(entry, { text, color, collapsed }, t, width));
     lines.push({ id: entry.id, text: '', color, expandable: false });
   }
   return lines;

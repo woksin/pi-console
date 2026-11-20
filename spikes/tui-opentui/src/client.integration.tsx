@@ -26,5 +26,15 @@ test('real HTTP + SSE at 5000/s: authenticated snapshot, backfill, bounded live 
     assert.equal(client.store.state.entries.get('s2')!.length, 2500);
     assert.ok(client.store.state.connected);
     assert.ok(client.store.state.requests.some(r => r.id === 'r1' && r.status === 'interrupted'));
+    for (const type of ['steer', 'followUp', 'nextTurn', 'answer', 'abort'] as const) {
+      const input = type === 'abort'
+        ? { type, sessionId: 's2', confirmation: 'L192' }
+        : { type, sessionId: 's2', text: 'Preserve history.\nReport evidence.', ...(type === 'answer' ? { questionId: client.store.state.questions.find(q => q.sessionId === 's2')!.id } : {}) };
+      const audit = await client.intervene(input);
+      assert.equal(audit.result, 'mock-only');
+      await until(() => client.store.state.interventions.some(item => item.id === audit.id));
+      assert.deepEqual(client.store.state.interventions.find(item => item.id === audit.id), audit);
+    }
+    await assert.rejects(client.intervene({ type: 'abort', sessionId: 's2', confirmation: 'wrong' }), /HTTP 400/);
   } finally { client.stop(); await daemon.close(); }
 });

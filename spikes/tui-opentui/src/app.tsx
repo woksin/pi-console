@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import { useKeyboard, useTerminalDimensions } from '@opentui/react';
 import { fleetSessions, Fleet } from './fleet.tsx';
 import { attention, clip, fuzzy, Store, type Intervention } from './model.ts';
+import type { KeyEvent } from '@opentui/core';
 import type { InterventionInput } from './signature-model.ts';
 import { Swimlane } from './swimlane.tsx';
 import { Graph } from './graph.tsx';
@@ -10,6 +11,17 @@ import { Detail } from './transcript.tsx';
 import { theme, type Colors } from './theme.ts';
 
 type Action = { label: string; hint: string; run: () => void };
+function paletteKey(key: KeyEvent, menu: { matches: Action[]; choice: number; choose: (index: number) => void; close: () => void }) {
+  if (key.name === 'down') menu.choose(Math.min(menu.matches.length - 1, menu.choice + 1));
+  if (key.name === 'up') menu.choose(Math.max(0, menu.choice - 1));
+  if (key.name === 'return') { menu.close(); menu.matches[menu.choice]?.run(); }
+}
+function fleetKey(key: KeyEvent, fleet: { move: (delta: number) => void; open: () => void; filter: () => void }) {
+  if (key.name === 'down' || key.name === 'j') fleet.move(1);
+  if (key.name === 'up' || key.name === 'k') fleet.move(-1);
+  if (key.name === 'return') fleet.open();
+  if (key.sequence === '!') fleet.filter();
+}
 export function App({ store, colors = 'truecolor', quit = () => {}, load = async () => {}, submit = async () => { throw new Error('No intervention transport connected.'); } }: { store: Store; colors?: Colors; quit?: () => void; load?: (id: string) => Promise<void>; submit?: (input: InterventionInput) => Promise<Intervention> }) {
   useSyncExternalStore(store.subscribe, store.version);
   const state = store.state;
@@ -60,9 +72,7 @@ export function App({ store, colors = 'truecolor', quit = () => {}, load = async
       return;
     }
     if (overlay === 'palette') {
-      if (key.name === 'down') setChoice(v => Math.min(matches.length - 1, v + 1));
-      if (key.name === 'up') setChoice(v => Math.max(0, v - 1));
-      if (key.name === 'return') { setOverlay(null); matches[choice]?.run(); }
+      paletteKey(key, { matches, choice, choose: setChoice, close: () => setOverlay(null) });
       return;
     }
     if (overlay === 'search') {
@@ -78,12 +88,7 @@ export function App({ store, colors = 'truecolor', quit = () => {}, load = async
     if (key.name === 'i' && session) { setOverlay('composer'); return; }
     if (key.name === 'tab') { setFocus(v => 1 - v); return; }
     if (key.name === 'q') quit();
-    if (view === 'fleet') {
-      if (key.name === 'down' || key.name === 'j') move(1);
-      if (key.name === 'up' || key.name === 'k') move(-1);
-      if (key.name === 'return' && session) openSession(session.id);
-      if (key.sequence === '!') setNeedsOnly(v => !v);
-    }
+    if (view === 'fleet') fleetKey(key, { move, open: () => { if (session) openSession(session.id); }, filter: () => setNeedsOnly(v => !v) });
   });
   const bodyHeight = Math.max(8, height - 7);
   const count = (value: string) => state.sessions.filter(s => s.status === value).length;

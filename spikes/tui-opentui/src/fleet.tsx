@@ -1,3 +1,4 @@
+import { blend, useMotion } from './motion.ts';
 import { activity, attention, clip, totals, type Session, type State } from './model.ts';
 import { spark, status, type Theme } from './theme.ts';
 import { Burn, Context, Label, Panel, Requests } from './widgets.tsx';
@@ -12,12 +13,15 @@ function familyOrder(session: Session) {
 function SessionRow({ session, state, selected, width, t, onSelect }: { session: Session; state: State; selected: boolean; width: number; t: Theme; onSelect: () => void }) {
   const [glyph, color] = status(t, session.status);
   const total = totals([session]);
-  const flash = Date.now() - (state.changed.get(session.id) ?? 0) < 1100;
+  const changed = state.changed.get(session.id) ?? 0;
+  const fade = useMotion(`${selected}:${changed}`, 700);
+  const flash = Date.now() - changed < 1100;
+  const background = selected ? blend(t.flash, t.select, fade) : flash ? blend(t.flash, t.panel, fade) : t.panel;
   const wide = width >= 100;
   const activityWidth = Math.max(7, width - (wide ? 83 : 56));
   const age = Math.max(0, Math.round((Date.parse(session.updatedAt) - Date.parse(session.startedAt)) / 60000));
   const name = `${session.parentSessionId ? '└ ' : ''}${session.laneId} ${session.name.replace(session.repositoryId + ' ', '')}`;
-  return <box height={1} flexShrink={0} backgroundColor={selected ? t.select : flash ? t.flash : t.panel} onMouseDown={onSelect}>
+  return <box height={1} flexShrink={0} backgroundColor={background} onMouseDown={onSelect}>
     <text height={1} fg={t.text}>
       <span fg={selected ? t.cyan : t.faint}>{selected ? '▸' : ' '} </span>
       <span fg={color}>{glyph} </span>

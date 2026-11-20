@@ -13,4 +13,4 @@ const renderer = await createCliRenderer({ targetFps: 20, maxFps: 30, useMouse: 
 const quit = () => { client.stop(); renderer.destroy(); };
 createRoot(renderer).render(<App store={client.store} colors={colors} quit={quit} load={id => client.transcript(id)} submit={input => client.intervene(input)} />);
 client.start();
-metrics(client.store);
+metrics(client.store, renderer);

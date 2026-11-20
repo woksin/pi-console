@@ -20,9 +20,9 @@ function pathBetween(from: Point, to: Point, track: number): Point[] {
 }
 function positions(sessions: Session[], width: number, height: number) {
   const nodes = new Map<string, Point>();
-  const middle = Math.max(6, Math.floor(height * .43));
+  const middle = Math.max(4, Math.floor(height * .43));
   const layers = [sessions.filter(s => s.role === 'orchestrator'), sessions.filter(s => s.role !== 'orchestrator' && !s.parentSessionId), sessions.filter(s => s.parentSessionId)];
-  layers.forEach((layer, row) => layer.forEach((s, i) => nodes.set(s.id, { x: Math.round((i + 1) * width / (layer.length + 1) - 9), y: [1, middle, height - 4][row] })));
+  layers.forEach((layer, row) => layer.forEach((s, i) => nodes.set(s.id, { x: Math.round((i + 1) * width / (layer.length + 1) - 9), y: [height < 14 ? 0 : 1, middle, height - 3][row] })));
   return nodes;
 }
 export function Graph({ state, t, width, height, selected, onSelect, onOpen, modal }: { state: State; t: Theme; width: number; height: number; selected: string; onSelect: (id: string) => void; onOpen: (id: string) => void; modal: boolean }) {
@@ -34,9 +34,9 @@ export function Graph({ state, t, width, height, selected, onSelect, onOpen, mod
   const narrow = width < 100;
   const sideWidth = narrow ? width : Math.max(32, Math.floor(width * .3));
   const graphWidth = narrow ? width : width - sideWidth - 1;
-  const graphHeight = narrow ? Math.floor(height * .61) : height;
+  const graphHeight = narrow ? Math.max(17, Math.floor(height * .61)) : height;
   const canvasWidth = graphWidth - 4;
-  const canvasHeight = Math.max(10, graphHeight - 6);
+  const canvasHeight = Math.max(11, graphHeight - 6);
   const sessions = state.sessions.filter(s => s.repositoryId === repository);
   const edges = graphEdges(state, sessions);
   const nodes = positions(sessions, canvasWidth, canvasHeight);
@@ -94,8 +94,8 @@ export function Graph({ state, t, width, height, selected, onSelect, onOpen, mod
           </box>;
         })}
         <text position="absolute" top={0} left={0} fg={t.faint}>01 / ORCHESTRATOR</text>
-        <text position="absolute" top={Math.max(5, Math.floor(canvasHeight * .43)) - 1} left={0} fg={t.faint}>02 / LANES</text>
-        <text position="absolute" top={canvasHeight - 5} left={0} fg={t.faint}>03 / SUBAGENTS</text>
+        <text position="absolute" top={Math.max(4, Math.floor(canvasHeight * .43)) - 1} left={0} fg={t.faint}>02 / LANES</text>
+        <text position="absolute" top={canvasHeight - 4} left={0} fg={t.faint}>03 / SUBAGENTS</text>
       </box>
       <text height={1} fg={t.faint}>● live packet · brightness = volume · j/k nodes + edges · [ ] repository</text>
     </box>
