@@ -3,7 +3,7 @@
  * Column, Lines, Clickable) and talks to the terminal through `useKeys`, `useSize`, `useTick`, `launch` and
  * `mountHeadless`. Swapping the renderer (the Bubble Tea fallback in ADR-0003) means re-implementing this file.
  */
-import { createElement, type ReactElement, type ReactNode } from 'react';
+import { act, createElement, type ReactElement, type ReactNode } from 'react';
 import { createCliRenderer, TextAttributes, type CliRenderer } from '@opentui/core';
 import { createRoot, useKeyboard, useTerminalDimensions, useAnimationTick, useRenderer } from '@opentui/react';
 import { testRender } from '@opentui/react/test-utils';
@@ -97,7 +97,7 @@ export interface Headless {
   press: (key: string, modifiers?: { ctrl?: boolean; shift?: boolean }) => Promise<void>;
   type: (text: string) => Promise<void>;
   click: (x: number, y: number) => Promise<void>;
-  resize: (width: number, height: number) => void;
+  resize: (width: number, height: number) => Promise<void>;
   waitFor: (text: string | ((frame: string) => boolean)) => Promise<string>;
   settle: () => Promise<void>;
   stats: () => { frames: number };
@@ -107,17 +107,22 @@ export interface Headless {
 /** Mounts in OpenTUI's in-memory test renderer: the same layout engine, no terminal. */
 export async function mountHeadless(node: ReactNode, size: { width: number; height: number }): Promise<Headless> {
   const ui = await testRender(node, { width: size.width, height: size.height, kittyKeyboard: false });
-  const settle = async () => { await ui.flush(); };
+  const flags = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean };
+  /** React work is drained inside act so a key press has been rendered when the call resolves; store updates arrive outside it. */
+  const inAct = async (work: () => Promise<void> | void) => {
+    flags.IS_REACT_ACT_ENVIRONMENT = true;
+    try { await act(async () => { await work(); }); } finally { flags.IS_REACT_ACT_ENVIRONMENT = false; }
+  };
+  const settle = async () => { await inAct(async () => { await new Promise(resolve => setTimeout(resolve, 15)); await ui.flush(); }); };
   return {
     frame: () => ui.captureCharFrame(),
     press: async (key, modifiers) => {
-      ui.mockInput.pressKey(key, modifiers);
-      if (key === 'ESCAPE') await new Promise(resolve => setTimeout(resolve, 40));
+      await inAct(async () => { ui.mockInput.pressKey(key, modifiers); if (key === 'ESCAPE') await new Promise(resolve => setTimeout(resolve, 40)); });
       await settle();
     },
-    type: async text => { await ui.mockInput.typeText(text); await settle(); },
-    click: async (x, y) => { await ui.mockMouse.click(x, y); await settle(); },
-    resize: (width, height) => { ui.resize(width, height); },
+    type: async text => { await inAct(async () => { await ui.mockInput.typeText(text); }); await settle(); },
+    click: async (x, y) => { await inAct(async () => { await ui.mockMouse.click(x, y); }); await settle(); },
+    resize: async (width, height) => { await inAct(() => { ui.resize(width, height); }); await settle(); },
     waitFor: async text => ui.waitForFrame(typeof text === 'string' ? (frame => frame.includes(text)) : text, { maxPasses: 40 }),
     settle,
     stats: () => ({ frames: ui.renderer.getStats().frameCount }),

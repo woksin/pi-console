@@ -8,20 +8,21 @@ const labels: Record<Section, string> = {
   overview: 'Overview', fleet: 'Fleet', requests: 'Requests', questions: 'Questions', messages: 'Messages', timeline: 'Timeline', work: 'Work',
 };
 
-export interface HeaderProps { ui: UiState; attention: number; connection: Connection; select: (section: Section) => void }
+export interface HeaderProps { ui: UiState; width: number; attention: number; connection: Connection; select: (section: Section) => void }
 
 /** Brand, section tabs (clickable, number keys shown) and the attention and connection pills. */
 export function Header(props: HeaderProps) {
   const { ui, connection } = props;
+  const compact = props.width < 112;
   const active = ui.sessionId ? undefined : ui.section;
   const tabs = sections.map((section, index) => h(Clickable, { key: section, onClick: () => { props.select(section); } },
     h(Text, { line: section === active
       ? [t(` ${String(index + 1)} `, 'bg', { background: 'cyan', bold: true }), t(` ${labels[section]} `, 'text', { bold: true, underline: true })]
-      : [t(` ${String(index + 1)} `, 'faint'), t(`${labels[section]} `, 'muted')] })));
-  const attention: Line = props.attention > 0 ? [t(`● ${String(props.attention)} need you `, 'amber', { bold: true })] : [t('● all clear ', 'green')];
+      : [t(` ${String(index + 1)} `, 'faint'), t(compact ? '' : `${labels[section]} `, 'muted')] })));
+  const attention: Line = props.attention > 0 ? [t(`● ${String(props.attention)}${compact ? ' ' : ' need you '}`, 'amber', { bold: true })] : [t(compact ? '● ' : '● all clear ', 'green')];
   const link: Line = connection.connected ? [t('◉ live ', 'green')] : [t('◌ offline ', 'red', { bold: true })];
   return h(Row, { background: 'raised', paddingX: 1, height: 1 },
-    h(Text, { line: [t('π ', 'violet', { bold: true }), t('console', 'text', { bold: true }), t('  ', 'faint')] }), ...tabs,
+    h(Text, { line: [t('π ', 'violet', { bold: true }), t(compact ? '' : 'console', 'text', { bold: true }), t(' ', 'faint')] }), ...tabs,
     h(Spacer, {}), h(Text, { line: attention }), h(Text, { line: link }));
 }
 

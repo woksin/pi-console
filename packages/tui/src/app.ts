@@ -99,7 +99,7 @@ export function App(props: AppProps): ReactElement {
   const selectSection = (section: Section) => { apply(reduce(uiRef.current, `section.${String(['overview', 'fleet', 'requests', 'questions', 'messages', 'timeline', 'work'].indexOf(section) + 1)}` as Action, boundsOf(viewRef.current, heightRef.current))); };
 
   return h(Screen, {},
-    h(Header, { ui, attention: data.needsYou.length, connection: data.connection, select: selectSection }),
+    h(Header, { ui, width: size.width, attention: data.needsYou.length, connection: data.connection, select: selectSection }),
     ...(connectionBanner ? [h(Text, { line: connectionBanner })] : []),
     h(Column, { grow: 1, paddingX: 1 }, view.render()),
     h(Text, { line: footerLine(ui, size.width) }),
