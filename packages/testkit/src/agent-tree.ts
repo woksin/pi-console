@@ -4,8 +4,8 @@ import { secretShapes } from './secret-shapes.ts';
 
 /**
  * Builds a synthetic `~/.pi/agent`-like tree for adapter and daemon specs. Layout and entry shapes are the
- * testkit's own minimal stand-ins; source adapters (P2) extend it under fixtures/sources with the real
- * formats they implement. Deterministic: no clock, no randomness.
+ * record shapes the P2 mappers accept (adapters/src/fixtures/sources.json is the reference) in the on-disk layout
+ * the daemon scans: see daemon ingestion/source-table.ts. Deterministic: no clock, no randomness.
  */
 export interface AgentTreeOptions {
   /** Leave the last line of every session file unterminated (a write in progress). */
@@ -16,6 +16,8 @@ export interface AgentTreeOptions {
 
 export interface AgentTree {
   root: string;
+  /** Orch directory (heartbeats, inbox); a sibling of the agent directory in real installs, nested here for cleanup. */
+  orchRoot: string;
   sessions: { id: string; file: string }[];
   files: string[];
 }
@@ -56,30 +58,36 @@ function addSessions(tree: AgentTree, options: AgentTreeOptions) {
 }
 
 function addContextBudget(tree: AgentTree) {
-  const status = { sessionId: 'session-a', percent: 61, tokens: 122000, updatedAt: at(50) };
-  write(tree, 'context-budget/status/session-a.json', JSON.stringify(status) + '\n');
-  write(tree, 'context-budget/events.jsonl', jsonl([{ at: at(20), sessionId: 'session-a', event: 'threshold', percent: 55 }, { at: at(45), sessionId: 'session-a', event: 'handoff', percent: 80 }]));
-  write(tree, 'context-budget/turns.jsonl', jsonl([{ at: at(11), sessionId: 'session-a', turn: 1, tokens: 90000 }, { at: at(31), sessionId: 'session-a', turn: 2, tokens: 122000 }]));
+  write(tree, 'context-budget/status/session-a.json', JSON.stringify({ sessionId: 'session-a', phase: 'working', updatedAt: at(50) }) + '\n');
+  write(tree, 'context-budget/events.jsonl', jsonl([
+    { at: at(20), event: 'turn', sessionId: 'session-a', tokens: 90000, soft: 100000, hard: 120000 },
+    { at: at(45), event: 'handoff_committed', sessionId: 'session-a', path: 'handoffs/session-a.md' },
+  ]));
+  write(tree, 'context-budget/turns.jsonl', jsonl([{ at: at(11), event: 'turn', sessionId: 'session-a', tokens: 90000, soft: 100000, hard: 120000 }]));
   write(tree, 'context-budget/handoffs/session-a.md', '# Handoff\n\nCarried requests: none.\n');
 }
 
+/** Lane registry under the agent root; orch heartbeats and messages under the separate orch root. */
 function addLanes(tree: AgentTree) {
-  write(tree, 'lanes/registry.json', JSON.stringify({ lanes: [{ id: 'L0', name: 'coordinator' }, { id: 'L192', name: 'implementation' }] }) + '\n');
-  write(tree, 'lanes/status/L192.json', JSON.stringify({ lane: 'L192', status: 'waiting', waitingOn: 'user', updatedAt: at(60) }) + '\n');
-  write(tree, 'lanes/messages/20261120T090100Z-L0-to-L192.json', JSON.stringify({ id: 'msg-1', from: 'L0', to: 'L192', sentAt: at(60), text: 'Start with the contract package.' }) + '\n');
-  write(tree, 'heartbeats/session-a.json', JSON.stringify({ sessionId: 'session-a', status: 'working', at: at(55) }) + '\n');
+  write(tree, 'lanes/registry.json', JSON.stringify({ version: 1, lanes: [{ id: 'L0', repo: 'example/console', branch: 'main', worktree: 'console', prompt: 'Coordinate', group: null }] }) + '\n');
+  write(tree, 'orch/heartbeats/session-a.json', JSON.stringify({ sessionId: 'session-a', status: 'active', at: at(55) }) + '\n');
+  write(tree, 'orch/inbox/L192/20261120T090100Z-L0-a1b2.json', JSON.stringify({ id: 'msg-1', from: 'L0', to: 'L192', body: 'Start with the contract package.', createdAt: at(60) }) + '\n');
 }
 
 function addQuestions(tree: AgentTree, options: AgentTreeOptions) {
   const text = options.includeSecrets ? secretShapes.map(secret => secret.value).join('\n') : 'Which retry limit should the queue use?';
-  const revision = { id: 'q-1', sessionId: 'session-a', kind: 'decision', urgency: 'high', blocking: true, text, options: ['3', '4'], at: at(70) };
-  write(tree, 'questions/q-1/rev-0001.json', JSON.stringify(revision) + '\n');
+  const revision = {
+    v: 1, id: 'q-1', rev: 1, type: 'decision', priority: 'high', blocking: 'awaiting the retry limit', text,
+    history: [{ seq: 1, type: 'created', ts: at(70) }],
+  };
+  write(tree, 'user-questions/items/q-1/r00000001.json', JSON.stringify(revision) + '\n');
 }
 
 function addWork(tree: AgentTree) {
   write(tree, 'jobs/job-1.log', 'started synthetic job\nprogress 50%\n');
-  write(tree, 'phases/ledger-2026-11-20.jsonl', jsonl([
-    { at: at(80), phase: 'unit checks', event: 'queued' }, { at: at(81), phase: 'unit checks', event: 'started' }, { at: at(95), phase: 'unit checks', event: 'finished', exitCode: 0 },
+  write(tree, 'issue-work/registry.jsonl', jsonl([{ repo: 'example/console', issue: 42, sessionId: 'session-a', state: 'in-progress', ts: at(75) }]));
+  write(tree, 'pi-phase/state/ledger/2026-11-20.jsonl', jsonl([
+    { v: 1, argvHash: 'hash-unit', label: 'unit checks', queuedAt: at(80), startedAt: at(81), endedAt: at(95), outcome: 'passed', exit: 0 },
   ]));
   write(tree, 'reviews/review-1.jsonl', jsonl([{ at: at(100), headSha: 'a'.repeat(40), verdict: 'approve' }]));
 }
@@ -90,7 +98,7 @@ export function appendSessionLine(file: string, row: unknown) {
 }
 
 export function buildAgentTree(root: string, options: AgentTreeOptions = {}): AgentTree {
-  const tree: AgentTree = { root, sessions: [], files: [] };
+  const tree: AgentTree = { root, orchRoot: join(root, 'orch'), sessions: [], files: [] };
   addSessions(tree, options);
   addContextBudget(tree);
   addLanes(tree);

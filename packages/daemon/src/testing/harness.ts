@@ -22,7 +22,11 @@ export async function specDaemon(seed: readonly NewEvent[] = seedEvents(), optio
   const log = new SqliteEventLog(join(directory, 'console.db'));
   await log.append(seed);
   log.close();
-  const daemon = await startDaemon({ ...defaultConfig(directory), port: 0, sessionRoots: [], ingest: false, ...options });
+  const daemon = await startDaemon({
+    ...defaultConfig(directory), port: 0, sessionRoots: [], ingest: false,
+    // Never the real ~/.pi: specs that turn ingestion on must name the roots they mean.
+    agentRoot: join(directory, 'no-agent'), orchRoot: join(directory, 'no-orch'), ...options,
+  });
   return {
     daemon, directory, token: loadToken(directory),
     async close() {

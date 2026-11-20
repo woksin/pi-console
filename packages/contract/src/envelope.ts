@@ -24,7 +24,7 @@ export interface EventEnvelope<Payload = unknown> {
 /** What an adapter hands to the log; `seq` and `recordedAt` are assigned on append. */
 export type NewEvent<Payload = unknown> = Omit<EventEnvelope<Payload>, 'seq' | 'recordedAt'>;
 
-export const subjectKinds = ['session', 'lane', 'question', 'message', 'job', 'issue', 'source', 'console'] as const;
+export const subjectKinds = ['session', 'lane', 'question', 'message', 'job', 'phase', 'issue', 'source', 'console'] as const;
 
 const uuidV7 = /^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 const subjectPattern = new RegExp(`^(${subjectKinds.join('|')}):.+$`);

@@ -4,20 +4,22 @@ import type { ConsoleQueries } from './console-queries.ts';
 /** One SSE delta: a v0 transport name and the whole current entity (clients upsert by id). */
 export interface Delta { type: string; payload: unknown }
 
-type Lookup = (queries: ConsoleQueries, payload: Record<string, unknown>) => unknown;
+interface Target {
+  id: (payload: Record<string, unknown>) => unknown;
+  lookup: (queries: ConsoleQueries, id: string) => unknown;
+}
 
-const find = <T extends { id: string }>(items: T[], id: unknown) => items.find(item => item.id === id);
-
-const session: Lookup = (queries, payload) => find(queries.sessions(), payload.sessionId);
-const request: Lookup = (queries, payload) => find(queries.requests(), payload.requestId);
-const question: Lookup = (queries, payload) => find(queries.questions(), payload.questionId);
-const message: Lookup = (queries, payload) => find(queries.messages(), payload.messageId);
-const job: Lookup = (queries, payload) => find(queries.jobs(), payload.jobId);
-const phase: Lookup = (queries, payload) => find(queries.jobs(), `phase:${String(payload.phaseId)}`);
-const reset: Lookup = (queries, payload) => find(queries.resets(), payload.resetId);
+const target = (field: string, lookup: Target['lookup']): Target => ({ id: payload => payload[field], lookup });
+const session = target('sessionId', (queries, id) => queries.sessionById(id));
+const request = target('requestId', (queries, id) => queries.requestById(id));
+const question = target('questionId', (queries, id) => queries.questionById(id));
+const message = target('messageId', (queries, id) => queries.messageById(id));
+const job = target('jobId', (queries, id) => queries.jobById(id));
+const phase: Target = { ...job, id: payload => `phase:${String(payload.phaseId)}` };
+const reset = target('resetId', (queries, id) => queries.resetById(id));
 
 /** Catalogue event type to the transport event it produces. Unlisted types produce no delta. */
-const routes: Record<string, [string, Lookup]> = {
+const routes: Record<string, [string, Target]> = {
   SessionStarted: ['session.updated', session], SessionEnded: ['session.updated', session],
   ModelChanged: ['session.updated', session], ThinkingLevelChanged: ['session.updated', session],
   TurnStarted: ['session.updated', session], TurnEnded: ['session.updated', session],
@@ -35,9 +37,16 @@ const routes: Record<string, [string, Lookup]> = {
 };
 
 /** The delta for a log event once it is folded into the read models, or undefined when nothing visible changed. */
-export function deltaFor(queries: ConsoleQueries, event: EventEnvelope): Delta | undefined {
+export function deltaFor(queries: ConsoleQueries, event: EventEnvelope, seen?: Set<string>): Delta | undefined {
   const route = Object.hasOwn(routes, event.type) ? routes[event.type] : undefined;
-  if (!route || event.payload === null || typeof event.payload !== 'object') return undefined;
-  const payload = route[1](queries, event.payload as Record<string, unknown>);
-  return payload === undefined ? undefined : { type: route[0], payload };
+  if (!route) return undefined;
+  if (event.payload === null || typeof event.payload !== 'object') return undefined;
+  const id = route[1].id(event.payload as Record<string, unknown>);
+  if (typeof id !== 'string') return undefined;
+  const key = `${route[0]}:${id}`;
+  if (seen?.has(key)) return undefined;
+  const payload = route[1].lookup(queries, id);
+  if (payload === undefined) return undefined;
+  seen?.add(key);
+  return { type: route[0], payload };
 }

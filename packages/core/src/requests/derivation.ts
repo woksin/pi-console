@@ -1,5 +1,5 @@
 import type { EventEnvelope, EventPayloads } from '@pi-console/contract';
-import { entry, insertSorted, projection } from '../projector/handlers.ts';
+import { entry, insertSorted, markDirty, projection } from '../projector/handlers.ts';
 import type { RequestDerivation, RequestModel } from '../projections/requests.ts';
 import { passThroughFields, type DerivationState, type ExplicitFacts, type Observation, type SessionRecord } from './model.ts';
 import { pairSession } from './pairing.ts';
@@ -13,12 +13,17 @@ const observed = (event: EventEnvelope, entryId: string | null = null) =>
 /** Own-property lookup: ids come from ingested data, so inherited names never resolve. */
 const find = <Item>(items: Record<string, Item>, id: string): Item | undefined => Object.hasOwn(items, id) ? items[id] : undefined;
 
-const session = (state: DerivationState, sessionId: string): SessionRecord => entry(state.sessions, sessionId, () => ({
-  facts: { child: false, parentSessionId: null, parentSessionKnown: false }, observations: [], explicitIds: [], requestIds: [],
-}));
+const session = (state: DerivationState, sessionId: string): SessionRecord => {
+  markDirty(state, 'sessions', sessionId);
+  return entry(state.sessions, sessionId, () => ({
+    facts: { child: false, parentSessionId: null, parentSessionKnown: false }, observations: [], explicitIds: [], requestIds: [],
+  }));
+};
 
-const explicitFor = (state: DerivationState, requestId: string): ExplicitFacts =>
-  entry(state.explicit, requestId, () => ({ request: null, requestKey: null, entryId: null, answers: [], interruption: null }));
+const explicitFor = (state: DerivationState, requestId: string): ExplicitFacts => {
+  markDirty(state, 'explicit', requestId);
+  return entry(state.explicit, requestId, () => ({ request: null, requestKey: null, entryId: null, answers: [], interruption: null }));
+};
 
 /** Explicit answers and interruptions win over the derivation; interruption never undoes an answer. */
 function overlay(request: RequestModel, facts: ExplicitFacts | undefined): RequestModel {
@@ -37,14 +42,20 @@ function overlay(request: RequestModel, facts: ExplicitFacts | undefined): Reque
 /** Re-derives every request of one session from its facts and replaces what the session contributed before. */
 function render(state: DerivationState, sessionId: string): void {
   const record = session(state, sessionId);
-  for (const id of record.requestIds) Reflect.deleteProperty(state.requests, id);
+  for (const id of record.requestIds) {
+    markDirty(state, 'requests', id);
+    Reflect.deleteProperty(state.requests, id);
+  }
   const owned = record.explicitIds.flatMap(id => { const facts = find(state.explicit, id); return facts?.request?.sessionId === sessionId ? [facts] : []; });
   const stated = owned.flatMap(facts => facts.request ?? []);
   const claimed = new Set(owned.flatMap(facts => facts.entryId ?? []));
   const derived = pairSession(sessionId, record.facts, record.observations)
     .filter(request => !claimed.has(request.ref?.entryId ?? '') && !find(state.explicit, request.id)?.request);
   const requests = [...derived, ...stated.map(request => structuredClone(request))].map(request => overlay(request, find(state.explicit, request.id)));
-  for (const request of requests) state.requests[request.id] = request;
+  for (const request of requests) {
+    markDirty(state, 'requests', request.id);
+    state.requests[request.id] = request;
+  }
   record.requestIds = requests.map(request => request.id);
 }
 
@@ -90,7 +101,7 @@ function stateRequest(state: DerivationState, payload: EventPayloads['RequestObs
  * that name a request (non-raw) are taken as stated and override the derivation.
  */
 export const requestDerivation: RequestDerivation = projection<DerivationState>(
-  'requests', 3, () => ({ requests: {}, sessions: {}, explicit: {} }), {
+  'requests', 4, () => ({ requests: {}, sessions: {}, explicit: {} }), {
     SessionStarted(state, payload) {
       session(state, payload.sessionId).facts = {
         child: payload.role === 'subagent', parentSessionId: payload.parentSessionId, parentSessionKnown: payload.parentSessionKnown === true,
@@ -134,5 +145,5 @@ export const requestDerivation: RequestDerivation = projection<DerivationState>(
     SessionEnded(state, payload, event) {
       observe(state, payload.sessionId, { kind: 'end', ...observed(event) });
     },
-  },
+  }, ['requests', 'sessions', 'explicit'],
 );

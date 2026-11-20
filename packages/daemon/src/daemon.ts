@@ -12,7 +12,9 @@ import { serveStatic } from './http/static-files.ts';
 import { StreamHub } from './stream/stream-hub.ts';
 import { DeltaBatcher } from './stream/delta-batcher.ts';
 import { streamSequence } from './stream/stream-sequence.ts';
+import { CheckpointCache } from './ingestion/checkpoint-cache.ts';
 import { SessionIngestion } from './ingestion/session-ingestion.ts';
+import { sourceSetFor, type SourceSet } from './ingestion/sources.ts';
 
 export interface DaemonOptions extends DaemonConfig {
   /** Start polling session files. Specs that append to the log directly turn this off. */
@@ -29,6 +31,8 @@ export interface RunningDaemon {
   log: SqliteEventLog;
   stream: StreamHub;
   ingestion: SessionIngestion;
+  /** The other sources (context, lanes, questions, issues, phases), each under its own supervisor. */
+  sources: SourceSet;
   /** Milliseconds from start until the API answered with caught-up read models. */
   startupMs: number;
   close(): Promise<void>;
@@ -94,7 +98,7 @@ function createHttpServer(handle: Handler): Server {
 }
 
 /**
- * Starts the read-only console daemon: event log and projector in `<dataDir>/console.db`, session ingestion in the
+ * Starts the read-only console daemon: event log and projector in `<dataDir>/console.db`, session and source ingestion in the
  * background, and the API v1 over plain `node:http` on 127.0.0.1 (ADR-0002 addendum, docs/api/v1.md).
  */
 export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon> {
@@ -110,20 +114,24 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
   });
   const batcher = new DeltaBatcher(() => readModels(projector), delta => { stream.publish(delta.type, delta.payload); }, now);
   const stopDeltas = projector.onApplied(event => { batcher.add(event); });
-  const ingestion = new SessionIngestion(log, { roots: options.sessionRoots, backfillWindowDays: options.backfillWindowDays, pollMs: options.pollMs, now });
+  const ingestion = new SessionIngestion(new CheckpointCache(log), { roots: options.sessionRoots, backfillWindowDays: options.backfillWindowDays, pollMs: options.pollMs, now });
+  const sources = sourceSetFor(log, options, now);
   let port = options.port;
   const apiContext: ApiContext = {
     queries, transcripts: options.transcripts ?? noTranscripts,
-    health: () => healthOf({ startedAt, dataDir: options.dataDir, log, projector, stream, ingestion, batcher, backfillWindowDays: options.backfillWindowDays }),
+    health: () => healthOf({ startedAt, dataDir: options.dataDir, log, projector, stream, ingestion, sources, batcher, backfillWindowDays: options.backfillWindowDays }),
     settings: () => settingsOf(options, port),
   };
   const server = createHttpServer(handler({ port: () => port, credentials, api: apiContext, stream, webDist: options.webDist }));
   port = await listen(server, options.port);
-  if (options.ingest !== false) ingestion.start();
+  if (options.ingest !== false) {
+    ingestion.start();
+    sources.start(() => ingestion.backfillComplete);
+  }
   return {
-    port, address: '127.0.0.1', log, stream, ingestion, startupMs: performance.now() - started,
+    port, address: '127.0.0.1', log, stream, ingestion, sources, startupMs: performance.now() - started,
     async close() {
-      await ingestion.stop();
+      await Promise.all([sources.stop(), ingestion.stop()]);
       batcher.flush();
       stream.close();
       server.closeAllConnections();

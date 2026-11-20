@@ -14,7 +14,7 @@ function build(options = {}) {
 test('tree has every source directory and session JSONL parses line by line', t => {
   const { root, tree, cleanup } = build();
   t.after(cleanup);
-  for (const part of ['sessions', 'context-budget', 'lanes', 'questions', 'jobs', 'phases', 'reviews', 'heartbeats']) {
+  for (const part of ['sessions', 'context-budget', 'lanes', 'user-questions', 'jobs', 'issue-work', 'pi-phase', 'reviews', 'orch/heartbeats', 'orch/inbox']) {
     assert.ok(tree.files.some(file => file.startsWith(join(root, part))), part);
   }
   assert.equal(tree.sessions.length, 2);
@@ -44,5 +44,5 @@ test('secrets appear only when asked for, in a session and a question', t => {
   const all = (tree: typeof clean.tree) => tree.files.map(file => readFileSync(file, 'utf8')).join('\n');
   assert.deepEqual(secretsIn(all(clean.tree)), []);
   assert.ok(secretsIn(all(dirty.tree)).length > 5);
-  assert.ok(secretsIn(readFileSync(join(dirty.root, 'questions/q-1/rev-0001.json'), 'utf8')).length > 5);
+  assert.ok(secretsIn(readFileSync(join(dirty.root, 'user-questions/items/q-1/r00000001.json'), 'utf8')).length > 5);
 });

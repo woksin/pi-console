@@ -1,4 +1,9 @@
-export interface AdapterWorker { poll(): Promise<unknown>; close(): void | Promise<void> }
+export interface AdapterWorker {
+  poll(): Promise<unknown>;
+  close(): void | Promise<void>;
+  /** Asked to stop early, while a poll may be running; the poll should return at its next safe point. */
+  abort?(): void;
+}
 export interface SupervisorOptions {
   intervalMs?: number;
   backoffMs?: number;
@@ -30,6 +35,7 @@ export class AdapterSupervisor {
   async stop(): Promise<void> {
     this.active = false;
     clearTimeout(this.timer);
+    this.worker?.abort?.();
     await this.pending;
     await this.closeWorker();
   }

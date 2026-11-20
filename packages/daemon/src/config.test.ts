@@ -34,3 +34,20 @@ test('invalid config values are refused with the field name', t => {
     assert.throws(() => loadConfig(dataDir(t, value)), field);
   }
 });
+
+test('agentRoot derives the session root unless sessionRoots is set; sources merge over the defaults', t => {
+  const directory = dataDir(t, { agentRoot: '/agent', orchRoot: '/orch', sources: { 'issue-work': false }, sourcePollMs: 500 });
+  const config = loadConfig(directory);
+  assert.deepEqual([config.agentRoot, config.orchRoot, config.sourcePollMs], ['/agent', '/orch', 500]);
+  assert.deepEqual(config.sessionRoots, ['/agent/sessions']);
+  assert.equal(config.sources['issue-work'], false);
+  assert.equal(config.sources['phase-ledger'], true);
+  assert.deepEqual(loadConfig(directory, { sessionRoots: ['/x'] }).sessionRoots, ['/x']);
+  assert.equal(loadConfig(directory, { sources: { 'phase-ledger': false } }).sources['issue-work'], false);
+});
+
+test('config.json rejects unknown sources, non-boolean switches and a poll interval out of range', t => {
+  for (const bad of [{ sources: { nope: true } }, { sources: { 'issue-work': 'no' } }, { sourcePollMs: 10 }, { agentRoot: 3 }]) {
+    assert.throws(() => loadConfig(dataDir(t, bad)), /sources|sourcePollMs|agentRoot/);
+  }
+});
