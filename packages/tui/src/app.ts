@@ -3,6 +3,7 @@ import { paletteItems, type Action } from '@pi-console/viewmodels';
 import { Column, Screen, Text, h, useClipboard, useKeys, useSize, useTick } from './view/renderer.ts';
 import type { Store } from './store/store.ts';
 import { commit, handleKey, initial, reduce, typing, type Bounds, type Section, type UiState } from './state/ui.ts';
+import { emptyLayout, resumeTranscript, transcriptViewport } from './state/transcript-window.ts';
 import { neutralKey, typedCharacter, type KeyInput } from './state/keys.ts';
 import { Header, banner, footerLine } from './shell/chrome.ts';
 import { Help, Palette, Settings } from './shell/overlays.ts';
@@ -33,10 +34,10 @@ export interface AppProps {
 }
 
 const boundsOf = (view: SectionView, height: number): Bounds => ({
-  length: view.length, page: Math.max(1, height - 6), fit: view.time?.fit ?? { start: 0, span: 1 }, width: view.time?.width ?? 0, rowAt: view.rowAt, transcriptLength: view.length,
+  length: view.length, page: Math.max(1, height - 6), fit: view.time?.fit ?? { start: 0, span: 1 }, width: view.time?.width ?? 0, rowAt: view.rowAt, transcript: view.transcript ?? emptyLayout, viewport: transcriptViewport(height),
 });
 
-const noBounds: Bounds = { length: 0, page: 1, fit: { start: 0, span: 1 }, width: 0, rowAt: () => ({ sessionId: null, groupId: null }), transcriptLength: 0 };
+const noBounds: Bounds = { length: 0, page: 1, fit: { start: 0, span: 1 }, width: 0, rowAt: () => ({ sessionId: null, groupId: null }), transcript: emptyLayout, viewport: 1 };
 
 const isVerticalArrow = (name: string): boolean => name === 'ArrowDown' || name === 'ArrowUp';
 const movePaletteIndex = (index: number, delta: number, setCount: number): number => Math.max(0, Math.min(Math.max(0, setCount - 1), index + delta));
@@ -129,7 +130,7 @@ function runPalette(state: UiState, sessions: Parameters<typeof paletteItems>[0]
   const item = items[Math.min(state.paletteIndex, items.length - 1)];
   const closed: UiState = { ...state, overlay: 'none', input: '', paletteIndex: 0 };
   if (!item) return closed;
-  if (item.target.kind === 'session') return { ...closed, sessionId: item.target.sessionId, scroll: 0, follow: true, anchor: null, search: '' };
+  if (item.target.kind === 'session') return { ...closed, sessionId: item.target.sessionId, ...resumeTranscript, search: '' };
   return reduce(closed, item.target.action, bounds);
 }
 

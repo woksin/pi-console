@@ -3,6 +3,7 @@ import { Column, Lines, Panel, Row, h, type Line, type Part } from '../view/rend
 import type { Color } from '../view/theme.ts';
 import { bar, blank, fit, pressureTone, rule, split, statusParts, t } from '../view/parts.ts';
 import { sidePanes, type SidePane, type UiState } from '../state/ui.ts';
+import { transcriptViewport, transcriptWindow, type TranscriptLayout } from '../state/transcript-window.ts';
 import type { Env, SectionView } from './common.ts';
 
 const LIMITS: Record<TranscriptLine['kind'], number> = { user: 8, thinking: 2, assistant: 14, tool: 1, result: 3, diff: 12, reset: 1 };
@@ -51,16 +52,23 @@ function bodyLines(entry: TranscriptLine, stamp: Part, body: number): Line[] {
   return entryRows(entry, body).map((text, index): Line => [...gutterOf(entry, stamp, index === 0), ...content(text)]);
 }
 
-let linesCache: { key: unknown; width: number; search: string; lines: Line[] } | undefined;
+interface Rendered { lines: Line[]; layout: TranscriptLayout }
+let linesCache: ({ key: unknown; width: number; search: string } & Rendered) | undefined;
 let modelCache: { deps: readonly unknown[]; model: SessionViewModel } | undefined;
 
-function transcriptLines(env: Env, model: SessionViewModel, key: unknown, width: number): Line[] {
+function layoutOf(entries: TranscriptLine[], rendered: Line[][]): TranscriptLayout {
+  let end = 0;
+  return { cursors: entries.map(entry => entry.cursor), ends: rendered.map(lines => (end += lines.length)) };
+}
+
+function transcriptLines(env: Env, model: SessionViewModel, key: unknown, width: number): Rendered {
   const hit = linesCache;
   const wanted = { key, width, search: env.ui.search };
-  if (hit && (Object.keys(wanted) as (keyof typeof wanted)[]).every(name => hit[name] === wanted[name])) return hit.lines;
-  const lines = model.transcript.flatMap(entry => renderEntry(entry, width));
-  linesCache = { key, width, search: env.ui.search, lines };
-  return lines;
+  if (hit && (Object.keys(wanted) as (keyof typeof wanted)[]).every(name => hit[name] === wanted[name])) return hit;
+  const rendered = model.transcript.map(entry => renderEntry(entry, width));
+  const fresh = { ...wanted, lines: rendered.flat(), layout: layoutOf(model.transcript, rendered) };
+  linesCache = fresh;
+  return fresh;
 }
 
 function header(model: SessionViewModel, width: number, phase: number): Line[] {
@@ -110,16 +118,17 @@ const unavailableView: SectionView = {
   render: () => h(Panel, { title: 'Session', focused: true, grow: 1 }, h(Lines, { lines: [[t('This session is no longer available.', 'muted')]] })),
 };
 
-function visibleLines(lines: Line[], ui: UiState, viewport: number): { padded: Line[]; end: number } {
-  const base = ui.follow ? lines.length : Math.min(ui.anchor ?? lines.length, lines.length);
-  const end = Math.max(0, base - ui.scroll);
-  const shown = lines.slice(Math.max(0, end - viewport), end);
-  return { padded: [...Array.from({ length: viewport - shown.length }, () => blank), ...shown], end };
+const droppedMarker: Line = [t('⋯ older lines dropped (transcript cap reached)', 'amber')];
+
+function visibleLines(rendered: Rendered, ui: UiState, viewport: number): { padded: Line[]; below: number; paused: boolean } {
+  const window = transcriptWindow(rendered.layout, ui, viewport);
+  const shown = [...(window.dropped ? [droppedMarker] : []), ...rendered.lines.slice(window.start, window.end)];
+  return { padded: [...Array.from({ length: viewport - shown.length }, () => blank), ...shown], below: window.below, paused: window.paused };
 }
 
-function statusText(search: string, following: boolean, entries: number, above: number): string {
+function statusText(search: string, paused: boolean, entries: number, above: number): string {
   if (search) return `matching “${search}” · ${String(entries)} entries`;
-  return following ? '● following tail' : `⏸ paused · ${String(above)} lines above live · f to follow`;
+  return !paused ? '● following tail' : `⏸ paused · ${String(above)} lines above live · f to follow`;
 }
 
 const contextPanel = (model: SessionViewModel, pane: SidePane, side: number) => (side ? [h(Panel, { title: 'Context', width: side }, h(Lines, { lines: sideLines(model, pane, side) }))] : []);
@@ -131,13 +140,14 @@ export function sessionView(env: Env): SectionView {
   const { model, entries } = detail;
   const side = env.width >= 110 ? 40 : 0;
   const transcriptWidth = env.width - side - 4;
-  const lines = transcriptLines(env, model, entries, transcriptWidth);
-  const { padded, end } = visibleLines(lines, ui, Math.max(1, env.height - 4 - 3));
-  const following = ui.follow && ui.scroll === 0;
-  const status = statusText(ui.search, following, model.transcript.length, lines.length - end);
+  const rendered = transcriptLines(env, model, entries, transcriptWidth);
+  const { padded, below, paused } = visibleLines(rendered, ui, transcriptViewport(env.height));
+  const following = ui.follow;
+  const status = statusText(ui.search, paused, model.transcript.length, below);
   const loading = !data.transcripts.has(model.id) && model.transcript.length === 0;
   return {
-    length: lines.length,
+    length: rendered.lines.length,
+    transcript: rendered.layout,
     rowAt: () => ({ sessionId: null, groupId: null }),
     idAt: () => model.id,
     render: () => h(Column, { grow: 1 },

@@ -1,5 +1,6 @@
 import { resolve, type Action, type KeyContext } from '@pi-console/viewmodels';
 import { zoom, pan, type TimeWindow } from '@pi-console/viewmodels';
+import { pauseTranscript, resumeTranscript, scrollTranscript, type TranscriptAnchor, type TranscriptLayout, type TranscriptMotion } from './transcript-window.ts';
 
 export type Section = 'overview' | 'fleet' | 'requests' | 'questions' | 'messages' | 'timeline' | 'work';
 export const sections: readonly Section[] = ['overview', 'fleet', 'requests', 'questions', 'messages', 'timeline', 'work'];
@@ -18,11 +19,10 @@ export interface UiState {
   filter: string;
   cursor: Record<Section, number>;
   collapsed: readonly string[];
-  /** Lines scrolled up from the live tail; 0 with `follow` is "following". */
-  scroll: number;
+  /** True while following the live tail. */
   follow: boolean;
-  /** Transcript line count when the view was paused; a paused viewport is anchored to it so new entries do not move it. `null` while following. */
-  anchor: number | null;
+  /** Stable position of a paused viewport (entry cursor + wrapped-line offset, see transcript-window.ts); `null` while following. */
+  anchor: TranscriptAnchor | null;
   search: string;
   pane: SidePane;
   messagesGraph: boolean;
@@ -36,11 +36,11 @@ export interface UiState {
 export const initial: UiState = {
   section: 'overview', sessionId: null, overlay: 'none', input: '', paletteIndex: 0, filter: '',
   cursor: { overview: 0, fleet: 0, requests: 0, questions: 0, messages: 0, timeline: 0, work: 0 },
-  collapsed: [], scroll: 0, follow: true, anchor: null, search: '', pane: 'requests', messagesGraph: false, window: null, scrub: false, scrubColumn: 0, quit: false, notice: '',
+  collapsed: [], follow: true, anchor: null, search: '', pane: 'requests', messagesGraph: false, window: null, scrub: false, scrubColumn: 0, quit: false, notice: '',
 };
 
 /** What the reducer needs to know about the rendered world; supplied by the view layer. */
-export interface Bounds { length: number; page: number; fit: TimeWindow; width: number; rowAt: (index: number) => { sessionId: string | null; groupId: string | null }; transcriptLength: number }
+export interface Bounds { length: number; page: number; fit: TimeWindow; width: number; rowAt: (index: number) => { sessionId: string | null; groupId: string | null }; transcript: TranscriptLayout; viewport: number }
 
 const contextRules: readonly (readonly [(state: UiState) => boolean, KeyContext])[] = [
   [state => state.overlay === 'palette', 'palette'],
@@ -64,15 +64,13 @@ function moveList(state: UiState, action: Action, bounds: Bounds): UiState {
   return withCursor(state, target[action] ?? at, bounds);
 }
 
+const transcriptMotions: Partial<Record<Action, (bounds: Bounds) => TranscriptMotion>> = {
+  'move.up': () => -1, 'move.down': () => 1, 'page.up': bounds => -bounds.page, 'page.down': bounds => bounds.page, 'move.top': () => 'top', 'move.bottom': () => 'bottom',
+};
+
 function moveTranscript(state: UiState, action: Action, bounds: Bounds): UiState {
-  const maximum = Math.max(0, bounds.transcriptLength - 1);
-  const delta: Partial<Record<Action, number>> = { 'move.up': 1, 'move.down': -1, 'page.up': bounds.page, 'page.down': -bounds.page };
-  let scroll = state.scroll;
-  if (action === 'move.top') scroll = maximum;
-  else if (action === 'move.bottom') scroll = 0;
-  else scroll = Math.max(0, Math.min(maximum, scroll + (delta[action] ?? 0)));
-  if (scroll === 0) return { ...state, scroll, follow: true, anchor: null };
-  return { ...state, scroll, follow: false, anchor: state.anchor ?? bounds.transcriptLength };
+  const motion = transcriptMotions[action];
+  return motion ? { ...state, ...scrollTranscript(bounds.transcript, state, bounds.viewport, motion(bounds)) } : state;
 }
 
 const goto = (state: UiState, section: Section): UiState => ({ ...state, section, sessionId: null, overlay: 'none', filter: '', scrub: false });
@@ -81,7 +79,7 @@ function open(state: UiState, bounds: Bounds): UiState {
   const row = bounds.rowAt(state.cursor[state.section]);
   if (!row.sessionId) return row.groupId ? toggleGroup(state, bounds) : state;
   const sessionId = row.sessionId;
-  return { ...state, sessionId, scroll: 0, follow: true, anchor: null, search: '', pane: 'requests' };
+  return { ...state, sessionId, ...resumeTranscript, search: '', pane: 'requests' };
 }
 
 function back(state: UiState): UiState {
@@ -131,7 +129,7 @@ const handlers: Partial<Record<Action, Handler>> = {
   'help.toggle': state => ({ ...state, overlay: state.overlay === 'help' ? 'none' : 'help' }),
   'back': state => back(state),
   'open': (state, bounds) => open(state, bounds),
-  'follow.toggle': (state, bounds) => (state.follow ? { ...state, follow: false, anchor: bounds.transcriptLength } : { ...state, follow: true, scroll: 0, anchor: null }),
+  'follow.toggle': (state, bounds) => ({ ...state, ...(state.follow ? pauseTranscript(bounds.transcript, state, bounds.viewport) : resumeTranscript) }),
   'view.toggle': state => ({ ...state, messagesGraph: !state.messagesGraph, cursor: { ...state.cursor, messages: 0 } }),
   'group.toggle': (state, bounds) => toggleGroup(state, bounds),
   'pane.next': state => cyclePane(state, 1),
@@ -174,6 +172,6 @@ export function typing(state: UiState, key: string, character: string | undefine
 /** Enter in a text field for filter and search (the palette is handled by the app, it executes a target). */
 export function commit(state: UiState): UiState {
   if (state.overlay === 'filter') return { ...state, overlay: 'none', filter: state.input, input: '', cursor: { ...state.cursor, [state.section]: 0 } };
-  if (state.overlay === 'search') return { ...state, overlay: 'none', search: state.input, input: '', scroll: 0, follow: state.input === '', anchor: null };
+  if (state.overlay === 'search') return { ...state, overlay: 'none', search: state.input, input: '', follow: state.input === '', anchor: null };
   return state;
 }

@@ -2,6 +2,7 @@ import type { ReactElement } from 'react';
 import type { TimeWindow } from '@pi-console/viewmodels';
 import type { Data } from '../store/store.ts';
 import type { UiState } from '../state/ui.ts';
+import type { TranscriptLayout } from '../state/transcript-window.ts';
 
 /** Everything a view needs to draw one frame; built once per render by the app. */
 export interface Env {
@@ -21,6 +22,8 @@ export interface SectionView {
   render: () => ReactElement;
   /** Timeline only: the fitted window and the grid width, which the reducer needs to pan, zoom and scrub. */
   time?: { fit: TimeWindow; width: number };
+  /** Session view only: the rendered shape of the transcript, which the reducer scrolls through. */
+  transcript?: TranscriptLayout;
   /** Id shown by `y copy id`. */
   idAt: (index: number) => string | null;
 }
