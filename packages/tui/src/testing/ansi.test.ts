@@ -11,9 +11,10 @@ test('the repaint carries truecolor, palette, bold and inverse and drops trailin
   await written(terminal, '\u001b[38;2;1;2;3mrgb\u001b[0m \u001b[1;31mbold\u001b[0m \u001b[7minv\u001b[0m   ');
   const rows = screenToAnsi(terminal).split('\r\n');
   assert.equal(rows.length, 3);
-  assert.match(rows[0]!, /^\u001b\[2J\u001b\[H\u001b\[0;38;2;1;2;3mrgb/);
-  assert.ok(rows[0]!.includes('\u001b[0;1;38;5;1mbold'));
-  assert.ok(rows[0]!.includes('\u001b[0;7minv'));
-  assert.ok(/inv\u001b\[0m$/.test(rows[0]!), 'trailing blanks are removed');
+  const first = rows[0] ?? '';
+  assert.ok(first.startsWith('\u001b[2J\u001b[H\u001b[0;38;2;1;2;3mrgb'));
+  assert.ok(first.includes('\u001b[0;1;38;5;1mbold'));
+  assert.ok(first.includes('\u001b[0;7minv'));
+  assert.ok(first.endsWith('inv\u001b[0m'), 'trailing blanks are removed');
   assert.equal(rows[1], '\u001b[0m');
 });

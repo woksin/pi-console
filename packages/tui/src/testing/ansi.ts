@@ -20,15 +20,18 @@ function sgrOf(cell: Cell): string {
 /** One screen row as text with colour escapes, trailing blanks removed. */
 function rowToAnsi(line: NonNullable<ReturnType<Terminal['buffer']['active']['getLine']>>, cols: number): string {
   let text = '';
+  let kept = 0;
   let style = '';
   for (let column = 0; column < cols; column++) {
     const cell = line.getCell(column);
     if (!cell || cell.getWidth() === 0) continue;
     const next = sgrOf(cell);
     if (next !== style) { text += next; style = next; }
-    text += cell.getChars() || ' ';
+    const chars = cell.getChars() || ' ';
+    text += chars;
+    if (chars !== ' ') kept = text.length;
   }
-  return text.replace(/(?:\u001b\[[0-9;]*m| )+$/, '') + '\u001b[0m';
+  return text.slice(0, kept) + '\u001b[0m';
 }
 
 /** Clears the player screen and repaints the emulator's visible screen with its colours; deterministic for a settled screen. */
