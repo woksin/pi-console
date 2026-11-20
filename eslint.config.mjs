@@ -38,6 +38,11 @@ export default tseslint.config(
     },
   },
   {
+    // The TUI indexes arrays and tuples freely (rows[cursor] is checked by length) and splits text into code points on purpose.
+    files: ['packages/tui/src/**/*.ts'],
+    rules: { '@typescript-eslint/no-unnecessary-condition': 'off', '@typescript-eslint/no-misused-spread': 'off' },
+  },
+  {
     files: ['scripts/**/*.mjs', '*.mjs'],
     languageOptions: { globals: { process: 'readonly', console: 'readonly', performance: 'readonly' } },
   },

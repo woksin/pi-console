@@ -11,6 +11,7 @@ import { baseHeaders, sendError, sendJson } from './http/output.ts';
 import { serveStatic } from './http/static-files.ts';
 import { StreamHub } from './stream/stream-hub.ts';
 import { DeltaBatcher } from './stream/delta-batcher.ts';
+import { streamSequence } from './stream/stream-sequence.ts';
 import { SessionIngestion } from './ingestion/session-ingestion.ts';
 
 export interface DaemonOptions extends DaemonConfig {
@@ -104,7 +105,7 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
   const { log, store, projector } = await openCore(options.dataDir);
   const queries = () => new ConsoleQueries(() => readModels(projector), now);
   const stream = new StreamHub({
-    base: projector.position, ringSize: options.replayWindow, heartbeatMs: options.heartbeatMs,
+    ...streamSequence(store, projector.position), ringSize: options.replayWindow, heartbeatMs: options.heartbeatMs,
     maxBufferedBytes: options.maxBufferedBytes ?? 1024 * 1024, snapshot: () => queries().snapshot(now().toISOString()), now,
   });
   const batcher = new DeltaBatcher(() => readModels(projector), delta => { stream.publish(delta.type, delta.payload); }, now);
@@ -123,6 +124,7 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
     port, address: '127.0.0.1', log, stream, ingestion, startupMs: performance.now() - started,
     async close() {
       await ingestion.stop();
+      batcher.flush();
       stream.close();
       server.closeAllConnections();
       await new Promise<void>(resolve => { server.close(() => { resolve(); }); });

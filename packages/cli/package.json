@@ -11,9 +11,10 @@
   },
   "dependencies": {
     "@pi-console/contract": "*",
-    "@pi-console/daemon": "*"
+    "@pi-console/daemon": "*",
+    "@pi-console/tui": "*"
   },
   "bin": {
-    "pi-console": "./src/main.ts"
+    "pi-console": "./bin/pi-console.mjs"
   }
 }

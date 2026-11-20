@@ -9,6 +9,8 @@ Design documents for pi-console (status: design, name provisional). Read in this
 5. [Security](security.md): threat model and controls.
 6. [Milestones](milestones.md): M0 to M5 and the MVP slice list.
 7. [Research summary](research-summary.md): evidence behind the decisions.
+8. [TUI](ui-tui.md): the OpenTUI client, keys, tests, pinned versions, fallback.
+9. [Web UI](ui-web.md): running the web console, its security model, keyboard map and screenshots.
 
 Requests and answers (pairing, origin, uncertainty): [requests](requests.md).
 

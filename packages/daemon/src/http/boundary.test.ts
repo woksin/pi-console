@@ -12,13 +12,13 @@ test('oversized headers are rejected by the actual HTTP server without disruptin
   assert.equal((await call(spec.daemon.port, '/api/v1/health', { headers: { Authorization: `Bearer ${spec.token}` } })).status, 200);
 });
 
-test('request and question SSE snapshots invalidate session status and needs-you after opening and closing', async t => {
+test('request, answer and question SSE entity deltas also update derived session status without snapshots', async t => {
   const spec = await specDaemon([testEvent(1, 'SessionStarted', { sessionId: 's1', cwd: '/repo', model: null, role: 'main', parentSessionId: null })]);
   t.after(() => spec.close());
   const headers = { Authorization: `Bearer ${spec.token}` };
   const stream = await openStream(spec.daemon.port, headers);
   t.after(() => { stream.close(); });
-  await stream.next();
+  let seq = Number((await stream.next()).id);
   for (const [event, status, count] of [
     [testEvent(2, 'RequestObserved', { requestId: 'r1', sessionId: 's1', origin: 'human', originEvidence: 'spec' }), 'needs-you', 1],
     [testEvent(3, 'AnswerObserved', { requestId: 'r1', answerId: 'a1', interim: false }), 'idle', 0],
@@ -26,12 +26,19 @@ test('request and question SSE snapshots invalidate session status and needs-you
     [testEvent(5, 'QuestionAnswered', { questionId: 'q1' }), 'idle', 0],
   ] as const) {
     await spec.daemon.log.append([event]);
-    const frame = await stream.next();
-    assert.equal(frame.event, 'snapshot');
-    assert.equal(frame.data.payload.sessions[0].status, status);
+    const entity = await stream.next();
+    const session = await stream.next();
+    assert.equal(entity.event, event.type.startsWith('Question') ? 'question.asked' : 'request.observed');
+    assert.equal(session.event, 'session.updated');
+    assert.equal(session.data.payload.id, 's1');
+    assert.equal(session.data.payload.status, status);
+    assert.deepEqual([Number(entity.id), Number(session.id)], [seq + 1, seq + 2]);
+    seq += 2;
     const overview = await call(spec.daemon.port, '/api/v1/overview', { headers });
     assert.equal(overview.body.needsYou.length, count);
+    assert.equal((await call(spec.daemon.port, '/api/v1/needs-you', { headers })).body.items.length, count);
   }
+  await assert.rejects(stream.next(100));
 });
 
 test('foreign-Origin SSE is refused even with valid credentials by the actual server', async t => {

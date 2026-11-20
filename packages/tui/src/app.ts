@@ -1,0 +1,152 @@
+import { useEffect, useRef, useState, useSyncExternalStore, type ReactElement } from 'react';
+import { paletteItems, type Action } from '@pi-console/viewmodels';
+import { Column, Screen, Text, h, useClipboard, useKeys, useSize, useTick } from './view/renderer.ts';
+import type { Store } from './store/store.ts';
+import { commit, handleKey, initial, reduce, typing, type Bounds, type Section, type UiState } from './state/ui.ts';
+import { emptyLayout, resumeTranscript, transcriptViewport } from './state/transcript-window.ts';
+import { neutralKey, typedCharacter, type KeyInput } from './state/keys.ts';
+import { Header, banner, footerLine } from './shell/chrome.ts';
+import { Help, Palette, Settings } from './shell/overlays.ts';
+import type { Env, SectionView } from './views/common.ts';
+import { overviewView } from './views/overview.ts';
+import { fleetView } from './views/fleet.ts';
+import { requestsView } from './views/requests.ts';
+import { questionsView } from './views/questions.ts';
+import { messagesView } from './views/messages.ts';
+import { timelineView } from './views/timeline.ts';
+import { workView } from './views/work.ts';
+import { sessionView } from './views/session.ts';
+
+const sectionViews: Record<Section, (env: Env) => SectionView> = {
+  overview: overviewView, fleet: fleetView, requests: requestsView, questions: questionsView, messages: messagesView, timeline: timelineView, work: workView,
+};
+
+export interface AppProps {
+  store: Store; endpoint: string; tokenSource: string;
+  /** Backfills a session's transcript when it is opened. */
+  loadTranscript: (sessionId: string) => void;
+  onQuit: () => void;
+  /** Spinner and pulse motion; off for reduced-motion and tests. */
+  animate: boolean;
+  initialState?: Partial<UiState>;
+  /** The wall clock for relative ages; fixed by the media harness so pictures are reproducible. Defaults to `Date.now`. */
+  clock?: () => number;
+}
+
+const boundsOf = (view: SectionView, height: number): Bounds => ({
+  length: view.length, page: Math.max(1, height - 6), fit: view.time?.fit ?? { start: 0, span: 1 }, width: view.time?.width ?? 0, rowAt: view.rowAt, transcript: view.transcript ?? emptyLayout, viewport: transcriptViewport(height),
+});
+
+const noBounds: Bounds = { length: 0, page: 1, fit: { start: 0, span: 1 }, width: 0, rowAt: () => ({ sessionId: null, groupId: null }), transcript: emptyLayout, viewport: 1 };
+
+const isVerticalArrow = (name: string): boolean => name === 'ArrowDown' || name === 'ArrowUp';
+const movePaletteIndex = (index: number, delta: number, setCount: number): number => Math.max(0, Math.min(Math.max(0, setCount - 1), index + delta));
+const isTextOverlay = (overlay: UiState['overlay']): boolean => overlay === 'palette' || overlay === 'filter' || overlay === 'search';
+const sectionOrder: readonly Section[] = ['overview', 'fleet', 'requests', 'questions', 'messages', 'timeline', 'work'];
+
+/** Text entry for the palette, filter and search; returns the next state. Keys never reach the keymap while typing. */
+function typeInto(state: UiState, key: KeyInput, setCount: number): UiState {
+  const name = neutralKey(key);
+  if (name === 'Esc') return reduce(state, 'back', noBounds);
+  if (state.overlay === 'palette' && isVerticalArrow(name)) return { ...state, paletteIndex: movePaletteIndex(state.paletteIndex, name === 'ArrowDown' ? 1 : -1, setCount) };
+  return typing(state, name, typedCharacter(key));
+}
+
+export function App(props: AppProps): ReactElement {
+  const data = useSyncExternalStore(props.store.subscribe, props.store.getSnapshot);
+  const size = useSize();
+  const copy = useClipboard();
+  const [ui, setUi] = useState<UiState>({ ...initial, ...props.initialState });
+  const [clock, setClock] = useState({ now: (props.clock ?? Date.now)(), phase: 0 });
+  const uiRef = useRef(ui);
+  const apply = (next: UiState) => { uiRef.current = next; setUi(next); };
+
+  useTick(props.animate ? 6 : 1, () => { setClock(previous => ({ now: (props.clock ?? Date.now)(), phase: props.animate ? previous.phase + 1 : 0 })); });
+  useUiEffects(ui, props, uiRef, apply);
+
+  const showBanner = !data.connection.connected;
+  const bodyHeight = Math.max(4, size.height - 2 - (showBanner ? 1 : 0));
+  const env: Env = {
+    data, ui, now: clock.now, width: size.width - 2, height: bodyHeight, phase: clock.phase,
+    click: index => { apply(openAt(uiRef.current, index, boundsOf(viewRef.current, bodyHeight))); },
+  };
+  const view = (ui.sessionId ? sessionView : sectionViews[ui.section])(env);
+  const viewRef = useRef(view);
+  viewRef.current = view;
+  const dataRef = useRef(data);
+  dataRef.current = data;
+  const heightRef = useRef(bodyHeight);
+  heightRef.current = bodyHeight;
+
+  useKeys(key => {
+    const current = viewRef.current;
+    apply(nextState(uiRef.current, key, { sessions: dataRef.current.sessions, view: current, bounds: boundsOf(current, heightRef.current), copy }));
+  });
+
+  const connectionBanner = banner(data.connection, size.width);
+  const input = { endpoint: props.endpoint, tokenSource: props.tokenSource, ...data.connection, now: clock.now,
+    counts: { sessions: data.sessions.length, requests: data.requests.length, questions: data.questions.length, messages: data.messages.length, jobs: data.jobs.length, resets: data.resets.length, 'needs you': data.needsYou.length } };
+  const selectSection = (section: Section) => { apply(reduce(uiRef.current, `section.${String(sectionOrder.indexOf(section) + 1)}` as Action, boundsOf(viewRef.current, heightRef.current))); };
+
+  return h(Screen, {},
+    h(Header, { ui, width: size.width, attention: data.needsYou.length, connection: data.connection, select: selectSection }),
+    ...(connectionBanner ? [h(Text, { line: connectionBanner })] : []),
+    h(Column, { grow: 1, paddingX: 1 }, view.render()),
+    h(Text, { line: footerLine(ui, size.width) }),
+    ...overlays(ui, data, input, size));
+}
+
+interface Size { width: number; height: number }
+
+function overlays(ui: UiState, data: ReturnType<Store['getSnapshot']>, input: Parameters<typeof Settings>[0]['input'], size: Size): ReactElement[] {
+  if (ui.overlay === 'palette') return [h(Palette, { ui, data, width: size.width, height: size.height })];
+  if (ui.overlay === 'help') return [h(Help, { width: size.width, height: size.height })];
+  if (ui.overlay === 'settings') return [h(Settings, { input, width: size.width, height: size.height })];
+  return [];
+}
+
+function openAt(state: UiState, index: number, bounds: Bounds): UiState {
+  return reduce({ ...state, cursor: { ...state.cursor, [state.section]: index } }, 'open', bounds);
+}
+
+type Sessions = Parameters<typeof paletteItems>[0]['sessions'];
+interface KeyContext { sessions: Sessions; view: SectionView; bounds: Bounds; copy: (text: string) => boolean }
+
+/** Next state for a key: text entry while an input overlay is open, otherwise the keymap (`y` copies the id and keeps the state). */
+function nextState(state: UiState, key: KeyInput, ctx: KeyContext): UiState {
+  if (neutralKey(key) === 'Ctrl+C') return reduce(state, 'quit', ctx.bounds);
+  if (isTextOverlay(state.overlay)) {
+    if (neutralKey(key) === 'Enter') return state.overlay === 'palette' ? runPalette(state, ctx.sessions, ctx.bounds) : commit(state);
+    return typeInto(state, key, state.overlay === 'palette' ? paletteItems({ sessions: ctx.sessions, query: state.input }).length : 0);
+  }
+  const name = neutralKey(key);
+  if (name === 'y') return copyId(state, ctx.view, ctx.copy);
+  return handleKey(state, name, ctx.bounds);
+}
+
+/** Executes the highlighted palette entry: an action goes through the same reducer as its key, a session opens its detail. */
+function runPalette(state: UiState, sessions: Parameters<typeof paletteItems>[0]['sessions'], bounds: Bounds): UiState {
+  const items = paletteItems({ sessions, query: state.input });
+  const item = items[Math.min(state.paletteIndex, items.length - 1)];
+  const closed: UiState = { ...state, overlay: 'none', input: '', paletteIndex: 0 };
+  if (!item) return closed;
+  if (item.target.kind === 'session') return { ...closed, sessionId: item.target.sessionId, ...resumeTranscript, search: '' };
+  return reduce(closed, item.target.action, bounds);
+}
+
+function copyId(state: UiState, view: SectionView, copy: (text: string) => boolean): UiState {
+  const id = state.sessionId ?? view.idAt(state.cursor[state.section]);
+  if (!id) return state;
+  return { ...state, notice: copy(id) ? `copied ${id}` : `id ${id} (clipboard unavailable)` };
+}
+
+/** Session backfill, quit notification and notice expiry. */
+function useUiEffects(ui: UiState, props: AppProps, uiRef: { current: UiState }, apply: (next: UiState) => void): void {
+  useEffect(() => { if (ui.sessionId) props.loadTranscript(ui.sessionId); }, [ui.sessionId]);
+  useEffect(() => { if (ui.quit) props.onQuit(); }, [ui.quit]);
+  useEffect(() => {
+    if (!ui.notice) return undefined;
+    const timer = setTimeout(() => { apply({ ...uiRef.current, notice: '' }); }, 2500);
+    return () => { clearTimeout(timer); };
+  }, [ui.notice]);
+}

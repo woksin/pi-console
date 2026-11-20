@@ -99,7 +99,7 @@ test('same-time question and request terminal facts survive late creation with i
   } finally { spec.log.close(); }
 });
 
-test('request and question deltas invalidate derived session status and overview needs-you', async () => {
+test('request, answer and question events retain entity deltas while derived status and needs-you change', async () => {
   const spec = await project([start]);
   try {
     for (const [event, status, count] of [
@@ -112,8 +112,8 @@ test('request and question deltas invalidate derived session status and overview
       const envelopes = [];
       for await (const envelope of spec.log.readFrom(0)) envelopes.push(envelope);
       const delta = deltaFor(spec.queries, envelopes.at(-1)!);
-      assert.equal(delta?.type, 'snapshot');
-      assert.deepEqual(delta?.payload, spec.queries.snapshot(event.occurredAt));
+      assert.equal(delta?.type, event.type.startsWith('Question') ? 'question.asked' : 'request.observed');
+      assert.deepEqual(delta?.payload, event.type.startsWith('Question') ? spec.queries.questions()[0] : spec.queries.requests()[0]);
       assert.equal(spec.queries.sessions()[0].status, status);
       assert.equal(spec.queries.needsYou().length, count);
       assert.equal(spec.queries.overview().needsYou.length, count);
