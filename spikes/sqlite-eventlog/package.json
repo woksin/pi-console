@@ -1,0 +1,21 @@
+{
+  "name": "m0-sqlite-eventlog-spike",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "test": "node --test test/*.test.ts",
+    "bench": "node benchmark.ts"
+  },
+  "dependencies": {
+    "better-sqlite3": "13.2.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "7.6.13",
+    "@types/node": "25.5.0",
+    "typescript": "5.9.3"
+  },
+  "allowScripts": {
+    "better-sqlite3@13.2.0": true
+  }
+}
