@@ -11,3 +11,4 @@ export * from './settings/settings.ts';
 export * from './timeline/timeline.ts';
 export * from './graph/graph.ts';
 export * from './palette/palette.ts';
+export * from './work/work.ts';
