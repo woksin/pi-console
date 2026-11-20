@@ -1,0 +1,844 @@
+{
+  "all": {
+    "rows": [
+      {
+        "id": "d6",
+        "sessionId": "s1",
+        "session": "aurora coordinator",
+        "origin": "unproven",
+        "originLabel": "Unproven origin",
+        "status": {
+          "status": "interrupted",
+          "glyph": "/",
+          "color": "pink",
+          "label": "Interrupted"
+        },
+        "text": "## User directives ⏎ [orch message from L0] do it",
+        "withheld": false,
+        "age": "17m",
+        "answer": null,
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Derived from the session transcript",
+        "transcript": {
+          "sessionId": "s1",
+          "entryId": "d6-e",
+          "fileOffset": 800
+        }
+      },
+      {
+        "id": "d5",
+        "sessionId": "s1",
+        "session": "aurora coordinator",
+        "origin": "unproven",
+        "originLabel": "Unproven origin",
+        "status": {
+          "status": "open",
+          "glyph": "!",
+          "color": "amber",
+          "label": "Open"
+        },
+        "text": "[withheld]",
+        "withheld": true,
+        "age": "18m",
+        "answer": null,
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Derived from the session transcript",
+        "transcript": {
+          "sessionId": "s1",
+          "entryId": "d5-e",
+          "fileOffset": 700
+        }
+      },
+      {
+        "id": "d4",
+        "sessionId": "s1",
+        "session": "aurora coordinator",
+        "origin": "unproven",
+        "originLabel": "Unproven origin",
+        "status": {
+          "status": "answered",
+          "glyph": "✓",
+          "color": "green",
+          "label": "Answered"
+        },
+        "text": "ask d4",
+        "withheld": false,
+        "age": "20m",
+        "answer": {
+          "text": "reply d4",
+          "withheld": false,
+          "age": "19m"
+        },
+        "uncertain": null,
+        "possiblyUnseen": {
+          "status": "answer-possibly-unseen",
+          "glyph": "?",
+          "color": "orange",
+          "label": "Answer possibly unseen"
+        },
+        "source": "Derived from the session transcript",
+        "transcript": {
+          "sessionId": "s1",
+          "entryId": "d4-e",
+          "fileOffset": 500
+        }
+      },
+      {
+        "id": "d3",
+        "sessionId": "s1",
+        "session": "aurora coordinator",
+        "origin": "unproven",
+        "originLabel": "Unproven origin",
+        "status": {
+          "status": "answered",
+          "glyph": "✓",
+          "color": "green",
+          "label": "Answered"
+        },
+        "text": "ask d3",
+        "withheld": false,
+        "age": "22m",
+        "answer": {
+          "text": "reply d3",
+          "withheld": false,
+          "age": "21m"
+        },
+        "uncertain": "Uncertain: a reset came between this request and a newer prompt",
+        "possiblyUnseen": null,
+        "source": "Derived from the session transcript",
+        "transcript": {
+          "sessionId": "s1",
+          "entryId": "d3-e",
+          "fileOffset": 300
+        }
+      },
+      {
+        "id": "d2",
+        "sessionId": "s1",
+        "session": "aurora coordinator",
+        "origin": "unproven",
+        "originLabel": "Unproven origin",
+        "status": {
+          "status": "answered",
+          "glyph": "✓",
+          "color": "green",
+          "label": "Answered"
+        },
+        "text": "ask d2",
+        "withheld": false,
+        "age": "23m",
+        "answer": {
+          "text": "reply d2",
+          "withheld": false,
+          "age": "22m"
+        },
+        "uncertain": "Uncertain: one answer followed several prompts",
+        "possiblyUnseen": null,
+        "source": "Derived from the session transcript",
+        "transcript": {
+          "sessionId": "s1",
+          "entryId": "d2-e",
+          "fileOffset": 200
+        }
+      },
+      {
+        "id": "d1",
+        "sessionId": "s1",
+        "session": "aurora coordinator",
+        "origin": "launch",
+        "originLabel": "Initial prompt",
+        "status": {
+          "status": "answered",
+          "glyph": "✓",
+          "color": "green",
+          "label": "Answered"
+        },
+        "text": "ask d1",
+        "withheld": false,
+        "age": "24m",
+        "answer": {
+          "text": "reply d1",
+          "withheld": false,
+          "age": "23m"
+        },
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Derived from the session transcript",
+        "transcript": {
+          "sessionId": "s1",
+          "entryId": "d1-e",
+          "fileOffset": 100
+        }
+      },
+      {
+        "id": "r12",
+        "sessionId": "s12",
+        "session": "meadow implementation",
+        "origin": "unproven",
+        "originLabel": "Unproven origin",
+        "status": {
+          "status": "answered",
+          "glyph": "✓",
+          "color": "green",
+          "label": "Answered"
+        },
+        "text": "Check whether the retry policy handles partial results.",
+        "withheld": false,
+        "age": "24m",
+        "answer": {
+          "text": "Use bounded retries with an explicit checkpoint.",
+          "withheld": false,
+          "age": "24m"
+        },
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Reported by the source",
+        "transcript": null
+      },
+      {
+        "id": "r11",
+        "sessionId": "s11",
+        "session": "meadow coordinator",
+        "origin": "launch",
+        "originLabel": "Initial prompt",
+        "status": {
+          "status": "unanswered",
+          "glyph": "!",
+          "color": "amber",
+          "label": "Unanswered"
+        },
+        "text": "Write the handoff and preserve the pending decisions.",
+        "withheld": false,
+        "age": "24m",
+        "answer": null,
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Reported by the source",
+        "transcript": null
+      },
+      {
+        "id": "r10",
+        "sessionId": "s10",
+        "session": "harbor scout",
+        "origin": "human",
+        "originLabel": "Human request",
+        "status": {
+          "status": "open",
+          "glyph": "!",
+          "color": "amber",
+          "label": "Open"
+        },
+        "text": "Compare the queue strategies and explain the trade-offs.",
+        "withheld": false,
+        "age": "24m",
+        "answer": null,
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Reported by the source",
+        "transcript": null
+      },
+      {
+        "id": "r9",
+        "sessionId": "s9",
+        "session": "harbor explore",
+        "origin": "unproven",
+        "originLabel": "Unproven origin",
+        "status": {
+          "status": "interrupted",
+          "glyph": "/",
+          "color": "pink",
+          "label": "Interrupted"
+        },
+        "text": "Check whether the retry policy handles partial results.",
+        "withheld": false,
+        "age": "24m",
+        "answer": null,
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Reported by the source",
+        "transcript": null
+      },
+      {
+        "id": "r8",
+        "sessionId": "s8",
+        "session": "harbor review",
+        "origin": "launch",
+        "originLabel": "Initial prompt",
+        "status": {
+          "status": "answered",
+          "glyph": "✓",
+          "color": "green",
+          "label": "Answered"
+        },
+        "text": "Write the handoff and preserve the pending decisions.",
+        "withheld": false,
+        "age": "24m",
+        "answer": {
+          "text": "Use bounded retries with an explicit checkpoint.",
+          "withheld": false,
+          "age": "24m"
+        },
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Reported by the source",
+        "transcript": null
+      },
+      {
+        "id": "r7",
+        "sessionId": "s7",
+        "session": "harbor implementation",
+        "origin": "human",
+        "originLabel": "Human request",
+        "status": {
+          "status": "unanswered",
+          "glyph": "!",
+          "color": "amber",
+          "label": "Unanswered"
+        },
+        "text": "Compare the queue strategies and explain the trade-offs.",
+        "withheld": false,
+        "age": "24m",
+        "answer": null,
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Reported by the source",
+        "transcript": null
+      },
+      {
+        "id": "r6",
+        "sessionId": "s6",
+        "session": "harbor coordinator",
+        "origin": "unproven",
+        "originLabel": "Unproven origin",
+        "status": {
+          "status": "open",
+          "glyph": "!",
+          "color": "amber",
+          "label": "Open"
+        },
+        "text": "Check whether the retry policy handles partial results.",
+        "withheld": false,
+        "age": "24m",
+        "answer": null,
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Reported by the source",
+        "transcript": null
+      },
+      {
+        "id": "r5",
+        "sessionId": "s5",
+        "session": "aurora scout",
+        "origin": "launch",
+        "originLabel": "Initial prompt",
+        "status": {
+          "status": "interrupted",
+          "glyph": "/",
+          "color": "pink",
+          "label": "Interrupted"
+        },
+        "text": "Write the handoff and preserve the pending decisions.",
+        "withheld": false,
+        "age": "24m",
+        "answer": null,
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Reported by the source",
+        "transcript": null
+      },
+      {
+        "id": "r4",
+        "sessionId": "s4",
+        "session": "aurora explore",
+        "origin": "human",
+        "originLabel": "Human request",
+        "status": {
+          "status": "answered",
+          "glyph": "✓",
+          "color": "green",
+          "label": "Answered"
+        },
+        "text": "Compare the queue strategies and explain the trade-offs.",
+        "withheld": false,
+        "age": "24m",
+        "answer": {
+          "text": "Use bounded retries with an explicit checkpoint.",
+          "withheld": false,
+          "age": "24m"
+        },
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Reported by the source",
+        "transcript": null
+      },
+      {
+        "id": "r3",
+        "sessionId": "s2",
+        "session": "aurora implementation",
+        "origin": "unproven",
+        "originLabel": "Unproven origin",
+        "status": {
+          "status": "unanswered",
+          "glyph": "!",
+          "color": "amber",
+          "label": "Unanswered"
+        },
+        "text": "Check whether the retry policy handles partial results.",
+        "withheld": false,
+        "age": "24m",
+        "answer": null,
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Reported by the source",
+        "transcript": null
+      },
+      {
+        "id": "r2",
+        "sessionId": "s2",
+        "session": "aurora implementation",
+        "origin": "launch",
+        "originLabel": "Initial prompt",
+        "status": {
+          "status": "open",
+          "glyph": "!",
+          "color": "amber",
+          "label": "Open"
+        },
+        "text": "Write the handoff and preserve the pending decisions.",
+        "withheld": false,
+        "age": "24m",
+        "answer": null,
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Reported by the source",
+        "transcript": null
+      },
+      {
+        "id": "r1",
+        "sessionId": "s2",
+        "session": "aurora implementation",
+        "origin": "human",
+        "originLabel": "Human request",
+        "status": {
+          "status": "interrupted",
+          "glyph": "/",
+          "color": "pink",
+          "label": "Interrupted"
+        },
+        "text": "Compare the queue strategies and explain the trade-offs.",
+        "withheld": false,
+        "age": "25m",
+        "answer": null,
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Reported by the source",
+        "transcript": null
+      }
+    ],
+    "open": 7,
+    "uncertain": 2,
+    "possiblyUnseen": 1,
+    "filter": {
+      "state": "all",
+      "origin": "all",
+      "sessionId": null
+    },
+    "sessions": [
+      {
+        "id": "s1",
+        "name": "aurora coordinator"
+      },
+      {
+        "id": "s10",
+        "name": "harbor scout"
+      },
+      {
+        "id": "s11",
+        "name": "meadow coordinator"
+      },
+      {
+        "id": "s12",
+        "name": "meadow implementation"
+      },
+      {
+        "id": "s2",
+        "name": "aurora implementation"
+      },
+      {
+        "id": "s4",
+        "name": "aurora explore"
+      },
+      {
+        "id": "s5",
+        "name": "aurora scout"
+      },
+      {
+        "id": "s6",
+        "name": "harbor coordinator"
+      },
+      {
+        "id": "s7",
+        "name": "harbor implementation"
+      },
+      {
+        "id": "s8",
+        "name": "harbor review"
+      },
+      {
+        "id": "s9",
+        "name": "harbor explore"
+      }
+    ]
+  },
+  "uncertain": {
+    "rows": [
+      {
+        "id": "d3",
+        "sessionId": "s1",
+        "session": "aurora coordinator",
+        "origin": "unproven",
+        "originLabel": "Unproven origin",
+        "status": {
+          "status": "answered",
+          "glyph": "✓",
+          "color": "green",
+          "label": "Answered"
+        },
+        "text": "ask d3",
+        "withheld": false,
+        "age": "22m",
+        "answer": {
+          "text": "reply d3",
+          "withheld": false,
+          "age": "21m"
+        },
+        "uncertain": "Uncertain: a reset came between this request and a newer prompt",
+        "possiblyUnseen": null,
+        "source": "Derived from the session transcript",
+        "transcript": {
+          "sessionId": "s1",
+          "entryId": "d3-e",
+          "fileOffset": 300
+        }
+      },
+      {
+        "id": "d2",
+        "sessionId": "s1",
+        "session": "aurora coordinator",
+        "origin": "unproven",
+        "originLabel": "Unproven origin",
+        "status": {
+          "status": "answered",
+          "glyph": "✓",
+          "color": "green",
+          "label": "Answered"
+        },
+        "text": "ask d2",
+        "withheld": false,
+        "age": "23m",
+        "answer": {
+          "text": "reply d2",
+          "withheld": false,
+          "age": "22m"
+        },
+        "uncertain": "Uncertain: one answer followed several prompts",
+        "possiblyUnseen": null,
+        "source": "Derived from the session transcript",
+        "transcript": {
+          "sessionId": "s1",
+          "entryId": "d2-e",
+          "fileOffset": 200
+        }
+      }
+    ],
+    "open": 7,
+    "uncertain": 2,
+    "possiblyUnseen": 1,
+    "filter": {
+      "state": "uncertain",
+      "origin": "all",
+      "sessionId": null
+    },
+    "sessions": [
+      {
+        "id": "s1",
+        "name": "aurora coordinator"
+      },
+      {
+        "id": "s10",
+        "name": "harbor scout"
+      },
+      {
+        "id": "s11",
+        "name": "meadow coordinator"
+      },
+      {
+        "id": "s12",
+        "name": "meadow implementation"
+      },
+      {
+        "id": "s2",
+        "name": "aurora implementation"
+      },
+      {
+        "id": "s4",
+        "name": "aurora explore"
+      },
+      {
+        "id": "s5",
+        "name": "aurora scout"
+      },
+      {
+        "id": "s6",
+        "name": "harbor coordinator"
+      },
+      {
+        "id": "s7",
+        "name": "harbor implementation"
+      },
+      {
+        "id": "s8",
+        "name": "harbor review"
+      },
+      {
+        "id": "s9",
+        "name": "harbor explore"
+      }
+    ]
+  },
+  "launch": {
+    "rows": [
+      {
+        "id": "d1",
+        "sessionId": "s1",
+        "session": "aurora coordinator",
+        "origin": "launch",
+        "originLabel": "Initial prompt",
+        "status": {
+          "status": "answered",
+          "glyph": "✓",
+          "color": "green",
+          "label": "Answered"
+        },
+        "text": "ask d1",
+        "withheld": false,
+        "age": "24m",
+        "answer": {
+          "text": "reply d1",
+          "withheld": false,
+          "age": "23m"
+        },
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Derived from the session transcript",
+        "transcript": {
+          "sessionId": "s1",
+          "entryId": "d1-e",
+          "fileOffset": 100
+        }
+      },
+      {
+        "id": "r11",
+        "sessionId": "s11",
+        "session": "meadow coordinator",
+        "origin": "launch",
+        "originLabel": "Initial prompt",
+        "status": {
+          "status": "unanswered",
+          "glyph": "!",
+          "color": "amber",
+          "label": "Unanswered"
+        },
+        "text": "Write the handoff and preserve the pending decisions.",
+        "withheld": false,
+        "age": "24m",
+        "answer": null,
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Reported by the source",
+        "transcript": null
+      },
+      {
+        "id": "r8",
+        "sessionId": "s8",
+        "session": "harbor review",
+        "origin": "launch",
+        "originLabel": "Initial prompt",
+        "status": {
+          "status": "answered",
+          "glyph": "✓",
+          "color": "green",
+          "label": "Answered"
+        },
+        "text": "Write the handoff and preserve the pending decisions.",
+        "withheld": false,
+        "age": "24m",
+        "answer": {
+          "text": "Use bounded retries with an explicit checkpoint.",
+          "withheld": false,
+          "age": "24m"
+        },
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Reported by the source",
+        "transcript": null
+      },
+      {
+        "id": "r5",
+        "sessionId": "s5",
+        "session": "aurora scout",
+        "origin": "launch",
+        "originLabel": "Initial prompt",
+        "status": {
+          "status": "interrupted",
+          "glyph": "/",
+          "color": "pink",
+          "label": "Interrupted"
+        },
+        "text": "Write the handoff and preserve the pending decisions.",
+        "withheld": false,
+        "age": "24m",
+        "answer": null,
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Reported by the source",
+        "transcript": null
+      },
+      {
+        "id": "r2",
+        "sessionId": "s2",
+        "session": "aurora implementation",
+        "origin": "launch",
+        "originLabel": "Initial prompt",
+        "status": {
+          "status": "open",
+          "glyph": "!",
+          "color": "amber",
+          "label": "Open"
+        },
+        "text": "Write the handoff and preserve the pending decisions.",
+        "withheld": false,
+        "age": "24m",
+        "answer": null,
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Reported by the source",
+        "transcript": null
+      }
+    ],
+    "open": 7,
+    "uncertain": 2,
+    "possiblyUnseen": 1,
+    "filter": {
+      "state": "all",
+      "origin": "launch",
+      "sessionId": null
+    },
+    "sessions": [
+      {
+        "id": "s1",
+        "name": "aurora coordinator"
+      },
+      {
+        "id": "s10",
+        "name": "harbor scout"
+      },
+      {
+        "id": "s11",
+        "name": "meadow coordinator"
+      },
+      {
+        "id": "s12",
+        "name": "meadow implementation"
+      },
+      {
+        "id": "s2",
+        "name": "aurora implementation"
+      },
+      {
+        "id": "s4",
+        "name": "aurora explore"
+      },
+      {
+        "id": "s5",
+        "name": "aurora scout"
+      },
+      {
+        "id": "s6",
+        "name": "harbor coordinator"
+      },
+      {
+        "id": "s7",
+        "name": "harbor implementation"
+      },
+      {
+        "id": "s8",
+        "name": "harbor review"
+      },
+      {
+        "id": "s9",
+        "name": "harbor explore"
+      }
+    ]
+  },
+  "detail": {
+    "id": "d3",
+    "sessionId": "s1",
+    "session": "aurora coordinator",
+    "origin": "unproven",
+    "originLabel": "Unproven origin",
+    "status": {
+      "status": "answered",
+      "glyph": "✓",
+      "color": "green",
+      "label": "Answered"
+    },
+    "text": "ask d3",
+    "withheld": false,
+    "age": "22m",
+    "answer": {
+      "text": "reply d3",
+      "withheld": false,
+      "age": "21m"
+    },
+    "uncertain": "Uncertain: a reset came between this request and a newer prompt",
+    "possiblyUnseen": null,
+    "source": "Derived from the session transcript",
+    "transcript": {
+      "sessionId": "s1",
+      "entryId": "d3-e",
+      "fileOffset": 300
+    },
+    "provenance": "Origin not proven (derived from the session transcript; not verified)",
+    "originEvidence": "Later prompt",
+    "textLines": [
+      "ask d3"
+    ],
+    "answerLines": [
+      "reply d3"
+    ],
+    "interim": [],
+    "evidence": [
+      {
+        "label": "Prompt",
+        "at": "2026-11-20T09:03:00.000Z",
+        "age": "22m",
+        "resetId": null,
+        "transcript": {
+          "sessionId": "s1",
+          "entryId": "d3-e",
+          "fileOffset": null
+        }
+      },
+      {
+        "label": "Reset while open",
+        "at": "2026-11-20T09:04:00.000Z",
+        "age": "21m",
+        "resetId": "c1",
+        "transcript": null
+      }
+    ]
+  }
+}

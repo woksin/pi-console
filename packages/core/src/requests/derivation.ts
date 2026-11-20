@@ -68,7 +68,7 @@ function stateRequest(state: DerivationState, payload: EventPayloads['RequestObs
     id: payload.requestId, sessionId: payload.sessionId, text: payload.excerpt ?? '', origin: payload.origin,
     originEvidence: payload.originEvidence, status: 'open', createdAt: event.occurredAt, resetId: null, answer: null,
     interimAnswers: [], ref: event.refs,
-    withheld: payload.withheld ?? false, derivedFrom: payload.derivedFrom ?? 'session-jsonl',
+    withheld: payload.withheld ?? false, ...(payload.derivedFrom ? { derivedFrom: payload.derivedFrom } : {}),
   };
   const record = session(state, payload.sessionId);
   if (!record.explicitIds.includes(payload.requestId)) record.explicitIds.push(payload.requestId);

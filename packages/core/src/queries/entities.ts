@@ -55,11 +55,22 @@ export function toSession(models: ReadModels, session: SessionModel, attention: 
   };
 }
 
+/** The optional v1 derivation fields, present only when the request derivation produced them. */
+function derivation(request: RequestModel): Partial<Request> {
+  if (!request.derivedFrom) return {};
+  return {
+    withheld: request.withheld ?? false, answerWithheld: request.answerWithheld ?? false, answerPossiblyUnseen: request.answerPossiblyUnseen ?? false,
+    uncertain: Boolean(request.uncertainReason), uncertainReason: request.uncertainReason ?? null, evidence: request.evidence ?? [],
+    derivedFrom: request.derivedFrom,
+    pointer: request.ref?.entryId ? { sessionId: request.sessionId, entryId: request.ref.entryId, fileOffset: request.ref.offset } : null,
+  };
+}
+
 export function toRequest(request: RequestModel): Request {
   return {
     id: request.id, sessionId: request.sessionId, text: request.text, origin: request.origin, originLabel: originLabels[request.origin],
     originEvidence: request.originEvidence, status: request.status, createdAt: request.createdAt, resetId: request.resetId,
-    answer: request.answer, interimAnswers: request.interimAnswers,
+    answer: request.answer, interimAnswers: request.interimAnswers, ...derivation(request),
   };
 }
 

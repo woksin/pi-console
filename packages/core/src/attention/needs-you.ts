@@ -33,8 +33,8 @@ const pointer = (sessionId: string | null, ref: SourceRef | null): AttentionPoin
   sessionId && ref?.entryId ? { sessionId, entryId: ref.entryId, fileOffset: ref.offset } : null;
 
 /**
- * Open requests, human or launch only: an `unproven` request never raises a badge (ADR-0008). `answer-possibly-unseen`
- * is reserved for P5's derivation, which owns that judgement; the default derivation never emits it.
+ * Open requests, and answered requests whose answer a reset may have hidden (`answerPossiblyUnseen`, set by the
+ * request derivation), human or launch only: an `unproven` request never raises a badge (ADR-0008).
  */
 function openRequests(models: ReadModels): AttentionItem[] {
   return Object.values(models.requests.requests)
@@ -42,7 +42,13 @@ function openRequests(models: ReadModels): AttentionItem[] {
     .map(request => ({
       id: `request:${request.id}`, reason: 'open-request', sessionId: request.sessionId, laneId: null,
       text: request.text, since: request.createdAt, pointer: pointer(request.sessionId, request.ref),
-    }));
+    }))
+    .concat(Object.values(models.requests.requests)
+      .filter(request => request.answerPossiblyUnseen === true && request.answer !== null && request.origin !== 'unproven')
+      .map(request => ({
+        id: `answer:${request.id}`, reason: 'answer-possibly-unseen', sessionId: request.sessionId, laneId: null,
+        text: request.text, since: request.answer?.at ?? request.createdAt, pointer: pointer(request.sessionId, request.ref),
+      })));
 }
 
 /** The asker is a session id only when the console knows that session (askers may also be lanes or people). */
