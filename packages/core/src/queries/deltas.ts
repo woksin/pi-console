@@ -36,7 +36,10 @@ const routes: Record<string, [string, Lookup]> = {
 
 /** The delta for a log event once it is folded into the read models, or undefined when nothing visible changed. */
 export function deltaFor(queries: ConsoleQueries, event: EventEnvelope): Delta | undefined {
-  const route = routes[event.type] as [string, Lookup] | undefined;
+  // These events also alter needs-you and derived session status. A snapshot is the existing
+  // transport invalidation for cross-model changes and keeps one resumable id per log event.
+  if (/^(Request|Answer|Question)/.test(event.type)) return { type: 'snapshot', payload: queries.snapshot(event.occurredAt) };
+  const route = Object.hasOwn(routes, event.type) ? routes[event.type] : undefined;
   if (!route || event.payload === null || typeof event.payload !== 'object') return undefined;
   const payload = route[1](queries, event.payload as Record<string, unknown>);
   return payload === undefined ? undefined : { type: route[0], payload };

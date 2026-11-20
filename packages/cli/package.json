@@ -12,5 +12,8 @@
   "dependencies": {
     "@pi-console/contract": "*",
     "@pi-console/daemon": "*"
+  },
+  "bin": {
+    "pi-console": "./src/main.ts"
   }
 }

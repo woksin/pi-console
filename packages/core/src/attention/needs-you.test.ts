@@ -39,7 +39,7 @@ test('answered or interrupted requests no longer need you', async () => {
 
 test('only open blocking questions need you', async () => {
   const asked = (n: number, blocking: boolean) => testEvent(n, 'QuestionAsked', { questionId: `k${n}`, asker: 'lane-a', kind: 'decision', urgency: 'high', blocking, excerpt: `q${n}` }, { occurredAt: at(n) });
-  const items = await attention([asked(1, true), asked(2, false), asked(3, true), testEvent(4, 'QuestionAnswered', { questionId: 'k3' })]);
+  const items = await attention([asked(1, true), asked(2, false), asked(3, true), testEvent(4, 'QuestionAnswered', { questionId: 'k3' }, { occurredAt: at(4) })]);
   assert.deepEqual(items.map(item => [item.reason, item.id, item.sessionId]), [['blocking-question', 'question:k1', null]]);
 });
 

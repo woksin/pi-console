@@ -25,15 +25,19 @@ export interface SessionModel {
   lastRef: SourceRef | null;
   /** orderKey of the event that last set each latest-value field, so late (backfilled) events cannot overwrite newer ones. */
   stamps: Partial<Record<LatestField, string>>;
+  /** Timestamped turn facts survive end-before-start delivery and snapshot restores. */
+  turns: Record<string, { start: string; end: string }>;
+  latestTurnId: string | null;
+  latestTurnKey: string;
 }
 
-type LatestField = 'model' | 'thinkingLevel' | 'heartbeatStatus' | 'lastRef';
+type LatestField = 'model' | 'thinkingLevel' | 'heartbeatStatus' | 'lastRef' | 'cwd' | 'role' | 'parentSessionId' | 'endedAt' | 'endReason';
 
 export interface SessionsState { sessions: Record<string, SessionModel> }
 
 const blank = (id: string, event: EventEnvelope): SessionModel => ({
   id, cwd: '', model: null, thinkingLevel: null, role: 'main', parentSessionId: null, startedAt: event.occurredAt,
-  updatedAt: event.occurredAt, endedAt: null, endReason: null, openTurnId: null, heartbeatStatus: null, resets: [], lastRef: null, stamps: {},
+  updatedAt: event.occurredAt, endedAt: null, endReason: null, openTurnId: null, heartbeatStatus: null, resets: [], lastRef: null, stamps: {}, turns: Object.create(null) as SessionModel['turns'], latestTurnId: null, latestTurnKey: '',
 });
 
 /** Sets a latest-value field unless a newer event already set it. */
@@ -58,22 +62,44 @@ function touch(state: SessionsState, sessionId: string, event: EventEnvelope): S
   return session;
 }
 
-export const sessionsProjection = projection<SessionsState>('sessions', 1, () => ({ sessions: {} }), {
+/** The newest start remains open only when no later end (or session end) closes it. */
+function resolveTurn(session: SessionModel): void {
+  session.openTurnId = null;
+  if (session.latestTurnId === null) return;
+  const turn = session.turns[session.latestTurnId];
+  if (turn.start > turn.end && turn.start > (session.stamps.endedAt ?? '')) session.openTurnId = session.latestTurnId;
+}
+
+function turnFact(state: SessionsState, sessionId: string, turnId: string, event: EventEnvelope, field: 'start' | 'end'): void {
+  const session = touch(state, sessionId, event);
+  const turn = entry(session.turns, turnId, () => ({ start: '', end: '' }));
+  const key = orderKey(event);
+  turn[field] = later(turn[field], key);
+  if (field === 'start' && key > session.latestTurnKey) {
+    session.latestTurnId = turnId;
+    session.latestTurnKey = key;
+  }
+  resolveTurn(session);
+}
+
+export const sessionsProjection = projection<SessionsState>('sessions', 2, () => ({ sessions: {} }), {
   SessionStarted(state, payload, event) {
     const session = touch(state, payload.sessionId, event);
-    Object.assign(session, { cwd: payload.cwd, role: payload.role, parentSessionId: payload.parentSessionId });
+    setLatest(session, 'cwd', payload.cwd, event);
+    setLatest(session, 'role', payload.role, event);
+    setLatest(session, 'parentSessionId', payload.parentSessionId, event);
     setLatest(session, 'model', payload.model, event);
   },
   SessionEnded(state, payload, event) {
-    Object.assign(touch(state, payload.sessionId, event), { endedAt: event.occurredAt, endReason: payload.reason, openTurnId: null });
+    const session = touch(state, payload.sessionId, event);
+    setLatest(session, 'endedAt', event.occurredAt, event);
+    setLatest(session, 'endReason', payload.reason, event);
+    resolveTurn(session);
   },
   ModelChanged(state, payload, event) { setLatest(touch(state, payload.sessionId, event), 'model', payload.model, event); },
   ThinkingLevelChanged(state, payload, event) { setLatest(touch(state, payload.sessionId, event), 'thinkingLevel', payload.level, event); },
-  TurnStarted(state, payload, event) { touch(state, payload.sessionId, event).openTurnId = payload.turnId; },
-  TurnEnded(state, payload, event) {
-    const session = touch(state, payload.sessionId, event);
-    if (session.openTurnId === payload.turnId) session.openTurnId = null;
-  },
+  TurnStarted(state, payload, event) { turnFact(state, payload.sessionId, payload.turnId, event, 'start'); },
+  TurnEnded(state, payload, event) { turnFact(state, payload.sessionId, payload.turnId, event, 'end'); },
   SessionHeartbeat(state, payload, event) { setLatest(touch(state, payload.sessionId, event), 'heartbeatStatus', payload.status ?? null, event); },
   ResetOccurred(state, payload, event) {
     const session = touch(state, payload.sessionId, event);
@@ -88,6 +114,8 @@ export const sessionsProjection = projection<SessionsState>('sessions', 1, () =>
     }, key);
   },
   SubagentStarted(state, payload, event) {
-    Object.assign(touch(state, payload.sessionId, event), { role: 'subagent', parentSessionId: payload.parentSessionId });
+    const session = touch(state, payload.sessionId, event);
+    setLatest(session, 'role', 'subagent', event);
+    setLatest(session, 'parentSessionId', payload.parentSessionId, event);
   },
 });

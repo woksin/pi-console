@@ -1,5 +1,6 @@
 import { decode, type EventEnvelope, type EventLog, type SkipReason } from '@pi-console/contract';
 import { MemoryProjectionStore, type AnyProjection, type ProjectionRecord, type ProjectionStore } from './projection.ts';
+import { safeRecords } from './records.ts';
 
 interface Slot { projection: AnyProjection; state: unknown; position: number }
 
@@ -119,5 +120,5 @@ export class Projector {
 function restore(store: ProjectionStore, projection: AnyProjection): Slot {
   const record = store.load(projection.name);
   if (record?.version !== projection.version) return { projection, state: projection.initial(), position: 0 };
-  return { projection, state: record.state, position: record.position };
+  return { projection, state: safeRecords(record.state), position: record.position };
 }

@@ -1,5 +1,6 @@
 import type { EventEnvelope, EventPayloads } from '@pi-console/contract';
 import type { Projection } from './projection.ts';
+import { safeRecords } from './records.ts';
 
 type EventType = keyof EventPayloads;
 
@@ -11,9 +12,9 @@ export type Handlers<State> = {
 /** Builds a projection that dispatches each event to the handler for its type and ignores the rest. */
 export function projection<State>(name: string, version: number, initial: () => State, handlers: Handlers<State>): Projection<State> {
   return {
-    name, version, initial,
+    name, version, initial: () => safeRecords(initial()),
     apply(state, event) {
-      const handler = handlers[event.type as EventType] as ((state: State, payload: unknown, event: EventEnvelope) => void) | undefined;
+      const handler = (Object.hasOwn(handlers, event.type) ? handlers[event.type as EventType] : undefined) as ((state: State, payload: unknown, event: EventEnvelope) => void) | undefined;
       handler?.(state, event.payload, event);
       return state;
     },
@@ -31,6 +32,6 @@ export function insertSorted<Item>(items: Item[], item: Item, key: (item: Item) 
 
 /** Gets or creates the entry for `id` in a record-shaped state. */
 export function entry<Item>(items: Record<string, Item>, id: string, create: () => Item): Item {
-  items[id] ??= create();
+  if (!Object.hasOwn(items, id)) Object.defineProperty(items, id, { value: create(), writable: true, enumerable: true, configurable: true });
   return items[id];
 }

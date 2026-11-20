@@ -2,7 +2,11 @@ import type { IncomingMessage } from 'node:http';
 import { apiV1Schema as schema, validate } from '@pi-console/contract';
 import { needsYou } from './needs-you.ts';
 import { HttpError } from './security.ts';
+import { transcriptAround, v1Routes } from './v1-extras.ts';
 import type { Store } from './store.ts';
+import type { MockInfo } from './v1-extras.ts';
+
+export type { MockInfo };
 
 export function overview(store: Store) {
   const { sessions, repositories, requests, questions } = store.fixture;
@@ -19,13 +23,12 @@ export function overview(store: Store) {
   }));
   return { counts: { sessions: sessions.length, repositories: repositories.length, byStatus }, needsYou, sparkline };
 }
+const boundedInteger = (text: string, value: number, maximum: number): boolean => /^\d+$/.test(text) && Number.isSafeInteger(value) && value <= maximum;
 function queryInteger(url: URL, name: string, fallback: number, maximum: number) {
   const text = url.searchParams.get(name);
   if (text === null) return fallback;
   const value = Number(text);
-  if (!/^\d+$/.test(text)) throw new HttpError(400, `Invalid ${name}`);
-  if (!Number.isSafeInteger(value)) throw new HttpError(400, `Invalid ${name}`);
-  if (value > maximum) throw new HttpError(400, `Invalid ${name}`);
+  if (!boundedInteger(text, value, maximum)) throw new HttpError(400, `Invalid ${name}`);
   return value;
 }
 function sessionResponse(store: Store, url: URL) {
@@ -37,9 +40,11 @@ function sessionResponse(store: Store, url: URL) {
   return sessionDetail(store, session);
 }
 function transcriptResponse(store: Store, sessionId: string, url: URL) {
-  const after = queryInteger(url, 'after', 0, Number.MAX_SAFE_INTEGER);
   const limit = queryInteger(url, 'limit', 100, 1000);
   if (limit === 0) throw new HttpError(400, 'Invalid limit');
+  const around = url.searchParams.get('around');
+  if (around !== null) return transcriptAround(store, sessionId, around, limit);
+  const after = queryInteger(url, 'after', 0, Number.MAX_SAFE_INTEGER);
   const available = store.fixture.transcript.filter(entry => entry.sessionId === sessionId && entry.cursor > after);
   const items = available.slice(0, limit);
   return { items, nextCursor: items.at(-1)?.cursor ?? after, hasMore: available.length > items.length };
@@ -52,16 +57,21 @@ function sessionDetail(store: Store, session: Store['fixture']['sessions'][numbe
     subagents: store.fixture.sessions.filter(item => item.parentSessionId === session.id),
   };
 }
-export function query(store: Store, url: URL): unknown {
-  const path = url.pathname;
-  if (path === '/api/v1/overview') return overview(store);
-  if (path === '/api/v1/needs-you') return needsYou(store.fixture);
-  if (path.startsWith('/api/v1/sessions/')) return sessionResponse(store, url);
-  if (path === '/api/v1/requests') return requestList(store, url);
-  const collections = { '/api/v1/sessions': 'sessions', '/api/v1/questions': 'questions', '/api/v1/messages': 'messages', '/api/v1/jobs': 'jobs' } as const;
-  const collection = collections[path as keyof typeof collections];
-  if (collection) return { items: store.fixture[collection] };
-  throw new HttpError(404, 'Not found');
+type Route = (store: Store, info: MockInfo, url: URL) => unknown;
+const exactRoutes = new Map<string, Route>([
+  ['/api/v1/overview', store => overview(store)],
+  ['/api/v1/needs-you', store => needsYou(store.fixture)],
+  ['/api/v1/requests', (store, _info, url) => requestList(store, url)],
+  ['/api/v1/sessions', store => ({ items: store.fixture.sessions })],
+  ['/api/v1/questions', store => ({ items: store.fixture.questions })],
+  ['/api/v1/messages', store => ({ items: store.fixture.messages })],
+  ['/api/v1/jobs', store => ({ items: store.fixture.jobs })],
+]);
+export function query(store: Store, url: URL, info: MockInfo): unknown {
+  if (url.pathname.startsWith('/api/v1/sessions/')) return sessionResponse(store, url);
+  const route = exactRoutes.get(url.pathname) ?? v1Routes.get(url.pathname);
+  if (!route) throw new HttpError(404, 'Not found');
+  return route(store, info, url);
 }
 function requestList(store: Store, url: URL) {
   const filter = url.searchParams.get('filter') ?? 'all';

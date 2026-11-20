@@ -10,6 +10,8 @@ Design documents for pi-console (status: design, name provisional). Read in this
 6. [Milestones](milestones.md): M0 to M5 and the MVP slice list.
 7. [Research summary](research-summary.md): evidence behind the decisions.
 
+API: [v1](api/v1.md) (daemon, M1) and [v0](api/v0.md) (M0 mock).
+
 ## Architecture decision records
 
 | ADR | Title |
@@ -23,6 +25,7 @@ Design documents for pi-console (status: design, name provisional). Read in this
 | [0007](adr/0007-mcp-server-and-direct-adapter.md) | MCP server and Direct adapter |
 | [0008](adr/0008-relationship-to-intent-memory.md) | Relationship to the intent-memory store |
 | [0009](adr/0009-packaging-and-distribution.md) | Packaging and distribution |
+| [0010](adr/0010-daemon-http-plain-node-fallback.md) | Daemon HTTP on plain `node:http` (ADR-0002 fallback) |
 
 ## Conventions
 

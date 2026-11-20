@@ -58,13 +58,15 @@ export class ConsoleQueries {
 
   requests(filter: RequestFilter = 'all'): Request[] {
     return Object.values(this.#models().requests.requests)
+      .filter(request => request.createdAt !== '')
       .filter(request => filter === 'all' || request.status === filter)
       .map(toRequest)
       .sort(by(request => request.createdAt, request => request.id));
   }
 
   questions(): Question[] {
-    return Object.values(this.#models().questions.questions).map(toQuestion).sort(by(question => question.createdAt, question => question.id));
+    return Object.values(this.#models().questions.questions).filter(question => question.createdAt !== '')
+      .map(toQuestion).sort(by(question => question.createdAt, question => question.id));
   }
 
   /** Messages whose send has been seen; receipts that arrived first wait until it is. */
