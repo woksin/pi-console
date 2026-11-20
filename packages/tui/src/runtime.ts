@@ -5,6 +5,7 @@ import { throttled } from './refresh.ts';
 import { Store } from './store/store.ts';
 import { App } from './app.ts';
 import { launch } from './view/renderer.ts';
+import type { WindowedCollection } from '@pi-console/viewmodels';
 import { detectDepth, palette } from './view/theme.ts';
 
 export interface Runtime { store: Store; client: DaemonClient; stop: () => void }
@@ -24,6 +25,17 @@ export function connect(credentials: Credentials): Runtime {
   return { store, client, stop: () => { refresher.stop(); client.stop(); store.dispose(); } };
 }
 
+const paging = new Set<WindowedCollection>();
+
+/** Fetches the next older page of a windowed list once at a time; a no-op when the list is complete. */
+async function loadMore(runtime: Runtime, collection: WindowedCollection): Promise<void> {
+  const data = runtime.store.getSnapshot();
+  const progress = data.history[collection];
+  if (!data.bounded.includes(collection) || progress?.more === false || paging.has(collection)) return;
+  paging.add(collection);
+  try { runtime.store.mergePage(collection, await runtime.client.page(collection, progress?.cursor ?? null)); } catch { /* retried on the next scroll to the end */ } finally { paging.delete(collection); }
+}
+
 export interface RunOptions { env?: NodeJS.ProcessEnv }
 
 /** Starts the interactive TUI on the real terminal; resolves when the user quits. Exit code 0 on a clean quit. */
@@ -40,7 +52,8 @@ export async function run(options: RunOptions = {}): Promise<number> {
     const finish = () => { runtime.stop(); resolveRun(0); };
     const node = createElement(App, {
       store: runtime.store, endpoint: credentials.baseUrl, tokenSource: credentials.tokenSource, animate, clock,
-      loadTranscript: id => { void runtime.client.transcript(id).then(entries => { runtime.store.mergeTranscript(id, entries); }, () => { runtime.store.mergeTranscript(id, []); }); },
+      loadMore: collection => { void loadMore(runtime, collection); },
+      loadTranscript: id => { void runtime.client.session(id).then(detail => { runtime.store.mergeDetail(detail); }, () => undefined); void runtime.client.transcript(id).then(entries => { runtime.store.mergeTranscript(id, entries); }, () => { runtime.store.mergeTranscript(id, []); }); },
       onQuit: () => { handle?.destroy(); finish(); },
     });
     void launch(node, { fps: animate ? 20 : 8, onDestroy: finish }).then(started => { handle = started; });

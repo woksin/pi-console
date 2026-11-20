@@ -9,5 +9,7 @@ export { consoleProjections, readModels, type ReadModels } from './projections/i
 export type { RequestDerivation, RequestModel, RequestsState } from './projections/requests.ts';
 export { requestDerivation } from './requests/derivation.ts';
 export { needsYou, type AttentionItem, type AttentionOptions, type AttentionReason } from './attention/needs-you.ts';
-export { ConsoleQueries, requestFilters, type RequestFilter } from './queries/console-queries.ts';
+export { ConsoleQueries, requestFilters, type PageQuery, type RequestFilter } from './queries/console-queries.ts';
 export { deltaFor, type Delta } from './queries/deltas.ts';
+export { InvalidCursorError, type Page, type PageCollection, type PageOrder, type PageParams } from './queries/paging.ts';
+export { recentWindow, sessionCap } from './queries/screen-snapshot.ts';

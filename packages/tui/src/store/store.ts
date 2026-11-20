@@ -1,3 +1,4 @@
+import { mergeHistory, mergeSnapshot, type Totals, type WindowedCollection } from '@pi-console/viewmodels';
 import type { AttentionItem, Event, Job, Message, Question, Request, Reset, Session, SessionDetail, TranscriptEntry } from '@pi-console/contract';
 
 export const TRANSCRIPT_LIMIT = 2500;
@@ -10,6 +11,10 @@ export interface Connection { connected: boolean; error: string; lastSeq: number
 export interface Data {
   loaded: boolean; connection: Connection; repositories: number;
   sessions: Session[]; requests: Request[]; questions: Question[]; messages: Message[]; jobs: Job[]; resets: Reset[];
+  /** Full collection sizes from a bounded snapshot; `null` when the daemon sent complete lists. */
+  totals: Totals | null; bounded: readonly WindowedCollection[];
+  /** Paging progress per windowed collection once its history has been requested. */
+  history: Partial<Record<WindowedCollection, { cursor: string | null; more: boolean }>>;
   needsYou: AttentionItem[]; transcripts: ReadonlyMap<string, TranscriptEntry[]>;
   /** Ids of entities touched since the last render, used for the brief "just changed" highlight. */
   fresh: ReadonlyMap<string, number>;
@@ -22,7 +27,7 @@ export interface Data {
 export class Store {
   private data: Data = {
     loaded: false, connection: { connected: false, error: 'Connecting…', lastSeq: undefined, lastEventAt: undefined, eventsReceived: 0 }, repositories: 0,
-    sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], needsYou: [], transcripts: new Map(), fresh: new Map(),
+    sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], totals: null, bounded: [], history: {}, needsYou: [], transcripts: new Map(), fresh: new Map(),
   };
   private readonly listeners = new Set<() => void>();
   private timer: ReturnType<typeof setTimeout> | undefined;
@@ -42,7 +47,13 @@ export class Store {
     switch (event.type) {
       case 'snapshot': {
         const snapshot = event.payload;
-        this.data = { ...this.data, loaded: true, repositories: snapshot.repositories.length, sessions: snapshot.sessions, requests: snapshot.requests, questions: snapshot.questions, messages: snapshot.messages, jobs: snapshot.jobs, resets: snapshot.resets };
+        const bounded = snapshot.bounded ?? [];
+        const list = <T extends { id: string }>(name: WindowedCollection, previous: T[], incoming: T[]): T[] => (bounded.includes(name) ? mergeSnapshot(name, previous, incoming) : incoming);
+        this.data = {
+          ...this.data, loaded: true, repositories: snapshot.repositories.length, resets: snapshot.resets, totals: snapshot.totals ?? null, bounded, history: {},
+          sessions: list('sessions', this.data.sessions, snapshot.sessions), requests: list('requests', this.data.requests, snapshot.requests),
+          questions: list('questions', this.data.questions, snapshot.questions), messages: list('messages', this.data.messages, snapshot.messages), jobs: list('jobs', this.data.jobs, snapshot.jobs),
+        };
         break;
       }
       case 'session.updated': this.data = { ...this.data, sessions: upsert(this.data.sessions, event.payload) }; this.touch(event.payload.id); break;
@@ -69,6 +80,23 @@ export class Store {
 
   setNeedsYou(needsYou: AttentionItem[]): void {
     this.data = { ...this.data, needsYou };
+    this.schedule();
+  }
+
+  /** Merges one history page of a windowed collection (rows already held win) and records the paging progress and total. */
+  mergePage(collection: WindowedCollection, page: { items: readonly { id: string }[]; nextCursor: string | null; hasMore: boolean; total: number }): void {
+    const merged = mergeHistory(this.data[collection] as { id: string }[], page.items);
+    const totals = this.data.totals ? { ...this.data.totals, [collection]: page.total } : null;
+    this.data = { ...this.data, [collection]: merged, totals, history: { ...this.data.history, [collection]: { cursor: page.nextCursor, more: page.hasMore } } };
+    this.schedule();
+  }
+
+  /** Merges a session's complete detail: the snapshot only carries a window of its jobs, requests, questions and subagents. */
+  mergeDetail(detail: SessionDetail): void {
+    this.data = {
+      ...this.data, sessions: mergeHistory(this.data.sessions, [detail.session, ...detail.subagents]), requests: mergeHistory(this.data.requests, detail.requests),
+      questions: mergeHistory(this.data.questions, detail.questions), jobs: mergeHistory(this.data.jobs, detail.jobs), resets: mergeHistory(this.data.resets, detail.resets),
+    };
     this.schedule();
   }
 

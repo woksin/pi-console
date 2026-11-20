@@ -1,7 +1,7 @@
 import { questionsViewModel, wrap, pad, type QuestionRow } from '@pi-console/viewmodels';
 import { Lines, Panel, Row, h, type Line } from '../view/renderer.ts';
 import { blank, heading, selectable, split, statusParts, t, windowOf } from '../view/parts.ts';
-import type { Env, SectionView } from './common.ts';
+import { shownOf, type Env, type SectionView } from './common.ts';
 
 function detail(row: QuestionRow | undefined, width: number): Line[] {
   if (!row) return [[t('Select a question', 'faint')]];
@@ -29,7 +29,7 @@ export function questionsView(env: Env): SectionView {
     rowAt: index => ({ sessionId: rows[index]?.sessionId ?? null, groupId: null }),
     idAt: index => rows[index]?.id ?? null,
     render: () => h(Row, { grow: 1, gap: 1 },
-      h(Panel, { title: `Questions · ${String(model.open)} open · ${String(model.blocking)} blocking`, focused: true, grow: 1 }, h(Lines, { lines: lines.length ? lines : [[t(' No questions.', 'muted')]], grow: 1, onLineClick: index => { env.click(start + index); } })),
+      h(Panel, { title: `Questions · ${String(model.open)} open · ${String(model.blocking)} blocking${shownOf(env.data, 'questions', rows.length)}`, focused: true, grow: 1 }, h(Lines, { lines: lines.length ? lines : [[t(' No questions.', 'muted')]], grow: 1, onLineClick: index => { env.click(start + index); } })),
       ...(wide ? [h(Panel, { title: 'Question', width: 48 }, h(Lines, { lines: detail(rows[cursor], 48) }))] : [])),
   };
 }

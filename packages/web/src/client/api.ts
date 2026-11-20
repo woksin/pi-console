@@ -1,13 +1,23 @@
-import type { Event as ApiEvent, AttentionItem, NeedsYou, Transcript, TranscriptEntry } from '@pi-console/contract';
+import type { Event as ApiEvent, AttentionItem, Job, Message, NeedsYou, Question, Request, Session, SessionDetail, Transcript, TranscriptEntry } from '@pi-console/contract';
+import type { WindowedCollection } from '@pi-console/viewmodels';
 import type { HealthRecord } from '../state/state.ts';
 import { SseParser } from './sse.ts';
 
 export class Unauthorized extends Error {}
 
+export interface ListItems { sessions: Session; requests: Request; questions: Question; messages: Message; jobs: Job }
+/** One keyset page of a list endpoint (`limit` sent); `nextCursor` is opaque. */
+export interface ListPage<C extends WindowedCollection = WindowedCollection> { items: ListItems[C][]; nextCursor: string | null; hasMore: boolean; total: number }
+export interface PageParams { limit: number; after?: string | null; order?: 'asc' | 'desc' }
+
 export interface Api {
   needsYou(): Promise<AttentionItem[]>;
   health(): Promise<HealthRecord | null>;
   transcript(sessionId: string, after: number, limit: number): Promise<Transcript>;
+  /** A page of one list, in order; `null` when the daemon does not know the route. */
+  page<C extends WindowedCollection>(collection: C, params: PageParams): Promise<ListPage<C> | null>;
+  /** Complete per-session detail (its jobs, requests, questions, resets, subagents). */
+  session(id: string): Promise<SessionDetail | null>;
   /** Opens the event stream; resolves when the stream ends or throws on failure. */
   stream(lastEventId: number, signal: AbortSignal, onFrame: (event: ApiEvent | 'heartbeat') => void): Promise<void>;
 }
@@ -30,6 +40,12 @@ export function createApi(token: string, base = '', fetcher: typeof fetch = (...
       const page = await get<Transcript>(`/sessions/${encodeURIComponent(sessionId)}/transcript?after=${String(after)}&limit=${String(limit)}`);
       return page ?? { items: [] as TranscriptEntry[], nextCursor: after, hasMore: false };
     },
+    async page(collection, params) {
+      const query = new URLSearchParams({ limit: String(params.limit), order: params.order ?? 'asc' });
+      if (params.after) query.set('after', params.after);
+      return await get(`/${collection}?${query.toString()}`);
+    },
+    async session(id) { return await get<SessionDetail>(`/sessions/${encodeURIComponent(id)}`); },
     async stream(lastEventId, signal, onFrame) {
       const extra: Record<string, string> = { Accept: 'text/event-stream' };
       if (lastEventId > 0) extra['Last-Event-ID'] = String(lastEventId);

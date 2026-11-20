@@ -191,15 +191,28 @@ test('sources do not start before the gate opens and each starts only after the 
   const set = new SourceSet([entry('question-store', 40), entry('context-budget', 10)], { intervalMs: 20 });
   let open = false;
   set.start(() => open);
-  await wait(80);
-  assert.deepEqual(order, [], 'nothing before the gate');
-  assert.equal(set.backfillComplete, false);
-  open = true;
-  await wait(250);
-  assert.deepEqual(order.slice(0, 4), ['question-store:start', 'question-store:end', 'context-budget:start', 'context-budget:end']);
-  assert.equal(set.backfillComplete, true);
-  await set.stop();
+  try {
+    await wait(80);
+    assert.equal(order.length, 0, 'nothing before the gate');
+    assert.equal(set.backfillComplete, false);
+    open = true;
+    await waitFor(() => set.backfillComplete && order.includes('context-budget:end'), 5_000);
+    // The first source keeps polling on its own interval, so assert relative order, not the exact sequence.
+    assert.equal(order[0], 'question-store:start');
+    assert.ok(order.indexOf('question-store:end') < order.indexOf('context-budget:start'), order.join(','));
+    assert.ok(order.indexOf('context-budget:start') < order.indexOf('context-budget:end'), order.join(','));
+  } finally {
+    await set.stop();
+  }
 });
+
+async function waitFor(condition: () => boolean, timeoutMs: number): Promise<void> {
+  const deadline = performance.now() + timeoutMs;
+  while (!condition()) {
+    if (performance.now() > deadline) throw new Error('condition not reached in time');
+    await wait(10);
+  }
+}
 
 test('stopping during a long backfill returns within a second', async t => {
   const tree = buildAgentTree(agentRoot(t));

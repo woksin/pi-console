@@ -110,7 +110,8 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
   const queries = () => new ConsoleQueries(() => readModels(projector), now);
   const stream = new StreamHub({
     ...streamSequence(store, projector.position), ringSize: options.replayWindow, heartbeatMs: options.heartbeatMs,
-    maxBufferedBytes: options.maxBufferedBytes ?? 1024 * 1024, snapshot: () => queries().snapshot(now().toISOString()), now,
+    maxBufferedBytes: options.maxBufferedBytes ?? 1024 * 1024, snapshot: activeOnly => queries().screenSnapshot(now().toISOString(), activeOnly ? 0 : undefined), now,
+    warn: message => { process.stderr.write(`pi-console: ${message}\n`); },
   });
   const batcher = new DeltaBatcher(() => readModels(projector), delta => { stream.publish(delta.type, delta.payload); }, now);
   const stopDeltas = projector.onApplied(event => { batcher.add(event); });

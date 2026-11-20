@@ -12,8 +12,10 @@ export interface StreamOptions {
   heartbeatMs: number;
   /** A client whose unsent output exceeds this is disconnected and resumes from its last parsed id. */
   maxBufferedBytes: number;
-  /** Current read models as the v0 `snapshot` payload. */
-  snapshot: () => unknown;
+  /** Current screen state as the `snapshot` payload; `activeOnly` asks for the smallest window (active items alone). */
+  snapshot: (activeOnly?: boolean) => unknown;
+  /** Told when a snapshot had to degrade to active-only to fit the buffer cap. */
+  warn?: (message: string) => void;
   now?: () => Date;
 }
 
@@ -86,8 +88,17 @@ export class StreamHub {
 
   #catchUp(after: number | undefined): string[] {
     const earliest = this.#ring[0]?.seq ?? this.#seq + 1;
-    if (after === undefined || after < earliest - 1) return [this.#frame(this.#seq, 'snapshot', this.#options.snapshot()).text];
+    if (after === undefined || after < earliest - 1) return [this.#snapshotFrame()];
     return this.#ring.filter(frame => frame.seq > after).map(frame => frame.text);
+  }
+
+  /** One snapshot frame that fits the slow-client cap: above half of it, degrade once to the active-only window. */
+  #snapshotFrame(): string {
+    const limit = this.#options.maxBufferedBytes / 2;
+    const text = this.#frame(this.#seq, 'snapshot', this.#options.snapshot()).text;
+    if (Buffer.byteLength(text) <= limit) return text;
+    this.#options.warn?.(`snapshot frame of ${Buffer.byteLength(text)} bytes exceeds ${limit}; sending active items only`);
+    return this.#frame(this.#seq, 'snapshot', this.#options.snapshot(true)).text;
   }
 
   #frame(seq: number, type: string, payload: unknown): Frame {

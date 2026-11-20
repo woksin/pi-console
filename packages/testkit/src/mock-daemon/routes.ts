@@ -2,6 +2,7 @@ import type { IncomingMessage } from 'node:http';
 import { apiV1Schema as schema, validate } from '@pi-console/contract';
 import { needsYou } from './needs-you.ts';
 import { HttpError } from './security.ts';
+import { pageOf, type Collection } from './paging.ts';
 import { transcriptAround, v1Routes } from './v1-extras.ts';
 import type { Store } from './store.ts';
 import type { MockInfo } from './v1-extras.ts';
@@ -58,14 +59,15 @@ function sessionDetail(store: Store, session: Store['fixture']['sessions'][numbe
   };
 }
 type Route = (store: Store, info: MockInfo, url: URL) => unknown;
+const listing = (collection: Collection, rows: (store: Store, url: URL) => { id: string }[]): Route => (store, _info, url) => pageOf(collection, rows(store, url), url) ?? { items: rows(store, url) };
 const exactRoutes = new Map<string, Route>([
   ['/api/v1/overview', store => overview(store)],
   ['/api/v1/needs-you', store => needsYou(store.fixture)],
-  ['/api/v1/requests', (store, _info, url) => requestList(store, url)],
-  ['/api/v1/sessions', store => ({ items: store.fixture.sessions })],
-  ['/api/v1/questions', store => ({ items: store.fixture.questions })],
-  ['/api/v1/messages', store => ({ items: store.fixture.messages })],
-  ['/api/v1/jobs', store => ({ items: store.fixture.jobs })],
+  ['/api/v1/requests', listing('requests', requestRows)],
+  ['/api/v1/sessions', listing('sessions', store => store.fixture.sessions)],
+  ['/api/v1/questions', listing('questions', store => store.fixture.questions)],
+  ['/api/v1/messages', listing('messages', store => store.fixture.messages)],
+  ['/api/v1/jobs', listing('jobs', store => store.fixture.jobs)],
 ]);
 export function query(store: Store, url: URL, info: MockInfo): unknown {
   if (url.pathname.startsWith('/api/v1/sessions/')) return sessionResponse(store, url);
@@ -73,10 +75,10 @@ export function query(store: Store, url: URL, info: MockInfo): unknown {
   if (!route) throw new HttpError(404, 'Not found');
   return route(store, info, url);
 }
-function requestList(store: Store, url: URL) {
+function requestRows(store: Store, url: URL) {
   const filter = url.searchParams.get('filter') ?? 'all';
   if (!['all', 'unanswered', 'interrupted'].includes(filter)) throw new HttpError(400, 'Invalid filter');
-  return { items: store.fixture.requests.filter(request => filter === 'all' || request.status === filter) };
+  return store.fixture.requests.filter(request => filter === 'all' || request.status === filter);
 }
 async function readBody(req: IncomingMessage) {
   const chunks: Buffer[] = [];

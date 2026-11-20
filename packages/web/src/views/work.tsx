@@ -4,6 +4,7 @@ import type { ViewProps } from '../app/view.tsx';
 import { navigate, useListNav } from '../app/hooks.ts';
 import { sessionHref } from '../app/routes.ts';
 import { EmptyState, StatusBadge } from '../ui/primitives.tsx';
+import { LoadOlder } from './load-older.tsx';
 
 export function WorkView({ state, now }: ViewProps) {
   const view = useMemo(() => workViewModel({ jobs: state.jobs, sessions: state.sessions, now }), [state.jobs, state.sessions, now]);
@@ -21,6 +22,7 @@ export function WorkView({ state, now }: ViewProps) {
               <td><a href={sessionHref(row.sessionId)}>{row.session}</a></td><td className="mono muted">{row.exit}</td><td className="num tnum muted">{row.age} ago</td>
             </tr>))}</tbody>
         </table>)}
+      <LoadOlder state={state} collection="jobs" shown={view.rows.length} noun="jobs" />
     </div>
   );
 }

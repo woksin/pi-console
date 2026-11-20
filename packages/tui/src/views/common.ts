@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import type { TimeWindow } from '@pi-console/viewmodels';
+import type { TimeWindow, WindowedCollection } from '@pi-console/viewmodels';
 import type { Data } from '../store/store.ts';
 import type { UiState } from '../state/ui.ts';
 import type { TranscriptAnchor, TranscriptLayout } from '../state/transcript-window.ts';
@@ -34,3 +34,9 @@ export interface SectionView {
 
 export const noRow = { sessionId: null, groupId: null } as const;
 export const bySession = (data: Data) => new Map(data.sessions.map(session => [session.id, session]));
+
+/** " · N of T loaded" while a windowed list has older history on the daemon; empty when the list is complete. */
+export const shownOf = (data: Env['data'], collection: WindowedCollection, shown: number): string => {
+  const total = data.totals?.[collection];
+  return data.bounded.includes(collection) && total !== undefined && shown < total ? ` · ${String(shown)} of ${String(total)} loaded` : '';
+};

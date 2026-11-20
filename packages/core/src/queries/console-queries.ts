@@ -4,9 +4,14 @@ import { compareText } from '../projector/canonical.ts';
 import type { ReadModels } from '../projections/index.ts';
 import { graphOf } from './graph.ts';
 import { sparkline } from './sparkline.ts';
+import { jobEntries, messageEntries, questionEntries, referencedBy, requestEntries, sessionEntries } from './collections.ts';
+import { pageOf, type Page, type PageCollection, type PageParams } from './paging.ts';
+import { screenSnapshot } from './screen-snapshot.ts';
 import { repositoryName, resetsOf, toJob, toMessage, toQuestion, toRequest, toSession } from './entities.ts';
 
 export type RequestFilter = 'all' | 'unanswered' | 'interrupted';
+export interface PageQuery extends PageParams { filter?: RequestFilter; sessionId?: string }
+
 export const requestFilters: readonly RequestFilter[] = ['all', 'unanswered', 'interrupted'];
 
 /** Own-property lookup: ingested ids may be JavaScript prototype property names. */
@@ -139,6 +144,24 @@ export class ConsoleQueries {
       questions: this.questions(), messages: this.messages(), jobs: this.jobs(), resets: this.resets(),
       transcriptCursors: [], interventions: [],
     };
+  }
+
+  /** Bounded screen state for the stream: every active item plus the newest of each collection, with totals. */
+  screenSnapshot(generatedAt: string, recent?: number): Snapshot {
+    return screenSnapshot(this.#models(), this.needsYou(), generatedAt, recent);
+  }
+
+  /** One keyset page of a list, in the list's total order (or its exact reverse). */
+  page(collection: PageCollection, query: PageQuery): Page<Session | Request | Question | Message | Job> {
+    const models = this.#models();
+    const owned = (id: string | undefined) => (entry: { build: () => { sessionId: string } }) => id === undefined || entry.build().sessionId === id;
+    switch (collection) {
+      case 'sessions': return pageOf(collection, sessionEntries(models, this.needsYou()), query);
+      case 'requests': return pageOf(collection, requestEntries(models, referencedBy([]), query.filter).filter(owned(query.sessionId)), query);
+      case 'questions': return pageOf(collection, questionEntries(models, referencedBy([])).filter(owned(query.sessionId)), query);
+      case 'messages': return pageOf(collection, messageEntries(models).filter(entry => query.sessionId === undefined || [entry.build().fromSessionId, entry.build().toSessionId].includes(query.sessionId)), query);
+      case 'jobs': return pageOf(collection, jobEntries(models).filter(owned(query.sessionId)), query);
+    }
   }
 }
 

@@ -1,7 +1,7 @@
 import { workViewModel, pad } from '@pi-console/viewmodels';
 import { Lines, Panel, h, type Line } from '../view/renderer.ts';
 import { selectable, split, statusParts, t, windowOf } from '../view/parts.ts';
-import type { Env, SectionView } from './common.ts';
+import { shownOf, type Env, type SectionView } from './common.ts';
 
 export function workView(env: Env): SectionView {
   const model = workViewModel({ jobs: env.data.jobs, sessions: env.data.sessions, now: env.now });
@@ -16,7 +16,7 @@ export function workView(env: Env): SectionView {
     length: rows.length,
     rowAt: index => ({ sessionId: env.data.jobs.find(job => job.id === rows[index]?.id)?.sessionId ?? null, groupId: null }),
     idAt: index => rows[index]?.id ?? null,
-    render: () => h(Panel, { title: `Work · ${String(model.running)} running · ${String(model.failed)} failed`, focused: true, grow: 1 },
+    render: () => h(Panel, { title: `Work · ${String(model.running)} running · ${String(model.failed)} failed${shownOf(env.data, 'jobs', rows.length)}`, focused: true, grow: 1 },
       h(Lines, { lines: lines.length ? lines : [[t(' No jobs or phases.', 'muted')]], grow: 1, onLineClick: index => { env.click(start + index); } })),
   };
 }

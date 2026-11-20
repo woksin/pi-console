@@ -1,5 +1,6 @@
 import type { Event as ApiEvent } from '@pi-console/contract';
-import { applyEvent, mergeTranscript } from '../state/reduce.ts';
+import type { WindowedCollection } from '@pi-console/viewmodels';
+import { applyEvent, mergePage, mergeSessionDetail, mergeTranscript } from '../state/reduce.ts';
 import { emptyState, type Connection, type ConsoleState } from '../state/state.ts';
 import { Unauthorized, type Api } from './api.ts';
 
@@ -15,6 +16,9 @@ export const reconnectDelays = [400, 800, 1600, 3200, 5000] as const;
 export const staleAfterMs = 45_000;
 const refreshDebounceMs = 350;
 const historyPageSize = 1000;
+/** Rows per history page: newest first, so the first page mostly repeats the snapshot window and later pages go back in time. */
+const listPageSize = 500;
+const windowedNames: readonly WindowedCollection[] = ['sessions', 'requests', 'questions', 'messages', 'jobs'];
 /** Enough pages to reach the tail of any realistic session (the TUI pages the same way); only the newest entries are retained. */
 const maxHistoryPages = 60;
 
@@ -45,6 +49,9 @@ export class ConsoleStore {
   #isStopped(): boolean { return this.#stopped; }
   #takeRefreshAgain(): boolean { const again = this.#refreshAgain; this.#refreshAgain = false; return again; }
   readonly #loaded = new Map<string, Promise<void>>();
+  readonly #paging = new Map<WindowedCollection, Promise<void>>();
+  /** Bounded collections that gained an id the client had not seen: their snapshot total may have moved, so it is refetched. */
+  readonly #staleTotals = new Set<WindowedCollection>();
 
   constructor(api: Api, clock: Clock = realClock) {
     this.#api = api;
@@ -116,7 +123,9 @@ export class ConsoleStore {
     this.#attempt = 0;
     const now = this.#clock.now();
     if (frame === 'heartbeat') { this.#set({ ...this.#state, lastFrameAt: now, connection: 'live', received: this.#state.received + 1 }); return; }
-    this.#set({ ...applyEvent(this.#state, frame), lastFrameAt: now, connection: 'live', received: this.#state.received + 1 });
+    const next = applyEvent(this.#state, frame);
+    if (frame.type !== 'snapshot') for (const name of next.bounded) if (next[name].length > this.#state[name].length) this.#staleTotals.add(name);
+    this.#set({ ...next, lastFrameAt: now, connection: 'live', received: this.#state.received + 1 });
     this.#scheduleRefresh();
   }
 
@@ -137,6 +146,49 @@ export class ConsoleStore {
   async #fetchDerived(): Promise<void> {
     const [needsYou, health] = await Promise.all([this.#api.needsYou().catch(() => null), this.#api.health().catch(() => null)]);
     this.#set({ ...this.#state, needsYou: needsYou ?? this.#state.needsYou, health: health ?? this.#state.health });
+    await this.#refreshTotals();
+  }
+
+  /** A `limit=1` page carries the collection's current total; no separate endpoint, no client-side guessing. */
+  async #refreshTotals(): Promise<void> {
+    const names = windowedNames.filter(name => this.#staleTotals.delete(name));
+    await Promise.all(names.map(async name => {
+      const page = await this.#api.page(name, { limit: 1 }).catch(() => null);
+      const totals = this.#state.totals;
+      if (!page || !totals) { this.#staleTotals.add(name); return; }
+      this.#set({ ...this.#state, totals: { ...totals, [name]: page.total } });
+    }));
+  }
+
+  /** Loads the next page of a windowed collection's history (the first call starts from the newest); a no-op once it is complete or when the snapshot was not windowed. Concurrent calls share one request; a failed page is simply retried on the next call. */
+  loadMore(collection: WindowedCollection): Promise<void> {
+    const state = this.#state;
+    const progress = state.history[collection];
+    if (!state.bounded.includes(collection) || (progress && !progress.more)) return Promise.resolve();
+    const existing = this.#paging.get(collection);
+    if (existing) return existing;
+    const task = this.#fetchPage(collection, progress?.cursor ?? null).finally(() => { this.#paging.delete(collection); });
+    this.#paging.set(collection, task);
+    return task;
+  }
+
+  async #fetchPage(collection: WindowedCollection, after: string | null): Promise<void> {
+    const page = await this.#api.page(collection, { limit: listPageSize, order: 'desc', after }).catch(() => null);
+    if (page) this.#set(mergePage(this.#state, collection, page));
+  }
+
+  /** Loads a session's complete jobs, requests, questions and subagents once per gap (the snapshot only carries a window). */
+  loadSessionDetail(sessionId: string): Promise<void> {
+    if (this.#state.bounded.length === 0) return Promise.resolve();
+    const key = `detail:${sessionId}:${String(this.#state.gapCount)}`;
+    const existing = this.#loaded.get(key);
+    if (existing) return existing;
+    const task = this.#api.session(sessionId).catch(() => null).then(detail => {
+      if (detail) this.#set(mergeSessionDetail(this.#state, detail));
+      else this.#loaded.delete(key);
+    });
+    this.#loaded.set(key, task);
+    return task;
   }
   /** Loads a session's transcript history once per gap; the live tail arrives over the stream. History is paged to its end (only the newest entries are kept), or, with `focus`, until that entry is present. A failed load is forgotten so the next open retries it. */
   loadTranscript(sessionId: string, focus: string | null = null): Promise<void> {

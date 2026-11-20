@@ -13,7 +13,7 @@ test('docs/api/schemas/api.json is valid JSON and v1 only adds to or replaces v0
   assert.deepEqual(published, apiV0Schema);
   for (const name of Object.keys(apiV0Schema.$defs)) assert.ok(name in apiV1Schema.$defs, name);
   const added = Object.keys(apiV1Schema.$defs).filter(name => !(name in apiV0Schema.$defs));
-  assert.deepEqual(added.sort(), ['attentionItem', 'attentionReason', 'graph', 'graphEdge', 'graphNode', 'health', 'needsYou', 'requestEvidence', 'requestUncertainty', 'settings', 'sourcePointer', 'toolResult']);
+  assert.deepEqual(added.sort(), ['attentionItem', 'attentionReason', 'graph', 'graphEdge', 'graphNode', 'health', 'jobPage', 'messagePage', 'needsYou', 'questionPage', 'requestEvidence', 'requestPage', 'requestUncertainty', 'sessionPage', 'settings', 'sourcePointer', 'toolResult']);
 });
 
 test('a v0 request is valid under v1, and v1 requests accept the derivation fields', () => {
@@ -57,6 +57,16 @@ test('attention items carry an optional transcript pointer and one of the define
   validate({ items: [item, { ...item, reason: 'blocking-question', pointer: null }] }, schema, apiV1Schema);
   assert.throws(() => validate({ items: [{ ...item, reason: 'unproven-prompt' }] }, schema, apiV1Schema));
   assert.throws(() => validate({ items: [{ ...item, pointer: { sessionId: 's2' } }] }, schema, apiV1Schema));
+});
+
+test('a page carries items, an opaque cursor, hasMore and the total; a snapshot may add totals and bounded', () => {
+  validate({ items: [], nextCursor: null, hasMore: false, total: 0 }, apiV1Schema.$defs.jobPage, apiV1Schema);
+  validate({ items: [], nextCursor: 'abc', hasMore: true, total: 9 }, apiV1Schema.$defs.messagePage, apiV1Schema);
+  assert.throws(() => validate({ items: [], nextCursor: null, hasMore: false }, apiV1Schema.$defs.jobPage, apiV1Schema));
+  const snapshot = { version: 0, generatedAt: '2026-11-20T09:00:00Z', repositories: [], sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], transcriptCursors: [], interventions: [] };
+  validate(snapshot, apiV1Schema.$defs.snapshot, apiV1Schema);
+  validate({ ...snapshot, totals: { sessions: 1, requests: 2, questions: 3, messages: 4, jobs: 5, resets: 6 }, bounded: ['jobs'] }, apiV1Schema.$defs.snapshot, apiV1Schema);
+  assert.throws(() => validate({ ...snapshot, bounded: ['resets'] }, apiV1Schema.$defs.snapshot, apiV1Schema));
 });
 
 test('graph carries lane edges and no layout coordinates', () => {
