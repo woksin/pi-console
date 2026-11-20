@@ -9,7 +9,7 @@ npm run build -w @pi-console/web            # typecheck + vite build into packag
 npm run serve -w @pi-console/web -- --port 4780 --daemon 127.0.0.1:4777
 ```
 
-The server serves `dist/` and proxies `/api` to the daemon, so the browser only ever talks to one origin. Open the launch link the daemon prints (`http://127.0.0.1:4780/#/overview#token=…`), or open the page and paste the token.
+The server serves `dist/` and proxies `/api` to the daemon, so the browser only ever talks to one origin. Open `http://127.0.0.1:4780/#token=<token>` (the token is in `<data-dir>/token`; the fragment never reaches a server log and is removed from the address bar after it is read), or open the page and paste the token.
 
 Checks: `npm test -w @pi-console/web` (unit), `npm run e2e -w @pi-console/web` (Playwright against the real mock daemon and the built bundle), `npm run screenshots -w @pi-console/web` (regenerates `docs/media/web/`).
 
