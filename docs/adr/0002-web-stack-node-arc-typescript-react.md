@@ -1,6 +1,7 @@
 # ADR-0002: Web stack: Node daemon, Arc for TypeScript, React
 
 - Status: Accepted (subject to the M0 spike)
+- Amended by: [ADR-0010](0010-daemon-http-plain-node-fallback.md) (M1 daemon uses the plain-HTTP fallback)
 - Date: 2026-11-20
 
 ## Context

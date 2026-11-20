@@ -1,0 +1,137 @@
+import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
+import { join } from 'node:path';
+import { ConsoleQueries, consoleProjections, Projector, readModels, SqliteEventLog, SqliteProjectionStore } from '@pi-console/core';
+import type { DaemonConfig } from './config.ts';
+import { apiQuery, type ApiContext } from './api/routes.ts';
+import { noTranscripts, type TranscriptReader } from './api/transcripts.ts';
+import { healthOf, settingsOf } from './api/health.ts';
+import { apiPrefix, authenticate, checkSource, exchangeToken, HttpError, streamPath } from './security/guard.ts';
+import { Credentials, loadToken } from './security/token.ts';
+import { baseHeaders, sendError, sendJson } from './http/output.ts';
+import { serveStatic } from './http/static-files.ts';
+import { StreamHub } from './stream/stream-hub.ts';
+import { DeltaBatcher } from './stream/delta-batcher.ts';
+import { streamSequence } from './stream/stream-sequence.ts';
+import { SessionIngestion } from './ingestion/session-ingestion.ts';
+
+export interface DaemonOptions extends DaemonConfig {
+  /** Start polling session files. Specs that append to the log directly turn this off. */
+  ingest?: boolean;
+  transcripts?: TranscriptReader;
+  /** Unsent SSE bytes per client before it is disconnected (default 1 MiB). */
+  maxBufferedBytes?: number;
+  now?: () => Date;
+}
+
+export interface RunningDaemon {
+  port: number;
+  address: string;
+  log: SqliteEventLog;
+  stream: StreamHub;
+  ingestion: SessionIngestion;
+  /** Milliseconds from start until the API answered with caught-up read models. */
+  startupMs: number;
+  close(): Promise<void>;
+}
+
+interface Core { log: SqliteEventLog; store: SqliteProjectionStore; projector: Projector }
+
+async function openCore(dataDir: string): Promise<Core> {
+  const path = join(dataDir, 'console.db');
+  const log = new SqliteEventLog(path);
+  const store = new SqliteProjectionStore(path);
+  const projector = new Projector(log, consoleProjections(), store);
+  await projector.start();
+  return { log, store, projector };
+}
+
+function listen(server: Server, port: number): Promise<number> {
+  return new Promise((resolve, reject) => {
+    server.once('error', reject);
+    server.listen(port, '127.0.0.1', () => {
+      server.removeListener('error', reject);
+      resolve((server.address() as { port: number }).port);
+    });
+  });
+}
+
+type Handler = (req: IncomingMessage, res: ServerResponse) => Promise<void>;
+
+interface HandlerParts { port: () => number; credentials: Credentials; api: ApiContext; stream: StreamHub; webDist: string | undefined }
+
+function api(parts: HandlerParts, req: IncomingMessage, res: ServerResponse, url: URL): void {
+  authenticate(req, url, parts.credentials);
+  if (req.method === 'GET' && url.pathname === streamPath) {
+    const lastEventId = req.headers['last-event-id'];
+    parts.stream.connect(res, Array.isArray(lastEventId) ? lastEventId[0] : lastEventId);
+    return;
+  }
+  if (req.method !== 'GET') throw new HttpError(405, 'Method not allowed');
+  sendJson(res, 200, apiQuery(parts.api, url));
+}
+
+function handler(parts: HandlerParts): Handler {
+  return async (req, res) => {
+    baseHeaders(res);
+    try {
+      const url = new URL(req.url ?? '/', 'http://127.0.0.1');
+      checkSource(req, parts.port());
+      if (url.searchParams.has('token')) exchangeToken(req, res, url, parts.credentials);
+      else if (url.pathname === apiPrefix || url.pathname.startsWith(`${apiPrefix}/`)) api(parts, req, res, url);
+      else if (url.pathname.startsWith('/api/')) throw new HttpError(404, 'Not found');
+      else await serveStatic(parts.webDist, req, res, url);
+    } catch (error) {
+      sendError(res, error);
+    }
+  };
+}
+
+function createHttpServer(handle: Handler): Server {
+  const server = createServer({ maxHeaderSize: 16 * 1024 }, (req, res) => { void handle(req, res); });
+  server.requestTimeout = 10_000;
+  server.headersTimeout = 10_000;
+  return server;
+}
+
+/**
+ * Starts the read-only console daemon: event log and projector in `<dataDir>/console.db`, session ingestion in the
+ * background, and the API v1 over plain `node:http` on 127.0.0.1 (ADR-0002 addendum, docs/api/v1.md).
+ */
+export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon> {
+  const started = performance.now();
+  const startedAt = new Date().toISOString();
+  const now = options.now ?? (() => new Date());
+  const credentials = new Credentials(loadToken(options.dataDir));
+  const { log, store, projector } = await openCore(options.dataDir);
+  const queries = () => new ConsoleQueries(() => readModels(projector), now);
+  const stream = new StreamHub({
+    ...streamSequence(store, projector.position), ringSize: options.replayWindow, heartbeatMs: options.heartbeatMs,
+    maxBufferedBytes: options.maxBufferedBytes ?? 1024 * 1024, snapshot: () => queries().snapshot(now().toISOString()), now,
+  });
+  const batcher = new DeltaBatcher(() => readModels(projector), delta => { stream.publish(delta.type, delta.payload); }, now);
+  const stopDeltas = projector.onApplied(event => { batcher.add(event); });
+  const ingestion = new SessionIngestion(log, { roots: options.sessionRoots, backfillWindowDays: options.backfillWindowDays, pollMs: options.pollMs, now });
+  let port = options.port;
+  const apiContext: ApiContext = {
+    queries, transcripts: options.transcripts ?? noTranscripts,
+    health: () => healthOf({ startedAt, dataDir: options.dataDir, log, projector, stream, ingestion, batcher, backfillWindowDays: options.backfillWindowDays }),
+    settings: () => settingsOf(options, port),
+  };
+  const server = createHttpServer(handler({ port: () => port, credentials, api: apiContext, stream, webDist: options.webDist }));
+  port = await listen(server, options.port);
+  if (options.ingest !== false) ingestion.start();
+  return {
+    port, address: '127.0.0.1', log, stream, ingestion, startupMs: performance.now() - started,
+    async close() {
+      await ingestion.stop();
+      batcher.flush();
+      stream.close();
+      server.closeAllConnections();
+      await new Promise<void>(resolve => { server.close(() => { resolve(); }); });
+      stopDeltas();
+      projector.stop();
+      store.close();
+      log.close();
+    },
+  };
+}

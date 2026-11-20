@@ -13,5 +13,8 @@
     "@pi-console/contract": "*",
     "@pi-console/core": "*",
     "@pi-console/adapters": "*"
+  },
+  "devDependencies": {
+    "@pi-console/testkit": "*"
   }
 }

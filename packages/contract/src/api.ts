@@ -24,15 +24,52 @@ const attentionItem = strict({
   since: time, pointer: nullable(ref('sourcePointer')),
 });
 
+/** One fact behind a derived request state (docs/requests.md): which transcript entry or reset, and when. */
+const requestEvidence = strict({
+  kind: oneOf('prompt', 'answer', 'later-prompt', 'abort', 'reset', 'boundary', 'session-end', 'explicit'),
+  entryId: nullable(id), resetId: nullable(id), at: time,
+});
+
+/** Why a derived pairing is heuristic; `null` on the request when it is not. */
+const requestUncertainty = oneOf('shared-answer', 'reset-then-new-prompt');
+
+const v0Request = apiV0Schema.$defs.request as { properties: Record<string, Schema>; required: string[] };
+
+/** v0 `request` plus the optional derivation fields (docs/requests.md). Every v0 request stays valid. */
+const request = strict({
+  ...v0Request.properties,
+  withheld: bool, answerWithheld: bool, answerPossiblyUnseen: bool,
+  uncertain: bool, uncertainReason: nullable(ref('requestUncertainty')),
+  evidence: array(ref('requestEvidence')), derivedFrom: oneOf('session-jsonl', 'intent-memory'),
+  pointer: nullable(ref('sourcePointer')),
+}, v0Request.required);
+
 const graphNode = strict({ laneId: id, label: str, repositoryId: nullable(id) });
 const graphEdge = strict({ fromLane: id, toLane: id, kind: oneOf('message', 'spawn', 'waiting-on', 'barred-by'), lastAt: time, count: int });
 
+/** Daemon health: lag per source, projection queue depth, db size, backfill progress, memory (docs/api/v1.md). */
+const health = strict({
+  status: oneOf('ok', 'starting', 'degraded'), startedAt: time,
+  eventLog: strict({ lastSeq: int, dbBytes: int }),
+  projection: strict({ position: int, queueDepth: int, skipped: int }),
+  stream: strict({ seq: int, clients: int, retained: int }),
+  sources: array(strict({ source: id, files: int, lagBytes: int, lastPollAt: nullable(time) })),
+  backfill: strict({ complete: bool, windowDays: int }),
+  memory: strict({ rssBytes: int, heapUsedBytes: int }),
+});
+
+/** Read-only daemon settings. Never paths, tokens or other values that identify the machine beyond the port. */
+const settings = strict({
+  version: int, bind: oneOf('127.0.0.1'), port: int, backfillWindowDays: int, replayWindow: int, webBundle: bool,
+  sources: array(strict({ source: id, enabled: bool })),
+});
+
 /**
- * Additive API v1 definitions (the gaps listed in docs/milestones.md M1). `transcriptEntry` replaces the v0
- * definition of the same name; every other name is new. v1 = v0 plus these, nothing removed.
+ * Additive API v1 definitions (the gaps listed in docs/milestones.md M1). `transcriptEntry` and `request` replace the
+ * v0 definitions of the same name with optional fields added; every other name is new. v1 = v0 plus these, nothing removed.
  */
 const v1Defs: Record<string, Schema> = {
-  toolResult, sourcePointer, attentionReason, attentionItem, graphNode, graphEdge,
+  toolResult, sourcePointer, attentionReason, attentionItem, graphNode, graphEdge, requestEvidence, requestUncertainty, request,
   transcriptEntry: strict({
     id, cursor: int, sessionId: id, at: time,
     kind: oneOf('user', 'thinking', 'assistant.delta', 'assistant', 'tool.call', 'tool.result', 'diff', 'reset'),
@@ -41,6 +78,7 @@ const v1Defs: Record<string, Schema> = {
   }, ['id', 'cursor', 'sessionId', 'at', 'kind', 'text', 'toolCallId', 'resetId']),
   needsYou: strict({ items: array(ref('attentionItem')) }),
   graph: strict({ nodes: array(ref('graphNode')), edges: array(ref('graphEdge')) }),
+  health, settings,
 };
 
 export const apiV1Schema: JsonSchemaDocument = {

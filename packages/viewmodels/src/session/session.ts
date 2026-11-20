@@ -6,7 +6,9 @@ import { requestListViewModel, type RequestRow } from '../request-list/request-l
 
 export type LineKind = 'user' | 'thinking' | 'assistant' | 'tool' | 'result' | 'diff' | 'reset';
 export interface TranscriptLine {
-  id: string; cursor: number; time: string; kind: LineKind; glyph: string; label: string; color: ThemeToken; text: string;
+  id: string; cursor: number;
+  /** Stable identity of the logical line: the first delta's cursor for a streaming run, inherited by the final `assistant` entry that replaces it; the own cursor otherwise. Never changes as the line streams or finalises; ascending with transcript order. */
+  key: number; time: string; kind: LineKind; glyph: string; label: string; color: ThemeToken; text: string;
   streaming: boolean; requestId: string | null; resetId: string | null;
   tool: { name: string; args: string; resultKind: string; withheld: boolean; truncated: boolean } | null;
 }
@@ -35,27 +37,33 @@ function line(entry: TranscriptEntry, streaming = false): TranscriptLine {
   const { kind, glyph, label, color } = style[entry.kind];
   const result = entry.toolResult;
   return {
-    id: entry.id, cursor: entry.cursor, time: clock(entry.at), kind, glyph, label, color, streaming,
+    id: entry.id, cursor: entry.cursor, key: entry.cursor, time: clock(entry.at), kind, glyph, label, color, streaming,
     text: sanitize(result?.withheld ? '[withheld by the daemon: secret-shaped content]' : entry.text), requestId: entry.requestId ?? null, resetId: entry.resetId ?? null,
     tool: result ? { name: result.toolName, args: sanitize(result.argsExcerpt), resultKind: result.resultKind, withheld: result.withheld, truncated: result.truncated } : null,
   };
 }
 
-/** Collapses a run of streaming deltas into one line; a final `assistant` entry replaces the run. */
+/** Collapses a run of streaming deltas into one line. A run is consecutive deltas of the same request (`requestId`, null counting as its own request); any other entry, a different request, a reset or an abort ends it, and an ended run stays its own line keyed by its first delta. A final `assistant` entry replaces only a directly preceding run of the same request. */
 export function transcriptLines(entries: readonly TranscriptEntry[]): TranscriptLine[] {
   const lines: TranscriptLine[] = [];
   let run: TranscriptEntry[] = [];
   const flush = () => {
     if (run.length === 0) return;
     const last = run[run.length - 1];
-    lines.push({ ...line({ ...last, text: run.map(entry => entry.text).join('') }, true), id: run[0].id, cursor: last.cursor });
+    lines.push({ ...line({ ...last, text: run.map(entry => entry.text).join('') }, true), id: run[0].id, cursor: last.cursor, key: run[0].cursor });
     run = [];
   };
+  const sameRequest = (entry: TranscriptEntry) => (run[0].requestId ?? null) === (entry.requestId ?? null);
   for (const entry of entries) {
-    if (entry.kind === 'assistant.delta') { run.push(entry); continue; }
-    if (entry.kind === 'assistant') run = [];
+    if (entry.kind === 'assistant.delta') {
+      if (run.length > 0 && !sameRequest(entry)) flush();
+      run.push(entry);
+      continue;
+    }
+    const replaced = entry.kind === 'assistant' && run.length > 0 && sameRequest(entry) ? run[0].cursor : undefined;
+    if (replaced !== undefined) run = [];
     flush();
-    lines.push(line(entry));
+    lines.push(replaced === undefined ? line(entry) : { ...line(entry), key: replaced });
   }
   flush();
   return lines;
