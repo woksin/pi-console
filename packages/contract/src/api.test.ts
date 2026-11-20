@@ -16,13 +16,22 @@ test('docs/api/schemas/api.json is valid JSON and v1 only adds to or replaces v0
   assert.deepEqual(added.sort(), ['attentionItem', 'attentionReason', 'graph', 'graphEdge', 'graphNode', 'needsYou', 'sourcePointer', 'toolResult']);
 });
 
-test('v1 transcript entries carry requestId and structured tool results; v0 entries are not v1', () => {
+test('a v0 transcript entry is valid under v1 (additive)', () => {
+  validate(base, apiV1Schema.$defs.transcriptEntry, apiV1Schema);
+  validate(base, apiV0Schema.$defs.transcriptEntry, apiV0Schema);
+});
+
+test('v1 transcript entries accept requestId and structured tool results', () => {
   const entry = { ...base, requestId: 'r1', toolResult: null };
   validate(entry, apiV1Schema.$defs.transcriptEntry, apiV1Schema);
   validate({ ...entry, kind: 'tool.result', toolCallId: 'c1', toolResult }, apiV1Schema.$defs.transcriptEntry, apiV1Schema);
-  assert.throws(() => validate(base, apiV1Schema.$defs.transcriptEntry, apiV1Schema), /missing requestId/);
-  assert.throws(() => validate({ ...entry, toolResult: { ...toolResult, resultKind: 'video' } }, apiV1Schema.$defs.transcriptEntry, apiV1Schema));
-  validate(base, apiV0Schema.$defs.transcriptEntry, apiV0Schema);
+});
+
+test('v1 transcript entries reject wrong-typed new fields', () => {
+  const schema = apiV1Schema.$defs.transcriptEntry;
+  assert.throws(() => validate({ ...base, requestId: 5 }, schema, apiV1Schema));
+  assert.throws(() => validate({ ...base, toolResult: { ...toolResult, resultKind: 'video' } }, schema, apiV1Schema));
+  assert.throws(() => validate({ ...base, toolResult: 'x' }, schema, apiV1Schema));
 });
 
 test('attention items carry an optional transcript pointer and one of the defined reasons', () => {
