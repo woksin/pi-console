@@ -1,6 +1,5 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { SessionDetail, TranscriptEntry } from '@pi-console/contract';
 import { sessionViewModel, transcriptLines } from './session.ts';
 import { fixture, golden, now } from '../test-support.ts';
 
