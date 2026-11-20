@@ -7,7 +7,7 @@ export { pollSnapshot, type SnapshotOptions } from './snapshot.ts';
 export { AdapterSupervisor, type AdapterWorker, type SupervisorOptions } from './supervisor.ts';
 export { readTranscript, type TranscriptRequest, type TranscriptPage } from './transcript.ts';
 export { contextMapper } from './sources/context.ts';
-export { laneMapper, rosterMapper, laneMessageMapper } from './sources/lanes.ts';
+export { laneMapper, laneStatusMapper, rosterMapper, laneMessageMapper } from './sources/lanes.ts';
 export { orchMapper } from './sources/orch.ts';
 export { questionMapper } from './sources/questions.ts';
 export { issueMapper } from './sources/issues.ts';

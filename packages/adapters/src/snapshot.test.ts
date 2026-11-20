@@ -4,10 +4,23 @@ import { mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSy
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { pollSnapshot } from './snapshot.ts';
+import { laneStatusMapper } from './sources/lanes.ts';
 import { questionMapper } from './sources/questions.ts';
 import { MemoryLog } from './tailing/memory-log.test.ts';
 
 const fixture = JSON.parse(readFileSync(new URL('./fixtures/sources.json', import.meta.url), 'utf8')).question;
+
+test('a decode hook feeds non-JSON files to the mapper as one JSON line', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'pi-snapshot-'));
+  try {
+    const path = join(root, 'L0.status');
+    writeFileSync(path, 'working since 2026-11-20T09:00:00Z\n');
+    const log = new MemoryLog();
+    const decode = (bytes: Buffer) => JSON.stringify({ lane: 'L0', line: bytes.toString('utf8').trim() });
+    assert.equal(await pollSnapshot(log, 'lane-messages', path, laneStatusMapper, { roots: [root], decode }), 1);
+    assert.equal(log.rows[0].type, 'LaneStatusChanged');
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
 
 test('snapshots observe atomic rename and same-size rewrite, resume and redact before persistence', async () => {
   const root = mkdtempSync(join(tmpdir(), 'pi-snapshot-'));

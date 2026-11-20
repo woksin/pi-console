@@ -5,7 +5,13 @@ import { mapLine, type Mapper } from './tailing/events.ts';
 import { sourceFile } from './tailing/paths.ts';
 import type { Scanner } from './tailing/redact.ts';
 
-export interface SnapshotOptions { roots: readonly string[]; scanner?: Scanner; maxBytes?: number }
+export interface SnapshotOptions {
+  roots: readonly string[];
+  scanner?: Scanner;
+  maxBytes?: number;
+  /** Turns the file bytes into the JSON line the mapper reads, for files that are not JSON (default: the bytes as text). */
+  decode?: (bytes: Buffer, path: string) => string;
+}
 
 /** One descriptor and a content hash: atomic rename and same-size rewrites are both observed. */
 export async function pollSnapshot(log: EventLog, source: string, candidate: string, mapper: Mapper, options: SnapshotOptions): Promise<number> {
@@ -20,7 +26,7 @@ export async function pollSnapshot(log: EventLog, source: string, candidate: str
     const saved = (await log.checkpoints(source)).find(item => item.path === path && item.identity === identity);
     if (saved?.headHash === hash) return 0;
     const checkpoint: SourceCheckpoint = { source, path, identity, generation: (saved?.generation ?? -1) + 1, offset: bytes.length, size: bytes.length, mtimeMs: stat.mtimeMs, headHash: hash };
-    const events = mapLine(bytes.toString('utf8'), 0, { checkpoint, mapper, scanner: options.scanner });
+    const events = mapLine(options.decode ? options.decode(bytes, path) : bytes.toString('utf8'), 0, { checkpoint, mapper, scanner: options.scanner });
     return (await log.append(events, [checkpoint])).appended;
   } finally { closeSync(fd); }
 }

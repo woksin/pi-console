@@ -1,10 +1,10 @@
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
-import { appendFileSync, chmodSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { EventEnvelope } from '@pi-console/contract';
-import { buildAgentTree, call, type AgentTree } from '@pi-console/testkit';
+import { buildAgentTree, call, writeLaneStatus, type AgentTree } from '@pi-console/testkit';
 import { loadConfig, type ConfigOverrides } from '../config.ts';
 import { startDaemon, type RunningDaemon } from '../daemon.ts';
 import { loadToken } from '../security/token.ts';
@@ -26,7 +26,8 @@ function fixture(t: TestContext, secrets = false): { tree: AgentTree; directory:
 }
 
 async function launch(t: TestContext, tree: AgentTree, directory: string, overrides: ConfigOverrides = {}): Promise<Running> {
-  const config = loadConfig(directory, { port: 0, agentRoot: tree.root, orchRoot: tree.orchRoot, pollMs: 20, sourcePollMs: 20, ...overrides });
+  const config = loadConfig(directory, { port: 0, agentRoot: tree.root, orchRoot: tree.orchRoot, lanesRoot: tree.lanesRoot, laneStatusDir: tree.laneStatusDir, pollMs: 20, ...overrides });
+  config.sourcePollMs = 20; // Below the configured minimum: a spec-only speed-up, set after validation.
   const daemon = await startDaemon(config);
   const token = loadToken(directory);
   const get = async (path: string) => (await call(daemon.port, `/api/v1/${path}`, { headers: { Authorization: `Bearer ${token}` } })).body;
@@ -217,4 +218,51 @@ test('deny-listed names are never read, even when the agent root points at them'
   const running = await launch(t, tree, directory, { agentRoot: denied, sessionRoots: [] });
   assert.equal((await running.get('questions')).items.length, 0);
   assert.equal((await events(running.daemon)).filter(event => event.subject.startsWith('question:')).length, 0);
+});
+
+const lifecycle = (found: EventEnvelope[]) => found.filter(event => event.source === 'lane-messages' && event.subject.startsWith('lane:')).map(event => [event.subject, event.type, (event.payload as { status?: string }).status ?? null]);
+
+const expectedLifecycle = [['lane:L0', 'LaneRegistered', null], ['lane:L2', 'LaneRegistered', null], ['lane:L0', 'LaneStatusChanged', 'working'], ['lane:L1', 'LaneStatusChanged', 'waiting-on'], ['lane:L2', 'LaneClosed', null]];
+const hasLifecycle = (found: EventEnvelope[], expected: (string | null)[]) => lifecycle(found).some(item => JSON.stringify(item) === JSON.stringify(expected));
+
+/** Every file under the directories with its content and mtime, to prove nothing was written. */
+function treeState(...directories: string[]): [string, number, string][] {
+  const walk = (directory: string): string[] => readdirSync(directory, { withFileTypes: true }).flatMap(entry => (entry.isDirectory() ? walk(join(directory, entry.name)) : [join(directory, entry.name)]));
+  return directories.flatMap(walk).sort().map(file => [file, statSync(file).mtimeMs, readFileSync(file, 'utf8')]);
+}
+
+test('real-format lane files register, change status and close lanes, a bad status file only warns, and nothing is written', async t => {
+  const { tree, directory } = fixture(t);
+  writeFileSync(join(tree.laneStatusDir, 'BAD.status'), 'napping with secret-text\n');
+  const before = treeState(tree.lanesRoot, tree.laneStatusDir);
+  const running = await launch(t, tree, directory);
+  const found = await until(async () => events(running.daemon), all => expectedLifecycle.every(expected => hasLifecycle(all, expected)));
+  for (const expected of expectedLifecycle) assert.ok(hasLifecycle(found, expected), JSON.stringify(expected));
+  const warnings = found.filter(event => event.type === 'SourceSchemaUnknown' && event.source === 'lane-messages');
+  assert.equal(warnings.length, 1, 'the bad status file is one body-free warning');
+  assert.ok(!JSON.stringify(warnings).includes('secret-text'));
+  const health = await running.get('health');
+  assert.equal(health.sources.find((source: { source: string }) => source.source === 'lane-messages').errors, 0);
+  const nodes = (await running.get('graph')).nodes as { laneId: string; repositoryId: string | null }[];
+  assert.equal(nodes.find(node => node.laneId === 'L0')?.repositoryId, 'example/console', 'the roster did not erase the repository');
+  writeLaneStatus(tree, 'L1', 'barred-by "order-7" until 2026-11-20T10:00:00.000Z');
+  const changed = await until(async () => events(running.daemon), all => lifecycle(all).some(item => item[2] === 'barred-by'));
+  assert.ok(lifecycle(changed).some(item => item[0] === 'lane:L1' && item[2] === 'barred-by'));
+  const after = treeState(tree.lanesRoot, tree.laneStatusDir);
+  assert.deepEqual(after.filter(([file]) => !file.endsWith('L1.status')), before.filter(([file]) => !file.endsWith('L1.status')), 'no source file was touched');
+});
+
+test('a session directory that cannot be read does not hold the other sources back', async t => {
+  const { tree, directory } = fixture(t);
+  const outside = mkdtempSync(join(tmpdir(), 'pi-console-blocked-'));
+  const blocked = join(outside, 'sessions');
+  mkdirSync(blocked);
+  t.after(() => { chmodSync(blocked, 0o700); rmSync(outside, { recursive: true, force: true }); });
+  const unreadable = process.platform !== 'win32' && process.getuid?.() !== 0;
+  if (!unreadable) { t.skip('needs a non-root POSIX user'); return; }
+  chmodSync(blocked, 0o000);
+  const running = await launch(t, tree, directory, { sessionRoots: [blocked] });
+  assert.equal((await running.get('health')).backfill.complete, true);
+  const found = await until(async () => events(running.daemon), all => lifecycle(all).length > 0);
+  assert.ok(lifecycle(found).length > 0, 'lane-messages still delivered');
 });

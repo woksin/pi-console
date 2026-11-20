@@ -36,7 +36,7 @@ export class SessionIngestion {
     return { ...this.#status };
   }
 
-  /** True once every file in the backfill window has been read once (trivially true when ingestion never started). */
+  /** True once a first pass has finished, even a failed one (trivially true when ingestion never started). */
   get backfillComplete(): boolean {
     return !this.#started || this.#polls > 0;
   }
@@ -58,10 +58,13 @@ export class SessionIngestion {
   async poll(): Promise<void> {
     const now = (this.#options.now ?? (() => new Date()))();
     const since = now.getTime() - this.#options.backfillWindowDays * 86_400_000;
-    const paths = this.#options.roots.filter(root => existsSync(root)).flatMap(root => discover(root, since));
     let lagBytes = 0;
-    for (const path of paths) lagBytes += await this.#pollFile(path);
-    this.#polls++;
+    try {
+      const paths = this.#options.roots.filter(root => existsSync(root)).flatMap(root => discover(root, since));
+      for (const path of paths) lagBytes += await this.#pollFile(path);
+    } finally {
+      this.#polls++; // An unreadable directory is a finished attempt too: it must not hold the other sources back forever.
+    }
     this.#status = { source: 'session-jsonl', files: this.#tailers.size, lagBytes, lastPollAt: now.toISOString() };
   }
 

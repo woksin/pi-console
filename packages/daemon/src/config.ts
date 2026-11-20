@@ -15,6 +15,10 @@ export interface DaemonConfig {
   agentRoot: string;
   /** The orch directory (`~/.pi/orch`, a sibling of the agent directory) with heartbeats and the message inbox. */
   orchRoot: string;
+  /** The lanes root with `lanes.json` and `.state/roster` (where `LANES_DIR` points). No default exists: absent means no registry feed. */
+  lanesRoot: string | undefined;
+  /** Directory with the `<LANE>.status` files (`<agentRoot>/lane-status` unless set). Read-only. */
+  laneStatusDir: string;
   /** Directories with pi session JSONL files. Derived from `agentRoot` unless set explicitly. */
   sessionRoots: string[];
   /** Per-source switches for the non-session sources. Session ingestion is on whenever there are session roots. */
@@ -34,12 +38,13 @@ export function defaultConfig(dataDir = defaultDataDir()): DaemonConfig {
   const agentRoot = join(homedir(), '.pi', 'agent');
   return {
     dataDir, port: 4777, webDist: undefined, agentRoot, orchRoot: join(homedir(), '.pi', 'orch'),
+    lanesRoot: undefined, laneStatusDir: join(agentRoot, 'lane-status'),
     sessionRoots: [join(agentRoot, 'sessions')], sources: Object.fromEntries(sourceIds.map(id => [id, true])) as Record<SourceId, boolean>,
     backfillWindowDays: 14, replayWindow: 10_000, heartbeatMs: 15_000, pollMs: 1_000, sourcePollMs: 2_000,
   };
 }
 
-type FileConfig = Partial<Pick<DaemonConfig, 'port' | 'webDist' | 'agentRoot' | 'orchRoot' | 'sessionRoots' | 'sources' | 'backfillWindowDays' | 'sourcePollMs'>>;
+type FileConfig = Partial<Pick<DaemonConfig, 'port' | 'webDist' | 'agentRoot' | 'orchRoot' | 'lanesRoot' | 'laneStatusDir' | 'sessionRoots' | 'sources' | 'backfillWindowDays' | 'sourcePollMs'>>;
 
 const isObject = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
 
@@ -64,6 +69,8 @@ const fields: Record<keyof FileConfig, Field> = {
   webDist: { valid: value => typeof value === 'string', expected: 'a path', read: (value: string, dataDir) => pathIn(dataDir, value) },
   agentRoot: { valid: value => typeof value === 'string', expected: 'a path', read: (value: string, dataDir) => pathIn(dataDir, value) },
   orchRoot: { valid: value => typeof value === 'string', expected: 'a path', read: (value: string, dataDir) => pathIn(dataDir, value) },
+  lanesRoot: { valid: value => typeof value === 'string', expected: 'a path', read: (value: string, dataDir) => pathIn(dataDir, value) },
+  laneStatusDir: { valid: value => typeof value === 'string', expected: 'a path', read: (value: string, dataDir) => pathIn(dataDir, value) },
   sources: { valid: sourceSwitches, expected: `an object of booleans keyed by ${sourceIds.join(', ')}`, read: (value: Partial<Record<SourceId, boolean>>) => value },
   sourcePollMs: { valid: value => boundedInteger(value, 60_000) && value >= 250, expected: 'an integer 250-60000', read: (value: number) => value },
   sessionRoots: { valid: pathList, expected: 'a list of paths', read: (value: string[], dataDir) => value.map(root => pathIn(dataDir, root)) },
@@ -79,14 +86,27 @@ function checked(file: Record<string, unknown>, dataDir: string): Record<string,
   return config;
 }
 
+/** Flags go through the same validators as the file, so a flag cannot set a value the file would refuse. */
+function checkedOverrides(overrides: ConfigOverrides): void {
+  for (const [name, field] of Object.entries(fields)) {
+    const value = (overrides as Record<string, unknown>)[name];
+    if (value !== undefined && !field.valid(value)) throw new Error(`--${name.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`)} must be ${field.expected}`);
+  }
+}
+
 /** Defaults, then `<dataDir>/config.json` when present, then explicit overrides (command-line flags). */
 export function loadConfig(dataDir: string, overrides: ConfigOverrides = {}): DaemonConfig {
   const path = join(dataDir, 'config.json');
   const parsed: unknown = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : {};
   if (!isObject(parsed)) throw new Error('config.json must be a JSON object');
+  checkedOverrides(overrides);
   const defaults = defaultConfig(dataDir);
   const file = checked(parsed, dataDir) as FileConfig;
   const merged = { ...defaults, ...file, ...overrides, sources: { ...defaults.sources, ...file.sources, ...overrides.sources } };
-  const explicitRoots = file.sessionRoots !== undefined || overrides.sessionRoots !== undefined;
-  return explicitRoots ? merged : { ...merged, sessionRoots: [join(merged.agentRoot, 'sessions')] };
+  const explicit = (name: keyof FileConfig) => file[name] !== undefined || overrides[name] !== undefined;
+  const derived = {
+    ...(explicit('sessionRoots') ? {} : { sessionRoots: [join(merged.agentRoot, 'sessions')] }),
+    ...(explicit('laneStatusDir') ? {} : { laneStatusDir: join(merged.agentRoot, 'lane-status') }),
+  };
+  return { ...merged, ...derived };
 }

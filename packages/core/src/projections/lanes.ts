@@ -24,10 +24,12 @@ const blank = (id: string, at: string) => (): LaneModel => ({
   registeredAt: at, statusAt: '', statusKey: '', issues: [],
 });
 
-export const lanesProjection = projection<LanesState>('lanes', 2, () => ({ lanes: {} }), {
+export const lanesProjection = projection<LanesState>('lanes', 3, () => ({ lanes: {} }), {
   LaneRegistered(state, payload, event) {
     markDirty(state, 'lanes', payload.laneId);
-    Object.assign(entry(state.lanes, payload.laneId, blank(payload.laneId, event.occurredAt)), { name: payload.name, repositoryId: payload.repositoryId });
+    const lane = entry(state.lanes, payload.laneId, blank(payload.laneId, event.occurredAt));
+    // A roster entry knows no repository: it must not erase the one the lane registry gave.
+    Object.assign(lane, { name: payload.name, repositoryId: payload.repositoryId ?? lane.repositoryId });
   },
   LaneStatusChanged(state, payload, event) {
     markDirty(state, 'lanes', payload.laneId);
