@@ -11,5 +11,8 @@
   },
   "dependencies": {
     "@pi-console/contract": "*"
+  },
+  "devDependencies": {
+    "@pi-console/testkit": "*"
   }
 }

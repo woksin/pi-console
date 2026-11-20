@@ -1,0 +1,166 @@
+{
+  "rows": [
+    {
+      "id": "q1",
+      "sessionId": "s1",
+      "session": "aurora coordinator",
+      "kind": "question",
+      "urgent": true,
+      "blocking": true,
+      "status": {
+        "status": "needs-you",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Needs you"
+      },
+      "text": "Which retention window should the cache use?",
+      "options": [
+        "Keep 14 days",
+        "Keep 30 days"
+      ],
+      "age": "25m"
+    },
+    {
+      "id": "q3",
+      "sessionId": "s3",
+      "session": "aurora review",
+      "kind": "approval",
+      "urgent": true,
+      "blocking": true,
+      "status": {
+        "status": "needs-you",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Needs you"
+      },
+      "text": "Which retention window should the cache use?",
+      "options": [
+        "Keep 14 days",
+        "Keep 30 days"
+      ],
+      "age": "24m"
+    },
+    {
+      "id": "q5",
+      "sessionId": "s5",
+      "session": "aurora scout",
+      "kind": "question",
+      "urgent": true,
+      "blocking": true,
+      "status": {
+        "status": "needs-you",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Needs you"
+      },
+      "text": "Which retention window should the cache use?",
+      "options": [
+        "Keep 14 days",
+        "Keep 30 days"
+      ],
+      "age": "24m"
+    },
+    {
+      "id": "q7",
+      "sessionId": "s7",
+      "session": "harbor implementation",
+      "kind": "approval",
+      "urgent": true,
+      "blocking": true,
+      "status": {
+        "status": "needs-you",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Needs you"
+      },
+      "text": "Which retention window should the cache use?",
+      "options": [
+        "Keep 14 days",
+        "Keep 30 days"
+      ],
+      "age": "24m"
+    },
+    {
+      "id": "q2",
+      "sessionId": "s2",
+      "session": "aurora implementation",
+      "kind": "decision",
+      "urgent": false,
+      "blocking": false,
+      "status": {
+        "status": "open",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Open"
+      },
+      "text": "May the synthetic migration proceed?",
+      "options": [
+        "Keep 14 days",
+        "Keep 30 days"
+      ],
+      "age": "24m"
+    },
+    {
+      "id": "q4",
+      "sessionId": "s4",
+      "session": "aurora explore",
+      "kind": "fyi",
+      "urgent": false,
+      "blocking": false,
+      "status": {
+        "status": "open",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Open"
+      },
+      "text": "May the synthetic migration proceed?",
+      "options": [
+        "Keep 14 days",
+        "Keep 30 days"
+      ],
+      "age": "24m"
+    },
+    {
+      "id": "q6",
+      "sessionId": "s6",
+      "session": "harbor coordinator",
+      "kind": "decision",
+      "urgent": false,
+      "blocking": false,
+      "status": {
+        "status": "open",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Open"
+      },
+      "text": "May the synthetic migration proceed?",
+      "options": [
+        "Keep 14 days",
+        "Keep 30 days"
+      ],
+      "age": "24m"
+    },
+    {
+      "id": "q8",
+      "sessionId": "s8",
+      "session": "harbor review",
+      "kind": "fyi",
+      "urgent": false,
+      "blocking": false,
+      "status": {
+        "status": "open",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Open"
+      },
+      "text": "May the synthetic migration proceed?",
+      "options": [
+        "Keep 14 days",
+        "Keep 30 days"
+      ],
+      "age": "24m"
+    }
+  ],
+  "open": 8,
+  "blocking": 4
+}

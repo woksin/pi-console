@@ -1,0 +1,685 @@
+{
+  "id": "s2",
+  "title": "aurora / L192 / aurora implementation",
+  "status": {
+    "status": "needs-you",
+    "glyph": "!",
+    "color": "amber",
+    "label": "Needs you"
+  },
+  "branch": "spike/aurora-1",
+  "cwd": "/synthetic/workspaces/aurora",
+  "model": "synthetic-fast",
+  "role": "main",
+  "age": "2m",
+  "cost": "$8.73",
+  "context": {
+    "percent": 51,
+    "pressure": "calm",
+    "spark": "█▅▄▆▇▂▄▄▄▄▄▆▇▅▂▅▄▇▇▆▆▅▆▅"
+  },
+  "requests": [
+    {
+      "id": "r3",
+      "sessionId": "s2",
+      "session": "aurora implementation",
+      "originLabel": "Unproven origin",
+      "originEvidence": "No positive origin evidence",
+      "status": {
+        "status": "unanswered",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Unanswered"
+      },
+      "text": "Check whether the retry policy handles partial results.",
+      "age": "24m",
+      "answer": null,
+      "partial": null,
+      "resetId": null
+    },
+    {
+      "id": "r2",
+      "sessionId": "s2",
+      "session": "aurora implementation",
+      "originLabel": "Initial prompt",
+      "originEvidence": "Synthetic non-relaunch session-start marker",
+      "status": {
+        "status": "open",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Open"
+      },
+      "text": "Write the handoff and preserve the pending decisions.",
+      "age": "24m",
+      "answer": null,
+      "partial": null,
+      "resetId": null
+    },
+    {
+      "id": "r1",
+      "sessionId": "s2",
+      "session": "aurora implementation",
+      "originLabel": "Human request",
+      "originEvidence": "Explicit synthetic user-input marker",
+      "status": {
+        "status": "interrupted",
+        "glyph": "/",
+        "color": "pink",
+        "label": "Interrupted"
+      },
+      "text": "Compare the queue strategies and explain the trade-offs.",
+      "age": "25m",
+      "answer": null,
+      "partial": {
+        "text": "The first option bounds memory, but the comparison",
+        "age": "24m"
+      },
+      "resetId": "reset1"
+    }
+  ],
+  "questions": [
+    {
+      "id": "q2",
+      "text": "May the synthetic migration proceed?",
+      "blocking": false,
+      "status": "open"
+    }
+  ],
+  "jobs": [
+    {
+      "id": "j2",
+      "name": "unit checks",
+      "kind": "phase",
+      "status": {
+        "status": "queued",
+        "glyph": "·",
+        "color": "muted",
+        "label": "Unknown"
+      },
+      "exit": ""
+    }
+  ],
+  "resets": [
+    {
+      "id": "reset1",
+      "kind": "handoff",
+      "time": "09:00:18",
+      "carried": 2,
+      "interrupted": 1
+    }
+  ],
+  "subagents": [
+    {
+      "id": "s4",
+      "name": "aurora explore",
+      "status": {
+        "status": "waiting",
+        "glyph": "~",
+        "color": "violet",
+        "label": "Waiting"
+      }
+    },
+    {
+      "id": "s5",
+      "name": "aurora scout",
+      "status": {
+        "status": "idle",
+        "glyph": "–",
+        "color": "faint",
+        "label": "Idle"
+      }
+    }
+  ],
+  "transcript": [
+    {
+      "id": "entry1",
+      "cursor": 1,
+      "time": "09:00:00",
+      "kind": "user",
+      "glyph": "▍",
+      "label": "you",
+      "color": "blue",
+      "streaming": false,
+      "text": "Inspect the synthetic queue and propose a bounded retry policy.",
+      "requestId": "r1",
+      "resetId": null,
+      "tool": null
+    },
+    {
+      "id": "entry2",
+      "cursor": 2,
+      "time": "09:00:00",
+      "kind": "thinking",
+      "glyph": "◌",
+      "label": "thinking",
+      "color": "faint",
+      "streaming": false,
+      "text": "I will compare the checkpoint boundaries before changing the queue.",
+      "requestId": null,
+      "resetId": null,
+      "tool": null
+    },
+    {
+      "id": "entry3",
+      "cursor": 4,
+      "time": "09:00:00",
+      "kind": "assistant",
+      "glyph": "●",
+      "label": "assistant",
+      "color": "text",
+      "streaming": true,
+      "text": "A bounded queue keeps the retry budget predictable. ",
+      "requestId": null,
+      "resetId": null,
+      "tool": null
+    },
+    {
+      "id": "entry5",
+      "cursor": 5,
+      "time": "09:00:00",
+      "kind": "tool",
+      "glyph": "⚙",
+      "label": "tool",
+      "color": "cyan",
+      "streaming": false,
+      "text": "read src/queue.ts",
+      "requestId": null,
+      "resetId": null,
+      "tool": {
+        "name": "read",
+        "args": "src/queue.ts",
+        "resultKind": "none",
+        "withheld": false,
+        "truncated": false
+      }
+    },
+    {
+      "id": "entry6",
+      "cursor": 6,
+      "time": "09:00:00",
+      "kind": "result",
+      "glyph": "↳",
+      "label": "result",
+      "color": "muted",
+      "streaming": false,
+      "text": "export const retryLimit = 3; // synthetic example",
+      "requestId": null,
+      "resetId": null,
+      "tool": {
+        "name": "read",
+        "args": "src/queue.ts",
+        "resultKind": "text",
+        "withheld": false,
+        "truncated": true
+      }
+    },
+    {
+      "id": "entry7",
+      "cursor": 7,
+      "time": "09:00:01",
+      "kind": "diff",
+      "glyph": "±",
+      "label": "diff",
+      "color": "green",
+      "streaming": false,
+      "text": "--- a/src/queue.ts\n+++ b/src/queue.ts\n@@ -1 +1 @@\n-export const retryLimit = 3;\n+export const retryLimit = 4;",
+      "requestId": null,
+      "resetId": null,
+      "tool": null
+    },
+    {
+      "id": "entry8",
+      "cursor": 8,
+      "time": "09:00:01",
+      "kind": "assistant",
+      "glyph": "●",
+      "label": "assistant",
+      "color": "text",
+      "streaming": false,
+      "text": "The retry budget is bounded; the focused checks pass.",
+      "requestId": null,
+      "resetId": null,
+      "tool": null
+    },
+    {
+      "id": "entry9",
+      "cursor": 9,
+      "time": "09:00:01",
+      "kind": "user",
+      "glyph": "▍",
+      "label": "you",
+      "color": "blue",
+      "streaming": false,
+      "text": "Inspect the synthetic queue and propose a bounded retry policy.",
+      "requestId": "r2",
+      "resetId": null,
+      "tool": null
+    },
+    {
+      "id": "entry10",
+      "cursor": 10,
+      "time": "09:00:01",
+      "kind": "thinking",
+      "glyph": "◌",
+      "label": "thinking",
+      "color": "faint",
+      "streaming": false,
+      "text": "I will compare the checkpoint boundaries before changing the queue.",
+      "requestId": null,
+      "resetId": null,
+      "tool": null
+    },
+    {
+      "id": "entry11",
+      "cursor": 12,
+      "time": "09:00:01",
+      "kind": "assistant",
+      "glyph": "●",
+      "label": "assistant",
+      "color": "text",
+      "streaming": true,
+      "text": "A bounded queue keeps the retry budget predictable. ",
+      "requestId": null,
+      "resetId": null,
+      "tool": null
+    },
+    {
+      "id": "entry13",
+      "cursor": 13,
+      "time": "09:00:02",
+      "kind": "tool",
+      "glyph": "⚙",
+      "label": "tool",
+      "color": "cyan",
+      "streaming": false,
+      "text": "read src/queue.ts",
+      "requestId": null,
+      "resetId": null,
+      "tool": {
+        "name": "read",
+        "args": "src/queue.ts",
+        "resultKind": "none",
+        "withheld": false,
+        "truncated": false
+      }
+    },
+    {
+      "id": "entry14",
+      "cursor": 14,
+      "time": "09:00:02",
+      "kind": "result",
+      "glyph": "↳",
+      "label": "result",
+      "color": "muted",
+      "streaming": false,
+      "text": "export const retryLimit = 3; // synthetic example",
+      "requestId": null,
+      "resetId": null,
+      "tool": {
+        "name": "read",
+        "args": "src/queue.ts",
+        "resultKind": "text",
+        "withheld": false,
+        "truncated": false
+      }
+    },
+    {
+      "id": "entry15",
+      "cursor": 15,
+      "time": "09:00:02",
+      "kind": "diff",
+      "glyph": "±",
+      "label": "diff",
+      "color": "green",
+      "streaming": false,
+      "text": "--- a/src/queue.ts\n+++ b/src/queue.ts\n@@ -1 +1 @@\n-export const retryLimit = 3;\n+export const retryLimit = 4;",
+      "requestId": null,
+      "resetId": null,
+      "tool": null
+    },
+    {
+      "id": "entry16",
+      "cursor": 16,
+      "time": "09:00:02",
+      "kind": "assistant",
+      "glyph": "●",
+      "label": "assistant",
+      "color": "text",
+      "streaming": false,
+      "text": "The retry budget is bounded; the focused checks pass.",
+      "requestId": null,
+      "resetId": null,
+      "tool": null
+    },
+    {
+      "id": "entry17",
+      "cursor": 17,
+      "time": "09:00:02",
+      "kind": "user",
+      "glyph": "▍",
+      "label": "you",
+      "color": "blue",
+      "streaming": false,
+      "text": "Inspect the synthetic queue and propose a bounded retry policy.",
+      "requestId": "r3",
+      "resetId": null,
+      "tool": null
+    },
+    {
+      "id": "entry18",
+      "cursor": 18,
+      "time": "09:00:03",
+      "kind": "thinking",
+      "glyph": "◌",
+      "label": "thinking",
+      "color": "faint",
+      "streaming": false,
+      "text": "I will compare the checkpoint boundaries before changing the queue.",
+      "requestId": null,
+      "resetId": null,
+      "tool": null
+    },
+    {
+      "id": "entry19",
+      "cursor": 20,
+      "time": "09:00:03",
+      "kind": "assistant",
+      "glyph": "●",
+      "label": "assistant",
+      "color": "text",
+      "streaming": true,
+      "text": "A bounded queue keeps the retry budget predictable. ",
+      "requestId": null,
+      "resetId": null,
+      "tool": null
+    },
+    {
+      "id": "entry21",
+      "cursor": 21,
+      "time": "09:00:03",
+      "kind": "tool",
+      "glyph": "⚙",
+      "label": "tool",
+      "color": "cyan",
+      "streaming": false,
+      "text": "read src/queue.ts",
+      "requestId": null,
+      "resetId": null,
+      "tool": {
+        "name": "read",
+        "args": "src/queue.ts",
+        "resultKind": "none",
+        "withheld": false,
+        "truncated": false
+      }
+    },
+    {
+      "id": "entry22",
+      "cursor": 22,
+      "time": "09:00:03",
+      "kind": "result",
+      "glyph": "↳",
+      "label": "result",
+      "color": "muted",
+      "streaming": false,
+      "text": "export const retryLimit = 3; // synthetic example",
+      "requestId": null,
+      "resetId": null,
+      "tool": {
+        "name": "read",
+        "args": "src/queue.ts",
+        "resultKind": "text",
+        "withheld": false,
+        "truncated": false
+      }
+    },
+    {
+      "id": "entry23",
+      "cursor": 23,
+      "time": "09:00:03",
+      "kind": "diff",
+      "glyph": "±",
+      "label": "diff",
+      "color": "green",
+      "streaming": false,
+      "text": "--- a/src/queue.ts\n+++ b/src/queue.ts\n@@ -1 +1 @@\n-export const retryLimit = 3;\n+export const retryLimit = 4;",
+      "requestId": null,
+      "resetId": null,
+      "tool": null
+    },
+    {
+      "id": "entry24",
+      "cursor": 24,
+      "time": "09:00:04",
+      "kind": "assistant",
+      "glyph": "●",
+      "label": "assistant",
+      "color": "text",
+      "streaming": false,
+      "text": "The retry budget is bounded; the focused checks pass.",
+      "requestId": null,
+      "resetId": null,
+      "tool": null
+    },
+    {
+      "id": "entry25",
+      "cursor": 25,
+      "time": "09:00:04",
+      "kind": "user",
+      "glyph": "▍",
+      "label": "you",
+      "color": "blue",
+      "streaming": false,
+      "text": "Inspect the synthetic queue and propose a bounded retry policy.",
+      "requestId": "r1",
+      "resetId": null,
+      "tool": null
+    },
+    {
+      "id": "entry26",
+      "cursor": 26,
+      "time": "09:00:04",
+      "kind": "thinking",
+      "glyph": "◌",
+      "label": "thinking",
+      "color": "faint",
+      "streaming": false,
+      "text": "I will compare the checkpoint boundaries before changing the queue.",
+      "requestId": null,
+      "resetId": null,
+      "tool": null
+    },
+    {
+      "id": "entry27",
+      "cursor": 28,
+      "time": "09:00:04",
+      "kind": "assistant",
+      "glyph": "●",
+      "label": "assistant",
+      "color": "text",
+      "streaming": true,
+      "text": "A bounded queue keeps the retry budget predictable. ",
+      "requestId": null,
+      "resetId": null,
+      "tool": null
+    },
+    {
+      "id": "entry29",
+      "cursor": 29,
+      "time": "09:00:05",
+      "kind": "tool",
+      "glyph": "⚙",
+      "label": "tool",
+      "color": "cyan",
+      "streaming": false,
+      "text": "read src/queue.ts",
+      "requestId": null,
+      "resetId": null,
+      "tool": {
+        "name": "read",
+        "args": "src/queue.ts",
+        "resultKind": "none",
+        "withheld": false,
+        "truncated": false
+      }
+    },
+    {
+      "id": "entry30",
+      "cursor": 30,
+      "time": "09:00:05",
+      "kind": "result",
+      "glyph": "↳",
+      "label": "result",
+      "color": "muted",
+      "streaming": false,
+      "text": "export const retryLimit = 3; // synthetic example",
+      "requestId": null,
+      "resetId": null,
+      "tool": {
+        "name": "read",
+        "args": "src/queue.ts",
+        "resultKind": "error",
+        "withheld": false,
+        "truncated": false
+      }
+    },
+    {
+      "id": "entry31",
+      "cursor": 31,
+      "time": "09:00:05",
+      "kind": "diff",
+      "glyph": "±",
+      "label": "diff",
+      "color": "green",
+      "streaming": false,
+      "text": "--- a/src/queue.ts\n+++ b/src/queue.ts\n@@ -1 +1 @@\n-export const retryLimit = 3;\n+export const retryLimit = 4;",
+      "requestId": null,
+      "resetId": null,
+      "tool": null
+    },
+    {
+      "id": "entry32",
+      "cursor": 32,
+      "time": "09:00:05",
+      "kind": "assistant",
+      "glyph": "●",
+      "label": "assistant",
+      "color": "text",
+      "streaming": false,
+      "text": "The retry budget is bounded; the focused checks pass.",
+      "requestId": null,
+      "resetId": null,
+      "tool": null
+    },
+    {
+      "id": "entry33",
+      "cursor": 33,
+      "time": "09:00:05",
+      "kind": "user",
+      "glyph": "▍",
+      "label": "you",
+      "color": "blue",
+      "streaming": false,
+      "text": "Inspect the synthetic queue and propose a bounded retry policy.",
+      "requestId": "r2",
+      "resetId": null,
+      "tool": null
+    },
+    {
+      "id": "entry34",
+      "cursor": 34,
+      "time": "09:00:05",
+      "kind": "thinking",
+      "glyph": "◌",
+      "label": "thinking",
+      "color": "faint",
+      "streaming": false,
+      "text": "I will compare the checkpoint boundaries before changing the queue.",
+      "requestId": null,
+      "resetId": null,
+      "tool": null
+    },
+    {
+      "id": "entry35",
+      "cursor": 36,
+      "time": "09:00:06",
+      "kind": "assistant",
+      "glyph": "●",
+      "label": "assistant",
+      "color": "text",
+      "streaming": true,
+      "text": "A bounded queue keeps the retry budget predictable. ",
+      "requestId": null,
+      "resetId": null,
+      "tool": null
+    },
+    {
+      "id": "entry37",
+      "cursor": 37,
+      "time": "09:00:06",
+      "kind": "tool",
+      "glyph": "⚙",
+      "label": "tool",
+      "color": "cyan",
+      "streaming": false,
+      "text": "read src/queue.ts",
+      "requestId": null,
+      "resetId": null,
+      "tool": {
+        "name": "read",
+        "args": "src/queue.ts",
+        "resultKind": "none",
+        "withheld": false,
+        "truncated": false
+      }
+    },
+    {
+      "id": "entry38",
+      "cursor": 38,
+      "time": "09:00:06",
+      "kind": "result",
+      "glyph": "↳",
+      "label": "result",
+      "color": "muted",
+      "streaming": false,
+      "text": "export const retryLimit = 3; // synthetic example",
+      "requestId": null,
+      "resetId": null,
+      "tool": {
+        "name": "read",
+        "args": "src/queue.ts",
+        "resultKind": "text",
+        "withheld": false,
+        "truncated": false
+      }
+    },
+    {
+      "id": "entry39",
+      "cursor": 39,
+      "time": "09:00:06",
+      "kind": "diff",
+      "glyph": "±",
+      "label": "diff",
+      "color": "green",
+      "streaming": false,
+      "text": "--- a/src/queue.ts\n+++ b/src/queue.ts\n@@ -1 +1 @@\n-export const retryLimit = 3;\n+export const retryLimit = 4;",
+      "requestId": null,
+      "resetId": null,
+      "tool": null
+    },
+    {
+      "id": "entry40",
+      "cursor": 40,
+      "time": "09:00:07",
+      "kind": "assistant",
+      "glyph": "●",
+      "label": "assistant",
+      "color": "text",
+      "streaming": false,
+      "text": "The retry budget is bounded; the focused checks pass.",
+      "requestId": null,
+      "resetId": null,
+      "tool": null
+    }
+  ]
+}
