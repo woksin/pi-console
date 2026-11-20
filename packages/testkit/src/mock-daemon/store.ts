@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import type { ServerResponse } from 'node:http';
 import type { generate } from '../fixture/generate.ts';
 import { HttpError } from './security.ts';
+import { derivedRequest } from './requests-derived.ts';
 import { sessionDeltas } from './session-deltas.ts';
 
 type Fixture = ReturnType<typeof generate>['fixture'];
@@ -33,6 +34,8 @@ function project(fixture: Fixture, type: string, payload: unknown) {
 export function createStore(speed: number, rate?: number, replayWindow = 10000) {
   const fixture: Fixture = JSON.parse(readFileSync(new URL('../fixture/data/fixture.json', import.meta.url), 'utf8'));
   const timeline: TimelineEntry[] = readFileSync(new URL('../fixture/data/stream.jsonl', import.meta.url), 'utf8').trim().split('\n').map(line => JSON.parse(line));
+  fixture.requests = fixture.requests.map(request => derivedRequest(fixture, request));
+  for (const event of timeline) if (event.type.startsWith('request.')) event.payload = derivedRequest(fixture, event.payload as Fixture['requests'][number]);
   const entries = rate ? timeline.filter(event => event.type !== 'transcript.appended') : timeline;
   const clients = new Set<ServerResponse>();
   const history: StreamEvent[] = [];

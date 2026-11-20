@@ -88,3 +88,23 @@ test('pausing follow stores a stable entry position, and scrolling to the live b
   assert.equal(reduce(scrolled, 'move.bottom', bounds).anchor, null);
   assert.equal(reduce(session, 'move.top', bounds).anchor?.key, 1);
 });
+
+test('on Requests the shared filter keys cycle state, origin and session and reset the cursor; elsewhere they do nothing', () => {
+  const requests = { ...initial, section: 'requests' as const, cursor: { ...initial.cursor, requests: 3 } };
+  const withSessions = { ...bounds, sessionIds: ['s1', 's2'] };
+  const next = handleKey(requests, ']', withSessions);
+  assert.deepEqual([next.requestFilter.state, next.cursor.requests], ['open', 0]);
+  assert.equal(handleKey(next, '[', withSessions).requestFilter.state, 'all');
+  assert.equal(handleKey(requests, 'o', withSessions).requestFilter.origin, 'human');
+  assert.equal(handleKey(requests, 'S', withSessions).requestFilter.sessionId, 's1');
+  assert.deepEqual(handleKey({ ...initial, section: 'fleet' }, ']', withSessions).requestFilter, initial.requestFilter);
+});
+
+test('opening a request carries its transcript entry; going back or switching section drops it', () => {
+  const pointed: Bounds = { ...bounds, rowAt: () => ({ sessionId: 's2', groupId: null, entryId: 'entry9' }) };
+  const opened = reduce({ ...initial, section: 'requests' }, 'open', pointed);
+  assert.deepEqual([opened.sessionId, opened.focusEntry], ['s2', 'entry9']);
+  assert.equal(reduce(opened, 'back', pointed).focusEntry, null);
+  assert.equal(reduce(opened, 'section.2', pointed).focusEntry, null);
+  assert.equal(reduce({ ...initial, section: 'fleet' }, 'open', bounds).focusEntry, null);
+});

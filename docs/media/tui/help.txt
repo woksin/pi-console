@@ -33,8 +33,8 @@
  │  ! Blocking question  har│ h ArrowLeft         Pan earlier                                          │                          │
  │    Which retention window│ l ArrowRight        Pan later                                            │                          │
  │                          │ Space               Select or collapse group                             │                          │
- │                          │ ]                   Next saved filter                                    │                          │
- │                          │ [                   Previous saved filter                                │                          │
- │                          │                                                                          │                          │
+ │                          │ ]                   Next saved filter (Requests: state)                  │                          │
+ │                          │ [                   Previous saved filter (Requests: state)              │                          │
+ │                          │ o                   Next origin filter (Requests)                        │                          │
  ╰──────────────────────────╰──────────────────────────────────────────────────────── ? or esc closes ─╯──────────────────────────╯
  esc back  : palette  ? help

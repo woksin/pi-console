@@ -10,7 +10,7 @@ export type Action =
   | 'move.up' | 'move.down' | 'move.top' | 'move.bottom' | 'page.up' | 'page.down'
   | 'open' | 'back' | 'pane.next' | 'pane.previous' | 'follow.toggle' | 'copy.id' | 'view.toggle'
   | 'time.scrub' | 'time.zoomIn' | 'time.zoomOut' | 'time.left' | 'time.right'
-  | 'group.toggle' | 'filter.next' | 'filter.previous'
+  | 'group.toggle' | 'filter.next' | 'filter.previous' | 'filter.origin' | 'filter.session'
   | 'answer' | 'steer' | 'followUp' | 'pause' | 'abort' | 'defer';
 
 export interface Binding {
@@ -57,8 +57,10 @@ export const bindings: readonly Binding[] = [
   { keys: ['h', 'ArrowLeft'], action: 'time.left', label: 'Pan earlier', hint: 'h/l pan', contexts: ['timeline'] },
   { keys: ['l', 'ArrowRight'], action: 'time.right', label: 'Pan later', contexts: ['timeline'] },
   { keys: ['Space'], action: 'group.toggle', label: 'Select or collapse group', hint: 'space fold', contexts: ['list'] },
-  { keys: [']'], action: 'filter.next', label: 'Next saved filter', contexts: ['list'] },
-  { keys: ['['], action: 'filter.previous', label: 'Previous saved filter', contexts: ['list'] },
+  { keys: [']'], action: 'filter.next', label: 'Next saved filter (Requests: state)', contexts: ['list'] },
+  { keys: ['['], action: 'filter.previous', label: 'Previous saved filter (Requests: state)', contexts: ['list'] },
+  { keys: ['o'], action: 'filter.origin', label: 'Next origin filter (Requests)', contexts: ['list'] },
+  { keys: ['S'], action: 'filter.session', label: 'Next session filter (Requests)', contexts: ['list'] },
   { keys: ['a'], action: 'answer', label: 'Answer a question', contexts: ['list', 'detail'], availableFrom: 'M4' },
   { keys: ['s'], action: 'steer', label: 'Steer (composer, mode steer)', contexts: ['list', 'detail'], availableFrom: 'M4' },
   { keys: ['F'], action: 'followUp', label: 'Follow-up in composer', contexts: ['list', 'detail'], availableFrom: 'M4' },

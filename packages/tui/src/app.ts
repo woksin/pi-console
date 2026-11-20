@@ -10,7 +10,7 @@ import { Help, Palette, Settings } from './shell/overlays.ts';
 import type { Env, SectionView } from './views/common.ts';
 import { overviewView } from './views/overview.ts';
 import { fleetView } from './views/fleet.ts';
-import { requestsView } from './views/requests.ts';
+import { requestsView } from './views/requests/requests.ts';
 import { questionsView } from './views/questions.ts';
 import { messagesView } from './views/messages.ts';
 import { timelineView } from './views/timeline.ts';
@@ -34,7 +34,7 @@ export interface AppProps {
 }
 
 const boundsOf = (view: SectionView, height: number): Bounds => ({
-  length: view.length, page: Math.max(1, height - 6), fit: view.time?.fit ?? { start: 0, span: 1 }, width: view.time?.width ?? 0, rowAt: view.rowAt, transcript: view.transcript ?? emptyLayout, viewport: transcriptViewport(height),
+  length: view.length, page: Math.max(1, height - 6), fit: view.time?.fit ?? { start: 0, span: 1 }, width: view.time?.width ?? 0, rowAt: view.rowAt, sessionIds: view.sessionIds, transcript: view.transcript ?? emptyLayout, viewport: transcriptViewport(height),
 });
 
 const noBounds: Bounds = { length: 0, page: 1, fit: { start: 0, span: 1 }, width: 0, rowAt: () => ({ sessionId: null, groupId: null }), transcript: emptyLayout, viewport: 1 };
@@ -62,7 +62,6 @@ export function App(props: AppProps): ReactElement {
   const apply = (next: UiState) => { uiRef.current = next; setUi(next); };
 
   useTick(props.animate ? 6 : 1, () => { setClock(previous => ({ now: (props.clock ?? Date.now)(), phase: props.animate ? previous.phase + 1 : 0 })); });
-  useUiEffects(ui, props, uiRef, apply);
 
   const showBanner = !data.connection.connected;
   const bodyHeight = Math.max(4, size.height - 2 - (showBanner ? 1 : 0));
@@ -73,6 +72,8 @@ export function App(props: AppProps): ReactElement {
   const view = (ui.sessionId ? sessionView : sectionViews[ui.section])(env);
   const viewRef = useRef(view);
   viewRef.current = view;
+  useUiEffects(ui, props, uiRef, apply);
+  useFocusJump(ui, uiRef, viewRef, apply);
   const dataRef = useRef(data);
   dataRef.current = data;
   const heightRef = useRef(bodyHeight);
@@ -141,6 +142,14 @@ function copyId(state: UiState, view: SectionView, copy: (text: string) => boole
 }
 
 /** Session backfill, quit notification and notice expiry. */
+/** Scrolls an opened session to the entry a request pointed at, as soon as that entry is in the loaded transcript. */
+function useFocusJump(ui: UiState, uiRef: { current: UiState }, viewRef: { current: SectionView }, apply: (next: UiState) => void): void {
+  useEffect(() => {
+    const anchor = ui.focusEntry ? viewRef.current.focus?.() : undefined;
+    if (anchor) apply({ ...uiRef.current, focusEntry: null, follow: false, anchor });
+  });
+}
+
 function useUiEffects(ui: UiState, props: AppProps, uiRef: { current: UiState }, apply: (next: UiState) => void): void {
   useEffect(() => { if (ui.sessionId) props.loadTranscript(ui.sessionId); }, [ui.sessionId]);
   useEffect(() => { if (ui.quit) props.onQuit(); }, [ui.quit]);

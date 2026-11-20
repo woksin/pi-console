@@ -42,3 +42,23 @@ test('requests, questions and messages show their goldens', async () => {
   frame = await section('5', 'Messages');
   for (const row of messages.rows.slice(0, 20)) assert.ok(frame.includes(lead(row.text, 16)), row.text);
 });
+
+test('requests show uncertain and possibly-unseen labels, filter with the shared keys, and Enter opens the transcript at the prompt', async () => {
+  let frame = await section('3', 'Requests');
+  assert.ok(frame.includes('uncertain'), 'uncertain label on the list');
+  assert.ok(frame.includes('unseen?'), 'possibly unseen label on the list');
+  assert.ok(frame.includes('state all · origin all · session all'), 'filter summary');
+  await harness.ui.press(']');
+  frame = flat(await harness.ui.waitFor('state open'));
+  assert.ok(frame.includes('origin all'));
+  await harness.ui.press('[');
+  await harness.ui.waitFor('state all');
+  for (let step = 0; step < 12 && !flat(harness.ui.frame()).includes('opens the transcript'); step++) await harness.ui.press('j');
+  await harness.ui.waitFor('opens the transcript');
+  await harness.ui.press('RETURN');
+  for (let wait = 0; wait < 40 && !harness.ui.frame().includes('paused'); wait++) { await new Promise(resolve => setTimeout(resolve, 100)); await harness.ui.settle(); }
+  frame = flat(harness.ui.frame());
+  assert.ok(frame.includes('paused'), 'paused at the prompt once the transcript has loaded');
+  assert.ok(!frame.includes('following tail'), 'opened scrolled to the prompt, not following the tail');
+  await harness.ui.press('ESCAPE');
+});

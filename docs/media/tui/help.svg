@@ -412,17 +412,19 @@
 <text x="20.4" y="655" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="247.2" y="655" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="264.0" y="655" fill="#66d9ef" xml:space="preserve">]                   </text>
-<text x="432.0" y="655" fill="#d8e2ef" xml:space="preserve">Next saved filter</text>
+<text x="432.0" y="655" fill="#d8e2ef" xml:space="preserve">Next saved filter (Requests: state)</text>
 <text x="877.2" y="655" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="1104.0" y="655" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="673" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="247.2" y="673" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="264.0" y="673" fill="#66d9ef" xml:space="preserve">[                   </text>
-<text x="432.0" y="673" fill="#d8e2ef" xml:space="preserve">Previous saved filter</text>
+<text x="432.0" y="673" fill="#d8e2ef" xml:space="preserve">Previous saved filter (Requests: state)</text>
 <text x="877.2" y="673" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="1104.0" y="673" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="691" fill="#f5bf65" xml:space="preserve">│</text>
 <text x="247.2" y="691" fill="#66d9ef" xml:space="preserve">│</text>
+<text x="264.0" y="691" fill="#66d9ef" xml:space="preserve">o                   </text>
+<text x="432.0" y="691" fill="#d8e2ef" xml:space="preserve">Next origin filter (Requests)</text>
 <text x="877.2" y="691" fill="#66d9ef" xml:space="preserve">│</text>
 <text x="1104.0" y="691" fill="#2b3b50" xml:space="preserve">│</text>
 <text x="20.4" y="709" fill="#f5bf65" xml:space="preserve">╰──────────────────────────</text>

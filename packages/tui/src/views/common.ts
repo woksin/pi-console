@@ -2,7 +2,7 @@ import type { ReactElement } from 'react';
 import type { TimeWindow } from '@pi-console/viewmodels';
 import type { Data } from '../store/store.ts';
 import type { UiState } from '../state/ui.ts';
-import type { TranscriptLayout } from '../state/transcript-window.ts';
+import type { TranscriptAnchor, TranscriptLayout } from '../state/transcript-window.ts';
 
 /** Everything a view needs to draw one frame; built once per render by the app. */
 export interface Env {
@@ -18,7 +18,11 @@ export interface Env {
 export interface SectionView {
   /** Number of selectable rows; the reducer clamps the cursor to it. */
   length: number;
-  rowAt: (index: number) => { sessionId: string | null; groupId: string | null };
+  rowAt: (index: number) => { sessionId: string | null; groupId: string | null; entryId?: string | null };
+  /** Requests only: the sessions the session filter cycles through. */
+  sessionIds?: readonly string[];
+  /** Session view only: where to scroll for `ui.focusEntry`; undefined until the entry is in the transcript. */
+  focus?: () => TranscriptAnchor | undefined;
   render: () => ReactElement;
   /** Timeline only: the fitted window and the grid width, which the reducer needs to pan, zoom and scrub. */
   time?: { fit: TimeWindow; width: number };

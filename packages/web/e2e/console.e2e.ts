@@ -106,6 +106,7 @@ describe('web console e2e', () => {
     await page.keyboard.press('Enter');
     await page.waitForFunction(() => window.location.hash === '#/timeline');
     await page.getByRole('dialog').waitFor({ state: 'detached' });
+    await page.waitForFunction(() => document.querySelector('input[type=search]') === null, undefined, { timeout: 10000 });
     await page.keyboard.press('/');
     assert.equal(await page.evaluate(() => document.activeElement?.tagName), 'BODY', 'a view without a search box ignores the filter key');
     await page.context().close();
@@ -176,6 +177,32 @@ describe('web console e2e', () => {
     await slider.waitFor();
     await slider.fill(await slider.getAttribute('min') ?? '0');
     assert.ok(await page.locator('path.edge').count() <= edges);
+    assert.deepEqual(errors, []);
+    await page.context().close();
+  });
+
+  test('requests: filters cycle with the shared keys, labels are visible, and a request opens its transcript entry', async () => {
+    const page = await rig.open('/requests');
+    const errors = watchErrors(page);
+    await page.locator('[data-request]').first().waitFor();
+    await page.locator('[data-testid="uncertain"]').first().waitFor();
+    assert.ok(await page.locator('[data-request]').count() > 3);
+    await page.keyboard.press(']');
+    await page.getByTestId('request-summary').getByText('state open', { exact: false }).waitFor();
+    await page.keyboard.press('[');
+    await page.getByTestId('request-summary').getByText('state all', { exact: false }).waitFor();
+    await page.keyboard.press('o');
+    await page.getByTestId('request-summary').getByText('origin human', { exact: false }).waitFor();
+    await page.keyboard.press('o');
+    await page.getByTestId('request-summary').getByText('origin launch', { exact: false }).waitFor();
+    await page.keyboard.press('o');
+    await page.keyboard.press('o');
+    const cards = page.locator('[data-request]');
+    for (let index = 0; index < await cards.count() && await page.getByTestId('request-jump').count() === 0; index++) await cards.nth(index).click();
+    await page.getByRole('complementary', { name: 'Request detail' }).waitFor();
+    await page.getByTestId('request-jump').click();
+    await page.waitForURL(/#\/session\/s\d+/);
+    assert.match(page.url(), /entry=/, 'the jump carries the transcript entry');
     assert.deepEqual(errors, []);
     await page.context().close();
   });

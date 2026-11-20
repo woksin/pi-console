@@ -1,4 +1,5 @@
 import type { Request, RequestEvidence, Session } from '@pi-console/contract';
+import type { Action } from '../keymap/keymap.ts';
 import { age, sanitize } from '../format/format.ts';
 import { statusCell, type StatusCell } from '../format/status-cell.ts';
 
@@ -9,7 +10,7 @@ import { statusCell, type StatusCell } from '../format/status-cell.ts';
  */
 export type RequestStateFilter = 'all' | 'open' | 'answered' | 'unanswered' | 'interrupted' | 'uncertain' | 'possibly-unseen';
 export type RequestOriginFilter = 'all' | Request['origin'];
-export interface RequestsFilter { state?: RequestStateFilter; origin?: RequestOriginFilter; sessionId?: string | null }
+export interface RequestsFilter { state?: RequestStateFilter; origin?: RequestOriginFilter; sessionId?: string | null; query?: string }
 
 export const requestStateFilters: readonly RequestStateFilter[] = ['all', 'open', 'answered', 'unanswered', 'interrupted', 'uncertain', 'possibly-unseen'];
 export const requestOriginFilters: readonly RequestOriginFilter[] = ['all', 'human', 'launch', 'unproven'];
@@ -64,9 +65,17 @@ function matchesState(request: Request, state: RequestStateFilter): boolean {
   return request.status === state;
 }
 
-const matches = (request: Request, filter: Required<RequestsFilter>) =>
+const matches = (request: Request, filter: Required<RequestsFilter>, names: ReadonlyMap<string, string>) =>
   matchesState(request, filter.state) && (filter.origin === 'all' || request.origin === filter.origin)
-  && (filter.sessionId === null || request.sessionId === filter.sessionId);
+  && (filter.sessionId === null || request.sessionId === filter.sessionId) && matchesQuery(request, filter.query, names);
+
+/** Free-text filter over what a row shows: request text, session name, origin label and state. Withheld text is never searched. */
+function matchesQuery(request: Request, query: string, names: ReadonlyMap<string, string>): boolean {
+  const wanted = query.trim().toLowerCase();
+  if (wanted === '') return true;
+  const text = request.withheld === true ? '' : request.text;
+  return `${text} ${names.get(request.sessionId) ?? request.sessionId} ${request.originLabel} ${request.status}`.toLowerCase().includes(wanted);
+}
 
 function row(request: Request, names: ReadonlyMap<string, string>, now: number): RequestsRow {
   const answer = request.answer;
@@ -85,9 +94,9 @@ function row(request: Request, names: ReadonlyMap<string, string>, now: number):
 const sessionNames = (sessions: readonly Session[]) => new Map(sessions.map(session => [session.id, session.name]));
 
 export function requestsViewModel(input: { requests: readonly Request[]; sessions: readonly Session[]; now: number; filter?: RequestsFilter }): RequestsViewModel {
-  const filter: Required<RequestsFilter> = { state: input.filter?.state ?? 'all', origin: input.filter?.origin ?? 'all', sessionId: input.filter?.sessionId ?? null };
+  const filter: Required<RequestsFilter> = { state: input.filter?.state ?? 'all', origin: input.filter?.origin ?? 'all', sessionId: input.filter?.sessionId ?? null, query: input.filter?.query ?? '' };
   const names = sessionNames(input.sessions);
-  const rows = input.requests.filter(request => matches(request, filter))
+  const rows = input.requests.filter(request => matches(request, filter, names))
     .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt) || a.id.localeCompare(b.id))
     .map(request => row(request, names, input.now));
   const count = (state: RequestStateFilter) => input.requests.filter(request => matchesState(request, state)).length;
@@ -96,6 +105,30 @@ export function requestsViewModel(input: { requests: readonly Request[]; session
     rows, open: count('open') + count('unanswered'), uncertain: count('uncertain'), possiblyUnseen: count('possibly-unseen'), filter,
     sessions: sessionIds.map(id => ({ id, name: names.get(id) ?? id })),
   };
+}
+
+/** The filter axes both clients cycle with the same keys: `[` `]` state, `o` origin, `S` session (see the keymap). */
+export type RequestFilterAxis = 'state' | 'origin' | 'session';
+const filterActions: Partial<Record<Action, { axis: RequestFilterAxis; step: 1 | -1 }>> = {
+  'filter.next': { axis: 'state', step: 1 }, 'filter.previous': { axis: 'state', step: -1 },
+  'filter.origin': { axis: 'origin', step: 1 }, 'filter.session': { axis: 'session', step: 1 },
+};
+export const requestFilterAction = (action: Action) => filterActions[action] ?? null;
+
+const stepped = <T>(options: readonly T[], current: T, step: number): T => options[(Math.max(0, options.indexOf(current)) + step + options.length) % options.length];
+
+/** Moves one axis to its next or previous value, wrapping; the session axis runs through `all` and the sessions that have requests. */
+export function cycleRequestFilter(filter: Required<RequestsFilter>, axis: RequestFilterAxis, sessionIds: readonly string[], step: 1 | -1): Required<RequestsFilter> {
+  if (axis === 'state') return { ...filter, state: stepped(requestStateFilters, filter.state, step) };
+  if (axis === 'origin') return { ...filter, origin: stepped(requestOriginFilters, filter.origin, step) };
+  return { ...filter, sessionId: stepped<string | null>([null, ...sessionIds], filter.sessionId, step) };
+}
+
+/** One line saying which filters are on, e.g. `state open · origin launch · session all`. */
+export function describeRequestFilter(model: RequestsViewModel): string {
+  const session = model.sessions.find(item => item.id === model.filter.sessionId);
+  const query = model.filter.query.trim() === '' ? '' : ` · “${singleLine(model.filter.query.trim())}”`;
+  return `state ${model.filter.state} · origin ${model.filter.origin} · session ${model.filter.sessionId === null ? 'all' : session?.name ?? model.filter.sessionId}${query}`;
 }
 
 /** Origin is a classification from evidence: "classified as", never "verified". */
