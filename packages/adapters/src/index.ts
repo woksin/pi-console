@@ -2,3 +2,5 @@ export { FileTailer, type TailerOptions, type PollResult } from './tailing/taile
 export { discover, sourcePath, pathDenied } from './tailing/paths.ts';
 export { redact, scanPatterns, type Scanner, type RedactedText } from './tailing/redact.ts';
 export type { Fact, Mapper } from './tailing/events.ts';
+export { sessionTailer } from './session/session.ts';
+export { sessionMapper } from './session/mapper.ts';
