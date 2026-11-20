@@ -3,8 +3,10 @@ import { HttpError } from '../security/guard.ts';
 import { safeJson } from '../http/output.ts';
 
 export interface StreamOptions {
-  /** First id is `base + 1`. The daemon passes the projected log position, so ids grow across restarts. */
+  /** First delta id is `base + 1`; the daemon reserves a durable restart barrier as the base. */
   base: number;
+  /** Persist the high-water mark before a frame can reach any client. */
+  persist: (seq: number) => void;
   /** Deltas kept for `Last-Event-ID` resume (v1: 10,000). */
   ringSize: number;
   heartbeatMs: number;
@@ -57,7 +59,10 @@ export class StreamHub {
   }
 
   publish(type: string, payload: unknown): void {
-    const frame = this.#frame(++this.#seq, type, payload);
+    const seq = this.#seq + 1;
+    this.#options.persist(seq);
+    this.#seq = seq;
+    const frame = this.#frame(seq, type, payload);
     this.#ring.push(frame);
     if (this.#ring.length > this.#options.ringSize) this.#ring.shift();
     for (const client of this.#clients) this.#send(client, frame.text);

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import type { ServerResponse } from 'node:http';
 import type { generate } from '../fixture/generate.ts';
 import { HttpError } from './security.ts';
+import { sessionDeltas } from './session-deltas.ts';
 
 type Fixture = ReturnType<typeof generate>['fixture'];
 export type StreamEvent = { seq: number; type: string; occurredAt: string; payload: unknown };
@@ -35,6 +36,7 @@ export function createStore(speed: number, rate?: number, replayWindow = 10000) 
   const entries = rate ? timeline.filter(event => event.type !== 'transcript.appended') : timeline;
   const clients = new Set<ServerResponse>();
   const history: StreamEvent[] = [];
+  const sessionBases = new Map<string, Fixture['sessions'][number]['status']>();
   const interventions: Record<string, unknown>[] = [];
   let seq = 0;
   let cursor = fixture.transcript.at(-1)!.cursor;
@@ -47,6 +49,12 @@ export function createStore(speed: number, rate?: number, replayWindow = 10000) 
   const templates = structuredClone(fixture.transcript);
 
   function publish(type: string, original: unknown) {
+    let event: StreamEvent | undefined;
+    const sessions = sessionDeltas(fixture, sessionBases, type, original, () => { event = publishEntity(type, original); });
+    for (const session of sessions) publishEntity('session.updated', session);
+    return event!;
+  }
+  function publishEntity(type: string, original: unknown) {
     let payload = structuredClone(original);
     if (type === 'transcript.appended') {
       const entry = { ...(payload as Fixture['transcript'][number]), cursor: ++cursor, id: `live-entry${cursor}` };

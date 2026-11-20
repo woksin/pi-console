@@ -13,6 +13,9 @@ export interface ConformanceTarget {
   token: string;
   /** Causes exactly one new SSE delta and resolves once it has been published. */
   emit(): Promise<void>;
+  /** An isolated idle session and an entity lifecycle that emits entity + derived-session updates. */
+  attentionSessionId: string;
+  emitAttention(kind: 'request' | 'question', open: boolean): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -172,6 +175,35 @@ function sse(harness: ConformanceHarness): void {
       await t.emit();
       assert.equal(Number((await current.next()).id), snapshot.data.seq + 3);
       current.close();
+      await t.close();
+      target = undefined;
+    });
+
+    test('entity deltas update derived sessions and resume in the middle of a multi-update event', async () => {
+      const t = await start(10_000);
+      let stream = await openStream(t.port, bearer(t));
+      let seq = Number((await stream.next()).id);
+      for (const kind of ['request', 'question'] as const) {
+        for (const open of [true, false]) {
+          await t.emitAttention(kind, open);
+          const entity = await stream.next();
+          assert.equal(entity.event, kind === 'request' ? 'request.observed' : 'question.asked');
+          assert.equal(Number(entity.id), seq + 1);
+          assert.ok(entity.id);
+          validate(entity.data, schema.$defs.event, schema);
+          stream.close();
+          stream = await openStream(t.port, bearer(t, { 'Last-Event-ID': entity.id }));
+          const session = await stream.next();
+          assert.equal(session.event, 'session.updated');
+          assert.equal(Number(session.id), seq + 2);
+          assert.equal(session.data.payload.id, t.attentionSessionId);
+          assert.equal(session.data.payload.status, open ? 'needs-you' : 'idle');
+          validate(session.data, schema.$defs.event, schema);
+          seq += 2;
+        }
+      }
+      await assert.rejects(stream.next(100));
+      stream.close();
       await t.close();
       target = undefined;
     });

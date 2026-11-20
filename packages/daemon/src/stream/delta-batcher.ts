@@ -21,6 +21,18 @@ class BatchQueries extends ConsoleQueries {
 
 const keyOf = (delta: Delta): string => `${delta.type}:${String((delta.payload as { id?: unknown }).id)}`;
 
+/** Only the derived fields: ordinary session changes already have a catalogue route. */
+function derivedSessions(queries: ConsoleQueries): Map<string, string> {
+  const attention = new Map<string, AttentionItem[]>();
+  for (const item of queries.needsYou()) {
+    if (item.sessionId === null) continue;
+    const items = attention.get(item.sessionId) ?? [];
+    items.push(item);
+    attention.set(item.sessionId, items);
+  }
+  return new Map(queries.sessions().map(session => [session.id, JSON.stringify([session.status, attention.get(session.id) ?? []])]));
+}
+
 /**
  * Turns applied log events into SSE deltas. Events applied in the same tick are coalesced: each touched entity is
  * published once, as its state after the whole batch, in the order it was first touched.
@@ -30,11 +42,13 @@ export class DeltaBatcher {
   readonly #publish: (delta: Delta) => void;
   readonly #now: () => Date;
   #pending: EventEnvelope[] = [];
+  #derived: Map<string, string>;
 
   constructor(models: () => ReadModels, publish: (delta: Delta) => void, now: () => Date = () => new Date()) {
     this.#models = models;
     this.#publish = publish;
     this.#now = now;
+    this.#derived = derivedSessions(new BatchQueries(models, now));
   }
 
   get pending(): number {
@@ -48,6 +62,7 @@ export class DeltaBatcher {
 
   flush(): void {
     const events = this.#pending;
+    if (events.length === 0) return;
     this.#pending = [];
     const queries = new BatchQueries(this.#models, this.#now);
     const deltas = new Map<string, Delta>();
@@ -55,6 +70,17 @@ export class DeltaBatcher {
       const delta = deltaFor(queries, event);
       if (delta && !deltas.has(keyOf(delta))) deltas.set(keyOf(delta), delta);
     }
+    this.#addDerivedSessions(queries, deltas);
     for (const delta of deltas.values()) this.#publish(delta);
+  }
+
+  #addDerivedSessions(queries: ConsoleQueries, deltas: Map<string, Delta>): void {
+    const derived = derivedSessions(queries);
+    for (const session of queries.sessions()) {
+      if (this.#derived.get(session.id) === derived.get(session.id)) continue;
+      const delta = { type: 'session.updated', payload: session };
+      deltas.set(keyOf(delta), delta);
+    }
+    this.#derived = derived;
   }
 }
