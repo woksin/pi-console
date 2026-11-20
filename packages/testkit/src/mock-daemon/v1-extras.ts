@@ -46,3 +46,12 @@ export function transcriptAround(store: Store, sessionId: string, entryId: strin
   const items = entries.slice(start, start + limit);
   return { items, nextCursor: items.at(-1)?.cursor ?? 0, hasMore: start + limit < entries.length };
 }
+
+export interface MockInfo { port: number; startedAt: string; replayWindow: number }
+
+/** Exact-path v1 routes added after M0. */
+export const v1Routes = new Map<string, (store: Store, info: MockInfo) => unknown>([
+  ['/api/v1/graph', store => graph(store.fixture)],
+  ['/api/v1/health', (store, info) => health(store, info.startedAt, info.replayWindow)],
+  ['/api/v1/settings', (_store, info) => settings(info.port, info.replayWindow)],
+]);

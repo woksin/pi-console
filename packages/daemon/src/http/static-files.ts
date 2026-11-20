@@ -36,9 +36,11 @@ function relativePath(url: URL): string {
     throw new HttpError(400, 'Invalid path');
   }
   const segments = path.split('/').filter(segment => segment !== '');
-  if (path.includes('\0') || segments.some(segment => segment === '..' || segment.includes('\\'))) throw new HttpError(400, 'Invalid path');
+  if (path.includes('\0') || segments.some(unsafeSegment)) throw new HttpError(400, 'Invalid path');
   return segments.join(sep);
 }
+
+const unsafeSegment = (segment: string): boolean => segment === '..' || segment.includes('\\');
 
 /** The file to serve: the exact asset, else `index.html` for extensionless client routes (SPA fallback). */
 async function resolveFile(root: string, url: URL): Promise<string | undefined> {
@@ -56,13 +58,27 @@ async function inside(root: string, file: string): Promise<boolean> {
   return realFile.startsWith(realRoot + sep);
 }
 
+/** The servable file inside `root` for the URL, or undefined. */
+async function servable(root: string, url: URL): Promise<string | undefined> {
+  const file = await resolveFile(root, url);
+  return file !== undefined && (await inside(root, file)) ? file : undefined;
+}
+
+function notFound(res: ServerResponse, message: string): void {
+  res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Content-Security-Policy': pageCsp });
+  res.end(message);
+}
+
 /** Serves the built web bundle from `root`. A missing bundle is a plain 404, not an error. */
 export async function serveStatic(root: string | undefined, req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
-  if (req.method !== 'GET' && req.method !== 'HEAD') throw new HttpError(405, 'Method not allowed');
-  const file = root === undefined ? undefined : await resolveFile(root, url);
-  if (root === undefined || file === undefined || !(await inside(root, file))) {
-    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', 'Content-Security-Policy': pageCsp });
-    res.end(root === undefined ? 'Web bundle not configured\n' : 'Not found\n');
+  if (!['GET', 'HEAD'].includes(req.method ?? '')) throw new HttpError(405, 'Method not allowed');
+  if (root === undefined) {
+    notFound(res, 'Web bundle not configured\n');
+    return;
+  }
+  const file = await servable(root, url);
+  if (file === undefined) {
+    notFound(res, 'Not found\n');
     return;
   }
   const body = await readFile(file);

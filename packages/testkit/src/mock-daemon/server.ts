@@ -14,7 +14,8 @@ function sendError(res: ServerResponse, error: unknown) {
   const message = status === 500 ? 'Internal error' : (error as Error).message;
   json(res, status, { error: message });
 }
-async function route(store: Store, req: IncomingMessage, res: ServerResponse, url: URL, info: MockInfo) {
+interface Mock { store: Store; info: MockInfo }
+async function route({ store, info }: Mock, req: IncomingMessage, res: ServerResponse, url: URL) {
   if (req.method === 'GET' && url.pathname === '/api/v1/stream') {
     store.connect(res, req.headers['last-event-id'] as string | undefined); // Node keeps a single value for this header
     return;
@@ -34,7 +35,7 @@ function handler(store: Store, token: string, info: MockInfo) {
       const url = new URL(req.url ?? '/', 'http://127.0.0.1');
       const port = req.socket.localPort ?? 0;
       if (!authenticate(req, res, url, { port, token })) return;
-      await route(store, req, res, url, info);
+      await route({ store, info }, req, res, url);
     } catch (error) { sendError(res, error); }
   };
 }
@@ -72,10 +73,11 @@ function parseOptions(args: string[]) {
   }
   return options;
 }
+const positiveNumber = (value: number): boolean => Number.isFinite(value) && value > 0;
 function validateOption(name: string, value: number) {
   const usage = 'Usage: server.ts [--port 4777] [--speed 1] [--rate N]';
   const known = ['--port', '--speed', '--rate'].includes(name);
-  if (!known || !Number.isFinite(value) || value <= 0) throw new Error(usage);
+  if (!known || !positiveNumber(value)) throw new Error(usage);
   if (name === '--port') validateIntegerOption(value, 65535, 'Invalid port');
   if (name === '--rate') validateIntegerOption(value, Number.MAX_VALUE, 'Invalid rate');
 }
