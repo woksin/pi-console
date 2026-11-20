@@ -14,6 +14,18 @@ function sendError(res: ServerResponse, error: unknown) {
   const message = status === 500 ? 'Internal error' : (error as Error).message;
   json(res, status, { error: message });
 }
+async function route(store: Store, req: IncomingMessage, res: ServerResponse, url: URL) {
+  if (req.method === 'GET' && url.pathname === '/api/v1/stream') {
+    store.connect(res, req.headers['last-event-id'] as string | undefined); // Node keeps a single value for this header
+    return;
+  }
+  if (req.method === 'POST' && url.pathname === '/api/v1/interventions') {
+    json(res, 202, await intervene(store, req));
+    return;
+  }
+  if (req.method !== 'GET') throw new HttpError(405, 'Method not allowed');
+  json(res, 200, query(store, url));
+}
 function handler(store: Store, token: string) {
   return async (req: IncomingMessage, res: ServerResponse) => {
     res.setHeader('Cache-Control', 'no-store');
@@ -22,16 +34,7 @@ function handler(store: Store, token: string) {
       const url = new URL(req.url ?? '/', 'http://127.0.0.1');
       const port = req.socket.localPort ?? 0;
       if (!authenticate(req, res, url, { port, token })) return;
-      if (req.method === 'GET' && url.pathname === '/api/v1/stream') {
-        store.connect(res, req.headers['last-event-id'] as string | undefined); // Node keeps a single value for this header
-        return;
-      }
-      if (req.method === 'POST' && url.pathname === '/api/v1/interventions') {
-        json(res, 202, await intervene(store, req));
-        return;
-      }
-      if (req.method !== 'GET') throw new HttpError(405, 'Method not allowed');
-      json(res, 200, query(store, url));
+      await route(store, req, res, url);
     } catch (error) { sendError(res, error); }
   };
 }
@@ -69,9 +72,8 @@ function parseOptions(args: string[]) {
 }
 function validateOption(name: string, value: number) {
   const usage = 'Usage: server.ts [--port 4777] [--speed 1] [--rate N]';
-  if (!['--port', '--speed', '--rate'].includes(name)) throw new Error(usage);
-  if (!Number.isFinite(value)) throw new Error(usage);
-  if (value <= 0) throw new Error(usage);
+  const known = ['--port', '--speed', '--rate'].includes(name);
+  if (!known || !Number.isFinite(value) || value <= 0) throw new Error(usage);
   if (name === '--port') validateIntegerOption(value, 65535, 'Invalid port');
   if (name === '--rate') validateIntegerOption(value, Number.MAX_VALUE, 'Invalid rate');
 }

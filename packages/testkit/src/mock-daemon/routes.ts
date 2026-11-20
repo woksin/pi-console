@@ -97,8 +97,7 @@ function checkQuestion(store: Store, input: InterventionInput) {
   if (input.type === 'answer' && !input.questionId) throw new HttpError(400, 'Question required');
   if (!input.questionId) return;
   const question = store.fixture.questions.find(item => item.id === input.questionId);
-  if (!question) throw new HttpError(404, 'Question not found for session');
-  if (question.sessionId !== input.sessionId) throw new HttpError(404, 'Question not found for session');
+  if (question?.sessionId !== input.sessionId) throw new HttpError(404, 'Question not found for session');
 }
 export async function intervene(store: Store, req: IncomingMessage) {
   if (req.headers['content-type']?.split(';')[0] !== 'application/json') throw new HttpError(415, 'Expected application/json');
