@@ -13,7 +13,7 @@ export const sectionMeta: Record<SectionId, { label: string; hint: string; icon:
 };
 
 /** Hash routes: `#/fleet`, `#/session/s2?entry=entry4`, `#/messages?view=graph`, `#/settings`. */
-export interface Route { view: ViewId; id: string | null; params: Record<string, string> }
+export interface Route { view: ViewId; id: string | null; params: Partial<Record<string, string>> }
 
 const isSection = (value: string): value is SectionId => (sectionIds as readonly string[]).includes(value);
 

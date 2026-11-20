@@ -9,7 +9,7 @@ import { useChangeFlash, useScrollIntoView } from '../ui/hooks.ts';
 
 const rowKey = (row: FleetRow): string => (row.kind === 'group' ? `group:${row.id}` : row.id);
 
-const groupOf = (key: string | null): string | null => (key !== null && key.startsWith('group:') ? key.slice('group:'.length) : null);
+const groupOf = (key: string | null): string | null => (key?.startsWith('group:') ? key.slice('group:'.length) : null);
 
 const toggled = (set: ReadonlySet<string>, key: string): ReadonlySet<string> => {
   const next = new Set(set);

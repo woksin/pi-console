@@ -25,4 +25,4 @@ function Root() {
   return <Connected token={token} onRejected={() => { forgetToken(sessionStorage); setRejected(true); setToken(null); }} />;
 }
 
-createRoot(document.getElementById('root') as HTMLElement).render(<StrictMode><Root /></StrictMode>);
+createRoot(document.getElementById('root')!).render(<StrictMode><Root /></StrictMode>);

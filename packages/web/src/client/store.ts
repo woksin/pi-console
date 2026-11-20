@@ -38,6 +38,9 @@ export class ConsoleStore {
   #watchTimer: number | null = null;
   #attempt = 0;
   #stopped = false;
+  /** Read through methods: both flags change across awaits, which control-flow narrowing cannot see. */
+  #isStopped(): boolean { return this.#stopped; }
+  #takeRefreshAgain(): boolean { const again = this.#refreshAgain; this.#refreshAgain = false; return again; }
   readonly #loaded = new Map<string, Promise<void>>();
 
   constructor(api: Api, clock: Clock = realClock) {
@@ -83,7 +86,7 @@ export class ConsoleStore {
       } catch (error) {
         if (error instanceof Unauthorized) { this.#connection('unauthorized'); return; }
       } finally { this.#unwatch(); }
-      if (this.#stopped) return;
+      if (this.#isStopped()) return;
       this.#connection('offline');
       await this.#sleep(reconnectDelays[Math.min(this.#attempt++, reconnectDelays.length - 1)]);
     }
@@ -124,7 +127,7 @@ export class ConsoleStore {
     if (this.#refreshing) { this.#refreshAgain = true; return; }
     this.#refreshing = true;
     try {
-      do { this.#refreshAgain = false; await this.#fetchDerived(); } while (this.#refreshAgain);
+      do { this.#refreshAgain = false; await this.#fetchDerived(); } while (this.#takeRefreshAgain());
     } finally { this.#refreshing = false; }
   }
 
