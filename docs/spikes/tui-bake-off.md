@@ -60,16 +60,16 @@ Both candidates built the swimlane timeline, the communication graph with animat
 |---|---|
 | ![OpenTUI graph](../../spikes/tui-opentui/graph-200.png) | ![Bubble Tea graph](media/r2-bubbletea-graph-200x50.png) |
 
-Composer: [OpenTUI](../../spikes/tui-opentui/composer-200.png), [Bubble Tea](media/r2-bubbletea-composer-200x50.png). Narrow layout: [OpenTUI 120](../../spikes/tui-opentui/edge-120.png), [Bubble Tea 90x30](media/r2-bubbletea-stacked-90x30.png). Recordings: [OpenTUI signature tour](../../spikes/tui-opentui/signature-tour.gif) (34 s), [Bubble Tea motion](media/r2-bubbletea-motion.gif).
+Composer: [OpenTUI](../../spikes/tui-opentui/composer-200.png), [Bubble Tea](media/r2-bubbletea-composer-200x50.png). Narrow layout: [OpenTUI 120](../../spikes/tui-opentui/edge-120.png) (stacking below 100 columns is covered by its 90x30 interaction test, not by a capture), [Bubble Tea 90x30](media/r2-bubbletea-stacked-90x30.png). Recordings: [OpenTUI signature tour](../../spikes/tui-opentui/signature-tour.gif) (34 s), [Bubble Tea motion](media/r2-bubbletea-motion.gif).
 
 ### Round 2 results
 
 | | OpenTUI | Bubble Tea v2 |
 |---|---|---|
-| Timeline | Selected-row band, signal detail card, click a marker to select, wheel pan, zoom, collapse per repository | Grouped by repository with headings, marker cycling, zoom and pan, replay-now line; keyboard only |
+| Timeline | Selected-row band, signal detail card, click a marker to select, wheel pan, zoom, collapse per repository | Grouped by repository with headings, marker cycling, zoom and pan, replay-now line, click and wheel pan |
 | Graph | Three layers, packets with volume brightness, edge conversation pane; edge routes share segments and read as doubled lines | Three layers, cleaner orthogonal routes, packets and edge conversation; overlapping routes on denser graphs |
 | Disclosure and layout | Independent per-block disclosure by key or click; flexbox layout, panes stack below 100 columns | Per-block disclosure; stacking below 100 columns; docked preview partial |
-| Motion | Renderer animation engine used across views (about 20 frames/s) | Harmonica springs in the composer only; packet animation hand-built |
+| Motion | Renderer animation engine used across views (about 20 frames/s) | Animated graph packets and row fades, hand-built; Harmonica springs only in the composer |
 | Mouse | Click and wheel across views | Click and wheel; no drag or hover |
 | Load at `--rate 5000`, graph visible (mean CPU, mean RSS) | 27.2%, 188 MiB (120x40, also exercises timeline and palette) | 13.4%, 29 MiB (120x36) |
 | Distribution proof | Fresh production-only npm tarball install and launch on macOS | Generated Go types plus live conformance test; npm wrapper with three platform packages, macOS installed |
@@ -82,16 +82,16 @@ The headline "needs you" counts differ (OpenTUI 11, Bubble Tea 5) because OpenTU
 
 **OpenTUI.** Static look stays close; both are polished. The decision rests on the UX ceiling, which is what the owner asked for ("cool", excellent UX, special tools):
 
-1. OpenTUI's layout engine, hit testing and animation engine made the richer interactions (clickable timeline markers, selected-row bands, detail cards, motion across views) cheap. The Bubble Tea report names compositing, hit testing, collision-free routing and responsive sizing as manual work, and motion stopped at the composer.
+1. OpenTUI showed the stronger selection hierarchy (selected-row band, signal detail card) and broader motion (one animation engine across views). Both handle click and wheel. The Bubble Tea report names compositing, hit testing, collision-free routing and responsive sizing as manual work, and its spring motion stayed in the composer. That OpenTUI keeps this lead as the views grow is a hypothesis from the spikes, not a measurement. Captures were not size-matched (OpenTUI 200x60, Bubble Tea 200x50).
 2. OpenTUI shares React and TypeScript with the web UI, so view models, API types and formatting are written once.
-3. The costs rank third but are real: about 6x the memory and twice the CPU of Bubble Tea, Node with `--experimental-ffi`, native per-platform binaries and a pre-1.0 library. M1 contains them by pinning the OpenTUI version, keeping the renderer behind a thin view layer over shared view models, and proving Linux install before the first release.
+3. The costs rank third but are real: about 6x the memory and twice the CPU of Bubble Tea, Node with `--experimental-ffi`, native per-platform binaries and a pre-1.0 library. M1 contains them by pinning the OpenTUI version, keeping the renderer behind a thin view layer over shared view models, and gating the first release on a Linux install plus a runtime interaction test, and on an explicit acceptance of the experimental FFI dependency in the security model.
 
 Bubble Tea stays the fallback if OpenTUI's native distribution fails on Linux or the library breaks across pinned upgrades. Its graph routing is the better reference for M1's graph layout.
 
 ## Gaps carried into M1
 
 - Code Health exceptions in all spikes; spike code is not carried forward as is.
-- Graph edge routing (shared segments read as doubled lines) and exact timeline marker positions (OpenTUI uses the nearest retained transcript timestamp).
+- Graph edge routing (shared segments read as doubled lines) and exact signal-to-transcript navigation (OpenTUI jumps to the nearest retained transcript timestamp).
 - A single daemon-side definition of "needs you".
 - Root `npm run check` fails on the Arc spike's generated proxies (`spikes/arc-ts/client/generated/All.ts`, TypeScript parameter properties under strip-only mode). Fix in M1.
 - API v0 gaps found by the clients: structured tool results (success or failure), and a request link on each user transcript entry.
