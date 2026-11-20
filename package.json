@@ -3,11 +3,22 @@
   "private": true,
   "type": "module",
   "engines": { "node": ">=26" },
-  "workspaces": ["spikes/fixture", "spikes/mock-daemon"],
+  "workspaces": ["packages/*"],
   "scripts": {
-    "generate": "node spikes/fixture/generate.ts",
-    "start": "node spikes/mock-daemon/server.ts",
+    "generate": "node packages/testkit/src/fixture/generate.ts",
+    "start": "node packages/testkit/src/mock-daemon/server.ts",
     "check": "node spikes/mock-daemon/check.ts",
-    "test": "node --test spikes/fixture/*.test.ts spikes/mock-daemon/*.test.ts"
+    "test": "node scripts/test.mjs",
+    "typecheck": "tsc -b",
+    "lint": "eslint .",
+    "gate": "node scripts/gate.mjs",
+    "gate:integration": "node scripts/gate-integration.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "26.6.6",
+    "eslint": "10.15.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.73.0"
   }
 }

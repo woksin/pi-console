@@ -1,6 +1,6 @@
 # ADR-0003: TUI stack, decided by a visual bake-off in M0
 
-- Status: Proposed. Decided by a visual bake-off in milestone M0; not decided yet.
+- Status: Accepted (OpenTUI). Decided by the M0 visual bake-off and delegated to the orchestrator by the owner (Q-378).
 - Date: 2026-11-20
 - Supersedes: an earlier draft of this ADR that preselected pi-tui. That draft weighted ecosystem fit first; the owner's priority order is different (below).
 
@@ -36,7 +36,13 @@ R2's weighted score put pi-tui first (73) and OpenTUI second (72) with ecosystem
 
 ## Decision
 
-Option 4. This ADR stays **Proposed** until the M0 bake-off finishes, then is updated to Accepted with the winner.
+Option 4. The M0 bake-off is finished and this ADR is now **Accepted: OpenTUI** (React renderer). The owner delegated the decision to the orchestrator (Q-378), who ranked by the criteria below on the recorded evidence: round one ([bake-off](../spikes/tui-bake-off.md)) and OpenTUI round two ([OpenTUI](../spikes/tui-bake-off-opentui.md)), with Bubble Tea v2 round two ([Bubble Tea](../spikes/tui-bubbletea-r2.md)) as the comparison.
+
+- **Pinned version:** `@opentui/core` and `@opentui/react` **0.9.6**, exact, isolated behind an adapter layer in `packages/tui`. Runtime: Node >= 26.8 with `--experimental-ffi` (the Node floor for M1 is 26).
+- **Fallback:** Bubble Tea v2 + Lip Gloss v2 (Go, single binary). It stays viable because the TUI is only an API client; it is used if OpenTUI fails the first-release gate below.
+- **First-release gate:** a Linux install plus a runtime interaction test (native binary loads, views render, keys work, resize works) must pass before the first release; macOS is verified in M1. The FFI and native binary acceptance is recorded in [security](../security.md#native-code-in-the-tui-ffi).
+
+The bake-off protocol that produced this decision:
 
 Bake-off protocol (details in [milestones.md](../milestones.md#m0-spikes)):
 

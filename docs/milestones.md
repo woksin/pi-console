@@ -31,6 +31,8 @@ Priority: visual quality first, UX and interaction quality second, everything el
 
 ## M1: read-only console (web and TUI)
 
+Status: in progress. P0 (workspaces, gate, contract, testkit, CI) landed.
+
 Scope: the MVP slices listed in [event-model.md](event-model.md#mvp-slices).
 
 - Daemon with SQLite event log, checkpoints, backfill (14 days), loopback bind, token auth, Host and Origin checks ([security](security.md)).

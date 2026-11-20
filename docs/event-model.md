@@ -126,7 +126,7 @@ Projections run in a single projector inside the daemon, after the append transa
 
 ### Request and answer derivation
 
-See [ADR-0008](adr/0008-relationship-to-intent-memory.md). States: `open`, `answered`, `unanswered`, `interrupted`, `answer possibly unseen`. Derived states carry the evidence (message ids, reset id) so the UI can show why.
+See [ADR-0008](adr/0008-relationship-to-intent-memory.md). States: `open`, `answered`, `unanswered`, `interrupted`, `answer possibly unseen`. Requests, answers and boundary records follow intent-memory contract v1.2 §10; until `memory.requests` ships, Phase A derivation from session JSONL applies and only positively proven origins raise attention (`unproven` prompts never do). Derived states carry the evidence (message ids, reset id) so the UI can show why.
 
 ## 4. Idempotency and ordering
 

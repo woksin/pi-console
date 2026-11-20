@@ -38,6 +38,16 @@ Decisions are in [ADR-0006](adr/0006-security-model.md). This page lists assets,
 | T11 | Supply chain (young Cratis packages, TUI runtime) | Exact version pins; lockfile; dependency review in release workflow |
 | T12 | The console becomes a second copy of sensitive data | Bounded excerpts; retention settings; blobs optional; documented cleanup |
 
+## Native code in the TUI (FFI)
+
+The TUI uses OpenTUI ([ADR-0003](adr/0003-tui-stack-bake-off.md)), which loads a native Zig core through Node's FFI (`--experimental-ffi`). This is the only native code the console loads beyond Node itself.
+
+- **What loads:** the prebuilt OpenTUI native library for the host platform, shipped inside the pinned `@opentui/core` npm package, loaded in the TUI process only (never in the daemon).
+- **From where:** the npm registry package at the exact pinned version (0.9.6), installed from the lockfile; never downloaded at runtime.
+- **Integrity:** exact version pin plus lockfile integrity hashes; dependency review on every bump (T11).
+- **No network at runtime:** the native library makes no network calls; the TUI reaches only the loopback daemon API, with the same token rules as the web UI.
+- **Acceptance:** accepted by the owner (Q-378 delegation) for the TUI process. Status: **pending first-release verification**, until the Linux install and runtime interaction test passes (P4).
+
 ## Remote access
 
 Supported only through (a) Tailscale Serve (tailnet only) or (b) a TLS reverse proxy that you configure with an explicit Host allowlist and trusted-proxy list. Do not expose the daemon directly. Self-host authentication (passkeys or OIDC with a single-owner allowlist) arrives in M3; until then remote use relies on the tailnet or proxy and the token.

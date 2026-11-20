@@ -6,7 +6,7 @@ Can Arc.TypeScript 1.0 host a command, query and live SSE observable query, gene
 
 ## Built and reproduced
 
-`spikes/arc-ts` is a standalone npm package (no root workspace). `npm ci && npm start` in that directory builds the TypeScript Hono server and Vite React page, then serves both at `http://127.0.0.1:3000`. Its README contains setup, dev-server and persistence options.
+`spikes/arc-ts` is a standalone npm package (no root workspace); the root strip-only check skips its sources because Arc-generated proxies (`@generated`, parameter properties) are not erasable and are regenerated, never hand-edited. `npm ci && npm start` in that directory builds the TypeScript Hono server and Vite React page, then serves both at `http://127.0.0.1:3000`. Its README contains setup, dev-server and persistence options.
 
 A decorated `AddRow` command inserts a SQLite row through Drizzle and notifies the mapped table. `RowQueries.all` observes `DrizzleReadModels<Row>`. `npm run generate` produces committed `AddRow`, `All` and `Row` client artifacts and their barrel; the React page uses the generated hooks. The provider explicitly selects **direct SSE**, not the default query-hub/WebSocket path. This is a read-model demonstration, not the console event log/projector implementation.
 

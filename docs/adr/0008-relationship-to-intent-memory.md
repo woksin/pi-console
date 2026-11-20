@@ -22,6 +22,8 @@ The store does not exist yet. Record schema versions differ between research not
 
 ## Decision
 
+The contract cited here is intent-memory contract **v1.2** (§10: requests, answers and boundary records); §2 origin classes and the state **answer possibly unseen** (an answer that a later boundary shows as not yet seen by the session) follow it. Until `memory.requests` ships, the console uses the Phase A derivation below.
+
 Option 2. The console never invents a parallel intent store.
 
 - **Origin is proven, never assumed.** The contract (§2) classifies origin by positive evidence with default deny: `human` only when the harness reports interactive input, the session has a UI, it is not a child session and the text is not a launch, relaunch or synthetic prompt. Ordinary user messages in session JSONL carry no origin, and extensions inject user messages into primary sessions (lane inbox, recovery prompts), so JSONL alone cannot prove a prompt is human.

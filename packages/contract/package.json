@@ -1,0 +1,14 @@
+{
+  "name": "@pi-console/contract",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "test": "node --test \"src/**/*.test.ts\"",
+    "generate": "node src/generate-types.ts",
+    "generate:check": "node src/generate-types.ts --check"
+  }
+}

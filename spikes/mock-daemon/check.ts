@@ -9,7 +9,9 @@ function files(directory: string): string[] {
     return entry.isDirectory() ? files(path) : [path];
   });
 }
-const sources = files('spikes').filter(path => /\.(ts|json|jsonl)$/.test(path));
+// spikes/arc-ts has its own tsconfigs and uses decorators and Arc-generated proxies (@generated, parameter properties), which strip-only TypeScript rejects; its own build and test cover it.
+const ownToolchain = /[\\/]spikes[\\/]arc-ts[\\/].*\.ts$/;
+const sources = files('spikes').filter(path => /\.(ts|json|jsonl)$/.test(path) && !ownToolchain.test(path));
 const contracts = files('docs/api').filter(path => /\.(json|md)$/.test(path));
 for (const path of [...sources, ...contracts, 'package.json', 'tsconfig.base.json', '.gitignore', '.nvmrc']) {
   const text = readFileSync(path, 'utf8');

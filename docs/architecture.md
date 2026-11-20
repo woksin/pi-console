@@ -5,7 +5,7 @@
 ```text
  pi sessions ──(files: JSONL, status, messages, questions, jobs, ledgers)──┐
       │                                                                     v
-      └─ pi-console extension ──ws (outbound)──►  ┌─────────────── daemon (Node >= 22) ───────────────┐
+      └─ pi-console extension ──ws (outbound)──►  ┌─────────────── daemon (Node >= 26) ───────────────┐
                                                   │ source adapters → ingestion → EventLog (SQLite)   │
  Direct (MCP, optional) ◄── adapter ─────────────►│ projector → read models → HTTP + SSE API          │
                                                   │ command bus → interventions → extension / stores  │
