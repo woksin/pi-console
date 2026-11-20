@@ -54,7 +54,8 @@ test('terminal escapes and bidi overrides never reach a client', async t => {
   const output = await everything(spec.daemon.port, spec.token);
   assert.ok(output.includes('red[31mbellevil'));
   // JSON.stringify escapes C0 controls as \u00XX; none may remain in any form.
-  assert.equal(/\\u00(0[0-8b-f]|1[0-9a-f]|7f|8[0-9a-f]|9[0-9a-f])|\u001b|\u202e|\u0085/i.test(output), false);
+  assert.equal(/\\u00(0[0-8b-f]|1[0-9a-f]|7f|8[0-9a-f]|9[0-9a-f])/i.test(output), false);
+  for (const code of [0x1b, 0x07, 0x202e, 0x85]) assert.equal(output.includes(String.fromCharCode(code)), false, code.toString(16));
 });
 
 test('secrets in session files never leave through the API after real ingestion', async t => {
