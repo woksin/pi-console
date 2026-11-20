@@ -79,7 +79,7 @@ export class SqliteEventLog implements EventLog {
     try {
       return Promise.resolve(this.appendSync(events, checkpoints));
     } catch (error) {
-      return Promise.reject(error as Error);
+      return Promise.reject(error instanceof Error ? error : new Error(String(error)));
     }
   }
 

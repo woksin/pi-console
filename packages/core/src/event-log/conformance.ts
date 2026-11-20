@@ -28,7 +28,9 @@ async function withLog(create: () => EventLogHarness, body: (log: EventLog) => P
  * Call at the top level of a spec file.
  */
 export function eventLogConformance(name: string, create: () => EventLogHarness): void {
-  const spec = (title: string, body: (log: EventLog) => Promise<void>) => test(`${name}: ${title}`, () => withLog(create, body));
+  const spec = (title: string, body: (log: EventLog) => Promise<void>): void => {
+    void test(`${name}: ${title}`, () => withLog(create, body));
+  };
 
   spec('appends in order with increasing seq', async log => {
     const result = await log.append([heartbeat(1), heartbeat(2), heartbeat(3)]);

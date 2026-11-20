@@ -12,7 +12,7 @@ const batchSize = 7;
 /** Child side: resume from the checkpoint (re-appending a small overlap on purpose) and append up to `total`. */
 export async function runCrashChild(path: string, total: number): Promise<void> {
   const log = new SqliteEventLog(path);
-  const [checkpoint] = await log.checkpoints(source);
+  const checkpoint = (await log.checkpoints(source)).at(0);
   const start = Math.max(0, (checkpoint?.offset ?? 0) - 3);
   for (let first = start; first < total; first += batchSize) {
     const last = Math.min(first + batchSize, total);
@@ -34,7 +34,7 @@ export async function inspectCrashLog(path: string): Promise<CrashState> {
     events++;
     ids.add(event.id);
   }
-  const [checkpoint] = await log.checkpoints(source);
+  const checkpoint = (await log.checkpoints(source)).at(0);
   const maxOffset = log.lastSeq() === 0 ? 0 : Math.max(...[...ids].map(id => parseInt(id.slice(-12), 16) + 1));
   log.close();
   return { events, distinct: ids.size, checkpoint: checkpoint?.offset ?? 0, maxOffset };
