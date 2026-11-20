@@ -46,7 +46,7 @@ The TUI uses OpenTUI ([ADR-0003](adr/0003-tui-stack-bake-off.md)), which loads a
 - **From where:** the npm registry package at the exact pinned version (0.9.6), installed from the lockfile; never downloaded at runtime.
 - **Integrity:** exact version pin plus lockfile integrity hashes; dependency review on every bump (T11).
 - **No network at runtime:** the native library makes no network calls; the TUI reaches only the loopback daemon API, with the same token rules as the web UI.
-- **Acceptance:** accepted by the owner (Q-378 delegation) for the TUI process. Status: **pending first-release verification**, until the Linux install and runtime interaction test passes (P4).
+- **Acceptance:** accepted by the owner (Q-378 delegation) for the TUI process. Status: **verified for M1 on Linux arm64 / Node 26** (fresh `npm ci` plus the pty interaction spec in a `node:26-slim` container, P4; see [ui-tui](ui-tui.md#tests)). Still open before the first release: the same run on Linux x64 and on the release build.
 
 ## Remote access
 
