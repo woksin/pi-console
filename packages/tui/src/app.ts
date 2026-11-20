@@ -111,6 +111,7 @@ interface KeyContext { sessions: Sessions; view: SectionView; bounds: Bounds; co
 
 /** Next state for a key: text entry while an input overlay is open, otherwise the keymap (`y` copies the id and keeps the state). */
 function nextState(state: UiState, key: KeyInput, ctx: KeyContext): UiState {
+  if (neutralKey(key) === 'Ctrl+C') return reduce(state, 'quit', ctx.bounds);
   if (isTextOverlay(state.overlay)) {
     if (neutralKey(key) === 'Enter') return state.overlay === 'palette' ? runPalette(state, ctx.sessions, ctx.bounds) : commit(state);
     return typeInto(state, key, state.overlay === 'palette' ? paletteItems({ sessions: ctx.sessions, query: state.input }).length : 0);
@@ -126,7 +127,7 @@ function runPalette(state: UiState, sessions: Parameters<typeof paletteItems>[0]
   const item = items[Math.min(state.paletteIndex, items.length - 1)];
   const closed: UiState = { ...state, overlay: 'none', input: '', paletteIndex: 0 };
   if (!item) return closed;
-  if (item.target.kind === 'session') return { ...closed, sessionId: item.target.sessionId, scroll: 0, follow: true, search: '' };
+  if (item.target.kind === 'session') return { ...closed, sessionId: item.target.sessionId, scroll: 0, follow: true, anchor: null, search: '' };
   return reduce(closed, item.target.action, bounds);
 }
 

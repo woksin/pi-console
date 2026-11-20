@@ -79,11 +79,13 @@ export function sessionView(env: Env): SectionView {
   const transcriptWidth = env.width - side - 4;
   const lines = transcriptLines(env, model, entries, transcriptWidth);
   const viewport = Math.max(1, env.height - 4 - 3);
-  const end = Math.max(0, lines.length - ui.scroll);
+  const base = ui.follow ? lines.length : Math.min(ui.anchor ?? lines.length, lines.length);
+  const end = Math.max(0, base - ui.scroll);
   const shown = lines.slice(Math.max(0, end - viewport), end);
   const padded: Line[] = [...Array.from({ length: viewport - shown.length }, () => blank), ...shown];
   const following = ui.follow && ui.scroll === 0;
-  const status = ui.search ? `matching “${ui.search}” · ${String(model.transcript.length)} entries` : following ? '● following tail' : `⏸ paused · ${String(ui.scroll)} lines above live · f to follow`;
+  const above = lines.length - end;
+  const status = ui.search ? `matching “${ui.search}” · ${String(model.transcript.length)} entries` : following ? '● following tail' : `⏸ paused · ${String(above)} lines above live · f to follow`;
   const loading = !data.transcripts.has(model.id) && model.transcript.length === 0;
   return {
     length: lines.length,

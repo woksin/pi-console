@@ -72,3 +72,14 @@ test('terminal keys translate to the neutral names of the keymap', () => {
   assert.equal(typedCharacter(key('a', 'a')), 'a');
   assert.equal(typedCharacter(key('p', '\u0010', { ctrl: true })), undefined);
 });
+
+test('pausing follow anchors the viewport to the lines present when it was paused', () => {
+  const session = { ...initial, sessionId: 's1' };
+  const paused = reduce(session, 'follow.toggle', bounds);
+  assert.equal(paused.anchor, 50);
+  assert.equal(reduce(paused, 'follow.toggle', bounds).anchor, null);
+  const scrolled = reduce(session, 'move.up', bounds);
+  assert.equal(scrolled.anchor, 50);
+  assert.equal(reduce(scrolled, 'move.up', { ...bounds, transcriptLength: 60 }).anchor, 50, 'growth does not move the anchor');
+  assert.equal(reduce(scrolled, 'move.bottom', bounds).anchor, null);
+});

@@ -1,6 +1,6 @@
 import type { AttentionItem, Event, Job, Message, Question, Request, Reset, Session, SessionDetail, TranscriptEntry } from '@pi-console/contract';
 
-const TRANSCRIPT_LIMIT = 2500;
+export const TRANSCRIPT_LIMIT = 2500;
 const upsert = <T extends { id: string }>(items: T[], item: T): T[] => {
   const index = items.findIndex(existing => existing.id === item.id);
   return index < 0 ? [...items, item] : items.map((existing, position) => (position === index ? item : existing));

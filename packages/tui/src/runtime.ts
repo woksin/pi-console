@@ -1,6 +1,7 @@
 import { createElement } from 'react';
 import { DaemonClient } from './api/client.ts';
 import { resolveCredentials, type Credentials } from './api/token.ts';
+import { throttled } from './refresh.ts';
 import { Store } from './store/store.ts';
 import { App } from './app.ts';
 import { launch } from './view/renderer.ts';
@@ -14,18 +15,13 @@ const NEEDS_YOU_REFRESH_MS = 2000;
 export function connect(credentials: Credentials): Runtime {
   const store = new Store();
   const client = new DaemonClient(credentials);
-  let refreshing = false;
-  let last = 0;
-  const refresh = () => {
-    if (refreshing || Date.now() - last < NEEDS_YOU_REFRESH_MS) return;
-    refreshing = true;
-    client.needsYou().then(items => { store.setNeedsYou(items); }, () => undefined).finally(() => { refreshing = false; last = Date.now(); });
-  };
+  const refresher = throttled(async () => { store.setNeedsYou(await client.needsYou()); }, NEEDS_YOU_REFRESH_MS);
+  const refresh = refresher.request;
   void client.stream({
     onEvent: event => { store.apply(event); if (event.type !== 'transcript.appended') refresh(); },
     onState: state => { store.setConnection(state.connected, state.error); if (state.connected) refresh(); },
   });
-  return { store, client, stop: () => { client.stop(); store.dispose(); } };
+  return { store, client, stop: () => { refresher.stop(); client.stop(); store.dispose(); } };
 }
 
 export interface RunOptions { env?: NodeJS.ProcessEnv }
@@ -42,7 +38,7 @@ export async function run(options: RunOptions = {}): Promise<number> {
     const finish = () => { runtime.stop(); resolveRun(0); };
     const node = createElement(App, {
       store: runtime.store, endpoint: credentials.baseUrl, tokenSource: credentials.tokenSource, animate,
-      loadTranscript: id => { void runtime.client.transcript(id).then(entries => { runtime.store.mergeTranscript(id, entries); }, () => undefined); },
+      loadTranscript: id => { void runtime.client.transcript(id).then(entries => { runtime.store.mergeTranscript(id, entries); }, () => { runtime.store.mergeTranscript(id, []); }); },
       onQuit: () => { handle?.destroy(); finish(); },
     });
     void launch(node, { fps: animate ? 20 : 8, onDestroy: finish }).then(started => { handle = started; });

@@ -21,6 +21,8 @@ export interface UiState {
   /** Lines scrolled up from the live tail; 0 with `follow` is "following". */
   scroll: number;
   follow: boolean;
+  /** Transcript line count when the view was paused; a paused viewport is anchored to it so new entries do not move it. `null` while following. */
+  anchor: number | null;
   search: string;
   pane: SidePane;
   messagesGraph: boolean;
@@ -34,7 +36,7 @@ export interface UiState {
 export const initial: UiState = {
   section: 'overview', sessionId: null, overlay: 'none', input: '', paletteIndex: 0, filter: '',
   cursor: { overview: 0, fleet: 0, requests: 0, questions: 0, messages: 0, timeline: 0, work: 0 },
-  collapsed: [], scroll: 0, follow: true, search: '', pane: 'requests', messagesGraph: false, window: null, scrub: false, scrubColumn: 0, quit: false, notice: '',
+  collapsed: [], scroll: 0, follow: true, anchor: null, search: '', pane: 'requests', messagesGraph: false, window: null, scrub: false, scrubColumn: 0, quit: false, notice: '',
 };
 
 /** What the reducer needs to know about the rendered world; supplied by the view layer. */
@@ -66,7 +68,8 @@ function moveTranscript(state: UiState, action: Action, bounds: Bounds): UiState
   if (action === 'move.top') scroll = maximum;
   else if (action === 'move.bottom') scroll = 0;
   else scroll = Math.max(0, Math.min(maximum, scroll + (delta[action] ?? 0)));
-  return { ...state, scroll, follow: scroll === 0 };
+  if (scroll === 0) return { ...state, scroll, follow: true, anchor: null };
+  return { ...state, scroll, follow: false, anchor: state.anchor ?? bounds.transcriptLength };
 }
 
 const goto = (state: UiState, section: Section): UiState => ({ ...state, section, sessionId: null, overlay: 'none', filter: '', scrub: false });
@@ -75,7 +78,7 @@ function open(state: UiState, bounds: Bounds): UiState {
   const row = bounds.rowAt(state.cursor[state.section]);
   if (!row.sessionId) return row.groupId ? toggleGroup(state, bounds) : state;
   const sessionId = row.sessionId;
-  return { ...state, sessionId, scroll: 0, follow: true, search: '', pane: 'requests' };
+  return { ...state, sessionId, scroll: 0, follow: true, anchor: null, search: '', pane: 'requests' };
 }
 
 function back(state: UiState): UiState {
@@ -118,7 +121,7 @@ export function reduce(state: UiState, action: Action, bounds: Bounds): UiState 
     case 'help.toggle': return { ...state, overlay: state.overlay === 'help' ? 'none' : 'help' };
     case 'back': return back(state);
     case 'open': return open(state, bounds);
-    case 'follow.toggle': return { ...state, follow: !state.follow, scroll: state.follow ? state.scroll : 0 };
+    case 'follow.toggle': return state.follow ? { ...state, follow: false, anchor: bounds.transcriptLength } : { ...state, follow: true, scroll: 0, anchor: null };
     case 'view.toggle': return { ...state, messagesGraph: !state.messagesGraph, cursor: { ...state.cursor, messages: 0 } };
     case 'group.toggle': return toggleGroup(state, bounds);
     case 'pane.next': return cyclePane(state, 1);
@@ -153,6 +156,6 @@ export function typing(state: UiState, key: string, character: string | undefine
 /** Enter in a text field for filter and search (the palette is handled by the app, it executes a target). */
 export function commit(state: UiState): UiState {
   if (state.overlay === 'filter') return { ...state, overlay: 'none', filter: state.input, input: '', cursor: { ...state.cursor, [state.section]: 0 } };
-  if (state.overlay === 'search') return { ...state, overlay: 'none', search: state.input, input: '', scroll: 0, follow: state.input === '' };
+  if (state.overlay === 'search') return { ...state, overlay: 'none', search: state.input, input: '', scroll: 0, follow: state.input === '', anchor: null };
   return state;
 }

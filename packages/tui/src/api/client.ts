@@ -1,6 +1,7 @@
 import type { Event, TranscriptEntry, Transcript, NeedsYou, AttentionItem } from '@pi-console/contract';
 import { FrameParser } from './sse.ts';
 import type { Credentials } from './token.ts';
+import { TRANSCRIPT_LIMIT } from '../store/store.ts';
 
 export interface StreamHandlers {
   onEvent: (event: Event) => void;
@@ -33,13 +34,13 @@ export class DaemonClient {
     return (await this.json<NeedsYou>('/needs-you')).items;
   }
 
-  /** Backfills a transcript, bounded to `pages` pages so a busy session cannot stall the UI. */
-  async transcript(sessionId: string, pages = 5): Promise<TranscriptEntry[]> {
-    const entries: TranscriptEntry[] = [];
+  /** Backfills the newest `TRANSCRIPT_LIMIT` entries: pages forward to the end (so the tail is never the part that is missing), keeping only the tail. Bounded to `pages` pages. */
+  async transcript(sessionId: string, pages = 50): Promise<TranscriptEntry[]> {
+    let entries: TranscriptEntry[] = [];
     let cursor = 0;
     for (let page = 0; page < pages; page++) {
       const body = await this.json<Transcript>(`/sessions/${encodeURIComponent(sessionId)}/transcript?after=${String(cursor)}&limit=1000`);
-      entries.push(...body.items);
+      entries = [...entries, ...body.items].slice(-TRANSCRIPT_LIMIT);
       cursor = body.nextCursor;
       if (!body.hasMore) break;
     }

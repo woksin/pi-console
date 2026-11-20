@@ -1,9 +1,22 @@
-import { cells, clip, type Pressure } from '@pi-console/viewmodels';
+import { cells, clip, sanitize, type Pressure } from '@pi-console/viewmodels';
 import type { StatusCell } from '@pi-console/viewmodels';
 import type { Color } from './theme.ts';
 import type { Line, Part } from './renderer.ts';
 
-export const t = (text: string, color?: Color, extra: Partial<Part> = {}): Part => ({ text, color, ...extra });
+/** Cheap pre-check so the common, clean string skips `sanitize`: any control character other than newline. */
+const needsCleaning = (text: string): boolean => {
+  for (let index = 0; index < text.length; index++) {
+    const code = text.charCodeAt(index);
+    if ((code < 32 && code !== 10) || (code >= 127 && code <= 159)) return true;
+  }
+  return false;
+};
+
+/**
+ * The one place text becomes a part. Everything rendered goes through here, so daemon- and agent-authored text can never carry terminal
+ * control sequences to the screen, whichever view or pane draws it.
+ */
+export const t = (text: string, color?: Color, extra: Partial<Part> = {}): Part => ({ text: needsCleaning(text) ? sanitize(text) : text, color, ...extra });
 export const gap = (width = 1): Part => ({ text: ' '.repeat(width) });
 
 const pressureColor: Record<Pressure, Color> = { calm: 'green', warm: 'amber', hot: 'red' };

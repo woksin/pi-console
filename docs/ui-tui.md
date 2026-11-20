@@ -7,6 +7,7 @@ Status: M1 implementation, read-only. Decision: [ADR-0003](adr/0003-tui-stack-ba
 ```sh
 npm ci
 npm start                                   # mock daemon on 127.0.0.1:4777 (token in .pi-console-dev/token)
+export PI_CONSOLE_DATA_DIR="$PWD/.pi-console-dev"   # the TUI's default token path is ~/.pi-console/token, not the mock daemon's
 npm start -w @pi-console/tui                # the TUI, in another terminal
 node packages/cli/bin/pi-console.mjs tui    # the same through the CLI (adds --experimental-ffi in a child process)
 ```
