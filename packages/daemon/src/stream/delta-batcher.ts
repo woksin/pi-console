@@ -33,21 +33,39 @@ function derivedSessions(queries: ConsoleQueries): Map<string, string> {
   return new Map(queries.sessions().map(session => [session.id, JSON.stringify([session.status, attention.get(session.id) ?? []])]));
 }
 
+/** Flushes may take at most this share of the event loop: after a flush of d ms the next waits (1 / share - 1) × d. */
+const maxDutyShare = 0.2;
+/** Longest a pending delta waits behind an expensive flush. */
+const maxFlushDelayMs = 2_000;
+
+export interface DeltaBatcherOptions {
+  /** Monotonic milliseconds; injectable for specs. */
+  clock?: () => number;
+}
+
 /**
  * Turns applied log events into SSE deltas. Events applied in the same tick are coalesced: each touched entity is
  * published once, as its state after the whole batch, in the order it was first touched.
+ *
+ * Every flush rebuilds whole-state queries, so during a backfill flushes are paced to a duty cycle: after an expensive
+ * flush, the next one waits proportionally and events keep coalescing meanwhile. Deltas are the same final states,
+ * only later; after a cheap flush (the live case) the wait is a few milliseconds at most.
  */
 export class DeltaBatcher {
   readonly #models: () => ReadModels;
   readonly #publish: (delta: Delta) => void;
   readonly #now: () => Date;
+  readonly #clock: () => number;
   #pending: EventEnvelope[] = [];
   #derived: Map<string, string>;
+  #nextFlushAt = 0;
+  #timer: NodeJS.Timeout | undefined;
 
-  constructor(models: () => ReadModels, publish: (delta: Delta) => void, now: () => Date = () => new Date()) {
+  constructor(models: () => ReadModels, publish: (delta: Delta) => void, now: () => Date = () => new Date(), options: DeltaBatcherOptions = {}) {
     this.#models = models;
     this.#publish = publish;
     this.#now = now;
+    this.#clock = options.clock ?? (() => performance.now());
     this.#derived = derivedSessions(new BatchQueries(models, now));
   }
 
@@ -56,14 +74,29 @@ export class DeltaBatcher {
   }
 
   add(event: EventEnvelope): void {
-    if (this.#pending.length === 0) setImmediate(() => { this.flush(); });
+    if (this.#pending.length === 0) this.#schedule();
     this.#pending.push(event);
   }
 
   flush(): void {
+    clearTimeout(this.#timer);
+    this.#timer = undefined;
     const events = this.#pending;
     if (events.length === 0) return;
     this.#pending = [];
+    const started = this.#clock();
+    this.#flushEvents(events);
+    const ended = this.#clock();
+    this.#nextFlushAt = ended + Math.min(maxFlushDelayMs, (ended - started) * (1 / maxDutyShare - 1));
+  }
+
+  #schedule(): void {
+    const wait = this.#nextFlushAt - this.#clock();
+    if (wait <= 0) setImmediate(() => { this.flush(); });
+    else this.#timer = setTimeout(() => { this.flush(); }, wait);
+  }
+
+  #flushEvents(events: readonly EventEnvelope[]): void {
     const queries = new BatchQueries(this.#models, this.#now);
     const deltas = new Map<string, Delta>();
     const seen = new Set<string>();

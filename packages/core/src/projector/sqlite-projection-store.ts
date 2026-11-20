@@ -1,8 +1,12 @@
 import { DatabaseSync, type StatementSync } from 'node:sqlite';
 import type { ProjectionRecord, ProjectionStore, ProjectionWrite } from './projection.ts';
-import { safeRecords } from './records.ts';
+import { parseRecords } from './records.ts';
 
-/** Projection metadata and dirty rows share one WAL transaction with their replay positions. */
+/**
+ * Projection metadata and dirty rows share one WAL transaction with their replay positions. The store is derived state:
+ * `synchronous = NORMAL` may lose the last commits on power loss, never atomicity, and replay from the event log (which
+ * stays FULL) restores them.
+ */
 export class SqliteProjectionStore implements ProjectionStore {
   readonly #db: DatabaseSync;
   readonly #load: StatementSync;
@@ -14,7 +18,7 @@ export class SqliteProjectionStore implements ProjectionStore {
 
   constructor(path: string) {
     this.#db = new DatabaseSync(path);
-    this.#db.exec('PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;');
+    this.#db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA busy_timeout = 5000;');
     this.#db.exec(`CREATE TABLE IF NOT EXISTS projections (
       name TEXT PRIMARY KEY, version INTEGER NOT NULL, position INTEGER NOT NULL, state TEXT NOT NULL
     );
@@ -35,9 +39,9 @@ export class SqliteProjectionStore implements ProjectionStore {
   load(name: string): ProjectionRecord | undefined {
     const row = this.#load.get(name);
     if (!row) return undefined;
-    const state = safeRecords(JSON.parse(row.state as string)) as Record<string, Record<string, unknown>>;
+    const state = parseRecords<Record<string, Record<string, unknown>>>(row.state as string);
     for (const item of this.#rows.iterate(name)) {
-      state[item.collection as string][item.id as string] = safeRecords(JSON.parse(item.value as string));
+      state[item.collection as string][item.id as string] = parseRecords(item.value as string);
     }
     return { name, version: row.version as number, position: row.position as number, state };
   }

@@ -7,6 +7,8 @@ import { testEvent } from '../testing/events.ts';
 import { canonicalJson } from './canonical.ts';
 import { Projector } from './projector.ts';
 import { SqliteProjectionStore } from './sqlite-projection-store.ts';
+import { MemoryProjectionStore, type ProjectionStore } from './projection.ts';
+import { parseRecords } from './records.ts';
 
 function assertDictionaries(models: ReadModels, id: string): void {
   for (const state of Object.values(models)) {
@@ -57,3 +59,33 @@ async function hostileId(id: string): Promise<void> {
 for (const id of ['__proto__', 'constructor', 'toString', 'hasOwnProperty']) {
   test(`hostile id ${id} remains an own dictionary key across every model, snapshot restore and replay`, () => hostileId(id));
 }
+
+test('parsed records have no prototype at any depth and keep hostile keys as own data', () => {
+  const parsed = parseRecords<{ rows: Record<string, { stamps: Record<string, string>; list: { at: string }[] }> }>(
+    '{"rows":{"__proto__":{"stamps":{"constructor":"x"},"list":[{"at":"1"}]}}}');
+  const row = parsed.rows['__proto__'];
+  for (const record of [parsed, parsed.rows, row, row.stamps, row.list[0]]) assert.equal(Object.getPrototypeOf(record), null);
+  assert.ok(Array.isArray(row.list));
+  assert.ok(Object.hasOwn(parsed.rows, '__proto__'));
+  assert.equal(row.stamps.constructor, 'x');
+  assert.equal(({} as Record<string, unknown>).stamps, undefined);
+});
+
+test('a restored projector owns the loaded state instead of copying it again', () => {
+  const store = new MemoryProjectionStore();
+  const [projection] = consoleProjections();
+  store.save([{ name: projection.name, version: projection.version, position: 0, state: projection.initial() }]);
+  let loaded: unknown;
+  const spy: ProjectionStore = { save: records => { store.save(records); }, load: name => {
+    const record = store.load(name);
+    if (name === projection.name) loaded = record?.state;
+    return record;
+  } };
+  const log = new SqliteEventLog(':memory:');
+  try {
+    const projector = new Projector(log, [projection], spy);
+    assert.ok(loaded !== undefined);
+    assert.equal(projector.state(projection.name), loaded);
+    assert.equal(Object.getPrototypeOf(loaded), null);
+  } finally { log.close(); }
+});

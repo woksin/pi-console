@@ -1,4 +1,5 @@
 import type { EventEnvelope } from '@pi-console/contract';
+import { parseRecords } from './records.ts';
 
 /**
  * A read model built by folding the event log. `apply` must be pure: no clock, no IO, no randomness, no dependence on
@@ -41,6 +42,7 @@ export interface ProjectionWrite extends ProjectionRecord {
 
 /** Where projection snapshots live between restarts. */
 export interface ProjectionStore {
+  /** A fresh state the projector then owns, its records (dictionaries included) without prototypes. */
   load(name: string): ProjectionRecord | undefined;
   save(records: readonly ProjectionRecord[]): void;
   /** Optional row-aware persistence. Snapshot-only stores remain supported. */
@@ -53,7 +55,7 @@ export class MemoryProjectionStore implements ProjectionStore {
 
   load(name: string): ProjectionRecord | undefined {
     const text = this.#records.get(name);
-    return text === undefined ? undefined : JSON.parse(text) as ProjectionRecord;
+    return text === undefined ? undefined : parseRecords<ProjectionRecord>(text);
   }
 
   save(records: readonly ProjectionRecord[]): void {

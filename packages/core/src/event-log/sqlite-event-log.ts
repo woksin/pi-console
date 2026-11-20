@@ -8,9 +8,11 @@ export interface SqliteEventLogOptions {
   now?: () => Date;
   /** Page size for `readFrom` and subscriber catch-up. */
   pageSize?: number;
+  /** Events a subscriber receives synchronously before the rest of a large append continues on a later macrotask. */
+  sliceEvents?: number;
 }
 
-interface Subscriber { position: number; onEvent: (event: EventEnvelope) => void }
+interface Subscriber { position: number; onEvent: (event: EventEnvelope) => void; resumeScheduled: boolean }
 
 interface EventRow {
   seq: number; id: string; type: string; version: number; occurredAt: string; recordedAt: string; source: string;
@@ -60,6 +62,7 @@ export class SqliteEventLog implements EventLog {
   readonly #subscribers = new Set<Subscriber>();
   readonly #now: () => Date;
   readonly #pageSize: number;
+  readonly #sliceEvents: number;
 
   constructor(path: string, options: SqliteEventLogOptions = {}) {
     this.#database = new DatabaseSync(path);
@@ -73,6 +76,7 @@ export class SqliteEventLog implements EventLog {
     this.#last = this.#database.prepare('SELECT COALESCE(MAX(seq), 0) AS seq FROM events');
     this.#now = options.now ?? (() => new Date());
     this.#pageSize = options.pageSize ?? 500;
+    this.#sliceEvents = options.sliceEvents ?? 250;
   }
 
   append(events: readonly NewEvent[], checkpoints: readonly SourceCheckpoint[] = []): Promise<AppendResult> {
@@ -117,7 +121,7 @@ export class SqliteEventLog implements EventLog {
   }
 
   subscribe(afterSeq: number, onEvent: (event: EventEnvelope) => void): () => void {
-    const subscriber: Subscriber = { position: afterSeq, onEvent };
+    const subscriber: Subscriber = { position: afterSeq, onEvent, resumeScheduled: false };
     this.#subscribers.add(subscriber);
     queueMicrotask(() => { this.#drain(subscriber); });
     return () => { this.#subscribers.delete(subscriber); };
@@ -161,16 +165,33 @@ export class SqliteEventLog implements EventLog {
     for (const subscriber of this.#subscribers) this.#drain(subscriber);
   }
 
-  /** Delivers every stored event after the subscriber's position, in order, exactly once. */
+  /**
+   * Delivers every stored event after the subscriber's position, in order, exactly once. One call delivers at most a
+   * slice; the rest follows on a later macrotask, so a large append never runs every subscriber's work in one go.
+   */
   #drain(subscriber: Subscriber): void {
-    for (;;) {
-      if (!this.#subscribers.has(subscriber)) return;
-      const page = this.readPage(subscriber.position, this.#pageSize);
+    let budget = this.#sliceEvents;
+    while (this.#subscribers.has(subscriber)) {
+      const page = this.readPage(subscriber.position, Math.min(this.#pageSize, budget));
       if (page.length === 0) return;
       for (const event of page) {
         subscriber.position = event.seq;
         subscriber.onEvent(event);
       }
+      budget -= page.length;
+      if (budget <= 0) {
+        this.#resume(subscriber);
+        return;
+      }
     }
+  }
+
+  #resume(subscriber: Subscriber): void {
+    if (subscriber.resumeScheduled) return;
+    subscriber.resumeScheduled = true;
+    setImmediate(() => {
+      subscriber.resumeScheduled = false;
+      this.#drain(subscriber);
+    });
   }
 }
