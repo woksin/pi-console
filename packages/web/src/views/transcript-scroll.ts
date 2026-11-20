@@ -30,15 +30,14 @@ function restore(pane: HTMLElement, anchor: Anchor | null, lines: readonly Trans
 /** While paused the viewport is pinned to a line id (never an index or offset): eviction at the retention cap or a history merge moves content, and the pinned line is brought back to the same screen position. */
 function useAnchor(pane: RefObject<HTMLDivElement | null>, follow: boolean, lines: readonly TranscriptLine[]): { remember: () => void } {
   const anchor = useRef<Anchor | null>(null);
-  const remember = () => { if (pane.current) anchor.current = capture(pane.current); };
   useLayoutEffect(() => {
     if (!pane.current) return;
     // Following owns the viewport: a stale anchor from an earlier pause must not pull the next pause back to it.
     if (follow) { anchor.current = null; return; }
     restore(pane.current, anchor.current, lines);
-    remember();
+    anchor.current = capture(pane.current);
   }, [pane, follow, lines]);
-  return { remember };
+  return { remember: () => { if (pane.current) anchor.current = capture(pane.current); } };
 }
 
 /** Identifies the tail's content and size: a collapsed streaming run grows without changing the last key or the line count. */
