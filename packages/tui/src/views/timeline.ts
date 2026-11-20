@@ -1,20 +1,18 @@
 import { timelineViewModel, fitWindow, markers, clock, clip, pad, wrap, type Marker, type TimelineLane } from '@pi-console/viewmodels';
-import { Column, Lines, Panel, h, type Line, type Part } from '../view/renderer.ts';
+import { Column, Lines, Panel, h, type Line } from '../view/renderer.ts';
 import { blank, statusParts, t, windowOf } from '../view/parts.ts';
 import type { Env, SectionView } from './common.ts';
+import { gridPart, inWindow, nearby } from './timeline-grid.ts';
 
 const LABEL = 24;
 
-function laneLine(lane: TimelineLane, width: number, selected: boolean, ticks: ReadonlySet<number>, scrub: number | undefined, phase: number): Line {
+interface LaneRow { width: number; ticks: ReadonlySet<number>; scrub: number | undefined; phase: number }
+
+function laneLine(lane: TimelineLane, selected: boolean, row: LaneRow): Line {
   const byColumn = new Map(lane.cells.map(cell => [cell.column, cell]));
-  const parts: Part[] = [];
-  for (let column = 0; column < width; column++) {
-    const cell = byColumn.get(column);
-    const background = column === scrub ? 'select' as const : selected ? 'panel' as const : undefined;
-    if (cell) parts.push({ text: cell.glyph, color: cell.color, bold: true, background });
-    else parts.push({ text: column === scrub ? '│' : ticks.has(column) ? '┊' : '─', color: column === scrub ? 'cyan' : ticks.has(column) ? 'border' : 'border', background, dim: column !== scrub });
-  }
-  return [t(selected ? '▌' : ' ', 'cyan'), ...statusParts({ ...lane.status }, phase, false), t(' '), t(pad(lane.label, LABEL - 3), selected ? 'text' : 'muted', { bold: selected }), ...parts];
+  const style = { scrub: row.scrub, ticks: row.ticks, selected };
+  const parts = Array.from({ length: row.width }, (_, column) => gridPart(byColumn.get(column), column, style));
+  return [t(selected ? '▌' : ' ', 'cyan'), ...statusParts({ ...lane.status }, row.phase, false), t(' '), t(pad(lane.label, LABEL - 3), selected ? 'text' : 'muted', { bold: selected }), ...parts];
 }
 
 function axisLine(axis: readonly { column: number; label: string }[], width: number, scrub: number | undefined, scrubLabel: string): Line {
@@ -24,8 +22,22 @@ function axisLine(axis: readonly { column: number; label: string }[], width: num
   return [t(' '.repeat(LABEL + 1)), t(cells.join(''), 'faint')];
 }
 
-function nearby(all: readonly Marker[], sessionId: string | undefined, atMs: number, spanMs: number): Marker[] {
-  return all.filter(marker => marker.sessionId === sessionId).sort((a, b) => Math.abs(a.at - atMs) - Math.abs(b.at - atMs)).filter(marker => Math.abs(marker.at - atMs) <= spanMs).slice(0, 6);
+/** Scrub column clamped to the grid, and the time it points at (0 when not scrubbing). */
+function scrubOf(ui: Env['ui'], width: number, window: { start: number; span: number }): { scrub: number | undefined; scrubAt: number } {
+  const scrub = ui.scrub ? Math.min(width - 1, ui.scrubColumn) : undefined;
+  return { scrub, scrubAt: scrub === undefined ? 0 : window.start + window.span * scrub / Math.max(1, width - 1) };
+}
+
+function markerLines(marker: Marker, gridWidth: number): Line[] {
+  return [
+    [t(`${clock(new Date(marker.at).toISOString())} `, 'faint'), t(`${marker.glyph} `, marker.color, { bold: true }), t(marker.kind, marker.color)],
+    ...wrap(clip(marker.text, 200), gridWidth - 6, 1).map((text): Line => [t('         ' + text, 'text')]),
+  ];
+}
+
+function detailLines(heading: string, focus: readonly Marker[], gridWidth: number): Line[] {
+  const body = focus.length === 0 ? [[t('Nothing here. Zoom out with -, pan with h and l.', 'faint')] as Line] : focus.flatMap(marker => markerLines(marker, gridWidth)).slice(0, 8);
+  return [[t(heading, 'muted', { bold: true })], ...body];
 }
 
 export function timelineView(env: Env): SectionView {
@@ -36,22 +48,15 @@ export function timelineView(env: Env): SectionView {
   const fitted = fitWindow(all);
   const model = timelineViewModel({ ...base, window: ui.window ?? fitted, width });
   const cursor = Math.min(ui.cursor.timeline, Math.max(0, model.lanes.length - 1));
-  const scrub = ui.scrub ? Math.min(width - 1, ui.scrubColumn) : undefined;
-  const scrubAt = scrub === undefined ? 0 : model.window.start + model.window.span * scrub / Math.max(1, width - 1);
+  const { scrub, scrubAt } = scrubOf(ui, width, model.window);
   const lane = model.lanes[cursor];
-  const ticks = new Set(model.axis.map(tick => tick.column));
-  const laneRows = Math.max(1, env.height - 4 - 2 - 9);
-  const { start, end } = windowOf(model.lanes.length, cursor, laneRows);
-  const focus = scrub === undefined ? all.filter(marker => marker.sessionId === lane?.sessionId && marker.at >= model.window.start && marker.at <= model.window.start + model.window.span).slice(-6).reverse() : nearby(all, lane?.sessionId, scrubAt, model.window.span / width * 3);
-  const gridWidth = env.width - 4;
+  const row: LaneRow = { width, ticks: new Set(model.axis.map(tick => tick.column)), scrub, phase: env.phase };
+  const { start, end } = windowOf(model.lanes.length, cursor, Math.max(1, env.height - 4 - 2 - 9));
+  const focus = scrub === undefined ? inWindow(all, lane?.sessionId, model.window) : nearby(all, lane?.sessionId, scrubAt, model.window.span / width * 3);
+  const label = lane?.label ?? '';
+  const heading = scrub === undefined ? `${label} · last markers in view` : `scrub ${clock(new Date(scrubAt).toISOString())} · ${label} · nearest markers`;
   const legend: Line = [t(' ', 'faint'), ...model.legend.flatMap(entry => [t(entry.glyph, entry.color, { bold: true }), t(` ${entry.label}  `, 'muted')])];
-  const detail: Line[] = [
-    [t(scrub === undefined ? `${lane?.label ?? ''} · last markers in view` : `scrub ${clock(new Date(scrubAt).toISOString())} · ${lane?.label ?? ''} · nearest markers`, 'muted', { bold: true })],
-    ...(focus.length === 0 ? [[t('Nothing here. Zoom out with -, pan with h and l.', 'faint')] as Line] : focus.flatMap((marker): Line[] => [
-      [t(`${clock(new Date(marker.at).toISOString())} `, 'faint'), t(`${marker.glyph} `, marker.color, { bold: true }), t(marker.kind, marker.color)],
-      ...wrap(clip(marker.text, 200), gridWidth - 6, 1).map((text): Line => [t('         ' + text, 'text')]),
-    ])).slice(0, 8),
-  ];
+  const detail = detailLines(heading, focus, env.width - 4);
   const spanSeconds = Math.round(model.window.span / 1000);
   return {
     length: model.lanes.length,
@@ -60,7 +65,7 @@ export function timelineView(env: Env): SectionView {
     idAt: index => model.lanes[index]?.sessionId ?? null,
     render: () => h(Column, { grow: 1 },
       h(Panel, { title: `Timeline · window ${String(spanSeconds)}s · + − zoom · h l pan · t scrub`, focused: true, grow: 1, right: `${String(model.lanes.length)} lanes` },
-        h(Lines, { lines: [axisLine(model.axis, width, scrub, ''), ...model.lanes.slice(start, end).map((entry, offset) => laneLine(entry, width, start + offset === cursor, ticks, scrub, env.phase)), blank, legend] }),
+        h(Lines, { lines: [axisLine(model.axis, width, scrub, ''), ...model.lanes.slice(start, end).map((entry, offset) => laneLine(entry, start + offset === cursor, row)), blank, legend] }),
         h(Lines, { lines: detail, grow: 1 }))),
   };
 }

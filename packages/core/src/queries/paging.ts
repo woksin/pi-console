@@ -29,12 +29,13 @@ export const compareEntries = (a: { key: string; id: string }, b: { key: string;
 export const encodeCursor = (collection: PageCollection, key: string, id: string): string =>
   Buffer.from(JSON.stringify([collection, key, id])).toString('base64url');
 
+const isCursorFor = (collection: PageCollection, value: unknown): value is [string, string, string] =>
+  Array.isArray(value) && value.length === 3 && value[0] === collection && value.slice(1).every(part => typeof part === 'string');
+
 export function decodeCursor(collection: PageCollection, text: string): { key: string; id: string } {
   try {
     const value: unknown = JSON.parse(Buffer.from(text, 'base64url').toString('utf8'));
-    if (Array.isArray(value) && value.length === 3 && value[0] === collection && typeof value[1] === 'string' && typeof value[2] === 'string') {
-      return { key: value[1], id: value[2] };
-    }
+    if (isCursorFor(collection, value)) return { key: value[1], id: value[2] };
   } catch { /* falls through to the error below */ }
   throw new InvalidCursorError();
 }
