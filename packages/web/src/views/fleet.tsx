@@ -16,8 +16,9 @@ export function FleetView({ state, now }: ViewProps) {
   useSearchFocus(search);
   const view = useMemo(() => fleetViewModel({ sessions: state.sessions, now, query, collapsed }), [state.sessions, now, query, collapsed]);
   const ids = view.rows.map(rowKey);
-  const nav = useListNav(ids, { onOpen: id => { if (!id.startsWith('group:')) navigate(sessionHref(id)); } });
+  const firstSession = view.rows.find(row => row.kind !== 'group')?.id ?? null;
   const toggle = (group: string): void => setCollapsed(current => { const next = new Set(current); if (!next.delete(group)) next.add(group); return next; });
+  const nav = useListNav(ids, { fallback: firstSession, onOpen: id => { if (id.startsWith('group:')) toggle(id.slice('group:'.length)); else navigate(sessionHref(id)); } });
   useActions(action => {
     if (action !== 'group.toggle' || !nav.selected?.startsWith('group:')) return false;
     toggle(nav.selected.slice('group:'.length));
@@ -30,7 +31,7 @@ export function FleetView({ state, now }: ViewProps) {
         <table className="grid" aria-label="Fleet">
           <thead><tr><th>Session</th><th>Status</th><th>Context</th><th>Trend</th><th>Model</th><th className="num">Cost</th><th className="num">Age</th></tr></thead>
           <tbody>{view.rows.map(row => row.kind === 'group'
-            ? <GroupRow key={rowKey(row)} row={row} selected={nav.selected === rowKey(row)} onToggle={() => { nav.select(rowKey(row)); setCollapsed(current => { const next = new Set(current); if (!next.delete(row.id)) next.add(row.id); return next; }); }} />
+            ? <GroupRow key={rowKey(row)} row={row} selected={nav.selected === rowKey(row)} onToggle={() => { nav.select(rowKey(row)); toggle(row.id); }} />
             : <SessionLine key={row.id} row={row} selected={nav.selected === row.id} />)}</tbody>
         </table>)}
     </div>

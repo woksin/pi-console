@@ -44,9 +44,9 @@ export async function copyText(text: string): Promise<boolean> {
 export interface ListNav { selected: string | null; select: (id: string) => void }
 
 /** Keyboard selection over an ordered id list, bound to the shared move/open/copy actions. */
-export function useListNav(ids: readonly string[], options: { onOpen?: (id: string) => void; initial?: string | null; enabled?: boolean } = {}): ListNav {
+export function useListNav(ids: readonly string[], options: { onOpen?: (id: string) => void; initial?: string | null; fallback?: string | null; enabled?: boolean } = {}): ListNav {
   const [picked, setPicked] = useState<string | null>(options.initial ?? null);
-  const selected = picked !== null && ids.includes(picked) ? picked : ids.at(0) ?? null;
+  const selected = picked !== null && ids.includes(picked) ? picked : options.fallback && ids.includes(options.fallback) ? options.fallback : ids.at(0) ?? null;
   useActions(action => {
     const index = selected === null ? -1 : ids.indexOf(selected);
     const to = (next: number): boolean => { if (ids.length > 0) setPicked(ids[Math.max(0, Math.min(ids.length - 1, next))]); return true; };

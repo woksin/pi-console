@@ -28,6 +28,9 @@ export class ConsoleStore {
   readonly #clock: Clock;
   #abort: AbortController | null = null;
   #refresh: number | null = null;
+  /** A refresh requested while one is in flight is not dropped: it runs again once the current one lands (a trailing refresh, never overlapping, so an older answer cannot overwrite a newer one). */
+  #refreshing = false;
+  #refreshAgain = false;
   #watchTimer: number | null = null;
   #attempt = 0;
   #stopped = false;
@@ -114,6 +117,14 @@ export class ConsoleStore {
 
   /** Refetches the daemon-derived read models. Failures keep the last good copy (the stream banner reports connectivity). */
   async refresh(): Promise<void> {
+    if (this.#refreshing) { this.#refreshAgain = true; return; }
+    this.#refreshing = true;
+    try {
+      do { this.#refreshAgain = false; await this.#fetchDerived(); } while (this.#refreshAgain);
+    } finally { this.#refreshing = false; }
+  }
+
+  async #fetchDerived(): Promise<void> {
     const [needsYou, health] = await Promise.all([this.#api.needsYou().catch(() => null), this.#api.health().catch(() => null)]);
     this.#set({ ...this.#state, needsYou: needsYou ?? this.#state.needsYou, health: health ?? this.#state.health });
   }

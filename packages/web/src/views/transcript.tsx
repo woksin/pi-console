@@ -1,6 +1,7 @@
 import type { TranscriptLine } from '@pi-console/viewmodels';
 import { useEffect, useRef, useState } from 'react';
 import { useActions } from '../app/commands.ts';
+import { isTyping } from '../app/keys.ts';
 import { useListNav } from '../app/hooks.ts';
 import { EmptyState } from '../ui/primitives.tsx';
 
@@ -15,6 +16,16 @@ export function Transcript({ lines, focusEntry, searching }: TranscriptProps) {
   useActions(action => { if (action === 'follow.toggle') { setFollow(value => !value); return true; } return false; });
   const last = lines.at(-1)?.id;
   useEffect(() => { if (follow) end.current?.scrollIntoView({ block: 'end' }); }, [follow, last, lines.length]);
+  /** Reading back up is a deliberate act: any user scroll away from the tail pauses following, so the viewport stays anchored where the reader put it. */
+  useEffect(() => {
+    const pause = (): void => { setFollow(false); };
+    const onWheel = (event: WheelEvent): void => { if (event.deltaY < 0) pause(); };
+    const onKey = (event: KeyboardEvent): void => { if (!isTyping(event.target) && ['PageUp', 'ArrowUp', 'Home', 'k', 'g'].includes(event.key)) pause(); };
+    window.addEventListener('wheel', onWheel, { passive: true });
+    window.addEventListener('touchmove', pause, { passive: true });
+    window.addEventListener('keydown', onKey);
+    return () => { window.removeEventListener('wheel', onWheel); window.removeEventListener('touchmove', pause); window.removeEventListener('keydown', onKey); };
+  }, []);
   const jumped = useRef<string | null>(null);
   useEffect(() => {
     const target = focusEntry && jumped.current !== focusEntry ? document.getElementById(`line-${focusEntry}`) : null;
