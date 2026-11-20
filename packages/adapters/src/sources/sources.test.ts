@@ -27,7 +27,7 @@ const cases: [string, Mapper, string, number][] = [
 for (const [key, mapper, source, expected] of cases) {
   test(`synthetic ${key} facts fit the existing catalogue without guessed lifecycle`, () => {
     if (typeof fixture[key] === 'string') {
-      assert.deepEqual(mapper(fixture[key]), []);
+      assert.deepEqual(mapper({ body: fixture[key] }), []);
       return;
     }
     const rows = Array.isArray(fixture[key]) ? fixture[key] : [fixture[key]];
