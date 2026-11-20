@@ -39,6 +39,21 @@ test('a line key is stable while a run streams and when the final assistant entr
   assert.deepEqual(keyOf([{ ...base, id: 'u', cursor: 4, kind: 'user', text: 'q' }, delta(5), { ...base, id: 't', cursor: 6, kind: 'thinking', text: 'h' }, { ...base, id: 'f', cursor: 7, kind: 'assistant', text: 'a' }]), [4, 5, 6, 7], 'an assistant entry after other entries is its own line');
 });
 
+test('a streaming run continues only within one request; aborts and other entries end it', () => {
+  const base = { sessionId: 's', at: '2026-01-01T00:00:00Z', toolCallId: null, resetId: null, toolResult: null } as const;
+  const e = (cursor: number, kind: TranscriptEntry['kind'], requestId: string | null, text = String(cursor)): TranscriptEntry => ({ ...base, id: `e${String(cursor)}`, cursor, kind, text, requestId });
+  const d = 'assistant.delta';
+  const table: { name: string; entries: TranscriptEntry[]; lines: [number, string][] }[] = [
+    { name: 'aborted r1 then r2 delta and final', entries: [e(5, d, 'r1', 'p'), e(6, d, 'r2', 'q'), e(7, 'assistant', 'r2', 'Q.')], lines: [[5, 'p'], [6, 'Q.']] },
+    { name: 'r1 r1 r2 then r2 final', entries: [e(1, d, 'r1', 'a'), e(2, d, 'r1', 'b'), e(3, d, 'r2', 'c'), e(4, 'assistant', 'r2', 'C.')], lines: [[1, 'ab'], [3, 'C.']] },
+    { name: 'no requestId then requestId', entries: [e(1, d, null, 'a'), e(2, d, 'r1', 'b')], lines: [[1, 'a'], [2, 'b']] },
+    { name: 'final of another request does not inherit', entries: [e(1, d, 'r1', 'a'), e(2, 'assistant', 'r2', 'B.')], lines: [[1, 'a'], [2, 'B.']] },
+    { name: 'reset between deltas of one request', entries: [e(1, d, 'r1', 'a'), e(2, 'reset', 'r1', 'reset'), e(3, d, 'r1', 'b')], lines: [[1, 'a'], [2, 'reset'], [3, 'b']] },
+    { name: 'same request continues', entries: [e(1, d, 'r1', 'a'), e(2, d, 'r1', 'b'), e(3, 'assistant', 'r1', 'AB')], lines: [[1, 'AB']] },
+  ];
+  for (const row of table) assert.deepEqual(transcriptLines(row.entries).map(line => [line.key, line.text]), row.lines, row.name);
+});
+
 test('hostile transcript text and withheld results are neutralised', () => {
   const base = { sessionId: 's', at: '2026-01-01T00:00:00Z', toolCallId: null, resetId: null, requestId: null } as const;
   const lines = transcriptLines([

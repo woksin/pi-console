@@ -1,5 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import type { TranscriptEntry } from '@pi-console/contract';
+import { transcriptLines } from '@pi-console/viewmodels';
 import { pauseTranscript, resumeTranscript, scrollTranscript, transcriptWindow, type TranscriptLayout, type TranscriptView } from './transcript-window.ts';
 
 /** Entries with the given wrapped heights and keys `first`, `first + 1`, …. */
@@ -105,45 +107,51 @@ test('an empty transcript has nothing to pause', () => {
   assert.deepEqual(transcriptWindow(layout([]), resumeTranscript, HEIGHT), { start: 0, end: 0, below: 0, paused: false, dropped: false });
 });
 
-/** Layout with explicit keys: a streaming run keeps its first delta's key while its height grows and after the final entry replaces it. */
-const keyed = (keys: number[], heights: number[]): TranscriptLayout => {
+const meta = { sessionId: 's', at: '2026-01-01T00:00:00Z', toolCallId: null, resetId: null, toolResult: null, requestId: 'r1' } as const;
+const entry = (cursor: number, kind: TranscriptEntry['kind']): TranscriptEntry => ({ ...meta, id: `e${String(cursor)}`, cursor, kind, text: 'x' });
+/** Layout built from real transcript entries through transcriptLines(): nine user lines, a streaming run (or its final entry) of `deltas` deltas, then `newer` user lines. The run line has `runHeight`, all others 2. */
+const keyed = (runHeight: number, { deltas = 1, final = false, newer = 0 } = {}): TranscriptLayout => {
+  const entries = Array.from({ length: 9 }, (_, i) => entry(i + 1, 'user'));
+  for (let i = 0; i < deltas; i++) entries.push(entry(RUN + i, 'assistant.delta'));
+  if (final) entries.push(entry(RUN + deltas, 'assistant'));
+  for (let i = 0; i < newer; i++) entries.push(entry(RUN + deltas + 1 + i, 'user'));
   let end = 0;
-  return { keys, ends: heights.map(height => (end += height)) };
+  const lines = transcriptLines(entries);
+  return { keys: lines.map(line => line.key), ends: lines.map(line => (end += line.kind === 'assistant' ? runHeight : 2)) };
 };
 const lineKeys = (l: TranscriptLayout, view: TranscriptView) => {
   const window = transcriptWindow(l, view, HEIGHT);
   return { window, keys: l.keys.filter((_, index) => (index === 0 ? 0 : l.ends[index - 1]) < window.end && l.ends[index] > window.start) };
 };
 const RUN = 10;
-const base = (runHeight: number, newer: number[] = []) => keyed([1, 2, 3, 4, 5, 6, 7, 8, 9, RUN, ...newer.map((_, i) => 20 + i)], [2, 2, 2, 2, 2, 2, 2, 2, 2, runHeight, ...newer]);
 
 test('pausing during a streaming run: more deltas arriving leave the view unchanged', () => {
-  const paused = scrollTranscript(base(2), resumeTranscript, HEIGHT, -1);
-  const before = lineKeys(base(2), paused);
+  const paused = scrollTranscript(keyed(2), resumeTranscript, HEIGHT, -1);
+  const before = lineKeys(keyed(2), paused);
   assert.ok(before.keys.includes(RUN));
-  for (const runHeight of [3, 5, 8]) {
-    const after = lineKeys(base(runHeight), paused);
+  for (const [deltas, runHeight] of [[2, 3], [4, 5], [7, 8]]) {
+    const after = lineKeys(keyed(runHeight, { deltas }), paused);
     assert.equal(after.window.start, before.window.start, `run height ${String(runHeight)}`);
     assert.equal(after.window.dropped, false);
   }
 });
 
 test('the final assistant entry replacing a run (same key, new height) leaves the view unchanged', () => {
-  const paused = scrollTranscript(base(4), resumeTranscript, HEIGHT, -9);
-  const before = lineKeys(base(4), paused);
-  const final = lineKeys(base(6, [2]), paused);
+  const paused = scrollTranscript(keyed(4, { deltas: 3 }), resumeTranscript, HEIGHT, -9);
+  const before = lineKeys(keyed(4, { deltas: 3 }), paused);
+  const final = lineKeys(keyed(6, { deltas: 3, final: true, newer: 1 }), paused);
   assert.equal(final.window.start, before.window.start);
   assert.deepEqual(final.keys.slice(0, 2), before.keys.slice(0, 2));
 });
 
 test('an anchor on a run line survives eviction of older entries', () => {
-  const full = base(4, [2, 2, 2]);
+  const full = keyed(4, { deltas: 2, newer: 3 });
   const pinned = scrollTranscript(full, resumeTranscript, HEIGHT, -4);
   assert.equal(pinned.anchor?.key, RUN, 'the view tops at the run line');
   const before = lineKeys(full, pinned);
   assert.equal(before.keys[0], RUN);
   for (const evicted of [3, 6, 9]) {
-    const l = keyed(full.keys.slice(evicted), full.ends.slice(evicted).map(end => end - full.ends[evicted - 1]));
+    const l: TranscriptLayout = { keys: full.keys.slice(evicted), ends: full.ends.slice(evicted).map(end => end - full.ends[evicted - 1]) };
     const after = lineKeys(l, pinned);
     assert.equal(after.keys[0], RUN, `evicted ${String(evicted)}`);
     assert.equal(after.window.dropped, false);
