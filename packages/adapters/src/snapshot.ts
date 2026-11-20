@@ -27,8 +27,9 @@ export async function pollSnapshot(log: EventLog, source: string, candidate: str
 
 function snapshotBytes(fd: number, limit = 4 * 1024 * 1024): Buffer {
   if (!Number.isSafeInteger(limit) || limit < 1) throw new Error('Invalid snapshot limit');
-  if (fstatSync(fd).size > limit) throw new Error('Snapshot exceeds limit');
-  const buffer = Buffer.alloc(limit + 1);
+  const { size } = fstatSync(fd);
+  if (size > limit) throw new Error('Snapshot exceeds limit');
+  const buffer = Buffer.alloc(Math.min(limit, size) + 1);
   const count = readSync(fd, buffer, 0, buffer.length, 0);
   if (count > limit) throw new Error('Snapshot exceeds limit');
   return buffer.subarray(0, count);

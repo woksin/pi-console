@@ -80,12 +80,25 @@ never delays another. Everything is read-only and scoped to the directories belo
 
 | Source id | Directory (derived from `agentRoot` = `~/.pi/agent`, `orchRoot` = `~/.pi/orch`) | Delivers |
 | --- | --- | --- |
-| `context-budget` | `<agent>/context-budget/*.jsonl`, `status/*.json` | resets |
+| `context-budget` | `<agent>/context-budget/events.jsonl`, `events-<stamp>.jsonl` | resets |
 | `lane-messages` | `<orch>/inbox`, `<agent>/lanes` | messages (`/messages`); the lane registry feeds `/graph` |
 | `lane-heartbeats` | `<orch>/heartbeats` | session heartbeats |
 | `question-store` | `<agent>/user-questions/items` | `/questions`, `/needs-you` |
-| `issue-work` | `<agent>/issue-work/*.jsonl` | issue status |
-| `phase-ledger` | `<agent>/pi-phase/state/ledger/*.jsonl` | phase jobs (`/jobs`) |
+| `issue-work` | `<agent>/issue-work/registry.jsonl` | issue status |
+| `phase-ledger` | `<agent>/pi-phase/state/ledger/YYYY-MM-DD.jsonl` | phase jobs (`/jobs`) |
+
+### Scope and windows (volume)
+
+Only files that feed a fact are read, so a real `~/.pi` tree (tens of thousands of files, hundreds of MB) neither stalls
+the daemon nor grows the database: `context-budget/status/` and `turns*.jsonl` (no fact), `*.bak-*`, `seen/` and `locks/`
+are intentionally unread. Windows use the in-record timestamp, not the file mtime (a `cp` without `-p` makes every file
+new): `context-budget` and `issue-work` rows are in time order, so a fresh file is read from the first row at or after the
+backfill cutoff (`at` / `ts`, boundary inclusive; mtime only skips rotated files); context lines are prefiltered for
+`"handoff_committed"` before any JSON parse. Ledger rows are in completion order, so day files more than a day before the
+cutoff are skipped by name and rows are filtered on `queuedAt`. Snapshot sources (questions, inbox, heartbeats, lanes) have
+no window - an old open question stays visible - and are re-read only when mtime or size changed. Consequence of the
+window: an issue idle longer than `backfillWindowDays` (default 14) has no state after a fresh database; raise the setting
+to keep it. Sources start one after another (smallest first, ledger last) once the session first pass has finished.
 
 Gaps: lane-status files are prose and are not read; real orch/question/phase layouts are only checked against the synthetic
 fixtures, so drift shows up as `SourceSchemaUnknown` in the log, not as missing health. `/health.sources[].errors` counts files

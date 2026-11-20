@@ -6,7 +6,15 @@ import { sourcePath } from './paths.ts';
 import type { Scanner } from './redact.ts';
 
 interface Handle { fd: number; path: string; identity: string; replayed: boolean }
-export interface TailerOptions { scanner?: Scanner; replay?: boolean; batchBytes?: number }
+export interface TailerOptions {
+  scanner?: Scanner;
+  replay?: boolean;
+  batchBytes?: number;
+  /** Where to start a file with no saved checkpoint (or after truncation) instead of byte 0: must be a line start. */
+  startOffset?: (fd: number, size: number) => number;
+  /** Lines failing this are neither parsed nor mapped; their bytes are still consumed. */
+  lineFilter?: (line: string) => boolean;
+}
 export interface PollResult { entries: number; appended: number; lagBytes: number; partialFiles: number }
 
 function headHash(fd: number, length: number): string {
@@ -88,11 +96,18 @@ export class FileTailer {
     }
   }
 
+  /** Where this poll starts: 0 when replaying, the windowed start for a new epoch, else where it left off. */
+  private startAt(handle: Handle, saved: SourceCheckpoint | undefined, checkpoint: SourceCheckpoint): number {
+    if (this.options.replay && !handle.replayed) return 0;
+    const newEpoch = saved?.generation !== checkpoint.generation;
+    return newEpoch && this.options.startOffset ? this.options.startOffset(handle.fd, checkpoint.size) : checkpoint.offset;
+  }
+
   private async read(handle: Handle, saved: SourceCheckpoint | undefined, result: PollResult): Promise<void> {
     const checkpoint = checkpointFor(handle, this.source, saved);
     const events: NewEvent[] = [];
     this.checkHead(handle, saved, checkpoint, events);
-    if (this.options.replay && !handle.replayed) checkpoint.offset = 0;
+    checkpoint.offset = this.startAt(handle, saved, checkpoint);
     const bytes = this.readBatch(handle, checkpoint);
     const complete = bytes.lastIndexOf(10) + 1;
     if (complete === 0 && bytes.length === (this.options.batchBytes ?? 1024 * 1024)) {
@@ -130,7 +145,7 @@ export class FileTailer {
     let start = 0;
     for (let end = bytes.indexOf(10); end !== -1; end = bytes.indexOf(10, start)) {
       const line = bytes.subarray(start, end).toString('utf8');
-      if (line.trim()) events.push(...mapLine(line, checkpoint.offset + start, {
+      if (line.trim() && (this.options.lineFilter?.(line) ?? true)) events.push(...mapLine(line, checkpoint.offset + start, {
         checkpoint, mapper: this.mapper, scanner: this.options.scanner,
       }));
       start = end + 1;

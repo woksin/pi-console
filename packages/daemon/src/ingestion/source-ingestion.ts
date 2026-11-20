@@ -1,7 +1,10 @@
+import { statSync } from 'node:fs';
 import type { EventLog } from '@pi-console/contract';
-import { FileTailer, pollSnapshot, type AdapterWorker } from '@pi-console/adapters';
+import { FileTailer, pollSnapshot, type AdapterWorker, type TailerOptions } from '@pi-console/adapters';
+import { CheckpointCache } from './checkpoint-cache.ts';
 import { discoverFiles, type Feed } from './source-table.ts';
 import type { SourceId } from './source-ids.ts';
+import { seekStart, windowed } from './window.ts';
 
 export interface SourceStatus {
   source: string;
@@ -19,19 +22,33 @@ export interface SourceIngestionOptions {
   now?: () => Date;
 }
 
+/** Small batches: one append transaction stays in the tens of milliseconds, so the event loop is never held long. */
+const batchBytes = 64 * 1024;
+const yieldToLoop = (): Promise<void> => new Promise(resolve => { setImmediate(resolve); });
+
+interface Seen { mtimeMs: number; size: number }
+
+const timeOfRow = (key: string) => (line: string): number => Date.parse(String((JSON.parse(line) as Record<string, unknown>)[key]));
+
 /**
  * One source's files, read through the P2 adapters: read-only, scoped to the feed directories, checkpointed in the
  * event log (so a restart resumes without duplicates). A file that fails is counted and skipped; the others still
  * deliver. A failure that is not about one file (an unreadable directory) throws so the supervisor backs off.
+ *
+ * Bounded work: a file whose mtime and size are unchanged since it was last read is not opened again, tail files are
+ * opened only while they have unread bytes, checkpoints are read from the log once, and the event loop is yielded to
+ * after every batch and snapshot so the API stays responsive during a large first pass. `abort()` ends a poll at the
+ * next such point.
  */
 export class SourceIngestion implements AdapterWorker {
   readonly #log: EventLog;
   readonly #options: SourceIngestionOptions;
-  readonly #tailers = new Map<string, FileTailer>();
+  readonly #seen = new Map<string, Seen>();
+  #aborted = false;
   #status: SourceStatus;
 
   constructor(log: EventLog, options: SourceIngestionOptions) {
-    this.#log = log;
+    this.#log = new CheckpointCache(log);
     this.#options = options;
     this.#status = { source: options.id, files: 0, lagBytes: 0, lastPollAt: null, errors: 0 };
   }
@@ -45,35 +62,68 @@ export class SourceIngestion implements AdapterWorker {
     const since = now.getTime() - this.#options.backfillWindowDays * 86_400_000;
     const totals = { files: 0, lagBytes: 0, errors: 0 };
     for (const feed of this.#options.feeds) {
-      const files = feed.directories.flatMap(directory => discoverFiles(directory, feed.extension, since));
+      const files = feed.directories.flatMap(directory => discoverFiles(directory, feed, since));
       totals.files += files.length;
       for (const file of files) {
+        if (this.#aborted) return;
         try {
-          totals.lagBytes += await this.#pollFile(feed, file);
+          totals.lagBytes += await this.#pollFile(feed, file, since);
         } catch {
           totals.errors++;
         }
+        this.#status = { ...this.#status, ...totals };
+        await yieldToLoop();
       }
     }
     this.#status = { source: this.#options.id, ...totals, lastPollAt: now.toISOString() };
   }
 
-  async #pollFile(feed: Feed, file: string): Promise<number> {
-    const { id } = this.#options;
-    if (feed.kind === 'snapshot') {
-      await pollSnapshot(this.#log, id, file, feed.mapper, { roots: feed.directories });
-      return 0;
+  async #pollFile(feed: Feed, file: string, since: number): Promise<number> {
+    const stat = statSync(file);
+    const seen = this.#seen.get(file);
+    if (seen?.mtimeMs === stat.mtimeMs && seen.size === stat.size) return 0;
+    const lagBytes = feed.kind === 'snapshot' ? await this.#snapshot(feed, file) : await this.#tail(feed, file, since);
+    this.#seen.set(file, { mtimeMs: stat.mtimeMs, size: stat.size });
+    return lagBytes;
+  }
+
+  async #snapshot(feed: Feed, file: string): Promise<number> {
+    await pollSnapshot(this.#log, this.#options.id, file, feed.mapper, { roots: feed.directories });
+    return 0;
+  }
+
+  /** Reads batches until caught up (or no longer progressing on an unterminated last line); returns the unread bytes. */
+  async #tail(feed: Feed, file: string, since: number): Promise<number> {
+    const tailer = new FileTailer(this.#log, this.#options.id, feed.filterBy ? windowed(feed.mapper, feed.filterBy, since) : feed.mapper, tailerOptions(feed, since));
+    try {
+      let lag = Number.POSITIVE_INFINITY;
+      for (let result = await tailer.poll([file]); !this.#aborted; result = await tailer.poll([file])) {
+        const progressed = result.lagBytes < lag;
+        lag = result.lagBytes;
+        if (lag === 0 || !progressed) break;
+        await yieldToLoop();
+      }
+      return lag;
+    } finally {
+      tailer.close();
     }
-    let tailer = this.#tailers.get(file);
-    if (!tailer) {
-      tailer = new FileTailer(this.#log, id, feed.mapper);
-      this.#tailers.set(file, tailer);
-    }
-    return (await tailer.poll([file])).lagBytes;
+  }
+
+  abort(): void {
+    this.#aborted = true;
   }
 
   close(): void {
-    for (const tailer of this.#tailers.values()) tailer.close();
-    this.#tailers.clear();
+    this.#aborted = true;
+    this.#seen.clear();
   }
+}
+
+function tailerOptions(feed: Feed, since: number): TailerOptions {
+  const { seekBy, lineFilter } = feed;
+  return {
+    batchBytes,
+    startOffset: seekBy ? (fd, size) => seekStart(fd, size, since, timeOfRow(seekBy)) : undefined,
+    lineFilter: lineFilter ? line => line.includes(lineFilter) : undefined,
+  };
 }

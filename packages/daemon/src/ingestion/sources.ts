@@ -12,14 +12,22 @@ interface Slot { entry: SourceEntry; supervisor: AdapterSupervisor; worker?: Sou
 
 /**
  * One `AdapterSupervisor` per source: each has its own timer, worker, checkpoints and backoff, so one source that
- * fails or stalls never delays another. `statuses()` feeds `/health` (lag and error counts, never error text).
+ * fails or stalls never delays another once running. They start one after another in table order (each when the
+ * previous has settled) and only after the caller's gate opens (the session first pass), so the first pass of every
+ * source never competes with another for the single write lock. `statuses()` feeds `/health` (lag and error counts,
+ * never error text).
  */
 export class SourceSet {
   readonly #slots: Slot[];
+  readonly #waitMs: number;
   #started = false;
+  #stopped = false;
+  #chain: Promise<void> = Promise.resolve();
+  #wake?: () => void;
 
   constructor(entries: readonly SourceEntry[], options: SourceSetOptions) {
     this.#slots = entries.map(entry => this.#slot(entry, options));
+    this.#waitMs = Math.min(250, options.intervalMs);
   }
 
   #slot(entry: SourceEntry, options: SourceSetOptions): Slot {
@@ -30,6 +38,7 @@ export class SourceSet {
       return {
         poll: async () => { await worker.poll(); slot.settled = true; slot.failing = 0; },
         close: () => { slot.worker = undefined; return worker.close(); },
+        abort: () => { worker.abort?.(); },
       };
     };
     slot.supervisor = new AdapterSupervisor(factory, {
@@ -44,12 +53,36 @@ export class SourceSet {
     return !this.#started || this.#slots.every(slot => slot.settled);
   }
 
-  start(): void {
+  /** Starts the sources in order once `ready()` is true (immediately by default); returns without waiting. */
+  start(ready: () => boolean = () => true): void {
     this.#started = true;
-    for (const slot of this.#slots) slot.supervisor.start();
+    this.#chain = this.#startInOrder(ready);
+  }
+
+  async #startInOrder(ready: () => boolean): Promise<void> {
+    while (!this.#stopped && !ready()) await this.#sleep();
+    for (const slot of this.#slots) {
+      if (this.#stopped) return;
+      slot.supervisor.start();
+      while (!slot.settled && !this.#isStopped()) await this.#sleep();
+    }
+  }
+
+  #isStopped(): boolean {
+    return this.#stopped;
+  }
+
+  #sleep(): Promise<void> {
+    return new Promise(resolve => {
+      const timer = setTimeout(resolve, this.#waitMs);
+      this.#wake = () => { clearTimeout(timer); resolve(); };
+    });
   }
 
   async stop(): Promise<void> {
+    this.#stopped = true;
+    this.#wake?.();
+    await this.#chain;
     await Promise.allSettled(this.#slots.map(slot => slot.supervisor.stop()));
   }
 

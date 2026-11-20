@@ -5,3 +5,4 @@ export { startDaemon } from './mock-daemon/server.ts';
 export { needsYou } from './mock-daemon/needs-you.ts';
 export { daemonConformance, type ConformanceHarness, type ConformanceTarget } from './conformance/daemon-conformance.ts';
 export { call, openStream, type Frame, type Reply, type Stream } from './conformance/client.ts';
+export { buildLargeTree, type LargeTree, type LargeTreeOptions } from './large-tree.ts';

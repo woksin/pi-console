@@ -12,6 +12,7 @@ import { serveStatic } from './http/static-files.ts';
 import { StreamHub } from './stream/stream-hub.ts';
 import { DeltaBatcher } from './stream/delta-batcher.ts';
 import { streamSequence } from './stream/stream-sequence.ts';
+import { CheckpointCache } from './ingestion/checkpoint-cache.ts';
 import { SessionIngestion } from './ingestion/session-ingestion.ts';
 import { sourceSetFor, type SourceSet } from './ingestion/sources.ts';
 
@@ -113,7 +114,7 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
   });
   const batcher = new DeltaBatcher(() => readModels(projector), delta => { stream.publish(delta.type, delta.payload); }, now);
   const stopDeltas = projector.onApplied(event => { batcher.add(event); });
-  const ingestion = new SessionIngestion(log, { roots: options.sessionRoots, backfillWindowDays: options.backfillWindowDays, pollMs: options.pollMs, now });
+  const ingestion = new SessionIngestion(new CheckpointCache(log), { roots: options.sessionRoots, backfillWindowDays: options.backfillWindowDays, pollMs: options.pollMs, now });
   const sources = sourceSetFor(log, options, now);
   let port = options.port;
   const apiContext: ApiContext = {
@@ -125,7 +126,7 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
   port = await listen(server, options.port);
   if (options.ingest !== false) {
     ingestion.start();
-    sources.start();
+    sources.start(() => ingestion.backfillComplete);
   }
   return {
     port, address: '127.0.0.1', log, stream, ingestion, sources, startupMs: performance.now() - started,
