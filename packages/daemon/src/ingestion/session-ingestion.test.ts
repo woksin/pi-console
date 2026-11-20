@@ -37,7 +37,10 @@ const ingestion = (log: EventLog, root: string) => new SessionIngestion(new Chec
 
 async function events(log: EventLog): Promise<Omit<EventEnvelope, 'seq' | 'recordedAt' | 'id'>[]> {
   const result = [];
-  for await (const { seq: _seq, recordedAt: _recordedAt, id: _id, ...event } of log.readFrom(0)) result.push(event);
+  // Compare source facts, excluding generated seq/recordedAt/id metadata.
+  for await (const { type, version, occurredAt, source, idempotencyKey, subject, actor, payload, refs } of log.readFrom(0)) {
+    result.push({ type, version, occurredAt, source, idempotencyKey, subject, actor, payload, refs });
+  }
   return result;
 }
 

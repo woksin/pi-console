@@ -91,10 +91,10 @@ test('after an expensive flush the next one waits, coalescing to the same final 
     flushes.push([]);
     await publish([testEvent(3, 'SessionHeartbeat', { sessionId: 's1' })]);
     t.mock.timers.tick(1);
-    assert.deepEqual(flushes[1], [], 'a flush of 10 ms holds the next for 40 ms');
+    assert.equal(flushes[1].length, 0, 'a flush of 10 ms holds the next for 40 ms');
     await publish([testEvent(4, 'AnswerObserved', { requestId: 'r1', answerId: 'a1', interim: false })]);
     t.mock.timers.tick(38);
-    assert.deepEqual(flushes[1], []);
+    assert.equal(flushes[1].length, 0);
     t.mock.timers.tick(1);
     assert.deepEqual(flushes[1].map(delta => delta.type), ['session.updated', 'request.observed']);
     assert.equal((flushes[1][1].payload as { status: string }).status, 'answered');

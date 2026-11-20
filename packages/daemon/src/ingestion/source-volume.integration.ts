@@ -1,4 +1,4 @@
-// Integration tier (`npm run gate:integration -- --scope daemon`): every non-session source over a large, `cp`-shaped
+// Integration tier (`npm run gate:integration -- --scope daemon`): session and non-session sources over a large, `cp`-shaped
 // tree (all mtimes fresh, in-record timestamps spanning 40 days). The daemon must answer /health throughout the
 // backfill, keep memory flat and bound what it stores.
 import { test } from 'node:test';
@@ -24,9 +24,9 @@ async function allEvents(daemon: RunningDaemon): Promise<EventEnvelope[]> {
 test('a large tree backfills in the background: /health stays fast, memory flat, nothing out of scope is stored', { timeout: 600_000 }, async t => {
   const base = mkdtempSync(join(tmpdir(), 'pi-console-volume-'));
   t.after(() => { rmSync(base, { recursive: true, force: true }); });
-  const tree = buildLargeTree(join(base, 'agent'), { ledgerRows: 50_000, statusFiles: 20_000, registryRows: 54_000, questionFiles: 1_500, eventRows: 200_000 });
+  const tree = buildLargeTree(join(base, 'agent'), { ledgerRows: 50_000, statusFiles: 20_000, registryRows: 54_000, questionFiles: 1_500, eventRows: 200_000, sessionFiles: 100, sessionBytes: 300 * 1024 });
   const dataDir = join(base, 'data');
-  const config = loadConfig(dataDir, { port: 0, agentRoot: tree.root, orchRoot: tree.orchRoot, sessionRoots: [], pollMs: 1_000, sourcePollMs: 250 });
+  const config = loadConfig(dataDir, { port: 0, agentRoot: tree.root, orchRoot: tree.orchRoot, sessionRoots: [tree.sessionRoot], pollMs: 1_000, sourcePollMs: 250 });
   const baseline = process.memoryUsage().rss;
   const started = performance.now();
   const daemon = await startDaemon(config);
@@ -41,7 +41,8 @@ test('a large tree backfills in the background: /health stays fast, memory flat,
     const elapsed = performance.now() - sent;
     if (reply.status === 200) firstOk ??= performance.now() - started;
     worst = Math.max(worst, elapsed);
-    complete = (reply.body as { backfill: { complete: boolean } }).backfill.complete;
+    const health = reply.body as { backfill: { complete: boolean }; projection: { queueDepth: number }; sources: { lagBytes: number }[] };
+    complete = health.backfill.complete && health.projection.queueDepth === 0 && health.sources.every(source => source.lagBytes === 0);
     await wait(50);
   }
   const grown = process.memoryUsage().rss - baseline;
@@ -51,6 +52,7 @@ test('a large tree backfills in the background: /health stays fast, memory flat,
   assert.ok(worst < 200, `worst /health ${worst} ms`);
   assert.ok(grown < 150 * mebibyte, `rss grew ${grown / mebibyte} MiB`);
   const events = await allEvents(daemon);
+  assert.equal(events.filter(event => event.type === 'SessionStarted').length, 100, 'every synthetic session was ingested');
   const warnings = events.filter(event => event.type === 'SourceSchemaUnknown');
   assert.deepEqual(warnings.map(event => event.payload), [], 'status and turns files raise nothing');
   const checkpoints = new Set<string>();
@@ -59,6 +61,7 @@ test('a large tree backfills in the background: /health stays fast, memory flat,
   await daemon.close();
   const second = await startDaemon(config);
   t.after(async () => { await second.close().catch(() => undefined); });
-  for (let i = 0; i < 2_000 && !second.sources.backfillComplete; i++) await wait(100);
+  for (let i = 0; i < 2_000 && !(second.sources.backfillComplete && second.ingestion.backfillComplete); i++) await wait(100);
+  assert.ok(second.sources.backfillComplete && second.ingestion.backfillComplete, 'warm backfill finished');
   assert.equal((await allEvents(second)).length, events.length, 'a second start appends nothing');
 });

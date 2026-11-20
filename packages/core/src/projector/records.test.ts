@@ -63,7 +63,7 @@ for (const id of ['__proto__', 'constructor', 'toString', 'hasOwnProperty']) {
 test('parsed records have no prototype at any depth and keep hostile keys as own data', () => {
   const parsed = parseRecords<{ rows: Record<string, { stamps: Record<string, string>; list: { at: string }[] }> }>(
     '{"rows":{"__proto__":{"stamps":{"constructor":"x"},"list":[{"at":"1"}]}}}');
-  const row = parsed.rows['__proto__'];
+  const row = parsed.rows.__proto__;
   for (const record of [parsed, parsed.rows, row, row.stamps, row.list[0]]) assert.equal(Object.getPrototypeOf(record), null);
   assert.ok(Array.isArray(row.list));
   assert.ok(Object.hasOwn(parsed.rows, '__proto__'));

@@ -12,6 +12,7 @@ export function safeRecords<Value>(value: Value): Value {
  * prototype in place. Unlike `Object.create(null)` copies, the objects keep V8's shared fast layout, so a restored
  * snapshot costs about a third of the heap. `JSON.parse` defines keys such as `__proto__` as own properties.
  */
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters -- Callers supply the persisted snapshot shape, like a typed JSON.parse.
 export function parseRecords<Value>(text: string): Value {
   return withoutPrototypes(JSON.parse(text)) as Value;
 }
