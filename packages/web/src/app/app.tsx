@@ -4,7 +4,7 @@ import { dispatch } from './commands.ts';
 import { clockNow, navigate, useConsole, useRoute } from './hooks.ts';
 import { contextFor, isTyping, neutralKey } from './keys.ts';
 import { Help, Palette } from './overlays.tsx';
-import { sectionIds, sectionMeta, sessionHref, titleFor, hrefFor, sectionFor } from './routes.ts';
+import { parseRoute, sectionIds, sectionMeta, sessionHref, titleFor, hrefFor, sectionFor } from './routes.ts';
 import { Banner, Hints, Sidebar, TopBar } from './shell.tsx';
 import { applyTheme } from './theme.ts';
 import { setPrefs, usePrefs } from './prefs.ts';
@@ -41,8 +41,8 @@ export function App() {
       if (closes) setOverlay(null);
       return closes;
     }
-    return handleGlobal(action, { overlay, setOverlay }) || dispatch(action) || goBack(action, route.view);
-  }, [overlay, route.view]);
+    return handleGlobal(action, { overlay, setOverlay }) || dispatch(action) || goBack(action);
+  }, [overlay]);
   const onKey = useCallback((event: KeyboardEvent): void => {
     const key = neutralKey(event);
     if (!key || overlay === 'palette' || (isTyping(event.target) && key !== 'Ctrl+P')) return;
@@ -75,7 +75,9 @@ export function App() {
 }
 
 /** Esc in a session or settings goes back to where the user came from. */
-function goBack(action: Action, view: string): boolean {
+/** Reads the live hash, not React state: a key pressed in the instant after a navigation must act on where the user really is. */
+function goBack(action: Action): boolean {
+  const { view } = parseRoute(window.location.hash);
   if (action !== 'back' || (view !== 'session' && view !== 'settings')) return false;
   if (window.history.length > 1) window.history.back(); else navigate(hrefFor('fleet'));
   return true;
