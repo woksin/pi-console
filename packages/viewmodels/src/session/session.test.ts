@@ -1,3 +1,4 @@
+import type { TranscriptEntry } from '@pi-console/contract';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { sessionViewModel, transcriptLines } from './session.ts';
@@ -27,6 +28,15 @@ test('streaming deltas collapse to one line and a final assistant entry replaces
   assert.deepEqual([lines[0].text, lines[0].streaming], ['Hello', true]);
   const final = transcriptLines([{ ...base, id: 'a', cursor: 1, kind: 'assistant.delta', text: 'Hel' }, { ...base, id: 'c', cursor: 3, kind: 'assistant', text: 'Hello.' }]);
   assert.deepEqual(final.map(line => [line.text, line.streaming]), [['Hello.', false]]);
+});
+
+test('a line key is stable while a run streams and when the final assistant entry replaces it', () => {
+  const base = { sessionId: 's', at: '2026-01-01T00:00:00Z', toolCallId: null, resetId: null, requestId: null, toolResult: null } as const;
+  const delta = (cursor: number): TranscriptEntry => ({ ...base, id: `d${String(cursor)}`, cursor, kind: 'assistant.delta', text: 'x' });
+  const keyOf = (entries: TranscriptEntry[]) => transcriptLines(entries).map(line => line.key);
+  assert.deepEqual([keyOf([delta(5)]), keyOf([delta(5), delta(6)]), keyOf([delta(5), delta(6), delta(7)])], [[5], [5], [5]]);
+  assert.deepEqual(keyOf([delta(5), delta(6), { ...base, id: 'f', cursor: 8, kind: 'assistant', text: 'xx' }]), [5]);
+  assert.deepEqual(keyOf([{ ...base, id: 'u', cursor: 4, kind: 'user', text: 'q' }, delta(5), { ...base, id: 't', cursor: 6, kind: 'thinking', text: 'h' }, { ...base, id: 'f', cursor: 7, kind: 'assistant', text: 'a' }]), [4, 5, 6, 7], 'an assistant entry after other entries is its own line');
 });
 
 test('hostile transcript text and withheld results are neutralised', () => {

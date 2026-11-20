@@ -2,17 +2,17 @@
  * The one place that decides which transcript lines are on screen. Rendering and every scroll
  * action call it, so they cannot disagree about coordinates.
  *
- * A paused viewport is stored as a stable position (the cursor of the entry at its top and a
- * wrapped-line offset inside that entry) plus `limit`, the newest cursor seen when it paused.
+ * A paused viewport is stored as a stable position (the stable key of the entry at its top and a
+ * wrapped-line offset inside that entry) plus `limit`, the newest key seen when it paused.
  * Neither is an array index or a line count, so appending or evicting entries older than the
  * anchor never moves the view, and re-wrapping keeps the anchor entry at the top.
  */
 
-/** Rendered shape of the retained transcript: per entry its cursor and the cumulative end line (exclusive). */
-export interface TranscriptLayout { cursors: readonly number[]; ends: readonly number[] }
-export const emptyLayout: TranscriptLayout = { cursors: [], ends: [] };
+/** Rendered shape of the retained transcript: per entry its stable key (see TranscriptLine.key) and the cumulative end line (exclusive). */
+export interface TranscriptLayout { keys: readonly number[]; ends: readonly number[] }
+export const emptyLayout: TranscriptLayout = { keys: [], ends: [] };
 
-export interface TranscriptAnchor { cursor: number; offset: number; limit: number }
+export interface TranscriptAnchor { key: number; offset: number; limit: number }
 /** The part of the UI state that positions the transcript. `anchor` is null while following the tail (or when paused with nothing to hold still, which also shows the tail). */
 export interface TranscriptView { follow: boolean; anchor: TranscriptAnchor | null }
 
@@ -37,26 +37,26 @@ const clamp = (value: number, low: number, high: number): number => Math.max(low
 
 /** End line of the newest entry at or before `limit`; at least the oldest retained entry, as the limit itself may be evicted. */
 function limitEnd(layout: TranscriptLayout, limit: number): number {
-  const newer = layout.cursors.findIndex(cursor => cursor > limit);
-  const last = newer < 0 ? layout.cursors.length - 1 : newer - 1;
+  const newer = layout.keys.findIndex(key => key > limit);
+  const last = newer < 0 ? layout.keys.length - 1 : newer - 1;
   return layout.ends[Math.max(0, last)] ?? 0;
 }
 
 /** Top line of the anchor entry (plus its offset, kept inside the entry); the end of the transcript if the anchor is newer than everything. */
 function topOf(layout: TranscriptLayout, anchor: TranscriptAnchor): number {
-  const index = layout.cursors.findIndex(cursor => cursor >= anchor.cursor);
+  const index = layout.keys.findIndex(key => key >= anchor.key);
   if (index < 0) return total(layout);
-  const offset = layout.cursors[index] === anchor.cursor ? anchor.offset : 0;
+  const offset = layout.keys[index] === anchor.key ? anchor.offset : 0;
   return startOf(layout, index) + clamp(offset, 0, layout.ends[index] - startOf(layout, index) - 1);
 }
 
-const isDropped = (layout: TranscriptLayout, anchor: TranscriptAnchor): boolean => layout.cursors.length > 0 && anchor.cursor < layout.cursors[0];
+const isDropped = (layout: TranscriptLayout, anchor: TranscriptAnchor): boolean => layout.keys.length > 0 && anchor.key < layout.keys[0];
 
 /** Stable position of a rendered line, or null for an empty transcript. */
 function positionAt(layout: TranscriptLayout, line: number, limit: number): TranscriptAnchor | null {
-  if (layout.cursors.length === 0) return null;
+  if (layout.keys.length === 0) return null;
   const index = Math.max(0, layout.ends.findIndex(end => end > line));
-  return { cursor: layout.cursors[index], offset: Math.max(0, line - startOf(layout, index)), limit };
+  return { key: layout.keys[index], offset: Math.max(0, line - startOf(layout, index)), limit };
 }
 
 export function transcriptWindow(layout: TranscriptLayout, view: TranscriptView, height: number): TranscriptWindow {
@@ -79,7 +79,7 @@ export function pauseTranscript(layout: TranscriptLayout, view: TranscriptView, 
 
 export const resumeTranscript: TranscriptView = { follow: true, anchor: null };
 
-const limitOf = (layout: TranscriptLayout, view: TranscriptView): number => view.anchor?.limit ?? layout.cursors.at(-1) ?? 0;
+const limitOf = (layout: TranscriptLayout, view: TranscriptView): number => view.anchor?.limit ?? layout.keys.at(-1) ?? 0;
 /** Line just past the newest line the view may show: the pause point while paused, else the end. */
 const bottomOf = (layout: TranscriptLayout, view: TranscriptView): number => (view.anchor ? limitEnd(layout, view.anchor.limit) : total(layout));
 

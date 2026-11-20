@@ -58,7 +58,7 @@ let modelCache: { deps: readonly unknown[]; model: SessionViewModel } | undefine
 
 function layoutOf(entries: TranscriptLine[], rendered: Line[][]): TranscriptLayout {
   let end = 0;
-  return { cursors: entries.map(entry => entry.cursor), ends: rendered.map(lines => (end += lines.length)) };
+  return { keys: entries.map(entry => entry.key), ends: rendered.map(lines => (end += lines.length)) };
 }
 
 function transcriptLines(env: Env, model: SessionViewModel, key: unknown, width: number): Rendered {

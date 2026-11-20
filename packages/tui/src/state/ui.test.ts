@@ -5,7 +5,7 @@ import { commit, contextOf, handleKey, initial, reduce, typing, type Bounds } fr
 import type { TranscriptLayout } from './transcript-window.ts';
 import { neutralKey, typedCharacter } from './keys.ts';
 
-const layoutOfHeights = (heights: number[], first = 1): TranscriptLayout => { let end = 0; return { cursors: heights.map((_, index) => first + index), ends: heights.map(height => (end += height)) }; };
+const layoutOfHeights = (heights: number[], first = 1): TranscriptLayout => { let end = 0; return { keys: heights.map((_, index) => first + index), ends: heights.map(height => (end += height)) }; };
 const bounds: Bounds = { length: 5, page: 3, fit: { start: 0, span: 1000 }, width: 80, rowAt: index => ({ sessionId: `s${String(index)}`, groupId: index === 0 ? 'g' : null }), transcript: layoutOfHeights(Array.from({ length: 50 }, () => 1)), viewport: 10 };
 
 test('number keys switch sections and the cursor stays within the list', () => {
@@ -78,13 +78,13 @@ test('terminal keys translate to the neutral names of the keymap', () => {
 test('pausing follow stores a stable entry position, and scrolling to the live bottom resumes it', () => {
   const session = { ...initial, sessionId: 's1' };
   const paused = reduce(session, 'follow.toggle', bounds);
-  assert.deepEqual(paused.anchor, { cursor: 41, offset: 0, limit: 50 });
+  assert.deepEqual(paused.anchor, { key: 41, offset: 0, limit: 50 });
   assert.equal(reduce(paused, 'follow.toggle', bounds).anchor, null);
   const scrolled = reduce(session, 'move.up', bounds);
-  assert.deepEqual(scrolled.anchor, { cursor: 40, offset: 0, limit: 50 });
+  assert.deepEqual(scrolled.anchor, { key: 40, offset: 0, limit: 50 });
   const grown = { ...bounds, transcript: layoutOfHeights(Array.from({ length: 60 }, () => 1)) };
-  assert.equal(reduce(scrolled, 'move.up', grown).anchor?.cursor, 39, 'growth does not move the anchor');
-  assert.equal(reduce(scrolled, 'move.down', grown).anchor?.cursor, 41, 'scrolling down stops at the pause point');
+  assert.equal(reduce(scrolled, 'move.up', grown).anchor?.key, 39, 'growth does not move the anchor');
+  assert.equal(reduce(scrolled, 'move.down', grown).anchor?.key, 41, 'scrolling down stops at the pause point');
   assert.equal(reduce(scrolled, 'move.bottom', bounds).anchor, null);
-  assert.equal(reduce(session, 'move.top', bounds).anchor?.cursor, 1);
+  assert.equal(reduce(session, 'move.top', bounds).anchor?.key, 1);
 });
