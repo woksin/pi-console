@@ -24,6 +24,26 @@ const attentionItem = strict({
   since: time, pointer: nullable(ref('sourcePointer')),
 });
 
+/** One fact behind a derived request state (docs/requests.md): which transcript entry or reset, and when. */
+const requestEvidence = strict({
+  kind: oneOf('prompt', 'answer', 'later-prompt', 'abort', 'reset', 'boundary', 'session-end', 'explicit'),
+  entryId: nullable(id), resetId: nullable(id), at: time,
+});
+
+/** Why a derived pairing is heuristic; `null` on the request when it is not. */
+const requestUncertainty = oneOf('shared-answer', 'reset-then-new-prompt');
+
+const v0Request = apiV0Schema.$defs.request as { properties: Record<string, Schema>; required: string[] };
+
+/** v0 `request` plus the optional derivation fields (docs/requests.md). Every v0 request stays valid. */
+const request = strict({
+  ...v0Request.properties,
+  withheld: bool, answerWithheld: bool, answerPossiblyUnseen: bool,
+  uncertain: bool, uncertainReason: nullable(ref('requestUncertainty')),
+  evidence: array(ref('requestEvidence')), derivedFrom: oneOf('session-jsonl', 'intent-memory'),
+  pointer: nullable(ref('sourcePointer')),
+}, v0Request.required);
+
 const graphNode = strict({ laneId: id, label: str, repositoryId: nullable(id) });
 const graphEdge = strict({ fromLane: id, toLane: id, kind: oneOf('message', 'spawn', 'waiting-on', 'barred-by'), lastAt: time, count: int });
 
@@ -45,11 +65,11 @@ const settings = strict({
 });
 
 /**
- * Additive API v1 definitions (the gaps listed in docs/milestones.md M1). `transcriptEntry` replaces the v0
- * definition of the same name; every other name is new. v1 = v0 plus these, nothing removed.
+ * Additive API v1 definitions (the gaps listed in docs/milestones.md M1). `transcriptEntry` and `request` replace the
+ * v0 definitions of the same name with optional fields added; every other name is new. v1 = v0 plus these, nothing removed.
  */
 const v1Defs: Record<string, Schema> = {
-  toolResult, sourcePointer, attentionReason, attentionItem, graphNode, graphEdge,
+  toolResult, sourcePointer, attentionReason, attentionItem, graphNode, graphEdge, requestEvidence, requestUncertainty, request,
   transcriptEntry: strict({
     id, cursor: int, sessionId: id, at: time,
     kind: oneOf('user', 'thinking', 'assistant.delta', 'assistant', 'tool.call', 'tool.result', 'diff', 'reset'),

@@ -19,7 +19,10 @@ const defs = (group: EventGroup, sources: readonly string[], entries: Record<str
   Object.entries(entries).map(([type, payload]) => ({ type, version: 1, group, sources, payload }));
 
 const sessions = defs('sessions', ['session-jsonl', 'context-budget', 'lane-heartbeats', 'extension'], {
-  SessionStarted: open({ ...sessionId, cwd: str, model: nullable(str), role: oneOf('orchestrator', 'main', 'subagent'), parentSessionId: nullable(id) }),
+  SessionStarted: open(
+    { ...sessionId, cwd: str, model: nullable(str), role: oneOf('orchestrator', 'main', 'subagent'), parentSessionId: nullable(id), parentSessionKnown: bool },
+    ['sessionId', 'cwd', 'model', 'role', 'parentSessionId'],
+  ),
   SessionEnded: open({ ...sessionId, reason: str }),
   ModelChanged: open({ ...sessionId, model: id, previousModel: nullable(str) }),
   ThinkingLevelChanged: open({ ...sessionId, level: id }),
@@ -30,15 +33,17 @@ const sessions = defs('sessions', ['session-jsonl', 'context-budget', 'lane-hear
   SessionHeartbeat: open({ ...sessionId, status: str }, ['sessionId']),
 });
 
+/** Provenance of request facts (ADR-0008): Phase A derivation from session JSONL, or the intent-memory store (Phase B). */
+const derivedFrom = { derivedFrom: oneOf('session-jsonl', 'intent-memory') };
 const requests = defs('requests', ['session-jsonl', 'derivation'], {
-  RequestObserved: open({ requestId: id, ...sessionId, entryId: id, raw: bool, origin: oneOf('human', 'launch', 'unproven'), originEvidence: str, excerpt, withheld: bool }, ['requestId', 'sessionId', 'origin', 'originEvidence']),
+  RequestObserved: open({ requestId: id, ...sessionId, entryId: id, raw: bool, origin: oneOf('human', 'launch', 'unproven'), originEvidence: str, excerpt, withheld: bool, ...derivedFrom }, ['requestId', 'sessionId', 'origin', 'originEvidence']),
   AnswerObserved: { anyOf: [
-    open({ requestId: id, answerId: id, interim: bool, excerpt, withheld: bool }, ['requestId', 'answerId', 'interim']),
-    open({ raw: { const: true }, ...sessionId, entryId: id, answerId: id, interim: { const: false }, excerpt, withheld: bool }),
+    open({ requestId: id, answerId: id, interim: bool, excerpt, withheld: bool, ...derivedFrom }, ['requestId', 'answerId', 'interim']),
+    open({ raw: { const: true }, ...sessionId, entryId: id, answerId: id, interim: { const: false }, excerpt, withheld: bool, ...derivedFrom }, ['raw', 'sessionId', 'entryId', 'answerId', 'interim', 'excerpt', 'withheld']),
   ] },
   RequestInterrupted: { anyOf: [
-    open({ requestId: id, ...sessionId, resetId: nullable(id) }, ['requestId', 'sessionId']),
-    open({ raw: { const: true }, ...sessionId, entryId: id, reason: { const: 'aborted' } }),
+    open({ requestId: id, ...sessionId, resetId: nullable(id), ...derivedFrom }, ['requestId', 'sessionId']),
+    open({ raw: { const: true }, ...sessionId, entryId: id, reason: { const: 'aborted' }, ...derivedFrom }, ['raw', 'sessionId', 'entryId', 'reason']),
   ] },
 });
 

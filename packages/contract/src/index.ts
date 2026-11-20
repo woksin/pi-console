@@ -7,6 +7,7 @@ export * from './upcast.ts';
 export * from './api.ts';
 export * from './status.ts';
 export * from './theme.ts';
+export type * from './intent-memory.ts';
 export type * from './generated/api-v1.ts';
 export type { EventPayloads } from './generated/events.ts';
 export type * as v0 from './generated/api-v0.ts';

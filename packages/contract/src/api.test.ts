@@ -13,7 +13,24 @@ test('docs/api/schemas/api.json is valid JSON and v1 only adds to or replaces v0
   assert.deepEqual(published, apiV0Schema);
   for (const name of Object.keys(apiV0Schema.$defs)) assert.ok(name in apiV1Schema.$defs, name);
   const added = Object.keys(apiV1Schema.$defs).filter(name => !(name in apiV0Schema.$defs));
-  assert.deepEqual(added.sort(), ['attentionItem', 'attentionReason', 'graph', 'graphEdge', 'graphNode', 'health', 'needsYou', 'settings', 'sourcePointer', 'toolResult']);
+  assert.deepEqual(added.sort(), ['attentionItem', 'attentionReason', 'graph', 'graphEdge', 'graphNode', 'health', 'needsYou', 'requestEvidence', 'requestUncertainty', 'settings', 'sourcePointer', 'toolResult']);
+});
+
+test('a v0 request is valid under v1, and v1 requests accept the derivation fields', () => {
+  const v0 = {
+    id: 'r1', sessionId: 's1', text: 'ask', origin: 'launch', originLabel: 'Initial prompt', originEvidence: 'first prompt', status: 'answered',
+    createdAt: '2026-11-20T09:00:00Z', resetId: null, answer: { id: 'a1', text: 'done', at: '2026-11-20T09:01:00Z', interim: false }, interimAnswers: [],
+  };
+  validate(v0, apiV1Schema.$defs.request, apiV1Schema);
+  const derived = {
+    ...v0, withheld: false, answerWithheld: false, answerPossiblyUnseen: true, uncertain: true, uncertainReason: 'shared-answer',
+    evidence: [{ kind: 'prompt', entryId: 'e1', resetId: null, at: '2026-11-20T09:00:00Z' }, { kind: 'boundary', entryId: 'e9', resetId: 'c1', at: '2026-11-20T09:02:00Z' }],
+    derivedFrom: 'session-jsonl', pointer: { sessionId: 's1', entryId: 'e1', fileOffset: 120 },
+  };
+  validate(derived, apiV1Schema.$defs.request, apiV1Schema);
+  assert.throws(() => validate({ ...derived, uncertainReason: 'guess' }, apiV1Schema.$defs.request, apiV1Schema));
+  assert.throws(() => validate({ ...derived, evidence: [{ kind: 'vibes', entryId: null, resetId: null, at: v0.createdAt }] }, apiV1Schema.$defs.request, apiV1Schema));
+  assert.throws(() => validate(derived, apiV0Schema.$defs.request, apiV0Schema));
 });
 
 test('a v0 transcript entry is valid under v1 (additive)', () => {
