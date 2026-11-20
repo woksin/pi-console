@@ -115,7 +115,7 @@ describe('web console e2e', () => {
     const page = await rig.open('/overview');
     await page.locator('[data-reason="open-request"] a', { hasText: 'Open in session' }).first().click();
     await page.locator('.tline.target').waitFor();
-    assert.equal(await page.locator('.tline.target').getAttribute('id'), 'line-entry1');
+    assert.equal(await page.locator('.tline.target').getAttribute('id'), 'line-1');
     assert.ok(await page.locator('.tline.target').isVisible());
     await page.context().close();
   });
@@ -150,7 +150,7 @@ describe('web console e2e', () => {
       await route.fulfill({ contentType: 'application/json', body: JSON.stringify(body) });
     });
     await page.evaluate(() => { window.location.hash = '#/session/s2'; });
-    const line = page.locator('#line-evil1');
+    const line = page.locator('#line-1');
     await line.waitFor();
     assert.match(await line.evaluate(node => node.textContent), /<img src=x onerror=/, 'shown as text');
     assert.equal(await line.locator('img, script').count(), 0);
