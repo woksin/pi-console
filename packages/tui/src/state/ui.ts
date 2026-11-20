@@ -74,7 +74,7 @@ const transcriptMotions: Partial<Record<Action, (bounds: Bounds) => TranscriptMo
 
 function moveTranscript(state: UiState, action: Action, bounds: Bounds): UiState {
   const motion = transcriptMotions[action];
-  return motion ? { ...state, ...scrollTranscript(bounds.transcript, state, bounds.viewport, motion(bounds)) } : state;
+  return motion ? { ...state, focusEntry: null, ...scrollTranscript(bounds.transcript, state, bounds.viewport, motion(bounds)) } : state;
 }
 
 const goto = (state: UiState, section: Section): UiState => ({ ...state, section, sessionId: null, focusEntry: null, overlay: 'none', filter: '', scrub: false });
@@ -144,7 +144,7 @@ const handlers: Partial<Record<Action, Handler>> = {
   'back': state => back(state),
   'open': (state, bounds) => open(state, bounds),
   'filter.next': requestFilters, 'filter.previous': requestFilters, 'filter.origin': requestFilters, 'filter.session': requestFilters,
-  'follow.toggle': (state, bounds) => ({ ...state, ...(state.follow ? pauseTranscript(bounds.transcript, state, bounds.viewport) : resumeTranscript) }),
+  'follow.toggle': (state, bounds) => ({ ...state, focusEntry: null, ...(state.follow ? pauseTranscript(bounds.transcript, state, bounds.viewport) : resumeTranscript) }),
   'view.toggle': state => ({ ...state, messagesGraph: !state.messagesGraph, cursor: { ...state.cursor, messages: 0 } }),
   'group.toggle': (state, bounds) => toggleGroup(state, bounds),
   'pane.next': state => cyclePane(state, 1),

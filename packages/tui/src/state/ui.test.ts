@@ -106,5 +106,6 @@ test('opening a request carries its transcript entry; going back or switching se
   assert.deepEqual([opened.sessionId, opened.focusEntry], ['s2', 'entry9']);
   assert.equal(reduce(opened, 'back', pointed).focusEntry, null);
   assert.equal(reduce(opened, 'section.2', pointed).focusEntry, null);
+  for (const action of ['move.down', 'page.up', 'follow.toggle'] as const) assert.equal(reduce(opened, action, pointed).focusEntry, null, action);
   assert.equal(reduce({ ...initial, section: 'fleet' }, 'open', bounds).focusEntry, null);
 });

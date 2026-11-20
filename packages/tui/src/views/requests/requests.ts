@@ -8,14 +8,14 @@ import { requestDetailLines } from './detail.ts';
 const DETAIL_WIDTH = 56;
 export const originColor = (row: { origin: RequestsRow['origin'] }) => (row.origin === 'human' ? 'blue' as const : 'amber' as const);
 
-/** Uncertain and possibly-unseen are shown on the row itself, never only in the detail. */
-const flags = (row: RequestsRow) => [...(row.uncertain ? [t(' ≈ uncertain', 'amber')] : []), ...(row.possiblyUnseen ? [t(' ◌ unseen?', 'amber')] : [])];
+/** Uncertain and possibly-unseen are shown on the row itself, never only in the detail; they precede the request text so clipping cuts the text, not the flag. */
+const flags = (row: RequestsRow) => [...(row.uncertain ? [t('≈ uncertain ', 'amber')] : []), ...(row.possiblyUnseen ? [t('◌ unseen? ', 'amber')] : [])];
 
 function rowLine(row: RequestsRow, env: Env, width: number, selected: boolean): Line {
   const text = t(row.text, row.withheld ? 'faint' : 'text', row.withheld ? { italic: true } : {});
   return selectable(split(
-    [...statusParts(row.status, env.phase, false), t(' '), t(pad(row.status.label, 12), row.status.color), t(pad(row.originLabel, 16), originColor(row)), text, ...flags(row)],
-    [t(pad(row.session, 22), 'muted'), t(row.age.padStart(4), 'faint')], width - 1), width, selected);
+    [...statusParts(row.status, env.phase, false), t(' '), t(pad(row.status.label, 12), row.status.color), t(pad(row.originLabel, 16), originColor(row)), ...flags(row), text],
+    [t(pad(row.session, width >= 100 ? 22 : 14), 'muted'), t(row.age.padStart(4), 'faint')], width - 1), width, selected);
 }
 
 const summaryLine = (model: RequestsViewModel): Line => [t(` ${describeRequestFilter(model)}`, 'muted'), t(`  ${String(model.rows.length)} shown · ${String(model.uncertain)} uncertain · ${String(model.possiblyUnseen)} unseen?`, 'faint')];
@@ -28,7 +28,7 @@ export function requestsView(env: Env): SectionView {
   const model = requestsViewModel({ requests: env.data.requests, sessions: env.data.sessions, now: env.now, filter });
   const { rows } = model;
   const wide = env.width >= 110;
-  const width = (wide ? env.width - DETAIL_WIDTH : env.width) - 4;
+  const width = (wide ? env.width - DETAIL_WIDTH - 1 : env.width) - 4;
   const cursor = Math.min(env.ui.cursor.requests, Math.max(0, rows.length - 1));
   const { start, end } = windowOf(rows.length, cursor, Math.max(1, env.height - 5));
   const lines = rows.slice(start, end).map((row, offset) => rowLine(row, env, width, start + offset === cursor));
