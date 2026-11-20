@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { mkdtempSync, writeFileSync } from 'node:fs';
-import { createServer, type Server } from 'node:http';
+import { createServer, request, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -47,4 +47,24 @@ test('forwards /api requests with the bearer token untouched', async () => {
 
 test('refuses non-GET requests to the static surface', async () => {
   assert.equal((await fetch(`${base}/`, { method: 'POST' })).status, 405);
+});
+
+/** Raw request: fetch cannot send a hostile request target or a forged Host header. */
+const raw = (path: string, headers: Record<string, string> = {}): Promise<number> => new Promise((done, fail) => {
+  const { port } = new URL(base);
+  const call = request({ host: '127.0.0.1', port: Number(port), path, headers }, reply => { reply.resume(); done(reply.statusCode ?? 0); });
+  call.on('error', fail);
+  call.end();
+});
+
+test('a malformed request target is a 400, not a crash, and the server keeps serving', async () => {
+  assert.equal(await raw('//['), 400);
+  assert.equal((await fetch(`${base}/`)).status, 200);
+});
+
+test('the proxy refuses a foreign Host or Origin instead of laundering it into the daemon allowlist', async () => {
+  assert.equal(await raw('/api/v1/needs-you', { Host: 'evil.example:80' }), 403);
+  assert.equal(await raw('/api/v1/needs-you', { Origin: 'http://evil.example' }), 403);
+  const { port } = new URL(base);
+  assert.equal(await raw('/api/v1/needs-you', { Host: `localhost:${port}`, Origin: `http://localhost:${port}` }), 200);
 });

@@ -14,6 +14,9 @@ const realClock: Clock = {
 export const reconnectDelays = [400, 800, 1600, 3200, 5000] as const;
 export const staleAfterMs = 45_000;
 const refreshDebounceMs = 350;
+const historyPageSize = 1000;
+/** Enough pages to reach the tail of any realistic session (the TUI pages the same way); only the newest entries are retained. */
+const maxHistoryPages = 60;
 
 type Listener = () => void;
 
@@ -135,24 +138,26 @@ export class ConsoleStore {
     const [needsYou, health] = await Promise.all([this.#api.needsYou().catch(() => null), this.#api.health().catch(() => null)]);
     this.#set({ ...this.#state, needsYou: needsYou ?? this.#state.needsYou, health: health ?? this.#state.health });
   }
-  /** Loads a session's transcript history once per gap; the live tail arrives over the stream. `focus` pages on until that entry is present. */
+  /** Loads a session's transcript history once per gap; the live tail arrives over the stream. History is paged to its end (only the newest entries are kept), or, with `focus`, until that entry is present. A failed load is forgotten so the next open retries it. */
   loadTranscript(sessionId: string, focus: string | null = null): Promise<void> {
     const key = `${sessionId}:${String(this.#state.gapCount)}:${focus ?? ''}`;
     const existing = this.#loaded.get(key);
     if (existing) return existing;
-    const task = this.#fetchTranscript(sessionId, focus);
+    const task = this.#fetchTranscript(sessionId, focus).then(complete => { if (!complete) this.#loaded.delete(key); });
     this.#loaded.set(key, task);
     return task;
   }
 
-  async #fetchTranscript(sessionId: string, focus: string | null): Promise<void> {
+  /** Returns false when a page could not be fetched. */
+  async #fetchTranscript(sessionId: string, focus: string | null): Promise<boolean> {
     let after = 0;
-    for (let page = 0; page < (focus ? 40 : 5); page++) {
-      const result = await this.#api.transcript(sessionId, after, 1000).catch(() => null);
-      if (!result) return;
+    for (let page = 0; page < maxHistoryPages; page++) {
+      const result = await this.#api.transcript(sessionId, after, historyPageSize).catch(() => null);
+      if (!result) return false;
       this.#set(mergeTranscript(this.#state, sessionId, result.items, focus !== null));
-      if (isLastPage(result, focus)) return;
+      if (isLastPage(result, focus)) return true;
       after = result.nextCursor;
     }
+    return true;
   }
 }

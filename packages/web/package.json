@@ -8,7 +8,7 @@
     "build": "vite build --config vite/vite.config.ts",
     "build:check": "tsc -b . && tsc -p e2e && tsc -p vite && vite build --config vite/vite.config.ts",
     "serve": "node src/server/serve.ts",
-    "e2e": "node --test --test-concurrency=1 --test-timeout=120000 e2e/console.e2e.ts",
+    "e2e": "node --test --test-concurrency=1 --test-timeout=120000 e2e/console.e2e.ts e2e/transcript.e2e.ts",
     "screenshots": "node e2e/screenshots.ts"
   },
   "dependencies": {

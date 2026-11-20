@@ -38,7 +38,16 @@ function upstreamHeaders(options: StaticServerOptions, req: IncomingMessage): In
   return headers;
 }
 
+/** A request is local only if it names this server by a loopback host and its own port; a rebinding page or another origin is refused before anything is forwarded. */
+function isLocalRequest(req: IncomingMessage): boolean {
+  const port = String(req.socket.localPort);
+  const own = [`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`];
+  const { host, origin } = req.headers;
+  return host !== undefined && own.includes(host) && (origin === undefined || origin === `http://${host}`);
+}
+
 function proxy(options: StaticServerOptions, req: IncomingMessage, res: ServerResponse): void {
+  if (!isLocalRequest(req)) { res.writeHead(403, securityHeaders).end(); return; }
   const upstream = httpRequest({ host: options.daemon.host, port: options.daemon.port, method: req.method, path: req.url, headers: upstreamHeaders(options, req) }, reply => {
     res.writeHead(reply.statusCode ?? 502, { ...reply.headers, ...securityHeaders });
     reply.pipe(res);
@@ -50,11 +59,17 @@ function proxy(options: StaticServerOptions, req: IncomingMessage, res: ServerRe
   req.pipe(upstream);
 }
 
+/** The request target, or null when it is not a parseable URL (e.g. `//[`). */
+function parseTarget(target: string | undefined): URL | null {
+  try { return new URL(target ?? '/', 'http://localhost'); } catch { return null; }
+}
+
 /** Serves the built bundle with the strict CSP and forwards `/api` (including the SSE stream) to the daemon. */
 export function createStaticServer(options: StaticServerOptions): Server {
   const root = resolve(options.root);
   return createServer((req, res) => {
-    const url = new URL(req.url ?? '/', 'http://localhost');
+    const url = parseTarget(req.url);
+    if (!url) { res.writeHead(400, securityHeaders).end(); return; }
     if (url.pathname.startsWith('/api/')) { proxy(options, req, res); return; }
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405, securityHeaders).end(); return; }
     void fileFor(root, url.pathname).then(file => {

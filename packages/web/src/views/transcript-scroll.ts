@@ -31,23 +31,31 @@ function restore(pane: HTMLElement, anchor: Anchor | null, lines: readonly Trans
 function useAnchor(pane: RefObject<HTMLDivElement | null>, follow: boolean, lines: readonly TranscriptLine[]): { remember: () => void } {
   const anchor = useRef<Anchor | null>(null);
   useLayoutEffect(() => {
-    if (follow || !pane.current) return;
+    if (!pane.current) return;
+    // Following owns the viewport: a stale anchor from an earlier pause must not pull the next pause back to it.
+    if (follow) { anchor.current = null; return; }
     restore(pane.current, anchor.current, lines);
     anchor.current = capture(pane.current);
   }, [pane, follow, lines]);
-  return { remember: () => { if (!follow && pane.current) anchor.current = capture(pane.current); } };
+  return { remember: () => { if (pane.current) anchor.current = capture(pane.current); } };
 }
 
-export interface TranscriptScroll { follow: boolean; pause: () => void; toggleFollow: () => void; pane: RefObject<HTMLDivElement | null>; end: RefObject<HTMLDivElement | null>; onScroll: () => void }
+/** Identifies the tail's content and size: a collapsed streaming run grows without changing the last key or the line count. */
+const tailSignature = (lines: readonly TranscriptLine[]): string => {
+  const tail = lines.at(-1);
+  return `${String(tail?.key)}:${String(lines.length)}:${String(tail?.text.length)}`;
+};
+
+export interface TranscriptScroll { follow: boolean; pause: () => void; toggleFollow: () => void; pane: RefObject<HTMLDivElement | null>; end: RefObject<HTMLDivElement | null>; onScroll: () => void; remember: () => void }
 
 /** Follow-the-tail, pause on user scroll, anchoring on a line id while paused, and the one-time scroll to a jump target. */
 export function useTranscriptScroll(lines: readonly TranscriptLine[], focusEntry: string | null): TranscriptScroll {
   const { follow, pause, toggleFollow } = useFollow(focusEntry === null);
   const pane = useRef<HTMLDivElement>(null);
   const end = useRef<HTMLDivElement>(null);
-  const last = lines.at(-1)?.key;
-  useEffect(() => { if (follow) end.current?.scrollIntoView({ block: 'end' }); }, [follow, last, lines.length]);
+  const tail = tailSignature(lines);
+  useEffect(() => { if (follow) end.current?.scrollIntoView({ block: 'end' }); }, [follow, tail]);
   const { remember } = useAnchor(pane, follow, lines);
   useJumpOnce(lines, focusEntry, remember);
-  return { follow, pause, toggleFollow, pane, end, onScroll: remember };
+  return { follow, pause, toggleFollow, pane, end, onScroll: () => { if (!follow) remember(); }, remember };
 }

@@ -58,12 +58,12 @@ function resolveSelection(ids: readonly string[], picked: string | null, fallbac
 }
 
 /** Keyboard selection over an ordered id list, bound to the shared move/open/copy actions. */
-export function useListNav(ids: readonly string[], options: { onOpen?: (id: string) => void; initial?: string | null; fallback?: string | null; enabled?: boolean } = {}): ListNav {
+export function useListNav(ids: readonly string[], options: { onOpen?: (id: string) => void; initial?: string | null; fallback?: string | null; enabled?: boolean; onMove?: (id: string) => void } = {}): ListNav {
   const [picked, setPicked] = useState<string | null>(options.initial ?? null);
   const selected = resolveSelection(ids, picked, options.fallback);
   useActions(action => {
     const target = moveTarget(action, selected === null ? -1 : ids.indexOf(selected), ids.length);
-    if (target !== null) { if (ids.length > 0) setPicked(ids[target]); return true; }
+    if (target !== null) { if (ids.length > 0) { setPicked(ids[target]); options.onMove?.(ids[target]); } return true; }
     if (selected === null) return false;
     if (action === 'open' && options.onOpen) { options.onOpen(selected); return true; }
     if (action === 'copy.id') { void copyText(selected); return true; }

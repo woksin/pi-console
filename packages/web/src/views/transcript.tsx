@@ -9,7 +9,10 @@ interface TranscriptProps { lines: readonly TranscriptLine[]; focusEntry: string
 /** Every character is rendered as a React text node (escaped); transcript text is never interpreted as markup. */
 export function Transcript({ lines, focusEntry, searching }: TranscriptProps) {
   const scroll = useTranscriptScroll(lines, focusEntry);
-  const nav = useListNav(lines.map(line => String(line.key)), { initial: focusKey(lines, focusEntry) });
+  const nav = useListNav(lines.map(line => String(line.key)), {
+    initial: focusKey(lines, focusEntry), fallback: String(lines.at(-1)?.key),
+    onMove: key => { scroll.pause(); document.getElementById(`line-${key}`)?.scrollIntoView({ block: 'nearest' }); scroll.remember(); },
+  });
   if (lines.length === 0) return <EmptyState title={searching ? 'No lines match' : 'No transcript yet'} mark="…">{searching ? 'Clear the search to see the whole transcript.' : 'Lines stream in here as the agent works.'}</EmptyState>;
   return (
     <div ref={scroll.pane} onScroll={scroll.onScroll} className="transcript" role="log" aria-live="off" aria-label="Transcript lines">
