@@ -1,9 +1,39 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readTranscript } from './transcript.ts';
+
+test('oversized records are withheld and paging reaches the following record', t => {
+  const root = mkdtempSync(join(tmpdir(), 'pi-transcript-large-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const path = join(root, 'session.jsonl');
+  const huge = JSON.stringify({ text: 'λ'.repeat(1024 * 1024) }) + '\n';
+  const next = JSON.stringify({ ok: true }) + '\n';
+  writeFileSync(path, huge + next);
+  for (const limitBytes of [16, 256 * 1024, 1024 * 1024]) {
+    const page = readTranscript({ path, roots: [root], limitBytes });
+    assert.deepEqual(page.entries, [{ withheld: true, oversize: true }]);
+    assert.equal(page.nextOffset, Buffer.byteLength(huge));
+    assert.deepEqual(readTranscript({ path, roots: [root], offset: page.nextOffset }).entries, [{ ok: true }]);
+  }
+  assert.equal(readFileSync(path, 'utf8'), huge + next);
+});
+
+test('an oversized torn tail remains resumable until its newline arrives', t => {
+  const root = mkdtempSync(join(tmpdir(), 'pi-transcript-torn-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const path = join(root, 'session.jsonl');
+  writeFileSync(path, JSON.stringify({ text: 'x'.repeat(100) }));
+  const request = { path, roots: [root], limitBytes: 16 };
+  assert.deepEqual(readTranscript(request), { entries: [], nextOffset: 0, partial: true });
+  appendFileSync(path, '\n');
+  const page = readTranscript(request);
+  assert.deepEqual(page.entries, [{ withheld: true, oversize: true }]);
+  assert.equal(page.nextOffset, Buffer.byteLength(readFileSync(path)));
+  assert.deepEqual(readTranscript({ ...request, offset: page.nextOffset }), { entries: [], nextOffset: page.nextOffset, partial: false });
+});
 
 test('transcript paging returns only complete redacted records and leaves source unchanged', () => {
   const root = mkdtempSync(join(tmpdir(), 'pi-transcript-'));

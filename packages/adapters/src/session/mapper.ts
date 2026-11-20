@@ -4,13 +4,15 @@ import { jobMessageFacts, jobToolFacts } from './jobs.ts';
 
 type Emit = (type: string, payload: Record<string, unknown>) => Fact[];
 
+const nonAnswerStops = new Set<unknown>(['toolUse', 'error', 'length', 'pending', 'deferred']);
+
 function assistantFacts(message: Record<string, unknown>, raw: Record<string, unknown>, emit: Emit): Fact[] {
+  if (nonAnswerStops.has(message.stopReason)) return [];
   switch (message.stopReason) {
     case 'stop': return emit('AnswerObserved', {
       ...raw, answerId: `${text(raw.sessionId)}:${text(raw.entryId)}`, interim: false, ...excerpt(message.content),
     });
     case 'aborted': return emit('RequestInterrupted', { ...raw, reason: 'aborted' });
-    case 'toolUse': case 'error': return [];
     default: throw new Error('Unknown assistant stop reason');
   }
 }
@@ -31,7 +33,12 @@ function messageFacts(record: Record<string, unknown>, sessionId: string, emit: 
 function sessionStarted(record: Record<string, unknown>, sessionId: string, emit: Emit): Fact[] {
   if (record.version !== 3) throw new Error('Unsupported session header');
   if (record.id !== sessionId) throw new Error('Unsupported session header');
-  return emit('SessionStarted', { sessionId, cwd: text(record.cwd), model: null, role: 'main', parentSessionId: null });
+  // v3 parentSession is a file path, not an id. Never fabricate an id from its filename.
+  const parentSessionPath = record.parentSession === undefined ? null : text(record.parentSession);
+  return emit('SessionStarted', {
+    sessionId, cwd: text(record.cwd), model: null, role: 'main', parentSessionId: null,
+    parentSessionKnown: parentSessionPath === null, parentSessionPath,
+  });
 }
 
 /** No request state: raw answer/abort observations intentionally have no requestId. */
@@ -49,7 +56,8 @@ export function sessionMapper(sessionId: string): Mapper {
     const occurredAt = text(record.timestamp);
     const emit: Emit = (type, payload) => [{ type, subject: `session:${sessionId}`, entryId, occurredAt, payload }];
     if (['session_info', 'custom', 'label', 'branch_summary'].includes(text(record.type))) return [];
-    const handler = handlers[text(record.type)];
+    const type = text(record.type);
+    const handler = Object.hasOwn(handlers, type) ? handlers[type] : undefined;
     if (!handler) throw new Error('Unknown session entry');
     return handler(record, emit);
   };

@@ -3,6 +3,13 @@ import { fact, integer, list, object, text } from '../values.ts';
 
 const terminal = new Map<unknown, string>([['succeeded', 'done'], ['matched', 'done'], ['failed', 'failed'], ['timed_out', 'failed'], ['killed', 'failed']]);
 
+/** pi-jobs snapshots store epoch milliseconds, not ISO strings. */
+function epochTime(value: unknown): string {
+  if (typeof value !== 'number') throw new Error('Expected epoch milliseconds');
+  if (!Number.isFinite(value)) throw new Error('Expected epoch milliseconds');
+  return new Date(value).toISOString();
+}
+
 function finished(job: Record<string, unknown>, at: unknown, entryId: string): Fact[] {
   if (job.status === 'running') return [];
   const status = terminal.get(job.status);
@@ -31,6 +38,7 @@ export function jobToolFacts(record: Record<string, unknown>, message: Record<st
   const entryId = text(record.id);
   const started = fact('JobStarted', `job:${jobId}`, {
     jobId, name: text(job.label ?? job.command), kind: 'job',
-  }, job.startedAt, entryId);
-  return [started, ...finished(job, job.finishedAt, entryId)];
+  }, epochTime(job.startedAt), entryId);
+  const endedAt = job.status === 'running' ? undefined : epochTime(job.endedAt);
+  return [started, ...finished(job, endedAt, entryId)];
 }

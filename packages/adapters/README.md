@@ -43,6 +43,18 @@ records were found; notification prose is not parsed. User-role prompts remain
 `unproven`: neither first position nor role proves launch provenance. Answers and
 aborts carry `raw: true`, sessionId and entryId, without a fabricated requestId.
 P5 alone derives pairing and request state. Tool results are not answers.
+The installed v3 `SessionHeader.parentSession` is a parent **file path**, not a
+session id (the writer's fork operations set it from the source filename).
+Absent `parentSession` in v3 means `parentSessionKnown: true` with a null id.
+Present paths are retained as `parentSessionPath`, but the id remains unknown
+(`parentSessionKnown: false`); resolving another file's header is not implemented.
+Neither path filenames nor prompt text are parsed for ids. Header `role: main`
+is a contract-required compatibility default, **not observed classification**:
+v3 has no role field, and a fork path does not prove subagent/orchestrator status.
+Only `stop` produces an answer; `length`, `pending`, `deferred`, `toolUse` and
+`error` are explicitly ignored. Unknown future stop reasons still warn.
+Structured job snapshots use finite epoch-ms `startedAt`/`endedAt`, converted to
+ISO timestamps; invalid/out-of-range values warn rather than dropping jobs silently.
 
 ## Other sources and documented gaps
 
@@ -58,7 +70,7 @@ shapes/enums into body-free warnings. Synthetic writer-shaped examples are in
 | S8 questions | Unversioned local (`kind/body/urgency`, history `at`) and installed v1 (`type/text/priority`, history `ts`) immutable revisions emit only their last history operation, never old history with new text. Created/edited/answered/decided/deferred/closed/withdrawn map to question observations; withdrawn closes with reason `withdrawn`. No defer-until is recorded (`null`). Priority `low`/`urgent` cannot be represented losslessly by normal/high and warns instead of coercing. Claim/reopen/decline/comment have no matching raw event. |
 | S9 issue-work | Explicit `state` → `IssueStatusChanged`, preserving state and repo-qualified issue key. No claim without lane identity; no PR/review-head fact without SHA. Session links alone have no matching event. |
 | S10 job logs | Opaque command output is skipped; no free-text job/subagent lifecycle parsing. Explicit job lifecycle comes only from S1 structured records. |
-| S11 phase ledger | Explicit queuedAt/startedAt/endedAt → retrospective phase observations when the final row arrives. Identity is the source tuple `argvHash:queuedAt`. No start/finish when startedAt is null; this is not live queue telemetry. |
+| S11 phase ledger | Explicit queuedAt/startedAt/endedAt → retrospective phase observations when the final row arrives. Identity is the source tuple `argvHash:queuedAt`. No start/finish when startedAt is null; this is not live queue telemetry. Known transport gap: emitted `phase:*` subjects are not accepted by the envelope's subject kinds, so these facts cannot yet be appended to the durable log. Hostile-id coverage stops at the mapper for this source. |
 | S13 review logs | Opaque workflow/command prose is skipped. No verified structured head-SHA/verdict record in the inspected local writer; no `ReviewRecorded` inferred. A structured producer needs a versioned mapper. |
 
 ## Transport and daemon seams
@@ -77,8 +89,13 @@ process-kill spec exercises SIGKILL and resumed ingestion.
 
 `readTranscript({ path, roots, offset, limitBytes, scanner })` is the daemon seam.
 Resolve paths from the daemon's index, not browser input. It returns complete
-redacted JSON records and the next byte offset, at most 1 MiB per page. `partial`
-signals an incomplete/over-budget line. It never writes pi data or emits turns.
+redacted JSON records and the next byte offset, buffering at most 1 MiB per page.
+A complete record exceeding `limitBytes` is scanned to its newline with bounded
+memory, withheld as `{ withheld: true, oversize: true }`, and advances the cursor
+past that newline. Scanning may read beyond the page budget; no fragment is exposed.
+`partial` signals an incomplete/over-budget trailing line. Torn tails, including
+oversized ones, retain their cursor until the terminating newline arrives.
+It never writes pi data or emits turns.
 
 ## Read-only real-week probe
 

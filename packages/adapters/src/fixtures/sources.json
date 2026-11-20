@@ -21,5 +21,5 @@
     { "completionId": "c1", "job": { "id": "job-1", "status": "succeeded", "exitCode": 0 } },
     { "completionId": "c2", "job": { "id": "job-2", "status": "killed", "exitCode": null } }
   ] } },
-  "jobStart": { "type": "message", "id": "entry-start", "timestamp": "2026-07-01T09:00:00Z", "message": { "role": "toolResult", "toolName": "job_start", "details": { "id": "job-1", "command": "echo synthetic", "startedAt": "2026-07-01T09:00:00Z", "status": "running" } } }
+  "jobStart": { "type": "message", "id": "entry-start", "timestamp": "2026-07-01T09:00:00Z", "message": { "role": "toolResult", "toolName": "job_start", "details": { "id": "job-1", "command": "echo synthetic", "startedAt": 1782896400000, "status": "running" } } }
 }
