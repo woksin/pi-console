@@ -53,7 +53,7 @@ const health = strict({
   eventLog: strict({ lastSeq: int, dbBytes: int }),
   projection: strict({ position: int, queueDepth: int, skipped: int }),
   stream: strict({ seq: int, clients: int, retained: int }),
-  sources: array(strict({ source: id, files: int, lagBytes: int, lastPollAt: nullable(time) })),
+  sources: array(strict({ source: id, files: int, lagBytes: int, lastPollAt: nullable(time), errors: int })),
   backfill: strict({ complete: bool, windowDays: int }),
   memory: strict({ rssBytes: int, heapUsedBytes: int }),
 });

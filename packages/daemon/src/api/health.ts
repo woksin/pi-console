@@ -6,6 +6,8 @@ import type { DaemonConfig } from '../config.ts';
 import type { StreamHub } from '../stream/stream-hub.ts';
 import type { DeltaBatcher } from '../stream/delta-batcher.ts';
 import type { SessionIngestion } from '../ingestion/session-ingestion.ts';
+import type { SourceSet } from '../ingestion/sources.ts';
+import { sourceIds } from '../ingestion/source-ids.ts';
 
 export interface HealthParts {
   startedAt: string;
@@ -14,6 +16,7 @@ export interface HealthParts {
   projector: Projector;
   stream: StreamHub;
   ingestion: SessionIngestion;
+  sources: SourceSet;
   batcher: DeltaBatcher;
   backfillWindowDays: number;
 }
@@ -30,18 +33,19 @@ function databaseBytes(dataDir: string): number {
 }
 
 export function healthOf(parts: HealthParts): Health {
-  const { log, projector, stream, ingestion } = parts;
+  const { log, projector, stream, ingestion, sources } = parts;
+  const backfillComplete = ingestion.backfillComplete && sources.backfillComplete;
   const lastSeq = log.lastSeq();
   const queueDepth = Math.max(0, lastSeq - projector.position) + parts.batcher.pending;
   const skipped = Object.values(projector.skipped.counts).reduce((total, count) => total + count, 0);
   const memory = process.memoryUsage();
   return {
-    status: ingestion.backfillComplete ? 'ok' : 'starting', startedAt: parts.startedAt,
+    status: backfillComplete ? 'ok' : 'starting', startedAt: parts.startedAt,
     eventLog: { lastSeq, dbBytes: databaseBytes(parts.dataDir) },
     projection: { position: projector.position, queueDepth, skipped },
     stream: { seq: stream.seq, clients: stream.clients, retained: stream.retained },
-    sources: [ingestion.status],
-    backfill: { complete: ingestion.backfillComplete, windowDays: parts.backfillWindowDays },
+    sources: [{ ...ingestion.status, errors: 0 }, ...sources.statuses()],
+    backfill: { complete: backfillComplete, windowDays: parts.backfillWindowDays },
     memory: { rssBytes: memory.rss, heapUsedBytes: memory.heapUsed },
   };
 }
@@ -50,6 +54,9 @@ export function healthOf(parts: HealthParts): Health {
 export function settingsOf(config: DaemonConfig & { ingest?: boolean }, port: number): Settings {
   return {
     version: 1, bind: '127.0.0.1', port, backfillWindowDays: config.backfillWindowDays, replayWindow: config.replayWindow,
-    webBundle: config.webDist !== undefined, sources: [{ source: 'session-jsonl', enabled: config.ingest !== false && config.sessionRoots.length > 0 }],
+    webBundle: config.webDist !== undefined, sources: [
+      { source: 'session-jsonl', enabled: config.ingest !== false && config.sessionRoots.length > 0 },
+      ...sourceIds.map(source => ({ source, enabled: config.ingest !== false && config.sources[source] })),
+    ],
   };
 }

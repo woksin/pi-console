@@ -70,8 +70,27 @@ shapes/enums into body-free warnings. Synthetic writer-shaped examples are in
 | S8 questions | Unversioned local (`kind/body/urgency`, history `at`) and installed v1 (`type/text/priority`, history `ts`) immutable revisions emit only their last history operation, never old history with new text. Created/edited/answered/decided/deferred/closed/withdrawn map to question observations; withdrawn closes with reason `withdrawn`. No defer-until is recorded (`null`). Priority `low`/`urgent` cannot be represented losslessly by normal/high and warns instead of coercing. Claim/reopen/decline/comment have no matching raw event. |
 | S9 issue-work | Explicit `state` → `IssueStatusChanged`, preserving state and repo-qualified issue key. No claim without lane identity; no PR/review-head fact without SHA. Session links alone have no matching event. |
 | S10 job logs | Opaque command output is skipped; no free-text job/subagent lifecycle parsing. Explicit job lifecycle comes only from S1 structured records. |
-| S11 phase ledger | Explicit queuedAt/startedAt/endedAt → retrospective phase observations when the final row arrives. Identity is the source tuple `argvHash:queuedAt`. No start/finish when startedAt is null; this is not live queue telemetry. Known transport gap: emitted `phase:*` subjects are not accepted by the envelope's subject kinds, so these facts cannot yet be appended to the durable log. Hostile-id coverage stops at the mapper for this source. |
+| S11 phase ledger | Explicit queuedAt/startedAt/endedAt → retrospective phase observations when the final row arrives. Identity is the source tuple `argvHash:queuedAt`. No start/finish when startedAt is null; this is not live queue telemetry. Transport gap closed by P1b: `phase` is a subject kind, so these facts reach the log and `/jobs`. Hostile-id coverage of this source stops at the mapper. |
 | S13 review logs | Opaque workflow/command prose is skipped. No verified structured head-SHA/verdict record in the inspected local writer; no `ReviewRecorded` inferred. A structured producer needs a versioned mapper. |
+
+## Wired in the daemon (P1b)
+
+`startDaemon` runs each source under its own `AdapterSupervisor` (own timer, checkpoints, backoff), so one failing source
+never delays another. Everything is read-only and scoped to the directories below; symlinks and deny-listed names are skipped.
+
+| Source id | Directory (derived from `agentRoot` = `~/.pi/agent`, `orchRoot` = `~/.pi/orch`) | Delivers |
+| --- | --- | --- |
+| `context-budget` | `<agent>/context-budget/*.jsonl`, `status/*.json` | resets |
+| `lane-messages` | `<orch>/inbox`, `<agent>/lanes` | messages (`/messages`); the lane registry feeds `/graph` |
+| `lane-heartbeats` | `<orch>/heartbeats` | session heartbeats |
+| `question-store` | `<agent>/user-questions/items` | `/questions`, `/needs-you` |
+| `issue-work` | `<agent>/issue-work/*.jsonl` | issue status |
+| `phase-ledger` | `<agent>/pi-phase/state/ledger/*.jsonl` | phase jobs (`/jobs`) |
+
+Gaps: lane-status files are prose and are not read; real orch/question/phase layouts are only checked against the synthetic
+fixtures, so drift shows up as `SourceSchemaUnknown` in the log, not as missing health. `/health.sources[].errors` counts files
+that failed in the last poll (or consecutive failed worker polls); it never carries text or paths. `backfill.complete` needs
+every enabled source to have polled once (a source that fails to start counts as settled so it cannot hold back `ok`).
 
 ## Transport and daemon seams
 
