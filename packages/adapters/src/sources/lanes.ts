@@ -5,7 +5,7 @@ const laneName = /^[A-Z][A-Z0-9-]{0,15}$/;
 const iso = '(\\S+)';
 const working = new RegExp(`^working since ${iso}$`);
 const waiting = new RegExp(`^(waiting-on|barred-by|parked) "([^"]+)" until ${iso}$`);
-const closed = new RegExp(`^closed reassigned-to [A-Z][A-Z0-9-]{0,15} at ${iso}(?: reason ".*")?$`);
+const closed = new RegExp(`^closed(?: reassigned-to [A-Z][A-Z0-9-]{0,15})? at ${iso}(?: reason ".*")?$`);
 
 const registered = (laneId: string, repositoryId: string | null, at?: string): Fact => ({
   type: 'LaneRegistered', subject: `lane:${laneId}`, payload: { laneId, name: laneId, repositoryId }, entryId: laneId, observationId: laneId, occurredAt: at,

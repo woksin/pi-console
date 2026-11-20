@@ -49,6 +49,13 @@ test('lane status lines map to contract events without free text, deadlines or i
   assert.deepEqual([working.subject, working.refs.entryId], ['lane:M1', 'M1']);
 });
 
+test('a lane closed without a reassignment target maps to LaneClosed', () => {
+  for (const line of ['closed at 2026-07-01T12:00:00Z', 'closed at 2026-07-01T12:00:00Z reason "done"']) {
+    const [event] = map({ lane: 'M3', line }, laneStatusMapper, 'lane-messages');
+    assert.deepEqual([event.type, event.payload, event.occurredAt], ['LaneClosed', { laneId: 'M3' }, '2026-07-01T12:00:00Z']);
+  }
+});
+
 test('bad lane names and unmatched status lines are body-free warnings', () => {
   for (const row of [{ lane: 'lower', line: 'working since 2026-07-01T10:00:00Z' }, { lane: 'M1', line: 'napping secret-text' }, { lane: 'M1', line: 'working since never' }, { lane: 'M1', line: 'waiting-on "x" until never' }, { lane: 'M1' }]) {
     const events = map(row, laneStatusMapper, 'lane-messages');
