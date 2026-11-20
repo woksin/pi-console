@@ -1,0 +1,24 @@
+{
+  "name": "pi-console-tui-opentui",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node --experimental-ffi --import tsx src/main.tsx",
+    "test": "node --experimental-ffi --import tsx --test src/*.test.tsx",
+    "check": "tsc --noEmit",
+    "test:integration": "node --experimental-ffi --import tsx --test src/*.integration.tsx"
+  },
+  "dependencies": {
+    "@opentui/core": "0.9.6",
+    "@opentui/react": "0.9.6",
+    "react": "^19.2.0",
+    "react-devtools-core": "^7.0.1",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.0.0",
+    "@types/react": "^19.2.0",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.0"
+  }
+}

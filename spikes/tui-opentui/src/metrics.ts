@@ -1,0 +1,26 @@
+import { appendFileSync } from 'node:fs';
+import { monitorEventLoopDelay } from 'node:perf_hooks';
+import type { Store } from './model.ts';
+
+// Opt-in instrumentation for a real PTY run, never enabled in normal usage.
+export function metrics(store: Store) {
+  const path = process.env.PI_CONSOLE_METRICS_FILE;
+  if (!path) return;
+  const lag = monitorEventLoopDelay({ resolution: 10 });
+  lag.enable();
+  let cpu = process.cpuUsage();
+  let time = performance.now();
+  let revision = store.state.revision;
+  setInterval(() => {
+    const now = performance.now();
+    const next = process.cpuUsage();
+    const state = store.state;
+    appendFileSync(path, JSON.stringify({
+      seconds: now / 1000, cpuPercent: (next.user + next.system - cpu.user - cpu.system) / (now - time) / 10,
+      rssMiB: process.memoryUsage.rss() / 1048576, loopP99Ms: lag.percentile(99) / 1000000,
+      updatesPerSecond: (state.revision - revision) / ((now - time) / 1000),
+      received: state.received, retained: state.entries.get('s2')?.length ?? 0,
+    }) + '\n');
+    cpu = next; time = now; revision = state.revision; lag.reset();
+  }, 1000).unref();
+}
