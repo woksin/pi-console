@@ -23,10 +23,9 @@ This is not yet a session/context-budget domain-event adapter or the complete ev
 
 ## Real-file probe (2026-11-20)
 
-Read the completed recent session `2026-11-20T10-19-52-134Z_01a1f878-3dc6-7293-b165-3270039bed4e.jsonl`
-from the L192 sessions directory, and all five matching events/turns files under
+Read one completed recent session JSONL from the pi sessions directory, and all five matching events/turns files under
 `~/.pi/agent/context-budget`. Only counts were emitted; all SQLite files and the rotation copy
-were private local artifacts under the worktree's ignored `.ai-work/`.
+were private local artifacts, never committed.
 
 | Source | Files | Entries / events / unique keys | Unread bytes / partial files | Catch-up time |
 |---|---:|---:|---:|---:|
@@ -40,7 +39,7 @@ A local copy of the same session produced two rotation events and one truncation
 
 ### Observed writer rotation
 
-Read `~/.ai-work/context-budget/prod/src/storage.ts` via the package path in pi settings.
+From the context-budget extension's storage module (`src/storage.ts`):
 Both `events.jsonl` and `turns.jsonl` rotate at 20 MiB before append. Rotation takes a
 mkdir lock (`events.lock` / `turns.lock`, stale after 10 seconds), renames to
 `<base>-YYYYMMDDTHHMMSSmmmZ[-NNN].jsonl`, then prunes (events: five archives; turns: two).
@@ -60,7 +59,7 @@ From repository root, both required gates passed (10 spike specs; 9 root specs):
 Probe (passed; substitutes explicit read-only source paths):
 
 ```sh
-~/.pi/agent/bin/pi-phase run --kind test --policy direct --label m0-ingestion-real --timeout 300 --log .ai-work/m0-ingestion/real.log -- node spikes/ingestion/probe.ts "$HOME/.pi/agent/sessions/--Volumes-sourcecode-repos-.worktrees-l192-pi-console--/2026-11-20T10-19-52-134Z_01a1f878-3dc6-7293-b165-3270039bed4e.jsonl" "$HOME/.pi/agent/context-budget" .ai-work/tasks/m0-ingestion/output/real
+~/.pi/agent/bin/pi-phase run --kind test --policy direct --label m0-ingestion-real --timeout 300 --log .ai-work/m0-ingestion/real.log -- node spikes/ingestion/probe.ts "$HOME/.pi/agent/sessions/<project>/<session>.jsonl" "$HOME/.pi/agent/context-budget" <output-dir>
 ```
 
 `git diff --cached --check` passed. No build, lint/format script, CI workflow or separate
