@@ -9,20 +9,27 @@ import type { MockInfo } from './v1-extras.ts';
 
 export type { MockInfo };
 
+type Fixture = Store['fixture'];
+const statuses = ['working', 'needs-you', 'blocked', 'waiting', 'idle', 'done', 'failed'];
+const attentionRequest = (request: Fixture['requests'][number]) => ['unanswered', 'interrupted'].includes(request.status);
+const blockingQuestion = (question: Fixture['questions'][number]) => question.blocking && question.status === 'open';
+const attentionItem = (kind: string) => (item: { id: string; sessionId: string; text: string }) => ({ id: item.id, sessionId: item.sessionId, kind, text: item.text });
+
+function sparklineOf(sessions: Fixture['sessions']) {
+  const total = (index: number, field: 'contextPercent' | 'tokens' | 'costUsd') => sessions.reduce((sum, session) => sum + session.samples[index][field], 0);
+  return sessions[0].samples.map((sample, index) => ({
+    at: sample.at,
+    contextPercent: Math.round(total(index, 'contextPercent') / sessions.length),
+    tokens: total(index, 'tokens'),
+    costUsd: Math.round(total(index, 'costUsd') * 100) / 100,
+  }));
+}
+
 export function overview(store: Store) {
   const { sessions, repositories, requests, questions } = store.fixture;
-  const byStatus = Object.fromEntries(['working', 'needs-you', 'blocked', 'waiting', 'idle', 'done', 'failed'].map(status => [status, sessions.filter(session => session.status === status).length]));
-  const needsYou = [
-    ...requests.filter(request => ['unanswered', 'interrupted'].includes(request.status)).map(request => ({ id: request.id, sessionId: request.sessionId, kind: 'request', text: request.text })),
-    ...questions.filter(question => question.blocking && question.status === 'open').map(question => ({ id: question.id, sessionId: question.sessionId, kind: 'question', text: question.text })),
-  ];
-  const sparkline = sessions[0].samples.map((sample, i) => ({
-    at: sample.at,
-    contextPercent: Math.round(sessions.reduce((sum, session) => sum + session.samples[i].contextPercent, 0) / sessions.length),
-    tokens: sessions.reduce((sum, session) => sum + session.samples[i].tokens, 0),
-    costUsd: Math.round(sessions.reduce((sum, session) => sum + session.samples[i].costUsd, 0) * 100) / 100,
-  }));
-  return { counts: { sessions: sessions.length, repositories: repositories.length, byStatus }, needsYou, sparkline };
+  const byStatus = Object.fromEntries(statuses.map(status => [status, sessions.filter(session => session.status === status).length]));
+  const needsYou = [...requests.filter(attentionRequest).map(attentionItem('request')), ...questions.filter(blockingQuestion).map(attentionItem('question'))];
+  return { counts: { sessions: sessions.length, repositories: repositories.length, byStatus }, needsYou, sparkline: sparklineOf(sessions) };
 }
 const boundedInteger = (text: string, value: number, maximum: number): boolean => /^\d+$/.test(text) && Number.isSafeInteger(value) && value <= maximum;
 function queryInteger(url: URL, name: string, fallback: number, maximum: number) {
@@ -111,20 +118,27 @@ function checkQuestion(store: Store, input: InterventionInput) {
   const question = store.fixture.questions.find(item => item.id === input.questionId);
   if (question?.sessionId !== input.sessionId) throw new HttpError(404, 'Question not found for session');
 }
-export async function intervene(store: Store, req: IncomingMessage) {
-  if (req.headers['content-type']?.split(';')[0] !== 'application/json') throw new HttpError(415, 'Expected application/json');
-  const input = await readBody(req) as InterventionInput;
-  try { validate(input, schema.$defs.interventionInput, schema); }
-  catch { throw new HttpError(400, 'Invalid intervention'); }
-  checkIntervention(store, input);
-  const recent = store.interventions.filter(item => Date.parse(item.recordedAt as string) > Date.now() - 60000);
-  if (recent.length >= 60) throw new HttpError(429, 'Intervention rate limit exceeded');
-  const record = {
+function interventionRecord(store: Store, input: InterventionInput, req: IncomingMessage) {
+  return {
     id: `intervention${store.interventions.length + 1}`, type: input.type, sessionId: input.sessionId,
     questionId: input.questionId ?? null, text: input.text ?? '', confirmation: input.confirmation ?? null,
     actor: 'user:dev', tokenId: 'dev', origin: req.headers.origin ?? 'bearer',
     result: 'mock-only', recordedAt: new Date().toISOString(),
   };
+}
+async function readIntervention(req: IncomingMessage): Promise<InterventionInput> {
+  if (req.headers['content-type']?.split(';')[0] !== 'application/json') throw new HttpError(415, 'Expected application/json');
+  const input = await readBody(req) as InterventionInput;
+  try { validate(input, schema.$defs.interventionInput, schema); }
+  catch { throw new HttpError(400, 'Invalid intervention'); }
+  return input;
+}
+export async function intervene(store: Store, req: IncomingMessage) {
+  const input = await readIntervention(req);
+  checkIntervention(store, input);
+  const recent = store.interventions.filter(item => Date.parse(item.recordedAt as string) > Date.now() - 60000);
+  if (recent.length >= 60) throw new HttpError(429, 'Intervention rate limit exceeded');
+  const record = interventionRecord(store, input, req);
   store.interventions.push(record);
   store.publish('intervention.recorded', record);
   return record;
