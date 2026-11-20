@@ -11,17 +11,24 @@ export function throttled(load: () => Promise<void>, interval: number): Refreshe
   let last = Number.NEGATIVE_INFINITY;
   let timer: ReturnType<typeof setTimeout> | undefined;
 
+  const mustWait = () => running || Date.now() - last < interval;
+  const canSchedule = () => pending && !stopped && !running && !timer;
   const trailing = () => {
-    if (!pending || stopped || running || timer) return;
+    if (!canSchedule()) return;
     timer = setTimeout(() => { timer = undefined; request(); }, Math.max(0, last + interval - Date.now()));
+  };
+  const finish = () => { running = false; last = Date.now(); trailing(); };
+  const start = () => {
+    pending = false;
+    running = true;
+    load().catch(() => undefined).finally(finish);
   };
   const request = () => {
     if (stopped) return;
     pending = true;
-    if (running || Date.now() - last < interval) { trailing(); return; }
-    pending = false;
-    running = true;
-    load().catch(() => undefined).finally(() => { running = false; last = Date.now(); trailing(); });
+    if (mustWait()) trailing();
+    else start();
   };
-  return { request, stop: () => { stopped = true; if (timer) clearTimeout(timer); timer = undefined; } };
+  const stop = () => { stopped = true; clearTimeout(timer); timer = undefined; };
+  return { request, stop };
 }
