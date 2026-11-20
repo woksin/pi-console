@@ -1,0 +1,9 @@
+{"type":"session","version":3,"id":"session-fixture","timestamp":"2026-11-19T10:00:00.000Z","cwd":"/synthetic/project"}
+{"type":"model_change","id":"model-1","parentId":null,"timestamp":"2026-11-19T10:00:01.000Z","provider":"synthetic","modelId":"model-a"}
+{"type":"thinking_level_change","id":"thinking-1","parentId":"model-1","timestamp":"2026-11-19T10:00:02.000Z","thinkingLevel":"high"}
+{"type":"message","id":"prompt-1","parentId":"thinking-1","timestamp":"2026-11-19T10:00:03.000Z","message":{"role":"user","content":[{"type":"text","text":"Synthetic prompt"}],"timestamp":1795082403000}}
+{"type":"message","id":"tools-1","parentId":"prompt-1","timestamp":"2026-11-19T10:00:04.000Z","message":{"role":"assistant","content":[{"type":"toolCall","id":"call-1","name":"read","arguments":{"path":"synthetic.txt"}}],"stopReason":"toolUse","usage":{"input":10,"output":5}}}
+{"type":"message","id":"result-1","parentId":"tools-1","timestamp":"2026-11-19T10:00:05.000Z","message":{"role":"toolResult","toolCallId":"call-1","toolName":"read","content":[{"type":"text","text":"Synthetic result"}],"isError":false}}
+{"type":"message","id":"answer-1","parentId":"result-1","timestamp":"2026-11-19T10:00:06.000Z","message":{"role":"assistant","content":[{"type":"text","text":"Synthetic final answer"}],"stopReason":"stop","usage":{"input":12,"output":8}}}
+{"type":"message","id":"abort-1","parentId":"answer-1","timestamp":"2026-11-19T10:00:07.000Z","message":{"role":"assistant","content":[],"stopReason":"aborted","errorMessage":"Synthetic abort"}}
+{"type":"compaction","id":"compact-1","parentId":"abort-1","timestamp":"2026-11-19T10:00:08.000Z","summary":"Synthetic summary","firstKeptEntryId":"answer-1","tokensBefore":100}
