@@ -36,13 +36,16 @@ const boundsOf = (view: SectionView, height: number): Bounds => ({
 
 const noBounds: Bounds = { length: 0, page: 1, fit: { start: 0, span: 1 }, width: 0, rowAt: () => ({ sessionId: null, groupId: null }), transcriptLength: 0 };
 
+const isVerticalArrow = (name: string): boolean => name === 'ArrowDown' || name === 'ArrowUp';
+const movePaletteIndex = (index: number, delta: number, setCount: number): number => Math.max(0, Math.min(Math.max(0, setCount - 1), index + delta));
+const isTextOverlay = (overlay: UiState['overlay']): boolean => overlay === 'palette' || overlay === 'filter' || overlay === 'search';
+const sectionOrder: readonly Section[] = ['overview', 'fleet', 'requests', 'questions', 'messages', 'timeline', 'work'];
+
 /** Text entry for the palette, filter and search; returns the next state. Keys never reach the keymap while typing. */
 function typeInto(state: UiState, key: KeyInput, setCount: number): UiState {
   const name = neutralKey(key);
   if (name === 'Esc') return reduce(state, 'back', noBounds);
-  if (state.overlay === 'palette' && (name === 'ArrowDown' || name === 'ArrowUp')) {
-    return { ...state, paletteIndex: Math.max(0, Math.min(Math.max(0, setCount - 1), state.paletteIndex + (name === 'ArrowDown' ? 1 : -1))) };
-  }
+  if (state.overlay === 'palette' && isVerticalArrow(name)) return { ...state, paletteIndex: movePaletteIndex(state.paletteIndex, name === 'ArrowDown' ? 1 : -1, setCount) };
   return typing(state, name, typedCharacter(key));
 }
 
@@ -56,19 +59,13 @@ export function App(props: AppProps): ReactElement {
   const apply = (next: UiState) => { uiRef.current = next; setUi(next); };
 
   useTick(props.animate ? 6 : 1, () => { setClock(previous => ({ now: Date.now(), phase: props.animate ? previous.phase + 1 : 0 })); });
-  useEffect(() => { if (ui.sessionId) props.loadTranscript(ui.sessionId); }, [ui.sessionId]);
-  useEffect(() => { if (ui.quit) props.onQuit(); }, [ui.quit]);
-  useEffect(() => {
-    if (!ui.notice) return undefined;
-    const timer = setTimeout(() => { apply({ ...uiRef.current, notice: '' }); }, 2500);
-    return () => { clearTimeout(timer); };
-  }, [ui.notice]);
+  useUiEffects(ui, props, uiRef, apply);
 
   const showBanner = !data.connection.connected;
   const bodyHeight = Math.max(4, size.height - 2 - (showBanner ? 1 : 0));
   const env: Env = {
     data, ui, now: clock.now, width: size.width - 2, height: bodyHeight, phase: clock.phase,
-    click: index => { const withCursor = { ...uiRef.current, cursor: { ...uiRef.current.cursor, [uiRef.current.section]: index } }; apply(reduce(withCursor, 'open', boundsOf(viewRef.current, bodyHeight))); },
+    click: index => { apply(openAt(uiRef.current, index, boundsOf(viewRef.current, bodyHeight))); },
   };
   const view = (ui.sessionId ? sessionView : sectionViews[ui.section])(env);
   const viewRef = useRef(view);
@@ -79,33 +76,48 @@ export function App(props: AppProps): ReactElement {
   heightRef.current = bodyHeight;
 
   useKeys(key => {
-    const state = uiRef.current;
     const current = viewRef.current;
-    if (state.overlay === 'palette' || state.overlay === 'filter' || state.overlay === 'search') {
-      const name = neutralKey(key);
-      if (name === 'Enter') { apply(state.overlay === 'palette' ? runPalette(state, dataRef.current.sessions, boundsOf(current, heightRef.current)) : commit(state)); return; }
-      apply(typeInto(state, key, state.overlay === 'palette' ? paletteItems({ sessions: dataRef.current.sessions, query: state.input }).length : 0));
-      return;
-    }
-    const name = neutralKey(key);
-    const bounds = boundsOf(current, heightRef.current);
-    if (name === 'y') { copyId(state, current, copy, apply); return; }
-    apply(handleKey(state, name, bounds));
+    apply(nextState(uiRef.current, key, { sessions: dataRef.current.sessions, view: current, bounds: boundsOf(current, heightRef.current), copy }));
   });
 
   const connectionBanner = banner(data.connection, size.width);
   const input = { endpoint: props.endpoint, tokenSource: props.tokenSource, ...data.connection, now: clock.now,
     counts: { sessions: data.sessions.length, requests: data.requests.length, questions: data.questions.length, messages: data.messages.length, jobs: data.jobs.length, resets: data.resets.length, 'needs you': data.needsYou.length } };
-  const selectSection = (section: Section) => { apply(reduce(uiRef.current, `section.${String(['overview', 'fleet', 'requests', 'questions', 'messages', 'timeline', 'work'].indexOf(section) + 1)}` as Action, boundsOf(viewRef.current, heightRef.current))); };
+  const selectSection = (section: Section) => { apply(reduce(uiRef.current, `section.${String(sectionOrder.indexOf(section) + 1)}` as Action, boundsOf(viewRef.current, heightRef.current))); };
 
   return h(Screen, {},
     h(Header, { ui, width: size.width, attention: data.needsYou.length, connection: data.connection, select: selectSection }),
     ...(connectionBanner ? [h(Text, { line: connectionBanner })] : []),
     h(Column, { grow: 1, paddingX: 1 }, view.render()),
     h(Text, { line: footerLine(ui, size.width) }),
-    ...(ui.overlay === 'palette' ? [h(Palette, { ui, data, width: size.width, height: size.height })] : []),
-    ...(ui.overlay === 'help' ? [h(Help, { width: size.width, height: size.height })] : []),
-    ...(ui.overlay === 'settings' ? [h(Settings, { input, width: size.width, height: size.height })] : []));
+    ...overlays(ui, data, input, size));
+}
+
+interface Size { width: number; height: number }
+
+function overlays(ui: UiState, data: ReturnType<Store['getSnapshot']>, input: Parameters<typeof Settings>[0]['input'], size: Size): ReactElement[] {
+  if (ui.overlay === 'palette') return [h(Palette, { ui, data, width: size.width, height: size.height })];
+  if (ui.overlay === 'help') return [h(Help, { width: size.width, height: size.height })];
+  if (ui.overlay === 'settings') return [h(Settings, { input, width: size.width, height: size.height })];
+  return [];
+}
+
+function openAt(state: UiState, index: number, bounds: Bounds): UiState {
+  return reduce({ ...state, cursor: { ...state.cursor, [state.section]: index } }, 'open', bounds);
+}
+
+type Sessions = Parameters<typeof paletteItems>[0]['sessions'];
+interface KeyContext { sessions: Sessions; view: SectionView; bounds: Bounds; copy: (text: string) => boolean }
+
+/** Next state for a key: text entry while an input overlay is open, otherwise the keymap (`y` copies the id and keeps the state). */
+function nextState(state: UiState, key: KeyInput, ctx: KeyContext): UiState {
+  if (isTextOverlay(state.overlay)) {
+    if (neutralKey(key) === 'Enter') return state.overlay === 'palette' ? runPalette(state, ctx.sessions, ctx.bounds) : commit(state);
+    return typeInto(state, key, state.overlay === 'palette' ? paletteItems({ sessions: ctx.sessions, query: state.input }).length : 0);
+  }
+  const name = neutralKey(key);
+  if (name === 'y') return copyId(state, ctx.view, ctx.copy);
+  return handleKey(state, name, ctx.bounds);
 }
 
 /** Executes the highlighted palette entry: an action goes through the same reducer as its key, a session opens its detail. */
@@ -118,8 +130,19 @@ function runPalette(state: UiState, sessions: Parameters<typeof paletteItems>[0]
   return reduce(closed, item.target.action, bounds);
 }
 
-function copyId(state: UiState, view: SectionView, copy: (text: string) => boolean, apply: (next: UiState) => void): void {
+function copyId(state: UiState, view: SectionView, copy: (text: string) => boolean): UiState {
   const id = state.sessionId ?? view.idAt(state.cursor[state.section]);
-  if (!id) return;
-  apply({ ...state, notice: copy(id) ? `copied ${id}` : `id ${id} (clipboard unavailable)` });
+  if (!id) return state;
+  return { ...state, notice: copy(id) ? `copied ${id}` : `id ${id} (clipboard unavailable)` };
+}
+
+/** Session backfill, quit notification and notice expiry. */
+function useUiEffects(ui: UiState, props: AppProps, uiRef: { current: UiState }, apply: (next: UiState) => void): void {
+  useEffect(() => { if (ui.sessionId) props.loadTranscript(ui.sessionId); }, [ui.sessionId]);
+  useEffect(() => { if (ui.quit) props.onQuit(); }, [ui.quit]);
+  useEffect(() => {
+    if (!ui.notice) return undefined;
+    const timer = setTimeout(() => { apply({ ...uiRef.current, notice: '' }); }, 2500);
+    return () => { clearTimeout(timer); };
+  }, [ui.notice]);
 }

@@ -23,47 +23,68 @@ const colourOf = (cell: NonNullable<Cell>, foreground: boolean, fallback: string
   return isRgb ? hex(value) : isPalette ? paletteColor(value) : fallback;
 };
 
+type Line = NonNullable<ReturnType<Terminal['buffer']['active']['getLine']>>;
+interface Theme { background: string; foreground: string }
+
+const cellStyle = (cell: NonNullable<Cell>, foreground: string): string =>
+  `fill="${foreground}"${cell.isBold() ? ' font-weight="700"' : ''}${cell.isItalic() ? ' font-style="italic"' : ''}${cell.isUnderline() ? ' text-decoration="underline"' : ''}${cell.isDim() ? ' opacity="0.6"' : ''}`;
+
+/** Drawn foreground and background of a cell, swapped when inverse. */
+function drawnColours(cell: NonNullable<Cell>, theme: Theme): [string, string] {
+  const foreground = colourOf(cell, true, theme.foreground);
+  const background = colourOf(cell, false, theme.background);
+  return cell.isInverse() !== 0 ? [background, foreground] : [foreground, background];
+}
+
+/** Accumulates one row's background rects and text runs. */
+function rowWriter(row: number, rects: string[], texts: string[]) {
+  let fill = '';
+  let fillStart = 0;
+  let fillWidth = 0;
+  let run = '';
+  let runStart = 0;
+  let runStyle = '';
+  const flushFill = () => {
+    if (fill) rects.push(`<rect x="${(12 + fillStart * CELL_WIDTH).toFixed(1)}" y="${String(12 + row * CELL_HEIGHT)}" width="${(CELL_WIDTH * fillWidth).toFixed(1)}" height="${String(CELL_HEIGHT)}" fill="${fill}"/>`);
+    fill = '';
+  };
+  const flushRun = () => {
+    if (run.trim() !== '') texts.push(`<text x="${(12 + runStart * CELL_WIDTH).toFixed(1)}" y="${String(12 + row * CELL_HEIGHT + 13)}" ${runStyle} xml:space="preserve">${escapeXml(run)}</text>`);
+    run = '';
+  };
+  return {
+    fill(column: number, colour: string, width: number) {
+      if (colour !== fill) { flushFill(); fill = colour; fillStart = column; fillWidth = 0; }
+      fillWidth += width;
+    },
+    text(column: number, style: string, chars: string) {
+      if (style !== runStyle) { flushRun(); runStart = column; runStyle = style; }
+      run += chars;
+    },
+    finish() { flushRun(); flushFill(); },
+  };
+}
+
+function renderRow(line: Line, cols: number, theme: Theme, writer: ReturnType<typeof rowWriter>): void {
+  for (let column = 0; column < cols; column++) {
+    const cell = line.getCell(column);
+    if (!cell || cell.getWidth() === 0) continue;
+    const [foreground, background] = drawnColours(cell, theme);
+    writer.fill(column, background === theme.background ? '' : background, cell.getWidth());
+    writer.text(column, cellStyle(cell, foreground), cell.getChars() || ' ');
+  }
+  writer.finish();
+}
+
 /** Renders the visible emulator screen as a self-contained SVG, with colours, bold and underline as drawn by the TUI. */
-export function screenToSvg(terminal: Terminal, theme: { background: string; foreground: string }, title: string): string {
+export function screenToSvg(terminal: Terminal, theme: Theme, title: string): string {
   const width = Math.ceil(terminal.cols * CELL_WIDTH) + 24;
   const height = terminal.rows * CELL_HEIGHT + 24;
   const rects: string[] = [];
   const texts: string[] = [];
   for (let row = 0; row < terminal.rows; row++) {
     const line = terminal.buffer.active.getLine(row);
-    if (!line) continue;
-    let fill = '';
-    let fillStart = 0;
-    let fillWidth = 0;
-    const flushFill = () => {
-      if (fill) rects.push(`<rect x="${(12 + fillStart * CELL_WIDTH).toFixed(1)}" y="${String(12 + row * CELL_HEIGHT)}" width="${(CELL_WIDTH * fillWidth).toFixed(1)}" height="${String(CELL_HEIGHT)}" fill="${fill}"/>`);
-      fill = '';
-    };
-    let run = '';
-    let runStart = 0;
-    let runStyle = '';
-    const flush = () => {
-      if (run.trim() !== '') texts.push(`<text x="${(12 + runStart * CELL_WIDTH).toFixed(1)}" y="${String(12 + row * CELL_HEIGHT + 13)}" ${runStyle} xml:space="preserve">${escapeXml(run)}</text>`);
-      run = '';
-    };
-    for (let column = 0; column < terminal.cols; column++) {
-      const cell = line.getCell(column);
-      if (!cell || cell.getWidth() === 0) continue;
-      const inverse = cell.isInverse() !== 0;
-      let foreground = colourOf(cell, true, theme.foreground);
-      const background = colourOf(cell, false, theme.background);
-      const [drawForeground, drawBackground] = inverse ? [background, foreground] : [foreground, background];
-      foreground = drawForeground;
-      const wanted = drawBackground === theme.background ? '' : drawBackground;
-      if (wanted !== fill) { flushFill(); fill = wanted; fillStart = column; fillWidth = 0; }
-      fillWidth += cell.getWidth();
-      const style = `fill="${foreground}"${cell.isBold() ? ' font-weight="700"' : ''}${cell.isItalic() ? ' font-style="italic"' : ''}${cell.isUnderline() ? ' text-decoration="underline"' : ''}${cell.isDim() ? ' opacity="0.6"' : ''}`;
-      const chars = cell.getChars() || ' ';
-      if (style !== runStyle) { flush(); runStart = column; runStyle = style; }
-      run += chars;
-    }
-    flush();
-    flushFill();
+    if (line) renderRow(line, terminal.cols, theme, rowWriter(row, rects, texts));
   }
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${String(width)}" height="${String(height)}" viewBox="0 0 ${String(width)} ${String(height)}" role="img" aria-label="${escapeXml(title)}">
 <title>${escapeXml(title)}</title>
