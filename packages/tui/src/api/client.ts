@@ -1,4 +1,5 @@
-import type { Event, TranscriptEntry, Transcript, NeedsYou, AttentionItem } from '@pi-console/contract';
+import type { WindowedCollection } from '@pi-console/viewmodels';
+import type { Event, SessionDetail, TranscriptEntry, Transcript, NeedsYou, AttentionItem } from '@pi-console/contract';
 import { FrameParser } from './sse.ts';
 import type { Credentials } from './token.ts';
 import { TRANSCRIPT_LIMIT } from '../store/store.ts';
@@ -32,6 +33,15 @@ export class DaemonClient {
 
   async needsYou(): Promise<AttentionItem[]> {
     return (await this.json<NeedsYou>('/needs-you')).items;
+  }
+
+  /** One page of a list endpoint, newest first when `order` is `desc`. */
+  async page(collection: WindowedCollection, after: string | null, limit = 500): Promise<{ items: { id: string }[]; nextCursor: string | null; hasMore: boolean; total: number }> {
+    return await this.json(`/${collection}?limit=${String(limit)}&order=desc${after ? `&after=${encodeURIComponent(after)}` : ''}`);
+  }
+
+  async session(sessionId: string): Promise<SessionDetail> {
+    return await this.json<SessionDetail>(`/sessions/${encodeURIComponent(sessionId)}`);
   }
 
   /** Backfills the newest `TRANSCRIPT_LIMIT` entries: pages forward to the end (so the tail is never the part that is missing), keeping only the tail. Bounded to `pages` pages. */

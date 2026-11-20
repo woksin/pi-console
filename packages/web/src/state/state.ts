@@ -1,6 +1,7 @@
 import type {
   AttentionItem, Event as ApiEvent, Graph, Intervention, Job, Message, Overview, Question, Request, Reset, Session, Snapshot, TranscriptEntry,
 } from '@pi-console/contract';
+import type { Totals, WindowedCollection } from '@pi-console/viewmodels';
 
 export type Repository = Snapshot['repositories'][number];
 
@@ -38,6 +39,12 @@ export interface ConsoleState {
   received: number;
   /** Sessions whose history was loaded deliberately (a jump to an old line); they keep far more lines than the default window. */
   deepHistory: readonly string[];
+  /** Full collection sizes from the daemon; `null` against a daemon that sends complete snapshots. */
+  totals: Totals | null;
+  /** Collections the snapshot only carried a window of (active items plus the newest); the rest of their history is paged. */
+  bounded: readonly WindowedCollection[];
+  /** Paging progress per windowed collection once its history has been requested: the next cursor and whether more remains. */
+  history: Partial<Record<WindowedCollection, { cursor: string | null; more: boolean }>>;
 }
 
 export const transcriptRetention = 2500;
@@ -48,7 +55,7 @@ export function emptyState(): ConsoleState {
   return {
     repositories: [], sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], interventions: [],
     transcripts: {}, needsYou: [], graph: null, health: null, overview: null, liveAt: 0, seq: 0,
-    connection: 'connecting', lastFrameAt: 0, gapCount: 0, received: 0, deepHistory: [],
+    connection: 'connecting', lastFrameAt: 0, gapCount: 0, received: 0, deepHistory: [], totals: null, bounded: [], history: {},
   };
 }
 

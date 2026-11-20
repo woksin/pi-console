@@ -5,6 +5,7 @@ import { useActions } from '../../app/commands.ts';
 import { navigate, useListNav, useSearchFocus } from '../../app/hooks.ts';
 import { sessionHref } from '../../app/routes.ts';
 import { EmptyState, SearchBox, Tabs } from '../../ui/primitives.tsx';
+import { LoadOlder } from '../load-older.tsx';
 import { RequestCard } from './request-card.tsx';
 import { RequestDetailPane } from './request-detail.tsx';
 
@@ -48,6 +49,7 @@ export function RequestsView({ state, now }: ViewProps) {
         </label>
         <SearchBox inputRef={search} value={filter.query} onChange={query => { setFilter({ ...view.filter, query }); }} placeholder="Filter requests" />
       </div>
+      <LoadOlder state={state} collection="requests" shown={state.requests.length} noun="requests" />
       <p className="muted small" data-testid="request-summary">{describeRequestFilter(view)} · {view.rows.length} shown · {view.open} open or unanswered · {view.uncertain} uncertain · {view.possiblyUnseen} possibly unseen · <kbd className="kbd">[</kbd><kbd className="kbd">]</kbd> state <kbd className="kbd">o</kbd> origin <kbd className="kbd">S</kbd> session <kbd className="kbd">⏎</kbd> open in transcript</p>
       {view.rows.length === 0 ? <EmptyState title="No requests here" mark="⇄">Requests the daemon observes appear with their answers, labelled by how sure it is who asked.</EmptyState> : (
         <div className="requests-split">

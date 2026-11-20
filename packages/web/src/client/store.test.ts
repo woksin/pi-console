@@ -43,3 +43,37 @@ test('a failed history load is retried on the next open instead of being cached'
   await store.loadTranscript('s1');
   assert.equal((store.getState().transcripts.s1 ?? []).length, 10);
 });
+
+const job = (id: string, status: 'running' | 'done', startedAt: string) => ({ id, sessionId: 's1', kind: 'job' as const, name: id, status, startedAt, exitCode: null });
+const emptyList = { items: [], nextCursor: null, hasMore: false, total: 0 };
+
+function windowedSnapshot(jobs: ReturnType<typeof job>[], total: number) {
+  const base = { version: 0 as const, generatedAt: '2026-06-01T00:00:00.000Z', repositories: [], sessions: [], requests: [], questions: [], messages: [], jobs, resets: [], transcriptCursors: [], interventions: [] };
+  return { seq: 5, type: 'snapshot' as const, payload: { ...base, totals: { sessions: 0, requests: 0, questions: 0, messages: 0, jobs: total, resets: 0 }, bounded: ['jobs' as const] } };
+}
+
+test('a windowed snapshot is paged older-ward on request; pages merge without duplicates and end the paging', async () => {
+  const older = [job('j3', 'done', '2026-01-03T00:00:00Z'), job('j2', 'done', '2026-01-02T00:00:00Z')];
+  const calls: unknown[] = [];
+  const snapshot = windowedSnapshot([job('j4', 'running', '2026-01-04T00:00:00Z'), job('j3', 'done', '2026-01-03T00:00:00Z')], 4);
+  const api = {
+    page: (_name: string, params: unknown) => { calls.push(params); return Promise.resolve({ ...emptyList, items: older, total: 4 }); },
+    stream: (_seq: number, _signal: AbortSignal, onFrame: (frame: unknown) => void) => { onFrame(snapshot); return new Promise<void>(() => undefined); },
+    needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null),
+  } as unknown as Api;
+  const store = new ConsoleStore(api, clock);
+  store.start();
+  await store.loadMore('jobs');
+  await store.loadMore('jobs');
+  store.stop();
+  assert.equal(calls.length, 1, 'a complete history is not fetched again');
+  assert.deepEqual(store.getState().jobs.map(item => item.id), ['j2', 'j3', 'j4']);
+  assert.equal(store.getState().totals?.jobs, 4);
+});
+
+test('a complete (unbounded) snapshot never pages', async () => {
+  let calls = 0;
+  const store = new ConsoleStore({ page: () => { calls++; return Promise.resolve(null); } } as unknown as Api, clock);
+  await store.loadMore('jobs');
+  assert.equal(calls, 0);
+});

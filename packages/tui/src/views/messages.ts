@@ -2,7 +2,7 @@ import { graphViewModel, messagesViewModel, pad, wrap, age, type GraphEdgeView, 
 import { Lines, Panel, Row, h, type Line } from '../view/renderer.ts';
 import { blank, fit, heading, selectable, split, t, windowOf } from '../view/parts.ts';
 import type { Color } from '../view/theme.ts';
-import type { Env, SectionView } from './common.ts';
+import { shownOf, type Env, type SectionView } from './common.ts';
 
 const deliveryColor: Record<MessageRow['delivery'], Color> = { sent: 'faint', delivered: 'amber', read: 'green' };
 
@@ -19,7 +19,7 @@ function listView(env: Env): SectionView {
     length: rows.length,
     rowAt: index => ({ sessionId: rows[index]?.fromSessionId ?? null, groupId: null }),
     idAt: index => rows[index]?.id ?? null,
-    render: () => h(Panel, { title: `Messages · ${String(rows.length)} · v for graph`, focused: true, grow: 1 },
+    render: () => h(Panel, { title: `Messages · ${String(rows.length)}${shownOf(env.data, 'messages', rows.length)} · v for graph`, focused: true, grow: 1 },
       h(Lines, { lines: lines.length ? lines : [[t(' No messages.', 'muted')]], grow: 1, onLineClick: index => { env.click(start + index); } })),
   };
 }

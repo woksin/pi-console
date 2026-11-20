@@ -59,3 +59,28 @@ test('connection state is recorded for the banner', async () => {
   await settle(store);
   assert.deepEqual([store.getSnapshot().connection.connected, store.getSnapshot().connection.error], [false, 'refused']);
 });
+
+const jobAt = (id: string, status: string, startedAt: string) => ({ id, sessionId: 's1', kind: 'job', name: id, status, startedAt, exitCode: null });
+const windowed = (jobs: unknown[], total: number) => ({
+  seq: 3, type: 'snapshot', payload: { repositories: [], sessions: [], requests: [], questions: [], messages: [], jobs, resets: [], totals: { sessions: 0, requests: 0, questions: 0, messages: 0, jobs: total, resets: 0 }, bounded: ['jobs'] },
+}) as unknown as Event;
+
+test('a windowed snapshot keeps totals; a history page merges older rows once and records paging progress', async () => {
+  const store = new Store();
+  store.apply(windowed([jobAt('j4', 'running', '2026-01-04T00:00:00Z'), jobAt('j3', 'done', '2026-01-03T00:00:00Z')], 4));
+  store.mergePage('jobs', { items: [jobAt('j3', 'done', '2026-01-03T00:00:00Z'), jobAt('j2', 'done', '2026-01-02T00:00:00Z')], nextCursor: null, hasMore: false, total: 4 });
+  await settle(store);
+  const data = store.getSnapshot();
+  assert.deepEqual(data.jobs.map(job => job.id), ['j2', 'j3', 'j4']);
+  assert.equal(data.totals?.jobs, 4);
+  assert.deepEqual(data.history.jobs, { cursor: null, more: false });
+});
+
+test('a later windowed snapshot keeps loaded history and drops rows that stopped being active', async () => {
+  const store = new Store();
+  store.apply(windowed([jobAt('j4', 'running', '2026-01-04T00:00:00Z')], 4));
+  store.mergePage('jobs', { items: [jobAt('j1', 'done', '2026-01-01T00:00:00Z')], nextCursor: 'c', hasMore: true, total: 4 });
+  store.apply({ ...windowed([jobAt('j5', 'running', '2026-01-05T00:00:00Z')], 5), seq: 4 });
+  await settle(store);
+  assert.deepEqual(store.getSnapshot().jobs.map(job => job.id), ['j1', 'j5']);
+});

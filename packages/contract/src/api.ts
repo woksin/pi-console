@@ -68,7 +68,24 @@ const settings = strict({
  * Additive API v1 definitions (the gaps listed in docs/milestones.md M1). `transcriptEntry` and `request` replace the
  * v0 definitions of the same name with optional fields added; every other name is new. v1 = v0 plus these, nothing removed.
  */
+const v0Snapshot = apiV0Schema.$defs.snapshot as { properties: Record<string, Schema>; required: string[] };
+
+/**
+ * v0 `snapshot` plus the optional bounded-screen-state fields: `totals` are the full collection sizes and `bounded` names
+ * the collections that only hold a window (active items plus the newest). Absent `bounded` means every list is complete.
+ */
+const snapshot = strict({
+  ...v0Snapshot.properties,
+  totals: strict({ sessions: int, requests: int, questions: int, messages: int, jobs: int, resets: int }),
+  bounded: array(oneOf('sessions', 'requests', 'questions', 'messages', 'jobs')),
+}, v0Snapshot.required);
+
+/** Keyset page of one list endpoint; only returned when the request sends `limit`. `nextCursor` is opaque. */
+const pageOf = (item: string) => strict({ items: array(ref(item)), nextCursor: nullable(str), hasMore: bool, total: int });
+
 const v1Defs: Record<string, Schema> = {
+  snapshot, sessionPage: pageOf('session'), requestPage: pageOf('request'), questionPage: pageOf('question'),
+  messagePage: pageOf('message'), jobPage: pageOf('job'),
   toolResult, sourcePointer, attentionReason, attentionItem, graphNode, graphEdge, requestEvidence, requestUncertainty, request,
   transcriptEntry: strict({
     id, cursor: int, sessionId: id, at: time,

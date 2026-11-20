@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactElement } from 'react';
-import { paletteItems, type Action } from '@pi-console/viewmodels';
+import { paletteItems, type Action, type WindowedCollection } from '@pi-console/viewmodels';
 import { Column, Screen, Text, h, useClipboard, useKeys, useSize, useTick } from './view/renderer.ts';
 import type { Store } from './store/store.ts';
 import { commit, handleKey, initial, reduce, typing, type Bounds, type Section, type UiState } from './state/ui.ts';
@@ -25,6 +25,8 @@ export interface AppProps {
   store: Store; endpoint: string; tokenSource: string;
   /** Backfills a session's transcript when it is opened. */
   loadTranscript: (sessionId: string) => void;
+  /** Fetches the next older page of a list the snapshot only windowed; called when the cursor reaches the end of a list. */
+  loadMore?: (collection: WindowedCollection) => void;
   onQuit: () => void;
   /** Spinner and pulse motion; off for reduced-motion and tests. */
   animate: boolean;
@@ -42,6 +44,7 @@ const noBounds: Bounds = { length: 0, page: 1, fit: { start: 0, span: 1 }, width
 const isVerticalArrow = (name: string): boolean => name === 'ArrowDown' || name === 'ArrowUp';
 const movePaletteIndex = (index: number, delta: number, setCount: number): number => Math.max(0, Math.min(Math.max(0, setCount - 1), index + delta));
 const isTextOverlay = (overlay: UiState['overlay']): boolean => overlay === 'palette' || overlay === 'filter' || overlay === 'search';
+const listCollection: Partial<Record<Section, WindowedCollection>> = { fleet: 'sessions', requests: 'requests', questions: 'questions', messages: 'messages', work: 'jobs' };
 const sectionOrder: readonly Section[] = ['overview', 'fleet', 'requests', 'questions', 'messages', 'timeline', 'work'];
 
 /** Text entry for the palette, filter and search; returns the next state. Keys never reach the keymap while typing. */
@@ -72,6 +75,8 @@ export function App(props: AppProps): ReactElement {
   const view = (ui.sessionId ? sessionView : sectionViews[ui.section])(env);
   const viewRef = useRef(view);
   viewRef.current = view;
+  const atEnd = view.length > 0 && ui.cursor[ui.section] >= view.length - 1;
+  useEffect(() => { const collection = listCollection[ui.section]; if (collection && !ui.sessionId && atEnd) props.loadMore?.(collection); }, [ui.section, ui.sessionId, atEnd, view.length]);
   useUiEffects(ui, props, uiRef, apply);
   useFocusJump(ui, uiRef, viewRef, apply);
   const dataRef = useRef(data);
@@ -86,7 +91,7 @@ export function App(props: AppProps): ReactElement {
 
   const connectionBanner = banner(data.connection, size.width);
   const input = { endpoint: props.endpoint, tokenSource: props.tokenSource, ...data.connection, now: clock.now,
-    counts: { sessions: data.sessions.length, requests: data.requests.length, questions: data.questions.length, messages: data.messages.length, jobs: data.jobs.length, resets: data.resets.length, 'needs you': data.needsYou.length } };
+    counts: { sessions: data.totals?.sessions ?? data.sessions.length, requests: data.totals?.requests ?? data.requests.length, questions: data.totals?.questions ?? data.questions.length, messages: data.totals?.messages ?? data.messages.length, jobs: data.totals?.jobs ?? data.jobs.length, resets: data.resets.length, 'needs you': data.needsYou.length } };
   const selectSection = (section: Section) => { apply(reduce(uiRef.current, `section.${String(sectionOrder.indexOf(section) + 1)}` as Action, boundsOf(viewRef.current, heightRef.current))); };
 
   return h(Screen, {},

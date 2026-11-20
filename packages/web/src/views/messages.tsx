@@ -7,6 +7,7 @@ import { hrefFor, sessionHref } from '../app/routes.ts';
 import { EmptyState } from '../ui/primitives.tsx';
 import { useScrollIntoView } from '../ui/hooks.ts';
 import { GraphView } from './graph.tsx';
+import { LoadOlder } from './load-older.tsx';
 
 type Mode = 'list' | 'graph';
 
@@ -22,6 +23,7 @@ export function MessagesView({ state, now, mode }: ViewProps & { mode: Mode }) {
         <div className="seg" role="group" aria-label="Messages view"><button type="button" aria-pressed={mode === 'list'} onClick={() => { go('list'); }}>List</button><button type="button" aria-pressed={mode === 'graph'} onClick={() => { go('graph'); }}>Graph <kbd className="kbd">v</kbd></button></div>
         <span className="muted">{view.rows.length} messages</span>
       </div>
+      {mode === 'list' && <LoadOlder state={state} collection="messages" shown={view.rows.length} noun="messages" />}
       {mode === 'graph' ? <GraphView state={state} /> : view.rows.length === 0
         ? <EmptyState title="No messages yet" mark="⌬">Messages sent between agents appear here, with whether they were delivered and read.</EmptyState>
         : <ol className="stack" aria-label="Messages">{view.rows.map(row => <MessageCard key={row.id} row={row} selected={nav.selected === row.id} onSelect={() => { nav.select(row.id); }} />)}</ol>}

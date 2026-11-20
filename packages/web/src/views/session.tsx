@@ -23,6 +23,7 @@ export function SessionView({ state, now, id, entry }: ViewProps & { id: string;
   const box = useRef<HTMLInputElement>(null);
   useSearchFocus(box);
   useEffect(() => { void store.loadTranscript(id, entry); }, [store, id, entry, state.gapCount]);
+  useEffect(() => { void store.loadSessionDetail(id); }, [store, id, state.gapCount]);
   const detail = useMemo(() => detailOf(state, id), [state, id]);
   const transcript = state.transcripts[id];
   const view = useMemo(() => detail ? sessionViewModel({ detail, transcript: transcript ?? [], now, search }) : null, [detail, transcript, now, search]);

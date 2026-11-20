@@ -50,6 +50,25 @@ function routes(harness: ConformanceHarness): void {
       for (const [path, name] of cases) conforms(await get(path), name);
     });
 
+    test('lists are complete without limit; limit pages walk the same rows in order, ascending and descending', async () => {
+      const pageNames = { sessions: 'sessionPage', requests: 'requestPage', questions: 'questionPage', messages: 'messagePage', jobs: 'jobPage' } as const;
+      for (const [name, definition] of Object.entries(pageNames)) {
+        const complete = conforms(await get(`/${name}`), name).items.map((item: any) => item.id);
+        const walked: string[] = [];
+        for (let after = ''; ;) {
+          const page = conforms(await get(`/${name}?limit=3${after}`), definition);
+          assert.equal(page.total, complete.length, name);
+          walked.push(...page.items.map((item: any) => item.id));
+          if (!page.hasMore) { assert.equal(page.nextCursor, null); break; }
+          after = `&after=${page.nextCursor}`;
+        }
+        assert.deepEqual([...walked].sort(), [...complete].sort(), name);
+        const descending = conforms(await get(`/${name}?limit=1000&order=desc`), definition).items.map((item: any) => item.id);
+        assert.deepEqual(descending, [...walked].reverse(), name);
+      }
+      for (const query of ['limit=0', 'limit=1001', 'limit=x', 'limit=2&order=up', 'limit=2&after=garbage']) conforms(await get(`/jobs?${query}`), 'error', 400);
+    });
+
     test('session detail and transcript pages conform; unknown ids are 404', async () => {
       const sessions = conforms(await get('/sessions'), 'sessions');
       assert.ok(sessions.items.length > 0, 'the harness seeds at least one session');
@@ -148,6 +167,12 @@ function sse(harness: ConformanceHarness): void {
       assert.equal(snapshot.event, 'snapshot');
       assert.equal(snapshot.id, String(snapshot.data.seq));
       validate(snapshot.data, schema.$defs.event, schema);
+      assert.ok(Buffer.byteLength(JSON.stringify(snapshot.data)) < 256 * 1024, 'the snapshot is a bounded screen state');
+      const { totals, bounded = [] } = snapshot.data.payload;
+      for (const name of ['sessions', 'requests', 'questions', 'messages', 'jobs'] as const) {
+        assert.ok(snapshot.data.payload[name].length <= totals[name], name);
+        if (!bounded.includes(name)) assert.equal(snapshot.data.payload[name].length, totals[name], name);
+      }
       await t.emit();
       await t.emit();
       const first = await stream.next();

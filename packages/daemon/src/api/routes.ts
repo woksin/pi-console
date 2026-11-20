@@ -1,5 +1,5 @@
 import type { Health, Settings } from '@pi-console/contract';
-import { requestFilters, type ConsoleQueries, type RequestFilter } from '@pi-console/core';
+import { InvalidCursorError, requestFilters, type ConsoleQueries, type PageCollection, type PageQuery, type RequestFilter } from '@pi-console/core';
 import { apiPrefix, HttpError } from '../security/guard.ts';
 import type { TranscriptReader } from './transcripts.ts';
 
@@ -26,6 +26,34 @@ function requestFilter(url: URL): RequestFilter {
   const known = requestFilters.find(candidate => candidate === filter);
   if (!known) throw new HttpError(400, 'Invalid filter');
   return known;
+}
+
+/** Paging parameters, present only when the client sends `limit` (1..1000); otherwise the list stays complete. */
+function pageQuery(url: URL, collection: PageCollection): PageQuery | undefined {
+  if (url.searchParams.get('limit') === null) return undefined;
+  const limit = queryInteger(url, 'limit', 0, 1000);
+  if (limit === 0) throw new HttpError(400, 'Invalid limit');
+  const order = url.searchParams.get('order') ?? 'asc';
+  if (order !== 'asc' && order !== 'desc') throw new HttpError(400, 'Invalid order');
+  const query: PageQuery = { limit, order, after: url.searchParams.get('after') ?? undefined };
+  const sessionId = url.searchParams.get('sessionId');
+  if (sessionId !== null && collection !== 'sessions') query.sessionId = sessionId;
+  if (collection === 'requests') query.filter = requestFilter(url);
+  return query;
+}
+
+/** A list route: a keyset page when `limit` is sent, the complete `{items}` otherwise. */
+function listRoute(collection: PageCollection, complete: (context: ApiContext, url: URL) => unknown[]): Route {
+  return (context, url) => {
+    const query = pageQuery(url, collection);
+    if (!query) return { items: complete(context, url) };
+    try {
+      return context.queries().page(collection, query);
+    } catch (error) {
+      if (error instanceof InvalidCursorError) throw new HttpError(400, error.message);
+      throw error;
+    }
+  };
 }
 
 function transcript(context: ApiContext, sessionId: string, url: URL): unknown {
@@ -58,11 +86,11 @@ function session(context: ApiContext, url: URL, parts: string[]): unknown {
 
 const routes = new Map<string, Route>(Object.entries({
   overview: context => context.queries().overview(),
-  sessions: context => ({ items: context.queries().sessions() }),
-  requests: (context, url) => ({ items: context.queries().requests(requestFilter(url)) }),
-  questions: context => ({ items: context.queries().questions() }),
-  messages: context => ({ items: context.queries().messages() }),
-  jobs: context => ({ items: context.queries().jobs() }),
+  sessions: listRoute('sessions', context => context.queries().sessions()),
+  requests: listRoute('requests', (context, url) => context.queries().requests(requestFilter(url))),
+  questions: listRoute('questions', context => context.queries().questions()),
+  messages: listRoute('messages', context => context.queries().messages()),
+  jobs: listRoute('jobs', context => context.queries().jobs()),
   'needs-you': context => ({ items: context.queries().needsYou() }),
   graph: context => context.queries().graph(),
   health: context => context.health(),

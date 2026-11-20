@@ -5,6 +5,7 @@ import { navigate, useListNav } from '../app/hooks.ts';
 import { sessionHref } from '../app/routes.ts';
 import { EmptyState, StatusBadge } from '../ui/primitives.tsx';
 import { useScrollIntoView } from '../ui/hooks.ts';
+import { LoadOlder } from './load-older.tsx';
 
 export function QuestionsView({ state, now }: ViewProps) {
   const view = useMemo(() => questionsViewModel({ questions: state.questions, sessions: state.sessions, now }), [state.questions, state.sessions, now]);
@@ -15,6 +16,7 @@ export function QuestionsView({ state, now }: ViewProps) {
       <div className="toolbar"><span className="muted">{view.open} open · {view.blocking} blocking</span><span className="note">Read-only in this version: answer in the session itself.</span></div>
       {view.rows.length === 0 ? <EmptyState title="No questions" mark="?">Agents raise questions and decisions here when they need you.</EmptyState> : (
         <ol className="stack" aria-label="Questions">{view.rows.map(row => <QuestionCard key={row.id} row={row} selected={nav.selected === row.id} onSelect={() => { nav.select(row.id); }} />)}</ol>)}
+      <LoadOlder state={state} collection="questions" shown={view.rows.length} noun="questions" />
     </div>
   );
 }

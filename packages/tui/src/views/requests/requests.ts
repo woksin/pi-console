@@ -2,7 +2,7 @@ import type { Request } from '@pi-console/contract';
 import { describeRequestFilter, pad, requestsViewModel, type RequestsRow, type RequestsViewModel } from '@pi-console/viewmodels';
 import { Lines, Panel, Row, h, type Line } from '../../view/renderer.ts';
 import { fit, selectable, split, statusParts, t, windowOf } from '../../view/parts.ts';
-import type { Env, SectionView } from '../common.ts';
+import { shownOf, type Env, type SectionView } from '../common.ts';
 import { requestDetailLines } from './detail.ts';
 
 const DETAIL_WIDTH = 56;
@@ -39,7 +39,7 @@ export function requestsView(env: Env): SectionView {
     rowAt: index => ({ sessionId: rows[index]?.sessionId ?? null, groupId: null, entryId: rows[index]?.transcript?.entryId ?? null }),
     idAt: index => rows[index]?.id ?? null,
     render: () => h(Row, { grow: 1, gap: 1 },
-      h(Panel, { title: `Requests and answers · ${String(model.open)} open`, focused: true, grow: 1 },
+      h(Panel, { title: `Requests and answers · ${String(model.open)} open${shownOf(env.data, 'requests', model.rows.length)}`, focused: true, grow: 1 },
         h(Lines, { lines: [fit(summaryLine(model), width)] }),
         h(Lines, { lines: lines.length ? lines : [[t(' Nothing matches.', 'muted')]], grow: 1, onLineClick: index => { env.click(start + index); } })),
       ...(wide ? [detailPanel(selected, env)] : [])),

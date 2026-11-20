@@ -1,4 +1,6 @@
-import type { TranscriptEntry } from '@pi-console/contract';
+import type { SessionDetail, TranscriptEntry } from '@pi-console/contract';
+import { mergeHistory, mergeSnapshot, type WindowedCollection } from '@pi-console/viewmodels';
+import type { ListPage } from '../client/api.ts';
 import { retentionFor, type ApiEvent, type ConsoleState } from './state.ts';
 
 function upsert<T extends { id: string }>(items: readonly T[], item: T): T[] {
@@ -51,15 +53,36 @@ export function applyEvents(state: ConsoleState, events: readonly ApiEvent[]): C
 
 type SnapshotPayload = Extract<ApiEvent, { type: 'snapshot' }>['payload'];
 
+const windowed: readonly WindowedCollection[] = ['sessions', 'requests', 'questions', 'messages', 'jobs'];
+
 function fromSnapshot(state: ConsoleState, snapshot: SnapshotPayload): ConsoleState {
   const known = state.seq > 0 || state.sessions.length > 0;
+  const bounded = snapshot.bounded ?? [];
   const times = [snapshot.generatedAt, ...snapshot.messages.map(message => message.sentAt), ...snapshot.sessions.map(session => session.updatedAt)];
+  const lists = Object.fromEntries(windowed.map(name => [name, bounded.includes(name) ? mergeSnapshot(name, state[name] as { id: string }[], snapshot[name] as { id: string }[]) : snapshot[name]])) as Pick<ConsoleState, WindowedCollection>;
   return {
-    ...state,
-    repositories: snapshot.repositories, sessions: snapshot.sessions, requests: snapshot.requests, questions: snapshot.questions,
-    messages: snapshot.messages, jobs: snapshot.jobs, resets: snapshot.resets, interventions: snapshot.interventions,
+    ...state, ...lists,
+    repositories: snapshot.repositories, resets: snapshot.resets, interventions: snapshot.interventions,
+    totals: snapshot.totals ?? null, bounded,
     liveAt: Math.max(state.liveAt, latest(...times)),
     gapCount: state.gapCount + (known ? 1 : 0),
+  };
+}
+
+/** Merges one history page of a windowed collection. Rows already held win; the page's total refreshes the count. */
+export function mergePage<C extends WindowedCollection>(state: ConsoleState, collection: C, page: ListPage<C>): ConsoleState {
+  const total = state.totals ? { ...state.totals, [collection]: page.total } : state.totals;
+  return {
+    ...state, [collection]: mergeHistory(state[collection] as { id: string }[], page.items), totals: total,
+    history: { ...state.history, [collection]: { cursor: page.nextCursor, more: page.hasMore } },
+  };
+}
+
+/** Merges a session's complete detail (its own jobs, requests, questions, resets and subagents). */
+export function mergeSessionDetail(state: ConsoleState, detail: SessionDetail): ConsoleState {
+  return {
+    ...state, sessions: mergeHistory(state.sessions, [detail.session, ...detail.subagents]), requests: mergeHistory(state.requests, detail.requests),
+    questions: mergeHistory(state.questions, detail.questions), jobs: mergeHistory(state.jobs, detail.jobs), resets: mergeHistory(state.resets, detail.resets),
   };
 }
 

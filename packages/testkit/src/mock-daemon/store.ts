@@ -3,6 +3,7 @@ import type { ServerResponse } from 'node:http';
 import type { generate } from '../fixture/generate.ts';
 import { HttpError } from './security.ts';
 import { derivedRequest } from './requests-derived.ts';
+import { windowed } from './paging.ts';
 import { sessionDeltas } from './session-deltas.ts';
 
 type Fixture = ReturnType<typeof generate>['fixture'];
@@ -91,7 +92,9 @@ export function createStore(speed: number, rate?: number, replayWindow = 10000) 
   }
   function snapshot() {
     const { transcript, ...rest } = fixture;
-    return { ...rest, transcriptCursors: fixture.sessions.map(session => ({
+    const bounded = (['sessions', 'requests', 'questions', 'messages', 'jobs'] as const).filter(name => windowed(name, fixture[name] as { id: string }[]).length < fixture[name].length);
+    const totals = { sessions: fixture.sessions.length, requests: fixture.requests.length, questions: fixture.questions.length, messages: fixture.messages.length, jobs: fixture.jobs.length, resets: fixture.resets.length };
+    return { ...rest, sessions: windowed('sessions', fixture.sessions), requests: windowed('requests', fixture.requests), questions: windowed('questions', fixture.questions), messages: windowed('messages', fixture.messages), jobs: windowed('jobs', fixture.jobs), totals, bounded, transcriptCursors: fixture.sessions.map(session => ({
       sessionId: session.id, cursor: transcript.findLast(entry => entry.sessionId === session.id)?.cursor ?? 0,
     })), interventions };
   }
