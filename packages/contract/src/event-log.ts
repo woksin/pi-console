@@ -40,7 +40,11 @@ export interface EventLog {
   append(events: readonly NewEvent[], checkpoints?: readonly SourceCheckpoint[]): Promise<AppendResult>;
   /** Events with `seq > afterSeq`, in sequence order. */
   readFrom(afterSeq: number, limit?: number): AsyncIterable<EventEnvelope>;
-  /** Live events with `seq > afterSeq`; returns an unsubscribe function. */
+  /**
+   * Every event with `seq > afterSeq`, in sequence order and without gaps or
+   * duplicates: first the stored backlog, then live events as they are appended.
+   * Returns an unsubscribe function.
+   */
   subscribe(afterSeq: number, onEvent: (event: EventEnvelope) => void): () => void;
   /** Stored checkpoints for a source (all identities). */
   checkpoints(source: string): Promise<SourceCheckpoint[]>;
