@@ -37,7 +37,7 @@ describe('web console e2e', () => {
     const first = await received();
     await page.waitForFunction(previous => {
       const label = [...document.querySelectorAll('.settings dt')].find(node => node.textContent === 'Events this run');
-      return Number(label?.nextElementSibling?.textContent?.replace(/\D/g, '')) > previous;
+      return Number(label?.nextElementSibling?.textContent.replace(/\D/g, '')) > previous;
     }, first, { timeout: 15_000 });
     await page.context().close();
   });
@@ -152,10 +152,10 @@ describe('web console e2e', () => {
     await page.evaluate(() => { window.location.hash = '#/session/s2'; });
     const line = page.locator('#line-evil1');
     await line.waitFor();
-    assert.match(await line.evaluate(node => node.textContent ?? ''), /<img src=x onerror=/, 'shown as text');
+    assert.match(await line.evaluate(node => node.textContent), /<img src=x onerror=/, 'shown as text');
     assert.equal(await line.locator('img, script').count(), 0);
     assert.equal(await page.evaluate(() => (window as unknown as { __pwned?: number }).__pwned), undefined);
-    assert.doesNotMatch(await line.evaluate(node => node.textContent ?? ''), /\u001b/);
+    assert.ok(!(await line.evaluate(node => node.textContent)).includes(String.fromCharCode(27)));
     await page.context().close();
   });
 
