@@ -96,7 +96,52 @@ const cases: { name: string; facts: Fact[]; expected: Record<string, Partial<Ret
     expected: { e1: { origin: 'launch' }, e3: { origin: 'unproven' } } },
 ];
 
-for (const { name, facts, expected } of cases) {
+/**
+ * The transition table of docs/requests.md ("State machine"), one row per case: the fact, the state it meets, and what
+ * the waiting requests and the last-answered window become. Resets are the hard part, so every row is run with them.
+ */
+const transitions: typeof cases = [
+  { name: 'prompt, nothing waiting: the new request is open and waits',
+    facts: [top(), prompt('e1')], expected: { e1: { status: 'open', answer: null, ...quiet } } },
+  { name: 'prompt after an answer closes the window: a later reset does not touch the seen answer',
+    facts: [top(), prompt('e1'), answer('e2'), prompt('e3'), reset('c1')], expected: { e1: { status: 'answered', unseen: false }, e3: { status: 'interrupted' } } },
+  { name: 'answer, something waiting: closes every waiting request',
+    facts: [top(), prompt('e1'), answer('e2')], expected: { e1: { status: 'answered', answer: 's:e2', ...quiet } } },
+  { name: 'answer, nothing waiting, window open: supersedes, the previous answer becomes interim',
+    facts: [top(), prompt('e1'), answer('e2'), answer('e3')], expected: { e1: { answer: 's:e3', interim: ['s:e2'], unseen: false } } },
+  { name: 'answer, nothing waiting, window closed: answers nothing',
+    facts: [top(), reset('c1'), answer('e1'), prompt('e2')], expected: { e2: { status: 'open', answer: null, ...quiet } } },
+  { name: 'abort: waiting requests are interrupted and the window closes (a later reset marks nothing)',
+    facts: [top(), prompt('e1'), answer('e2'), abort('e3'), reset('c1'), answer('e4')], expected: { e1: { status: 'answered', answer: 's:e2', ...quiet } } },
+  { name: 'reset, something waiting: interrupted but still waiting',
+    facts: [top(), prompt('e1'), reset('c1')], expected: { e1: { status: 'interrupted', answer: null, ...quiet } } },
+  { name: 'reset, window open: the final answer is possibly unseen and the window stays open',
+    facts: [top(), prompt('e1'), answer('e2'), reset('c1')], expected: { e1: { status: 'answered', answer: 's:e2', unseen: true, interim: [] } } },
+  { name: 'end, open request: unanswered',
+    facts: [top(), prompt('e1'), end], expected: { e1: { status: 'unanswered', answer: null } } },
+  { name: 'end, request cut off by a reset: stays interrupted',
+    facts: [top(), prompt('e1'), reset('c1'), end], expected: { e1: { status: 'interrupted', answer: null } } },
+  { name: 'end, after a reset and a new prompt: the cut-off request stays interrupted, the new one is unanswered',
+    facts: [top(), prompt('e1'), reset('c1'), prompt('e2'), end], expected: { e1: { status: 'interrupted' }, e2: { status: 'unanswered' } } },
+  { name: 'answer, reset, answer: the second answer supersedes; possibly unseen belonged to the first, now interim',
+    facts: [top(), prompt('e1'), answer('e2'), reset('c1'), answer('e3')], expected: { e1: { status: 'answered', answer: 's:e3', interim: ['s:e2'], unseen: false } } },
+  { name: 'answer, reset, answer, reset: the final answer was followed by a reset, so it is possibly unseen',
+    facts: [top(), prompt('e1'), answer('e2'), reset('c1'), answer('e3'), reset('c2')], expected: { e1: { answer: 's:e3', interim: ['s:e2'], unseen: true } } },
+  { name: 'answer, reset, prompt, answer: the first request keeps its possibly unseen answer; the new prompt gets the new one',
+    facts: [top(), prompt('e1'), answer('e2'), reset('c1'), prompt('e3'), answer('e4')],
+    expected: { e1: { answer: 's:e2', unseen: true, interim: [] }, e3: { status: 'answered', answer: 's:e4', ...quiet } } },
+  { name: 'reset, answer: an answer after a reset still pairs with the waiting request',
+    facts: [top(), prompt('e1'), reset('c1'), answer('e2')], expected: { e1: { status: 'answered', answer: 's:e2', ...quiet } } },
+  { name: 'multiple resets while waiting: still one interrupted request, answered by what comes after',
+    facts: [top(), prompt('e1'), reset('c1'), reset('c2'), answer('e2')], expected: { e1: { status: 'answered', answer: 's:e2', ...quiet } } },
+  { name: 'multiple resets after an answer: possibly unseen once, the window still open for a replacement',
+    facts: [top(), prompt('e1'), answer('e2'), reset('c1'), reset('c2'), answer('e3')], expected: { e1: { answer: 's:e3', interim: ['s:e2'], unseen: false } } },
+  { name: 'multiple resets between two prompts: the older request is uncertain',
+    facts: [top(), prompt('e1'), reset('c1'), prompt('e2'), reset('c2'), answer('e3')],
+    expected: { e1: { status: 'answered', uncertain: 'reset-then-new-prompt' }, e2: { status: 'answered', uncertain: 'shared-answer' } } },
+];
+
+for (const { name, facts, expected } of [...cases, ...transitions]) {
   test(`derivation: ${name}`, () => {
     const actual = brief(derive(facts));
     assert.deepEqual(Object.keys(actual), Object.keys(expected));
@@ -120,6 +165,8 @@ test('origin evidence and the evidence trail name the transcript entries behind 
   assert.equal(requests['s:e2'].originEvidence, originEvidence.later);
   assert.deepEqual(first.evidence?.map(item => [item.kind, item.entryId ?? item.resetId]), [['prompt', 'e1'], ['reset', 'c1'], ['later-prompt', 'e2'], ['answer', 'e3'], ['boundary', 'c2']]);
   assert.equal(first.resetId, 'c1');
+  assert.deepEqual(derive([top(), prompt('e1'), reset('c1'), end])['s:e1'].evidence?.map(item => [item.kind, item.entryId ?? item.resetId]),
+    [['prompt', 'e1'], ['reset', 'c1'], ['session-end', null]]);
   assert.equal(first.derivedFrom, 'session-jsonl');
   assert.equal(first.ref?.entryId, 'e1');
 });
@@ -168,4 +215,13 @@ test('stated answers and interruptions override; an interruption never undoes an
 test('a request restated in another session moves there', () => {
   const requests = derive([top(), explicitRequest('x1', 'e1'), explicitRequest('x1', 'e1', 'other')]);
   assert.deepEqual(Object.values(requests).map(request => request.sessionId), ['other']);
+});
+
+test('a request restated more than once keeps its latest statement, whatever the arrival order', () => {
+  const restated = (excerpt: string, sessionId = session): Fact => [explicitRequest('x1', 'e1', sessionId)[0], { ...explicitRequest('x1', 'e1', sessionId)[1], excerpt }];
+  const facts = [top(), restated('older'), restated('newer', 'other')];
+  for (const order of [[0, 1, 2], [0, 2, 1]]) {
+    const requests = derive(facts, order);
+    assert.deepEqual(Object.values(requests).map(request => [request.sessionId, request.text]), [['other', 'newer']], order.join());
+  }
 });

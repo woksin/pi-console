@@ -49,6 +49,8 @@ export interface ExplicitAnswer extends AnswerModel { key: string; withheld: boo
  */
 export interface ExplicitFacts {
   request: RequestModel | null;
+  /** Order key of the statement behind `request`: a later statement wins, whatever the arrival order. */
+  requestKey: string | null;
   /** The transcript entry of the stated request: a raw prompt for the same entry is this request. */
   entryId: string | null;
   answers: ExplicitAnswer[];

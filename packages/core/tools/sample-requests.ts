@@ -6,29 +6,44 @@
  *
  * It runs the real pipeline (session adapter with redaction, event log, projector) in a temporary directory.
  */
-import { mkdtempSync, readdirSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { closeSync, constants, existsSync, mkdtempSync, openSync, readdirSync, realpathSync, rmSync, statSync, writeSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
-import { join, relative, resolve } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import { sessionTailer } from '@pi-console/adapters';
 import { Projector, SqliteEventLog, consoleProjections, readModels, type RequestModel } from '@pi-console/core';
 
 const repositoryRoot = resolve(import.meta.dirname, '../../..');
-const liveSessions = resolve(homedir(), '.pi/agent/sessions');
+/** Canonical paths (when they exist), so a symlink cannot route around a containment check. */
+const [liveSessions, aiWork] = [resolve(homedir(), '.pi/agent/sessions'), join(repositoryRoot, '.ai-work')]
+  .map(path => existsSync(path) ? realpathSync(path) : path);
 
 function within(path: string, directory: string): boolean {
   const rest = relative(directory, path);
-  return rest === '' || (!rest.startsWith('..') && !rest.startsWith('/'));
+  return rest === '' || (!rest.startsWith('..') && !isAbsolute(rest));
 }
+
+interface Paths { source: string; out: string }
 
 function options() {
   const { values } = parseArgs({ options: { source: { type: 'string' }, out: { type: 'string' }, count: { type: 'string', default: '30' }, seed: { type: 'string', default: '1' } } });
-  if (!values.source || !values.out) throw new Error('usage: --source <copied-sessions-dir> --out .ai-work/<file>.md [--count 30] [--seed 1]');
-  const source = realpathSync(values.source);
-  const out = resolve(values.out);
-  if (within(source, liveSessions)) throw new Error('refusing the live sessions directory: copy the files first');
-  if (!within(out, join(repositoryRoot, '.ai-work'))) throw new Error('output must be under .ai-work/ (never committed)');
-  return { source, out, count: Number(values.count), seed: Number(values.seed) };
+  const { source, out } = values;
+  if (!source || !out) throw new Error('usage: --source <copied-sessions-dir> --out .ai-work/<file>.md [--count 30] [--seed 1]');
+  return { source: sourceDirectory({ source, out }), out: outputFile({ source, out }), count: Number(values.count), seed: Number(values.seed) };
+}
+
+/** A copy of session files: inside the live directory, or containing it (a recursive read reaches it), is refused. */
+function sourceDirectory(paths: Paths): string {
+  const source = realpathSync(paths.source);
+  if (within(source, liveSessions) || within(liveSessions, source)) throw new Error('refusing the live sessions directory: copy the files first');
+  return source;
+}
+
+/** Under .ai-work/ once the parent is resolved; the file itself must not be a link (it is opened with O_NOFOLLOW). */
+function outputFile(paths: Paths): string {
+  const out = join(realpathSync(dirname(resolve(paths.out))), basename(paths.out));
+  if (!within(out, aiWork)) throw new Error('output must be under .ai-work/ (never committed)');
+  return out;
 }
 
 function sessionFiles(directory: string): string[] {
@@ -82,6 +97,16 @@ async function drain(file: string, log: SqliteEventLog): Promise<void> {
   for (let result = await tailer.poll([file]); result.lagBytes > 0 && result.entries > 0;) result = await tailer.poll([file]);
 }
 
+/** Owner-only, and never through a symlink at the destination. */
+function write(paths: Pick<Paths, 'out'>, lines: readonly string[]): void {
+  const descriptor = openSync(paths.out, constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW, 0o600);
+  try {
+    writeSync(descriptor, lines.join('\n'));
+  } finally {
+    closeSync(descriptor);
+  }
+}
+
 async function main(): Promise<void> {
   const { source, out, count, seed } = options();
   const scratch = mkdtempSync(join(tmpdir(), 'pi-console-sample-'));
@@ -98,7 +123,7 @@ async function main(): Promise<void> {
       '| session | entry | status | origin | flags | evidence | prompt | answer | verdict |', '|---|---|---|---|---|---|---|---|---|',
       ...sample(requests, count, seed).map(row), '',
     ];
-    writeFileSync(out, lines.join('\n'), { mode: 0o600 });
+    write({ out }, lines);
     console.log(`wrote ${String(Math.min(count, requests.length))} of ${String(requests.length)} requests to ${out}`);
   } finally {
     rmSync(scratch, { recursive: true, force: true });

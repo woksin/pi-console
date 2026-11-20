@@ -18,7 +18,7 @@ const session = (state: DerivationState, sessionId: string): SessionRecord => en
 }));
 
 const explicitFor = (state: DerivationState, requestId: string): ExplicitFacts =>
-  entry(state.explicit, requestId, () => ({ request: null, entryId: null, answers: [], interruption: null }));
+  entry(state.explicit, requestId, () => ({ request: null, requestKey: null, entryId: null, answers: [], interruption: null }));
 
 /** Explicit answers and interruptions win over the derivation; interruption never undoes an answer. */
 function overlay(request: RequestModel, facts: ExplicitFacts | undefined): RequestModel {
@@ -66,7 +66,10 @@ function interruptExplicitly(state: DerivationState, requestId: string, resetId:
 
 function stateRequest(state: DerivationState, payload: EventPayloads['RequestObserved'], event: EventEnvelope): void {
   const facts = explicitFor(state, payload.requestId);
+  const key = orderOf(event);
+  if (facts.requestKey !== null && facts.requestKey > key) return;
   const previous = facts.request?.sessionId;
+  facts.requestKey = key;
   facts.entryId = payload.entryId ?? event.refs?.entryId ?? null;
   facts.request = {
     id: payload.requestId, sessionId: payload.sessionId, text: payload.excerpt ?? '', origin: payload.origin,
@@ -87,7 +90,7 @@ function stateRequest(state: DerivationState, payload: EventPayloads['RequestObs
  * that name a request (non-raw) are taken as stated and override the derivation.
  */
 export const requestDerivation: RequestDerivation = projection<DerivationState>(
-  'requests', 2, () => ({ requests: {}, sessions: {}, explicit: {} }), {
+  'requests', 3, () => ({ requests: {}, sessions: {}, explicit: {} }), {
     SessionStarted(state, payload) {
       session(state, payload.sessionId).facts = {
         child: payload.role === 'subagent', parentSessionId: payload.parentSessionId, parentSessionKnown: payload.parentSessionKnown === true,

@@ -10,7 +10,9 @@ as derived.
 The session adapter emits raw facts (`RequestObserved`/`AnswerObserved`/`RequestInterrupted` with `raw: true`,
 `ResetOccurred`, `SessionEnded`, `SessionStarted`, `SubagentStarted`). Pairing is **per session**. Facts of a session
 are ordered by `occurredAt`, then file offset, then event id, never by arrival. On every new fact the whole session is
-re-derived, so the result depends only on the set of facts.
+re-derived, so the result depends only on the set of facts. A request stated more than once keeps its latest statement
+in that order. The projection is `requests` version 3: its state differs from the earlier pass-through projection, so a
+snapshot of that one is rebuilt from the log, never reused.
 
 ## Pairing rules
 
@@ -19,10 +21,36 @@ re-derived, so the result depends only on the set of facts.
 3. An abort interrupts the pending requests (`interrupted`). An abort never undoes an answer.
 4. A reset (compaction, handoff) interrupts the pending requests. An answer that arrives after the reset still pairs and
    the request becomes `answered`.
-5. A reset directly after an answer, with no prompt between them, marks that answer **possibly unseen** (the session may
-   have lost it at the boundary). A prompt between the answer and the reset means the answer was seen.
-6. A second answer with no new prompt in between supersedes the first; the first becomes an **interim** answer.
-7. A session that ends with a request still waiting leaves it `unanswered`.
+5. A reset after an answer, with no prompt or abort between them, marks that answer **possibly unseen** (the session may
+   have lost it at the boundary). A prompt between the answer and the reset means the answer was seen. The flag belongs
+   to the final answer: if a later answer supersedes it (rule 6), the flag goes with the old one, now interim.
+6. A second answer with no new prompt or abort in between supersedes the first, resets in between included; the first
+   becomes an **interim** answer.
+7. A session that ends with a request still waiting leaves it `unanswered`, unless a reset already cut it off: then it
+   stays `interrupted` (answer loss at a reset is not hidden by the session ending).
+
+## State machine
+
+The rules above as one transition table; `pairing.ts` implements it and the `transitions` table in
+`derivation.test.ts` has a spec per row. Per session, the walk over the ordered facts keeps two sets:
+
+- **waiting**: requests asked and not yet closed by an answer, an abort or the session end, each with the number of
+  resets since it was asked;
+- **last answered**: the requests whose final answer is the most recent answer (the supersession window). Only a prompt
+  or an abort closes it; a reset does not.
+
+Waiting is non-empty only after a prompt, which empties last answered, so at most one of the two sets is non-empty.
+
+| Fact | Waiting requests | Last answered |
+|---|---|---|
+| prompt | each gets `later-prompt` evidence; the new request is `open` and joins waiting | emptied: their answers were seen |
+| answer, something waiting | each becomes `answered` with it (uncertain: below) and they become last answered; waiting empties | (already empty) |
+| answer, nothing waiting | (none) | each: the final answer becomes interim, this one is final, possibly unseen is cleared; if empty, the answer answers nothing |
+| abort | each becomes `interrupted`; waiting empties | emptied |
+| reset | each becomes `interrupted` with this `resetId` and **keeps waiting** (a later answer still pairs) | each: final answer possibly unseen; the set is kept |
+| session end | `open` ones become `unanswered`, `interrupted` ones stay `interrupted`; all get `session-end` evidence; waiting empties | kept |
+
+Any number of resets in a row behave like one, except that each adds evidence and the latest sets `resetId`.
 8. An answer with nothing asked yet answers nothing.
 9. Facts that name a request (`requestId`, not `raw`) are taken as stated and **override** the derivation for that request
    id, and for a raw prompt of the same transcript entry. An explicit interruption never undoes an answer. This is how an

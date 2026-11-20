@@ -6,13 +6,16 @@ import { classifyOrigin } from './origin.ts';
 const evidence = (kind: RequestEvidence['kind'], observation: Observation, resetId: string | null = null): RequestEvidence =>
   ({ kind, entryId: observation.entryId, resetId, at: observation.at });
 
-interface Pending { request: RequestModel; key: string; resetsSince: number }
+interface Waiting { request: RequestModel; resetsSince: number }
 
-/** Walks one session's sorted observations; `pending` are the requests asked since the last answer or abort. */
+/**
+ * Walks one session's sorted observations through the state machine of docs/requests.md ("State machine"). Two sets
+ * carry the state: `waiting` (asked, not yet closed by an answer, abort or session end) and `lastAnswered` (the requests
+ * whose final answer is the most recent answer: the supersession window, closed only by a prompt or an abort).
+ */
 class Pairing {
   readonly requests: RequestModel[] = [];
-  #pending: Pending[] = [];
-  /** Requests whose final answer is the most recent answer, until a prompt arrives (contract v1.2 section 10.3). */
+  #waiting: Waiting[] = [];
   #lastAnswered: RequestModel[] = [];
 
   readonly sessionId: string;
@@ -23,6 +26,7 @@ class Pairing {
     this.facts = facts;
   }
 
+  /** Opens a request. The previous answer counts as seen, so the supersession window closes. */
   prompt(observation: PromptObservation): void {
     const request: RequestModel = {
       id: observation.requestId, sessionId: this.sessionId, text: observation.text,
@@ -31,66 +35,67 @@ class Pairing {
       withheld: observation.withheld, answerWithheld: false, answerPossiblyUnseen: false, uncertainReason: null,
       evidence: [evidence('prompt', observation)], derivedFrom: observation.derivedFrom,
     };
-    for (const earlier of this.#pending) earlier.request.evidence?.push(evidence('later-prompt', observation));
+    for (const earlier of this.#waiting) earlier.request.evidence?.push(evidence('later-prompt', observation));
     this.requests.push(request);
-    this.#pending.push({ request, key: observation.key, resetsSince: 0 });
+    this.#waiting.push({ request, resetsSince: 0 });
     this.#lastAnswered = [];
   }
 
   /**
-   * An answer closes every pending request (it is the answer to whatever was open when it started). Sharing one answer
-   * is uncertain; so is an older request that a reset separated from the newest prompt, as the summary may have lost
-   * it. An answer with nothing pending supersedes the previous answer, which becomes interim.
+   * Closes every waiting request (it answers whatever was open when it started); with nothing waiting it supersedes the
+   * final answer of the last answered requests, resets in between included. Sharing one answer is uncertain; so is an
+   * older request that a reset separated from the newest prompt, as the summary may have lost it.
    */
   answer(observation: AnswerObservation): void {
     const answer: AnswerModel = { id: observation.answerId, text: observation.text, at: observation.at, interim: false };
-    if (this.#pending.length === 0) {
+    if (this.#waiting.length === 0) {
       for (const request of this.#lastAnswered) supersede(request, answer, observation);
       return;
     }
-    const newest = this.#pending.at(-1)?.resetsSince ?? 0;
-    for (const { request, resetsSince } of this.#pending) {
+    const newest = this.#waiting.at(-1)?.resetsSince ?? 0;
+    for (const { request, resetsSince } of this.#waiting) {
       close(request, answer, observation);
       if (resetsSince > newest) request.uncertainReason = 'reset-then-new-prompt';
-      else if (this.#pending.length > 1) request.uncertainReason ??= 'shared-answer';
+      else if (this.#waiting.length > 1) request.uncertainReason ??= 'shared-answer';
     }
-    this.#lastAnswered = this.#pending.map(item => item.request);
-    this.#pending = [];
+    this.#lastAnswered = this.#waiting.map(item => item.request);
+    this.#waiting = [];
   }
 
+  /** An abort ends the run: waiting requests are interrupted and the window closes (the user acted after the answer). */
   abort(observation: Observation): void {
-    for (const { request } of this.#pending) {
+    for (const { request } of this.#waiting) {
       request.status = 'interrupted';
       request.evidence?.push(evidence('abort', observation));
     }
-    this.#pending = [];
+    this.#waiting = [];
     this.#lastAnswered = [];
   }
 
   /**
-   * A reset cuts off what is pending (`interrupted`, contract v1.2 section 10: open and listed at a boundary) but does
-   * not close it: a later answer still pairs. Right after an answer, with no prompt between, it may hide that answer.
+   * A reset cuts off what is waiting (`interrupted`, contract v1.2 section 10) but does not close it: a later answer
+   * still pairs. It may hide the final answer of the last answered requests (possibly unseen); the window stays open, so
+   * a later answer still supersedes and takes the flag off (it belonged to the answer that became interim).
    */
   reset(observation: Observation & { resetId: string }): void {
-    for (const pending of this.#pending) {
-      pending.resetsSince += 1;
-      pending.request.status = 'interrupted';
-      pending.request.resetId = observation.resetId;
-      pending.request.evidence?.push(evidence('reset', observation, observation.resetId));
+    for (const waiting of this.#waiting) {
+      waiting.resetsSince += 1;
+      Object.assign(waiting.request, { status: 'interrupted', resetId: observation.resetId });
+      waiting.request.evidence?.push(evidence('reset', observation, observation.resetId));
     }
     for (const request of this.#lastAnswered) {
       request.answerPossiblyUnseen = true;
       request.evidence?.push(evidence('boundary', observation, observation.resetId));
     }
-    this.#lastAnswered = [];
   }
 
+  /** Waiting requests stop waiting: still `open` ones become `unanswered`, ones cut off by a reset stay `interrupted`. */
   end(observation: Observation): void {
-    for (const { request } of this.#pending) {
-      request.status = 'unanswered';
+    for (const { request } of this.#waiting) {
+      if (request.status === 'open') request.status = 'unanswered';
       request.evidence?.push(evidence('session-end', observation));
     }
-    this.#pending = [];
+    this.#waiting = [];
   }
 }
 
@@ -101,8 +106,7 @@ function close(request: RequestModel, answer: AnswerModel, observation: AnswerOb
 
 function supersede(request: RequestModel, answer: AnswerModel, observation: AnswerObservation): void {
   if (request.answer) request.interimAnswers.push({ ...request.answer, interim: true });
-  request.answer = answer;
-  request.answerWithheld = observation.withheld;
+  Object.assign(request, { answer, answerWithheld: observation.withheld, answerPossiblyUnseen: false });
   request.evidence?.push(evidence('answer', observation));
 }
 
