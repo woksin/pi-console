@@ -14,6 +14,8 @@ if (scopeIndex >= 0 && (!scope || !existsSync(resolve(root, 'packages', scope)))
   process.exit(2);
 }
 
+// Explicit activation: removing the sweep implementation or package script must fail, not restore a stub.
+const secretSweepActive = true;
 const node = process.execPath;
 const bin = name => resolve(root, 'node_modules/.bin', name);
 const packageScripts = name => {
@@ -42,7 +44,9 @@ const stages = [
   ['web build and proxy freshness', optionalPackageStage('build:check', ['web'])],
   ['tui build', optionalPackageStage('build:check', ['tui'])],
   ['docs (links, ADR headers, markers)', () => (scope ? { skipped: 'scoped run' } : { status: run(node, ['scripts/docs-check.mjs']) })],
-  ['secret sweep', () => (scope ? { skipped: 'scoped run' } : { status: run(node, ['scripts/secret-sweep.mjs']) })],
+  ['secret sweep', () => (scope || !secretSweepActive
+    ? { skipped: scope ? 'scoped run' : 'not activated' }
+    : { status: run(node, ['scripts/secret-sweep.mjs']) })],
   ['contract (schemas, generated types)', () => (scope ? { skipped: 'scoped run' } : { status: run(node, ['scripts/contract-check.mjs']) })],
 ];
 

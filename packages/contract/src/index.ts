@@ -1,6 +1,7 @@
 export * from './schema-dsl.ts';
 export { validate } from './validate.ts';
 export * from './envelope.ts';
+export type * from './event-log.ts';
 export * from './catalogue.ts';
 export * from './upcast.ts';
 export * from './api.ts';

@@ -38,7 +38,7 @@ const v1Defs: Record<string, Schema> = {
     kind: oneOf('user', 'thinking', 'assistant.delta', 'assistant', 'tool.call', 'tool.result', 'diff', 'reset'),
     text: str, toolCallId: nullable(id), resetId: nullable(id),
     requestId: nullable(id), toolResult: nullable(ref('toolResult')),
-  }),
+  }, ['id', 'cursor', 'sessionId', 'at', 'kind', 'text', 'toolCallId', 'resetId']),
   needsYou: strict({ items: array(ref('attentionItem')) }),
   graph: strict({ nodes: array(ref('graphNode')), edges: array(ref('graphEdge')) }),
 };
