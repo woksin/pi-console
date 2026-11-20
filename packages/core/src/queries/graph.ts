@@ -2,6 +2,32 @@ import type { Graph, GraphEdge, GraphNode } from '@pi-console/contract';
 import { compareText } from '../projector/canonical.ts';
 import type { ReadModels } from '../projections/index.ts';
 
+type Lanes = ReadModels['lanes']['lanes'];
+
+/** Accumulates nodes and aggregated edges, creating a placeholder node for any lane id it has not seen. */
+class GraphBuilder {
+  readonly nodes = new Map<string, GraphNode>();
+  readonly edges = new Map<string, GraphEdge>();
+
+  addLane(lane: Lanes[string]): void {
+    this.nodes.set(lane.id, { laneId: lane.id, label: lane.name, repositoryId: lane.repositoryId });
+  }
+
+  add(fromLane: string, toLane: string, kind: GraphEdge['kind'], at: string): void {
+    for (const laneId of [fromLane, toLane]) if (!this.nodes.has(laneId)) this.nodes.set(laneId, { laneId, label: laneId, repositoryId: null });
+    const key = `${kind}|${fromLane}|${toLane}`;
+    const edge = this.edges.get(key) ?? { fromLane, toLane, kind, lastAt: at, count: 0 };
+    edge.count++;
+    if (at > edge.lastAt) edge.lastAt = at;
+    this.edges.set(key, edge);
+  }
+
+  /** Edge to another known lane, or nothing when the status names no lane. */
+  addStatusEdge(lanes: Lanes, lane: Lanes[string], target: string | null, kind: GraphEdge['kind']): void {
+    if (target !== null && target in lanes && lane.statusAt) this.add(lane.id, target, kind, lane.statusAt);
+  }
+}
+
 /**
  * Lane communication graph: routing data only (lane ids, edge kind, last time, count), never coordinates.
  * Message edges aggregate sent messages between lanes (broadcasts excluded); `waiting-on` and `barred-by` come from
@@ -10,27 +36,17 @@ import type { ReadModels } from '../projections/index.ts';
  */
 export function graphOf(models: ReadModels): Graph {
   const lanes = models.lanes.lanes;
-  const nodes = new Map<string, GraphNode>();
-  for (const lane of Object.values(lanes)) nodes.set(lane.id, { laneId: lane.id, label: lane.name, repositoryId: lane.repositoryId });
-  const edges = new Map<string, GraphEdge>();
-  const add = (fromLane: string, toLane: string, kind: GraphEdge['kind'], at: string) => {
-    for (const laneId of [fromLane, toLane]) if (!nodes.has(laneId)) nodes.set(laneId, { laneId, label: laneId, repositoryId: null });
-    const key = `${kind}|${fromLane}|${toLane}`;
-    const edge = edges.get(key) ?? { fromLane, toLane, kind, lastAt: at, count: 0 };
-    edge.count++;
-    if (at > edge.lastAt) edge.lastAt = at;
-    edges.set(key, edge);
-  };
+  const graph = new GraphBuilder();
+  for (const lane of Object.values(lanes)) graph.addLane(lane);
   for (const message of Object.values(models.messages.messages)) {
-    if (message.sentAt !== '' && message.to !== '*') add(message.from, message.to, 'message', message.sentAt);
+    if (message.sentAt !== '' && message.to !== '*') graph.add(message.from, message.to, 'message', message.sentAt);
   }
-  for (const lane of Object.values(lanes)) {
-    if (lane.closed || !lane.statusAt) continue;
-    if (lane.waitingOn !== null && lane.waitingOn in lanes) add(lane.id, lane.waitingOn, 'waiting-on', lane.statusAt);
-    if (lane.barredBy !== null && lane.barredBy in lanes) add(lane.id, lane.barredBy, 'barred-by', lane.statusAt);
+  for (const lane of Object.values(lanes).filter(candidate => !candidate.closed)) {
+    graph.addStatusEdge(lanes, lane, lane.waitingOn, 'waiting-on');
+    graph.addStatusEdge(lanes, lane, lane.barredBy, 'barred-by');
   }
   return {
-    nodes: [...nodes.values()].sort((a, b) => compareText(a.laneId, b.laneId)),
-    edges: [...edges.entries()].sort(([a], [b]) => compareText(a, b)).map(([, edge]) => edge),
+    nodes: [...graph.nodes.values()].sort((a, b) => compareText(a.laneId, b.laneId)),
+    edges: [...graph.edges.entries()].sort(([a], [b]) => compareText(a, b)).map(([, edge]) => edge),
   };
 }
