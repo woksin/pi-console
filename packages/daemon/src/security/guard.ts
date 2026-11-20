@@ -70,8 +70,9 @@ export function checkCsrf(req: IncomingMessage): void {
 const mutating = (method: string | undefined): boolean => !['GET', 'HEAD'].includes(method ?? 'GET');
 
 /**
- * Bearer is the strong credential. The cookie only authenticates browser requests that carry an allowed Origin
- * when they open a stream or change state, so a cookie alone never opens SSE from a context without Origin.
+ * A valid bearer bypasses the cookie-only Origin and CSRF requirements here; checkBrowserPolicy still applies.
+ * Cookie-authenticated streams and mutations require Origin, and cookie-authenticated mutations also require
+ * the CSRF header. A cookie alone never opens SSE from a context without Origin.
  */
 export function authenticate(req: IncomingMessage, url: URL, credentials: Credentials): void {
   if (credentials.verify(bearerToken(req))) return;
