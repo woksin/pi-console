@@ -433,7 +433,9 @@ Same keys in web and TUI wherever possible. Footer bar in the TUI always shows t
 | `1`-`9` | Switch section |
 | `Ctrl+P`, `:` | Command palette |
 | `/` | Filter current list; in a transcript, search |
-| `[` `]` | Previous and next saved filter |
+| `[` `]` | Previous and next saved filter; on Requests, cycle the state filter (all, open, answered, unanswered, interrupted, uncertain, possibly unseen) |
+| `o` | Requests: cycle the origin filter |
+| `S` | Requests: cycle the session filter |
 | `j` `k` or arrows | Move; `g` `G` top and bottom |
 | `Enter` | Open |
 | `Esc` | Close, cancel, back |

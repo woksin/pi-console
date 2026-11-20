@@ -443,7 +443,8 @@
     "filter": {
       "state": "all",
       "origin": "all",
-      "sessionId": null
+      "sessionId": null,
+      "query": ""
     },
     "sessions": [
       {
@@ -559,7 +560,8 @@
     "filter": {
       "state": "uncertain",
       "origin": "all",
-      "sessionId": null
+      "sessionId": null,
+      "query": ""
     },
     "sessions": [
       {
@@ -734,7 +736,8 @@
     "filter": {
       "state": "all",
       "origin": "launch",
-      "sessionId": null
+      "sessionId": null,
+      "query": ""
     },
     "sessions": [
       {

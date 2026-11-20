@@ -3,7 +3,7 @@ import { Column, Lines, Panel, Row, h, type Line, type Part } from '../view/rend
 import type { Color } from '../view/theme.ts';
 import { bar, blank, fit, pressureTone, rule, split, statusParts, t } from '../view/parts.ts';
 import { sidePanes, type SidePane, type UiState } from '../state/ui.ts';
-import { transcriptViewport, transcriptWindow, type TranscriptLayout } from '../state/transcript-window.ts';
+import { transcriptViewport, transcriptWindow, type TranscriptAnchor, type TranscriptLayout } from '../state/transcript-window.ts';
 import type { Env, SectionView } from './common.ts';
 
 const LIMITS: Record<TranscriptLine['kind'], number> = { user: 8, thinking: 2, assistant: 14, tool: 1, result: 3, diff: 12, reset: 1 };
@@ -133,6 +133,12 @@ function statusText(search: string, paused: boolean, entries: number, above: num
 
 const contextPanel = (model: SessionViewModel, pane: SidePane, side: number) => (side ? [h(Panel, { title: 'Context', width: side }, h(Lines, { lines: sideLines(model, pane, side) }))] : []);
 
+/** Where a jump from the Requests list lands: the entry's line at the top. `undefined` until the entry is in the transcript (live entries can arrive before the backfill page, so absence is not final). */
+function focusAnchor(entryId: string | null, lines: readonly TranscriptLine[], layout: TranscriptLayout): TranscriptAnchor | undefined {
+  const found = entryId === null ? undefined : lines.find(line => line.id === entryId);
+  return found ? { key: found.key, offset: 0, limit: layout.keys.at(-1) ?? 0 } : undefined;
+}
+
 export function sessionView(env: Env): SectionView {
   const { data, ui } = env;
   const detail = ui.sessionId ? buildDetail(env) : undefined;
@@ -148,6 +154,7 @@ export function sessionView(env: Env): SectionView {
   return {
     length: rendered.lines.length,
     transcript: rendered.layout,
+    focus: () => focusAnchor(ui.focusEntry, model.transcript, rendered.layout),
     rowAt: () => ({ sessionId: null, groupId: null }),
     idAt: () => model.id,
     render: () => h(Column, { grow: 1 },

@@ -3,7 +3,7 @@ import { FleetView } from '../views/fleet.tsx';
 import { MessagesView } from '../views/messages.tsx';
 import { OverviewView } from '../views/overview.tsx';
 import { QuestionsView } from '../views/questions.tsx';
-import { RequestsView } from '../views/requests.tsx';
+import { RequestsView } from '../views/requests/requests.tsx';
 import { SessionView } from '../views/session.tsx';
 import { SettingsView } from '../views/settings.tsx';
 import { TimelineView } from '../views/timeline.tsx';

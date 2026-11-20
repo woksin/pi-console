@@ -1,40 +1,40 @@
  π console  1 Overview  2 Fleet  3  Requests  4 Questions  5 Messages  6 Timeline  7 Work                     ● 19 need you ◉ live
- ╭─ Requests and answers · 6 open ───────────────────────────────────────────╮ ╭─ Provenance ─────────────────────────────────────╮
- │ ▌✓ Answered   Unproven originCheck whether the… meadow implementation   2 │ │ ✓ Answered  2h ago                               │
- │  ! Unanswered Initial prompt Write the handoff… meadow coordinator      2 │ │ Unproven origin                                  │
- │  ! Open       Human request  Compare the queue… harbor scout            2 │ │ No positive origin evidence                      │
- │  / InterruptedUnproven originCheck whether the… harbor explore          2 │ │                                                  │
- │  ✓ Answered   Initial prompt Write the handoff… harbor review           2 │ │ REQUEST                                          │
- │  ! Unanswered Human request  Compare the queue… harbor implementation   2 │ │ Check whether the retry policy handles partial   │
- │  ! Open       Unproven originCheck whether the… harbor coordinator      2 │ │ results.                                         │
- │  / InterruptedInitial prompt Write the handoff… aurora scout            2 │ │                                                  │
- │  ✓ Answered   Human request  Compare the queue… aurora explore          2 │ │ ANSWER                                           │
- │  ! Unanswered Unproven originCheck whether the… aurora implementation   2 │ │ ✓ final · 2h ago                                 │
- │  ! Open       Initial prompt Write the handoff… aurora implementation   2 │ │ Use bounded retries with an explicit checkpoint. │
- │  / InterruptedHuman request  Compare the queue… aurora implementation   3 │ │                                                  │
- │                                                                           │ │                                                  │
- │                                                                           │ │                                                  │
- │                                                                           │ │                                                  │
- │                                                                           │ │                                                  │
- │                                                                           │ │                                                  │
- │                                                                           │ │                                                  │
- │                                                                           │ │                                                  │
- │                                                                           │ │                                                  │
- │                                                                           │ │                                                  │
- │                                                                           │ │                                                  │
- │                                                                           │ │                                                  │
- │                                                                           │ │                                                  │
- │                                                                           │ │                                                  │
- │                                                                           │ │                                                  │
- │                                                                           │ │                                                  │
- │                                                                           │ │                                                  │
- │                                                                           │ │                                                  │
- │                                                                           │ │                                                  │
- │                                                                           │ │                                                  │
- │                                                                           │ │                                                  │
- │                                                                           │ │                                                  │
- │                                                                           │ │                                                  │
- │                                                                           │ │                                                  │
- │                                                                           │ │                                                  │
- ╰───────────────────────────────────────────────────────────────────────────╯ ╰──────────────────────────────────────────────────╯
+ ╭─ Requests and answers · 6 open ───────────────────────────────────────╮ ╭─ Provenance ─────────────────────────────────────────╮
+ │  state all · origin all · session all 12 shown · 2 uncertain · 1 uns… │ │ ✓ Answered  2h ago                                   │
+ │ ▌✓ Answered    Unproven origin Check whether the … meadow implem…  2h │ │ Unproven origin                                      │
+ │  ! Unanswered  Initial prompt  Write the handoff … meadow coordi…  2h │ │ Origin not proven (derived from the session transcr… │
+ │  ! Open        Human request   Compare the queue … harbor scout    2h │ │ No positive origin evidence                          │
+ │  / Interrupted Unproven origin Check whether the … harbor explore  2h │ │                                                      │
+ │  ✓ Answered    Initial prompt  ≈ uncertain Write … harbor review   2h │ │ REQUEST                                              │
+ │  ! Unanswered  Human request   Compare the queue … harbor implem…  2h │ │ Check whether the retry policy handles partial       │
+ │  ! Open        Unproven origin [withheld]          harbor coordi…  2h │ │ results.                                             │
+ │  / Interrupted Initial prompt  Write the handoff … aurora scout    2h │ │                                                      │
+ │  ✓ Answered    Human request   ◌ unseen? Compare … aurora explore  2h │ │ ANSWER                                               │
+ │  ! Unanswered  Unproven origin Check whether the … aurora implem…  2h │ │ ✓ final · 2h ago                                     │
+ │  ! Open        Initial prompt  Write the handoff … aurora implem…  2h │ │ Use bounded retries with an explicit checkpoint.     │
+ │  / Interrupted Human request   ≈ uncertain Compar… aurora implem…  3h │ │                                                      │
+ │                                                                       │ │ EVIDENCE                                             │
+ │                                                                       │ │ Prompt · 2h ago                                      │
+ │                                                                       │ │ Answer · 2h ago                                      │
+ │                                                                       │ │                                                      │
+ │                                                                       │ │                                                      │
+ │                                                                       │ │                                                      │
+ │                                                                       │ │                                                      │
+ │                                                                       │ │                                                      │
+ │                                                                       │ │                                                      │
+ │                                                                       │ │                                                      │
+ │                                                                       │ │                                                      │
+ │                                                                       │ │                                                      │
+ │                                                                       │ │                                                      │
+ │                                                                       │ │                                                      │
+ │                                                                       │ │                                                      │
+ │                                                                       │ │                                                      │
+ │                                                                       │ │                                                      │
+ │                                                                       │ │                                                      │
+ │                                                                       │ │                                                      │
+ │                                                                       │ │                                                      │
+ │                                                                       │ │                                                      │
+ │                                                                       │ │                                                      │
+ │                                                                       │ │                                                      │
+ ╰───────────────────────────────────────────────────────────────────────╯ ╰──────────────────────────────────────────────────────╯
  / filter  j/k move  ⏎ open  esc back  y copy id  v graph  space fold  : palette  ? help

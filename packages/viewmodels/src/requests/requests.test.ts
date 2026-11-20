@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Request } from '@pi-console/contract';
-import { requestDetail, requestsViewModel, singleLine, uncertainLabels } from './requests.ts';
+import { cycleRequestFilter, describeRequestFilter, requestDetail, requestFilterAction, requestsViewModel, singleLine, uncertainLabels } from './requests.ts';
 import { fixture, golden, now } from '../test-support.ts';
 
 const ESC = String.fromCharCode(27);
@@ -70,4 +70,39 @@ test('the detail says classified, never verified, and links every evidence entry
   const plain = requestDetail({ request: fixture.requests[0], sessions: fixture.sessions, now });
   assert.equal(plain.source, 'Reported by the source');
   assert.deepEqual(plain.evidence, []);
+});
+
+test('the state, origin and session filters cycle with the shared actions and wrap around', () => {
+  const start = model().filter;
+  assert.deepEqual(requestFilterAction('filter.next'), { axis: 'state', step: 1 });
+  assert.deepEqual(requestFilterAction('filter.previous'), { axis: 'state', step: -1 });
+  assert.equal(requestFilterAction('move.down'), null);
+  assert.equal(cycleRequestFilter(start, 'state', [], 1).state, 'open');
+  assert.equal(cycleRequestFilter(start, 'state', [], -1).state, 'possibly-unseen');
+  assert.equal(cycleRequestFilter({ ...start, origin: 'unproven' }, 'origin', [], 1).origin, 'all');
+  const ids = model().sessions.map(item => item.id);
+  const first = cycleRequestFilter(start, 'session', ids, 1);
+  assert.equal(first.sessionId, ids[0]);
+  assert.equal(cycleRequestFilter({ ...first, sessionId: ids[ids.length - 1] }, 'session', ids, 1).sessionId, null);
+});
+
+test('the text filter matches shown text, session and origin, never withheld text', () => {
+  assert.deepEqual(model({ query: 'ASK d2' }).rows.map(row => row.id), ['d2']);
+  assert.deepEqual(model({ query: 'initial prompt' }).rows.map(row => row.id).includes('d1'), true);
+  assert.deepEqual(model({ query: 'withheld' }).rows, []);
+  assert.equal(model({ query: '   ' }).rows.length, requests.length);
+});
+
+test('unproven requests are listed with their label and the summary names every active filter', () => {
+  assert.ok(model({ origin: 'unproven' }).rows.some(row => row.id === 'd2' && row.originLabel === 'Unproven origin'));
+  assert.equal(describeRequestFilter(model({ state: 'open', origin: 'launch', sessionId, query: 'x' })), `state open · origin launch · session ${fixture.sessions[0].name} · “x”`);
+  assert.equal(describeRequestFilter(model()), 'state all · origin all · session all');
+});
+
+test('a withheld request and answer stay withheld in the detail and its evidence trail has the reset id', () => {
+  const withheld = requestDetail({ request: derived[4], sessions: fixture.sessions, now });
+  assert.deepEqual([withheld.textLines, withheld.withheld], [['[withheld]'], true]);
+  const reset = requestDetail({ request: derived[2], sessions: fixture.sessions, now });
+  assert.deepEqual(reset.evidence.map(item => [item.label, item.resetId]), [['Prompt', null], ['Reset while open', 'c1']]);
+  assert.equal(reset.uncertain, uncertainLabels['reset-then-new-prompt']);
 });

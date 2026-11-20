@@ -130,3 +130,21 @@ sample for a by-hand check of the rules. It refuses the live sessions directory.
 and is never committed. The first sample (134 requests from 68 copied files) showed shared answers, reset-then-new-prompt
 and possibly-unseen cases and, because of the adapter gap above, all requests `unproven`. The hand check of the sample is
 done in P6.
+
+## The Requests view (web and TUI)
+
+Both clients render the same view model (`packages/viewmodels/src/requests/`): list, filters, detail and the transcript
+link are shared; the clients only draw. The view is **read-only**: no actions, and no `RequestSeen` (deferred above).
+
+- **List**: state, origin label ("Human prompt", "Launch prompt", "Unproven origin": a classification, never a claim),
+  session, age, request text and the answer excerpt. "uncertain" and "possibly unseen" are shown on the row itself.
+  Unproven requests never raise attention badges ([ADR-0008](adr/0008-relationship-to-intent-memory.md)).
+- **Filters**: state (`[` `]`), origin (`o`), session (`S`) and text (`/`), the same shared keys in both clients; the
+  active filters are always summarised in one line.
+- **Detail**: full request and answer, interim (partial, not final) answers, provenance with its evidence, and the
+  evidence trail (prompt, answer, reset id). Withheld text stays `[withheld]`.
+- **Jump**: Enter (or the "Open in transcript" link) opens the session with the transcript scrolled to the prompt's
+  entry, from the request's pointer. In the TUI the jump waits until that entry is in the loaded transcript.
+- All text is rendered as text (web: no HTML injection; TUI: terminal escapes sanitised by the view model).
+
+Until the daemon serves the derived fields, the mock daemon adds them (`packages/testkit/src/mock-daemon/requests-derived.ts`).

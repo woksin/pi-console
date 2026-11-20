@@ -1,4 +1,4 @@
-import { resolve, type Action, type KeyContext } from '@pi-console/viewmodels';
+import { cycleRequestFilter, requestFilterAction, resolve, type Action, type KeyContext, type RequestsFilter } from '@pi-console/viewmodels';
 import { zoom, pan, type TimeWindow } from '@pi-console/viewmodels';
 import { pauseTranscript, resumeTranscript, scrollTranscript, type TranscriptAnchor, type TranscriptLayout, type TranscriptMotion } from './transcript-window.ts';
 
@@ -23,6 +23,10 @@ export interface UiState {
   follow: boolean;
   /** Stable position of a paused viewport (entry cursor + wrapped-line offset, see transcript-window.ts); `null` while following. */
   anchor: TranscriptAnchor | null;
+  /** Requests list filters (the text filter is `filter`); cycled with `[` `]` `o` `S`. */
+  requestFilter: Required<Omit<RequestsFilter, 'query'>>;
+  /** Transcript entry to scroll to once the opened session's transcript has loaded (from a request's pointer); null otherwise. */
+  focusEntry: string | null;
   search: string;
   pane: SidePane;
   messagesGraph: boolean;
@@ -36,11 +40,11 @@ export interface UiState {
 export const initial: UiState = {
   section: 'overview', sessionId: null, overlay: 'none', input: '', paletteIndex: 0, filter: '',
   cursor: { overview: 0, fleet: 0, requests: 0, questions: 0, messages: 0, timeline: 0, work: 0 },
-  collapsed: [], follow: true, anchor: null, search: '', pane: 'requests', messagesGraph: false, window: null, scrub: false, scrubColumn: 0, quit: false, notice: '',
+  collapsed: [], follow: true, anchor: null, requestFilter: { state: 'all', origin: 'all', sessionId: null }, focusEntry: null, search: '', pane: 'requests', messagesGraph: false, window: null, scrub: false, scrubColumn: 0, quit: false, notice: '',
 };
 
 /** What the reducer needs to know about the rendered world; supplied by the view layer. */
-export interface Bounds { length: number; page: number; fit: TimeWindow; width: number; rowAt: (index: number) => { sessionId: string | null; groupId: string | null }; transcript: TranscriptLayout; viewport: number }
+export interface Bounds { length: number; page: number; fit: TimeWindow; width: number; rowAt: (index: number) => { sessionId: string | null; groupId: string | null; entryId?: string | null }; sessionIds?: readonly string[]; transcript: TranscriptLayout; viewport: number }
 
 const contextRules: readonly (readonly [(state: UiState) => boolean, KeyContext])[] = [
   [state => state.overlay === 'palette', 'palette'],
@@ -70,22 +74,22 @@ const transcriptMotions: Partial<Record<Action, (bounds: Bounds) => TranscriptMo
 
 function moveTranscript(state: UiState, action: Action, bounds: Bounds): UiState {
   const motion = transcriptMotions[action];
-  return motion ? { ...state, ...scrollTranscript(bounds.transcript, state, bounds.viewport, motion(bounds)) } : state;
+  return motion ? { ...state, focusEntry: null, ...scrollTranscript(bounds.transcript, state, bounds.viewport, motion(bounds)) } : state;
 }
 
-const goto = (state: UiState, section: Section): UiState => ({ ...state, section, sessionId: null, overlay: 'none', filter: '', scrub: false });
+const goto = (state: UiState, section: Section): UiState => ({ ...state, section, sessionId: null, focusEntry: null, overlay: 'none', filter: '', scrub: false });
 
 function open(state: UiState, bounds: Bounds): UiState {
   const row = bounds.rowAt(state.cursor[state.section]);
   if (!row.sessionId) return row.groupId ? toggleGroup(state, bounds) : state;
   const sessionId = row.sessionId;
-  return { ...state, sessionId, ...resumeTranscript, search: '', pane: 'requests' };
+  return { ...state, sessionId, ...resumeTranscript, search: '', pane: 'requests', focusEntry: row.entryId ?? null };
 }
 
 function back(state: UiState): UiState {
   if (state.overlay !== 'none') return { ...state, overlay: 'none', input: '' };
   if (state.scrub) return { ...state, scrub: false };
-  if (state.sessionId) return { ...state, sessionId: null, search: '' };
+  if (state.sessionId) return { ...state, sessionId: null, search: '', focusEntry: null };
   return state.filter ? { ...state, filter: '' } : state;
 }
 
@@ -119,6 +123,16 @@ function cyclePane(state: UiState, direction: number): UiState {
 
 type Handler = (state: UiState, bounds: Bounds, action: Action) => UiState;
 
+const onRequestsList = (state: UiState): boolean => state.section === 'requests' && !state.sessionId;
+
+/** `[` `]` `o` `S` on the Requests list; the same shared actions the web console uses. */
+function requestFilters(state: UiState, bounds: Bounds, action: Action): UiState {
+  const cycle = requestFilterAction(action);
+  if (!cycle || !onRequestsList(state)) return state;
+  const next = cycleRequestFilter({ ...state.requestFilter, query: '' }, cycle.axis, bounds.sessionIds ?? [], cycle.step);
+  return { ...state, requestFilter: { state: next.state, origin: next.origin, sessionId: next.sessionId }, cursor: { ...state.cursor, requests: 0 } };
+}
+
 const moveHandler: Handler = (state, bounds, action) => (state.sessionId ? moveTranscript(state, action, bounds) : moveList(state, action, bounds));
 
 const handlers: Partial<Record<Action, Handler>> = {
@@ -129,7 +143,8 @@ const handlers: Partial<Record<Action, Handler>> = {
   'help.toggle': state => ({ ...state, overlay: state.overlay === 'help' ? 'none' : 'help' }),
   'back': state => back(state),
   'open': (state, bounds) => open(state, bounds),
-  'follow.toggle': (state, bounds) => ({ ...state, ...(state.follow ? pauseTranscript(bounds.transcript, state, bounds.viewport) : resumeTranscript) }),
+  'filter.next': requestFilters, 'filter.previous': requestFilters, 'filter.origin': requestFilters, 'filter.session': requestFilters,
+  'follow.toggle': (state, bounds) => ({ ...state, focusEntry: null, ...(state.follow ? pauseTranscript(bounds.transcript, state, bounds.viewport) : resumeTranscript) }),
   'view.toggle': state => ({ ...state, messagesGraph: !state.messagesGraph, cursor: { ...state.cursor, messages: 0 } }),
   'group.toggle': (state, bounds) => toggleGroup(state, bounds),
   'pane.next': state => cyclePane(state, 1),
