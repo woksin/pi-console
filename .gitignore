@@ -1,2 +1,4 @@
 .ai-work/
 node_modules/
+dist/
+.pi-console-dev/
