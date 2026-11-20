@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { HttpError } from './security.ts';
+import type { HttpError } from './security.ts';
 import { pageOf, windowed } from './paging.ts';
 
 type Row = { id: string; createdAt: string; sessionId: string; status: string };
