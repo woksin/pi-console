@@ -1,0 +1,40 @@
+ π console  1  Overview  2 Fleet  3 Requests  4 Questions  5 Messages  6 Timeline  7 Work                     ● 19 need you ◉ live
+ ╭─ 19 things need you ─────╭─ Help ───────────────────────────────────────────────────────────────────╮──────────────────────────╮
+ │ ▌! Open request  aurora/L│ KEYBOARD MAP (SHARED WITH THE WEB CONSOLE)                               │ons in 6 repositories     │
+ │ ▌  Compare the queue stra│                                                                          │g right now               │
+ │                          │ 1                   Go to Overview                                       │                          │
+ │  ! Open request  aurora/L│ 2                   Go to Fleet                                          │                          │
+ │    Write the handoff and │ 3                   Go to Requests                                       │you   6 ██████████████    │
+ │                          │ 4                   Go to Questions                                      │d     4 █████████░░░░░    │
+ │  ! Answer possibly unseen│ 5                   Go to Messages                                       │      4 █████████░░░░░    │
+ │    Compare the queue stra│ 6                   Go to Timeline                                       │g     4 █████████░░░░░    │
+ │                          │ 7                   Go to Work                                           │g     4 █████████░░░░░    │
+ │  ! Open request  aurora/L│ Ctrl+P :            Command palette                                      │      4 █████████░░░░░    │
+ │    Write the handoff and │ /                   Filter list; in a transcript, search                 │      4 █████████░░░░░    │
+ │                          │ ,                   Settings                                             │                          │
+ │  ! Open request  harbor/L│ ?                   Help                                                 │ FLEET AVERAGE            │
+ │    Compare the queue stra│ Ctrl+C q            Quit the TUI (never aborts a session)                │▅▄▄▅▅▄▄▄▅▅▄▅▅▅▅▅          │
+ │                          │ j ArrowDown         Move down                                            │                          │
+ │  ! Open request  harbor/L│ k ArrowUp           Move up                                              │.8M   cost $327.15        │
+ │    Compare the queue stra│ g Home              Top                                                  │                          │
+ │                          │ G End               Bottom                                               │                          │
+ │  ! Open request  meadow/L│ PageUp              Page up                                              │                          │
+ │    Write the handoff and │ PageDown            Page down                                            │                          │
+ │                          │ Enter               Open                                                 │                          │
+ │  ! Blocking question  aur│ Esc                 Close, cancel, back                                  │                          │
+ │    Which retention window│ Tab                 Next pane                                            │                          │
+ │                          │ Shift+Tab           Previous pane                                        │                          │
+ │  ! Blocking question  aur│ f                   Toggle follow-tail in a transcript                   │                          │
+ │    Which retention window│ y                   Copy id                                              │                          │
+ │                          │ v                   Toggle list and graph                                │                          │
+ │  ! Blocking question  aur│ t                   Toggle time scrubber (graph, timeline)               │                          │
+ │    Which retention window│ + =                 Zoom the timeline in                                 │                          │
+ │                          │ -                   Zoom the timeline out                                │                          │
+ │  ! Blocking question  har│ h ArrowLeft         Pan earlier                                          │                          │
+ │    Which retention window│ l ArrowRight        Pan later                                            │                          │
+ │                          │ Space               Select or collapse group                             │                          │
+ │                          │ ]                   Next saved filter                                    │                          │
+ │                          │ [                   Previous saved filter                                │                          │
+ │                          │                                                                          │                          │
+ ╰──────────────────────────╰──────────────────────────────────────────────────────── ? or esc closes ─╯──────────────────────────╯
+ esc back  : palette  ? help
