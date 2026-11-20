@@ -52,7 +52,7 @@ function agentRoot(t: TestContext): string {
 const restore = (file: string) => { try { chmodSync(file, 0o600); } catch { /* removed with the tree */ } };
 const put = (file: string, content: string) => { mkdirSync(join(file, '..'), { recursive: true }); writeFileSync(file, content); };
 const spec = (root: string, id: SourceId, mapper?: Mapper): SourceSpec => {
-  const found = sourceTable({ agentRoot: root, orchRoot: join(root, 'orch') }).find(item => item.id === id)!;
+  const found = sourceTable({ agentRoot: root, orchRoot: join(root, 'orch'), laneStatusDir: join(root, 'lane-status') }).find(item => item.id === id)!;
   return mapper ? { ...found, feeds: found.feeds.map(feed => ({ ...feed, mapper })) } : found;
 };
 const counting = (mapper: Mapper): { mapper: Mapper; calls: () => number } => {
@@ -180,8 +180,38 @@ test('checkpoints are read from the log once per source start and stay correct a
   assert.equal(log.checkpointReads, 2);
 });
 
+test('lane-messages reads the lanes root (roster before lanes.json) only when one is set, and always the status directory', () => {
+  const feeds = (lanesRoot?: string) => sourceTable({ agentRoot: '/a', orchRoot: '/o', lanesRoot, laneStatusDir: '/s' }).find(source => source.id === 'lane-messages')!.feeds;
+  assert.deepEqual(feeds().map(feed => [feed.directories, feed.extension]), [[['/o/inbox'], '.json'], [['/s'], '.status']]);
+  assert.deepEqual(feeds('/l').map(feed => [feed.directories, feed.extension, feed.recursive]), [[['/o/inbox'], '.json', true], [['/l/.state/roster'], '.json', false], [['/l'], '.json', false], [['/s'], '.status', false]]);
+  assert.equal(feeds('/l')[2].name?.test('lanes.json'), true);
+  assert.equal(feeds('/l')[2].name?.test('prompts.json'), false);
+  assert.ok(feeds('/l')[3].decode, 'status files are decoded, not parsed as JSON');
+});
+
+test('a record larger than the pacing batch is read with a larger batch and later rows still arrive', async t => {
+  const root = agentRoot(t);
+  put(join(root, 'issue-work/registry.jsonl'), jsonl([{ ...issueRow(now.getTime() - 2_000, 1), note: 'x'.repeat(100_000) }, issueRow(now.getTime() - 1_000, 2)]));
+  const log = new MemoryLog();
+  const worker = ingestion(log, spec(root, 'issue-work'));
+  await worker.poll();
+  worker.close();
+  assert.equal(log.events.length, 2);
+  assert.equal(worker.status.errors, 0);
+});
+
+test('a record over the largest batch is counted as an error and does not stop the other files', async t => {
+  const root = agentRoot(t);
+  put(join(root, 'issue-work/registry.jsonl'), jsonl([{ ...issueRow(now.getTime() - 2_000, 1), note: 'x'.repeat(1_100_000) }]));
+  const log = new MemoryLog();
+  const worker = ingestion(log, spec(root, 'issue-work'));
+  await worker.poll();
+  worker.close();
+  assert.equal(worker.status.errors, 1);
+});
+
 test('the table lists question-store first and phase-ledger last, smallest first', () => {
-  const ids = sourceTable({ agentRoot: '/a', orchRoot: '/o' }).map(source => source.id);
+  const ids = sourceTable({ agentRoot: '/a', orchRoot: '/o', laneStatusDir: '/s' }).map(source => source.id);
   assert.deepEqual(ids, ['question-store', 'lane-messages', 'lane-heartbeats', 'context-budget', 'issue-work', 'phase-ledger']);
 });
 

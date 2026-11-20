@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { mapLine, type Mapper } from '../tailing/events.ts';
 import { contextMapper } from './context.ts';
-import { laneMapper, laneMessageMapper, rosterMapper } from './lanes.ts';
+import { laneMapper, laneMessageMapper, laneStatusMapper, rosterMapper } from './lanes.ts';
 import { orchMapper } from './orch.ts';
 import { questionMapper } from './questions.ts';
 import { issueMapper } from './issues.ts';
@@ -17,8 +17,8 @@ const checkpoint = { source: 'session-jsonl', path: '/synthetic/source.jsonl', i
 const map = (value: unknown, mapper: Mapper, source: string) => mapLine(JSON.stringify(value), 0, { mapper, checkpoint: { ...checkpoint, source } });
 
 const cases: [string, Mapper, string, number][] = [
-  ['context', contextMapper, 'context-budget', 1], ['lanes', laneMapper, 'lane-messages', 0],
-  ['roster', rosterMapper, 'lane-messages', 0], ['laneMessage', laneMessageMapper, 'lane-messages', 0],
+  ['context', contextMapper, 'context-budget', 1], ['lanes', laneMapper, 'lane-messages', 3],
+  ['roster', rosterMapper, 'lane-messages', 1], ['laneStatus', laneStatusMapper, 'lane-messages', 5], ['laneMessage', laneMessageMapper, 'lane-messages', 0],
   ['orch', orchMapper, 'lane-messages', 2], ['question', questionMapper, 'question-store', 1],
   ['legacyQuestion', questionMapper, 'question-store', 1],
   ['issue', issueMapper, 'issue-work', 1], ['phase', phaseMapper, 'phase-ledger', 3],
@@ -36,6 +36,57 @@ for (const [key, mapper, source, expected] of cases) {
     assert.ok(events.every(event => event.type !== 'SourceSchemaUnknown'));
   });
 }
+
+test('lane status lines map to contract events without free text, deadlines or invented times', () => {
+  const [working, waiting, barred, parked, closed] = fixture.laneStatus.map((row: unknown) => map(row, laneStatusMapper, 'lane-messages')[0]);
+  assert.deepEqual([working.type, working.payload, working.occurredAt], ['LaneStatusChanged', { laneId: 'M1', status: 'working', waitingOn: null, barredBy: null, parked: false }, '2026-07-01T10:00:00Z']);
+  assert.deepEqual(waiting.payload, { laneId: 'M1', status: 'waiting-on', waitingOn: 'M2 review', barredBy: null, parked: false });
+  assert.deepEqual(barred.payload, { laneId: 'M1', status: 'barred-by', waitingOn: null, barredBy: 'order-1', parked: false });
+  assert.deepEqual(parked.payload, { laneId: 'M1', status: 'parked', waitingOn: 'owner decision', barredBy: null, parked: true });
+  assert.equal(waiting.occurredAt, '1970-01-01T00:00:00.000Z', 'no occurrence time: the checkpoint mtime');
+  assert.deepEqual([closed.type, closed.payload, closed.occurredAt], ['LaneClosed', { laneId: 'M2' }, '2026-07-01T11:00:00Z']);
+  assert.ok(!JSON.stringify(closed).includes('free text'));
+  assert.deepEqual([working.subject, working.refs.entryId], ['lane:M1', 'M1']);
+});
+
+test('a lane closed without a reassignment target maps to LaneClosed', () => {
+  for (const line of ['closed at 2026-07-01T12:00:00Z', 'closed at 2026-07-01T12:00:00Z reason "done"']) {
+    const [event] = map({ lane: 'M3', line }, laneStatusMapper, 'lane-messages');
+    assert.deepEqual([event.type, event.payload, event.occurredAt], ['LaneClosed', { laneId: 'M3' }, '2026-07-01T12:00:00Z']);
+  }
+});
+
+test('bad lane names and unmatched status lines are body-free warnings', () => {
+  for (const row of [{ lane: 'lower', line: 'working since 2026-07-01T10:00:00Z' }, { lane: 'M1', line: 'napping secret-text' }, { lane: 'M1', line: 'working since never' }, { lane: 'M1', line: 'waiting-on "x" until never' }, { lane: 'M1' }]) {
+    const events = map(row, laneStatusMapper, 'lane-messages');
+    assert.deepEqual(events.map(event => event.type), ['SourceSchemaUnknown']);
+    assert.ok(!JSON.stringify(events).includes('secret-text'));
+  }
+});
+
+test('lane registry registers with repo, closes with its time, and never echoes other fields', () => {
+  const events = map(fixture.lanes, laneMapper, 'lane-messages');
+  assert.deepEqual(events.map(event => [event.type, event.payload]), [
+    ['LaneRegistered', { laneId: 'M1', name: 'M1', repositoryId: 'example/console' }],
+    ['LaneRegistered', { laneId: 'M2', name: 'M2', repositoryId: 'example/console' }],
+    ['LaneClosed', { laneId: 'M2' }],
+  ]);
+  assert.equal(events[2].occurredAt, '2026-07-01T11:00:00Z');
+  const text = JSON.stringify(events);
+  for (const leaked of ['Synthetic task', 'synthetic reason', '/synthetic/console-m1', 'worker']) assert.ok(!text.includes(leaked), leaked);
+  assert.equal((map({ version: 1, lanes: [{ id: 'M3' }] }, laneMapper, 'lane-messages')[0].payload as { repositoryId: unknown }).repositoryId, null);
+});
+
+test('several lanes in one record keep distinct idempotency keys', () => {
+  const keys = map(fixture.lanes, laneMapper, 'lane-messages').map(event => event.idempotencyKey);
+  assert.equal(new Set(keys).size, keys.length);
+});
+
+test('a roster entry registers at its start and its retirement is not a lane close', () => {
+  const events = map(fixture.roster, rosterMapper, 'lane-messages');
+  assert.deepEqual(events.map(event => [event.type, event.occurredAt, event.payload]), [['LaneRegistered', '2026-07-01T10:00:00Z', { laneId: 'M1', name: 'M1', repositoryId: null }]]);
+  assert.ok(!JSON.stringify(events).includes('/synthetic/console'));
+});
 
 test('orch heartbeat uses its session id; receipt acknowledgement is a documented contract gap', () => {
   assert.equal(map(fixture.orch[2], orchMapper, 'lane-heartbeats')[0].type, 'SessionHeartbeat');

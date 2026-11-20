@@ -18,6 +18,10 @@ export interface AgentTree {
   root: string;
   /** Orch directory (heartbeats, inbox); a sibling of the agent directory in real installs, nested here for cleanup. */
   orchRoot: string;
+  /** Lanes root (`lanes.json` and `.state/roster`), where `LANES_DIR` points on a real machine; not under the agent root there. */
+  lanesRoot: string;
+  /** Lane status directory (`<LANE>.status` files); `<agent>/lane-status`, the daemon default. */
+  laneStatusDir: string;
   sessions: { id: string; file: string }[];
   files: string[];
 }
@@ -67,9 +71,22 @@ function addContextBudget(tree: AgentTree) {
   write(tree, 'context-budget/handoffs/session-a.md', '# Handoff\n\nCarried requests: none.\n');
 }
 
-/** Lane registry under the agent root; orch heartbeats and messages under the separate orch root. */
+/** Writes one lane-status file (one prose line), the real `lane-status` format. Specs add `BAD.status` themselves. */
+export function writeLaneStatus(tree: AgentTree, lane: string, line: string) {
+  return write(tree, `lane-status/${lane}.status`, line + '\n');
+}
+
+/** Real-format lane files (lanes root and status directory); orch heartbeats and messages under the separate orch root. */
 function addLanes(tree: AgentTree) {
-  write(tree, 'lanes/registry.json', JSON.stringify({ version: 1, lanes: [{ id: 'L0', repo: 'example/console', branch: 'main', worktree: 'console', prompt: 'Coordinate', group: null }] }) + '\n');
+  const lanes = [
+    { id: 'L0', repo: 'example/console', branch: 'main', role: 'coordinator', worktree: 'console', cwd: '/synthetic/console', group: null, prompt: 'Coordinate' },
+    { id: 'L2', repo: 'example/console', branch: 'topic', role: 'worker', worktree: 'console-topic', cwd: '/synthetic/console-topic', group: null, prompt: 'Work', closed: { reason: 'synthetic', by: 'L0', at: at(58) } },
+  ];
+  write(tree, 'lanes-root/lanes.json', JSON.stringify({ version: 1, lanes }) + '\n');
+  write(tree, 'lanes-root/.state/roster/L0.json', JSON.stringify({ id: 'L0', pid: 1, cwd: '/synthetic/console', startedAt: at(5) }) + '\n');
+  writeLaneStatus(tree, 'L0', `working since ${at(52)}`);
+  writeLaneStatus(tree, 'L1', `waiting-on "x" until ${at(900)}`);
+  writeLaneStatus(tree, 'L2', `closed reassigned-to L0 at ${at(58)} reason "synthetic hand-over"`);
   write(tree, 'orch/heartbeats/session-a.json', JSON.stringify({ sessionId: 'session-a', status: 'active', at: at(55) }) + '\n');
   write(tree, 'orch/inbox/L192/20261120T090100Z-L0-a1b2.json', JSON.stringify({ id: 'msg-1', from: 'L0', to: 'L192', body: 'Start with the contract package.', createdAt: at(60) }) + '\n');
 }
@@ -98,7 +115,7 @@ export function appendSessionLine(file: string, row: unknown) {
 }
 
 export function buildAgentTree(root: string, options: AgentTreeOptions = {}): AgentTree {
-  const tree: AgentTree = { root, orchRoot: join(root, 'orch'), sessions: [], files: [] };
+  const tree: AgentTree = { root, orchRoot: join(root, 'orch'), lanesRoot: join(root, 'lanes-root'), laneStatusDir: join(root, 'lane-status'), sessions: [], files: [] };
   addSessions(tree, options);
   addContextBudget(tree);
   addLanes(tree);

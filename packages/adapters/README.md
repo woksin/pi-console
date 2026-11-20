@@ -65,7 +65,7 @@ shapes/enums into body-free warnings. Synthetic writer-shaped examples are in
 | Source | Mapping and gaps |
 | --- | --- |
 | S2 context-budget | `handoff_committed` → reset. Status/turn rows contain token counts and policy thresholds, **not window capacity or percent**: pressure percentage/downsampling cannot be supplied. Backstop/relaunch intent does not prove a reset. No turns inferred. |
-| S4 lanes | Registry/roster validated as snapshots. Registry lacks occurrence timestamps; roster lacks the contract-required human-readable lane name. No registration/status/closure inferred from presence/absence. Message filenames have HHMM but no date: no fabricated message timestamp or prose parsing. |
+| S4 lanes | Three read-only snapshot formats. `<LANE>.status` (one prose line, `lane-status` grammar): `working since T` → `LaneStatusChanged` at T; `waiting-on`/`barred-by`/`parked "x" until T` → `LaneStatusChanged` with `waitingOn`/`barredBy`/`parked`, time = the file mtime (the writer replaces the file atomically; `until` is a deadline and is not carried); `closed reassigned-to L at T [reason "…"]` → `LaneClosed` at T (reason and target are free text, not emitted). `lanes.json` (`LANES_DIR`): `id`, `repo`, `closed.at` only → `LaneRegistered` (time = mtime) and `LaneClosed`. `.state/roster/<ID>.json`: `LaneRegistered` at `startedAt` with no repository (the projection keeps the repo from `lanes.json`); `retiredAt` is a session ending, not a lane closing. A bad lane name or line is a body-free `SourceSchemaUnknown`. No state is inferred from the presence or absence of files; pids are not probed, so a lane can stay registered after its session died. Message filenames have HHMM but no date: no fabricated message timestamp or prose parsing. |
 | S5 orch | Explicit messages → `MessageSent` (`lane-messages`); heartbeat → `SessionHeartbeat` (`lane-heartbeats`). Receipts `acked`/`declined`/`done` do not mean delivered/read; the contract has no acknowledgement event. |
 | S8 questions | Unversioned local (`kind/body/urgency`, history `at`) and installed v1 (`type/text/priority`, history `ts`) immutable revisions emit only their last history operation, never old history with new text. Created/edited/answered/decided/deferred/closed/withdrawn map to question observations; withdrawn closes with reason `withdrawn`. No defer-until is recorded (`null`). Priority `low`/`urgent` cannot be represented losslessly by normal/high and warns instead of coercing. Claim/reopen/decline/comment have no matching raw event. |
 | S9 issue-work | Explicit `state` → `IssueStatusChanged`, preserving state and repo-qualified issue key. No claim without lane identity; no PR/review-head fact without SHA. Session links alone have no matching event. |
@@ -81,7 +81,7 @@ never delays another. Everything is read-only and scoped to the directories belo
 | Source id | Directory (derived from `agentRoot` = `~/.pi/agent`, `orchRoot` = `~/.pi/orch`) | Delivers |
 | --- | --- | --- |
 | `context-budget` | `<agent>/context-budget/events.jsonl`, `events-<stamp>.jsonl` | resets |
-| `lane-messages` | `<orch>/inbox`, `<agent>/lanes` | messages (`/messages`); the lane registry feeds `/graph` |
+| `lane-messages` | `<orch>/inbox`, `<lanes-root>/.state/roster`, `<lanes-root>/lanes.json` (only when `lanesRoot`/`--lanes-root`/`$LANES_DIR` is set), `<agent>/lane-status/*.status` (`laneStatusDir`) | messages (`/messages`); lanes feed `/graph` and the Fleet |
 | `lane-heartbeats` | `<orch>/heartbeats` | session heartbeats |
 | `question-store` | `<agent>/user-questions/items` | `/questions`, `/needs-you` |
 | `issue-work` | `<agent>/issue-work/registry.jsonl` | issue status |
@@ -95,12 +95,12 @@ are intentionally unread. Windows use the in-record timestamp, not the file mtim
 new): `context-budget` and `issue-work` rows are in time order, so a fresh file is read from the first row at or after the
 backfill cutoff (`at` / `ts`, boundary inclusive; mtime only skips rotated files); context lines are prefiltered for
 `"handoff_committed"` before any JSON parse. Ledger rows are in completion order, so day files more than a day before the
-cutoff are skipped by name and rows are filtered on `queuedAt`. Snapshot sources (questions, inbox, heartbeats, lanes) have
+cutoff are skipped by name and rows are filtered on `queuedAt`. Snapshot sources (questions, inbox, heartbeats, lane files) have
 no window - an old open question stays visible - and are re-read only when mtime or size changed. Consequence of the
 window: an issue idle longer than `backfillWindowDays` (default 14) has no state after a fresh database; raise the setting
 to keep it. Sources start one after another (smallest first, ledger last) once the session first pass has finished.
 
-Gaps: lane-status files are prose and are not read; real orch/question/phase layouts are only checked against the synthetic
+Gaps: lane `until` deadlines and expiry are not interpreted (a stale `waiting-on` shows as written); real orch/question/phase layouts are only checked against the synthetic
 fixtures, so drift shows up as `SourceSchemaUnknown` in the log, not as missing health. `/health.sources[].errors` counts files
 that failed in the last poll (or consecutive failed worker polls); it never carries text or paths. `backfill.complete` needs
 every enabled source to have polled once (a source that fails to start counts as settled so it cannot hold back `ok`).

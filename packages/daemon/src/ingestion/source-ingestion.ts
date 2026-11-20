@@ -24,6 +24,9 @@ export interface SourceIngestionOptions {
 
 /** Small batches: one append transaction stays in the tens of milliseconds, so the event loop is never held long. */
 const batchBytes = 64 * 1024;
+/** A record longer than the batch grows it, doubling up to the tailer default; a larger record is counted as a file error. */
+const maxBatchBytes = 1024 * 1024;
+const oversizeRecord = (error: unknown): boolean => error instanceof Error && error.message.startsWith('Source record exceeds batch limit');
 const yieldToLoop = (): Promise<void> => new Promise(resolve => { setImmediate(resolve); });
 
 interface Seen { mtimeMs: number; size: number }
@@ -88,13 +91,24 @@ export class SourceIngestion implements AdapterWorker {
   }
 
   async #snapshot(feed: Feed, file: string): Promise<number> {
-    await pollSnapshot(this.#log, this.#options.id, file, feed.mapper, { roots: feed.directories });
+    await pollSnapshot(this.#log, this.#options.id, file, feed.mapper, { roots: feed.directories, decode: feed.decode });
     return 0;
   }
 
-  /** Reads batches until caught up (or no longer progressing on an unterminated last line); returns the unread bytes. */
+  /** Reads at the pacing batch size; a single record that does not fit retries with a larger batch. */
   async #tail(feed: Feed, file: string, since: number): Promise<number> {
-    const tailer = new FileTailer(this.#log, this.#options.id, feed.filterBy ? windowed(feed.mapper, feed.filterBy, since) : feed.mapper, tailerOptions(feed, since));
+    for (let size = batchBytes; ; size *= 2) {
+      try {
+        return await this.#tailBatches(feed, file, since, size);
+      } catch (error) {
+        if (!oversizeRecord(error) || size >= maxBatchBytes) throw error;
+      }
+    }
+  }
+
+  /** Reads batches until caught up (or no longer progressing on an unterminated last line); returns the unread bytes. */
+  async #tailBatches(feed: Feed, file: string, since: number, size: number): Promise<number> {
+    const tailer = new FileTailer(this.#log, this.#options.id, feed.filterBy ? windowed(feed.mapper, feed.filterBy, since) : feed.mapper, tailerOptions(feed, since, size));
     try {
       let lag = Number.POSITIVE_INFINITY;
       for (let result = await tailer.poll([file]); !this.#aborted; result = await tailer.poll([file])) {
@@ -119,10 +133,10 @@ export class SourceIngestion implements AdapterWorker {
   }
 }
 
-function tailerOptions(feed: Feed, since: number): TailerOptions {
+function tailerOptions(feed: Feed, since: number, size: number): TailerOptions {
   const { seekBy, lineFilter } = feed;
   return {
-    batchBytes,
+    batchBytes: size,
     startOffset: seekBy ? (fd, size) => seekStart(fd, size, since, timeOfRow(seekBy)) : undefined,
     lineFilter: lineFilter ? line => line.includes(lineFilter) : undefined,
   };

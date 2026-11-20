@@ -51,3 +51,22 @@ test('config.json rejects unknown sources, non-boolean switches and a poll inter
     assert.throws(() => loadConfig(dataDir(t, bad)), /sources|sourcePollMs|agentRoot/);
   }
 });
+
+test('command-line overrides are validated like config.json: a poll interval or window out of range is refused', t => {
+  const directory = dataDir(t);
+  for (const bad of [{ sourcePollMs: 0 }, { sourcePollMs: 249 }, { sourcePollMs: 99_999_999 }, { port: 70_000 }, { backfillWindowDays: 1_000 }]) {
+    assert.throws(() => loadConfig(directory, bad), /--(source-poll-ms|port|backfill-window-days) must be/);
+  }
+  assert.equal(loadConfig(directory, { sourcePollMs: 250 }).sourcePollMs, 250);
+});
+
+test('lane roots: no lanes root by default, the status directory follows agentRoot, both are settable and validated', t => {
+  const directory = dataDir(t, { agentRoot: '/agent' });
+  assert.equal(loadConfig(directory).lanesRoot, undefined);
+  assert.equal(loadConfig(directory).laneStatusDir, '/agent/lane-status');
+  const set = loadConfig(dataDir(t, { lanesRoot: 'lanes', laneStatusDir: '/status' }));
+  assert.deepEqual([set.lanesRoot?.endsWith('/lanes'), set.laneStatusDir], [true, '/status']);
+  assert.equal(loadConfig(directory, { laneStatusDir: '/flag' }).laneStatusDir, '/flag');
+  assert.throws(() => loadConfig(dataDir(t, { lanesRoot: 3 })), /lanesRoot/);
+  assert.throws(() => loadConfig(directory, { laneStatusDir: 3 as unknown as string }), /--lane-status-dir/);
+});

@@ -3,8 +3,18 @@
     { "at": "2026-07-01T10:00:00Z", "event": "turn", "sessionId": "synthetic-session", "tokens": 900, "soft": 1000, "hard": 1200 },
     { "at": "2026-07-01T10:01:00Z", "event": "handoff_committed", "sessionId": "synthetic-session", "path": "handoffs/synthetic.md" }
   ],
-  "lanes": { "version": 1, "lanes": [{ "id": "M1", "repo": "example/console", "branch": "synthetic", "worktree": "console-m1", "prompt": "Synthetic task", "group": null }] },
-  "roster": { "id": "M1", "cwd": "/synthetic/console", "startedAt": "2026-07-01T10:00:00Z" },
+  "lanes": { "version": 1, "lanes": [
+    { "id": "M1", "repo": "example/console", "branch": "synthetic", "role": "worker", "worktree": "console-m1", "cwd": "/synthetic/console-m1", "prompt": "Synthetic task", "group": null },
+    { "id": "M2", "repo": "example/console", "branch": "synthetic-2", "prompt": "Synthetic task", "closed": { "reason": "synthetic reason", "by": "M1", "at": "2026-07-01T11:00:00Z" } }
+  ] },
+  "roster": { "id": "M1", "pid": 1, "cwd": "/synthetic/console", "startedAt": "2026-07-01T10:00:00Z", "retiredAt": "2026-07-01T12:00:00Z" },
+  "laneStatus": [
+    { "lane": "M1", "line": "working since 2026-07-01T10:00:00Z" },
+    { "lane": "M1", "line": "waiting-on \"M2 review\" until 2026-07-01T10:30:00Z" },
+    { "lane": "M1", "line": "barred-by \"order-1\" until 2026-07-01T10:30:00Z" },
+    { "lane": "M1", "line": "parked \"owner decision\" until 2026-07-01T10:30:00Z" },
+    { "lane": "M2", "line": "closed reassigned-to M1 at 2026-07-01T11:00:00Z reason \"synthetic free text\"" }
+  ],
   "laneMessage": "From M1: task complete (synthetic prose, no date)",
   "orch": [
     { "id": "msg-1", "from": "M1", "to": "M2", "body": "Synthetic update", "createdAt": "2026-07-01T10:00:00Z" },

@@ -12,7 +12,7 @@ Status: **partial**. Everything provable without the source adapters is recorded
 | Cold start to first screen under 3 s with a 14-day backfill in the background | PENDING (first-screen render not yet timed in either client) | Partial evidence: API ready in 8 ms; backfill of the whole copy finished in under 10 s; `GET /api/v1/health` reports `backfill.complete` |
 | Idle daemon memory under 150 MiB | **MISS** | see breakdown below |
 | No valid token, wrong Host or foreign Origin refused | PASS | `security.test.ts` (token hash, exact token, CSRF/Origin), `http/boundary.test.ts` (foreign-Origin SSE refused with valid credentials, on the real server), `http/static-files.test.ts` (wrong Host and foreign Origin: 403). Missing-token 401 at HTTP level is only specified on the mock daemon (`testkit/src/mock-daemon/daemon.test.ts`); the real daemon has it at unit level |
-| Source adapters for context-budget, lanes and messages, question store, jobs and phases feed the views | PENDING (P1b) | The daemon wires only session ingestion today. On the real copy `/questions` and `/messages` return 0 items and `/lanes` returns 404, so Questions, Messages, Fleet lane data and the context budget are empty end to end. Jobs (278) come from session records |
+| Source adapters for context-budget, lanes and messages, question store, jobs and phases feed the views | PENDING (P1b) | The daemon wires only session ingestion today. On the real copy `/questions` and `/messages` return 0 items and `/lanes` returns 404, so Questions, Messages, Fleet lane data and the context budget are empty end to end (lane registration, status and closure from the real lane-status, `lanes.json` and roster formats are wired in P1c). Jobs (278) come from session records |
 
 ## Real-week counts
 
