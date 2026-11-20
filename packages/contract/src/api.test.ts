@@ -13,7 +13,7 @@ test('docs/api/schemas/api.json is valid JSON and v1 only adds to or replaces v0
   assert.deepEqual(published, apiV0Schema);
   for (const name of Object.keys(apiV0Schema.$defs)) assert.ok(name in apiV1Schema.$defs, name);
   const added = Object.keys(apiV1Schema.$defs).filter(name => !(name in apiV0Schema.$defs));
-  assert.deepEqual(added.sort(), ['attentionItem', 'attentionReason', 'graph', 'graphEdge', 'graphNode', 'needsYou', 'sourcePointer', 'toolResult']);
+  assert.deepEqual(added.sort(), ['attentionItem', 'attentionReason', 'graph', 'graphEdge', 'graphNode', 'health', 'needsYou', 'settings', 'sourcePointer', 'toolResult']);
 });
 
 test('a v0 transcript entry is valid under v1 (additive)', () => {

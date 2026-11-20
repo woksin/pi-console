@@ -27,6 +27,23 @@ const attentionItem = strict({
 const graphNode = strict({ laneId: id, label: str, repositoryId: nullable(id) });
 const graphEdge = strict({ fromLane: id, toLane: id, kind: oneOf('message', 'spawn', 'waiting-on', 'barred-by'), lastAt: time, count: int });
 
+/** Daemon health: lag per source, projection queue depth, db size, backfill progress, memory (docs/api/v1.md). */
+const health = strict({
+  status: oneOf('ok', 'starting', 'degraded'), startedAt: time,
+  eventLog: strict({ lastSeq: int, dbBytes: int }),
+  projection: strict({ position: int, queueDepth: int, skipped: int }),
+  stream: strict({ seq: int, clients: int, retained: int }),
+  sources: array(strict({ source: id, files: int, lagBytes: int, lastPollAt: nullable(time) })),
+  backfill: strict({ complete: bool, windowDays: int }),
+  memory: strict({ rssBytes: int, heapUsedBytes: int }),
+});
+
+/** Read-only daemon settings. Never paths, tokens or other values that identify the machine beyond the port. */
+const settings = strict({
+  version: int, bind: oneOf('127.0.0.1'), port: int, backfillWindowDays: int, replayWindow: int, webBundle: bool,
+  sources: array(strict({ source: id, enabled: bool })),
+});
+
 /**
  * Additive API v1 definitions (the gaps listed in docs/milestones.md M1). `transcriptEntry` replaces the v0
  * definition of the same name; every other name is new. v1 = v0 plus these, nothing removed.
@@ -41,6 +58,7 @@ const v1Defs: Record<string, Schema> = {
   }, ['id', 'cursor', 'sessionId', 'at', 'kind', 'text', 'toolCallId', 'resetId']),
   needsYou: strict({ items: array(ref('attentionItem')) }),
   graph: strict({ nodes: array(ref('graphNode')), edges: array(ref('graphEdge')) }),
+  health, settings,
 };
 
 export const apiV1Schema: JsonSchemaDocument = {

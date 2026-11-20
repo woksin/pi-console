@@ -28,3 +28,5 @@ export type GraphNode = { laneId: string; label: string; repositoryId: string | 
 export type GraphEdge = { fromLane: string; toLane: string; kind: 'message' | 'spawn' | 'waiting-on' | 'barred-by'; lastAt: string; count: number };
 export type NeedsYou = { items: AttentionItem[] };
 export type Graph = { nodes: GraphNode[]; edges: GraphEdge[] };
+export type Health = { status: 'ok' | 'starting' | 'degraded'; startedAt: string; eventLog: { lastSeq: number; dbBytes: number }; projection: { position: number; queueDepth: number; skipped: number }; stream: { seq: number; clients: number; retained: number }; sources: ({ source: string; files: number; lagBytes: number; lastPollAt: string | null })[]; backfill: { complete: boolean; windowDays: number }; memory: { rssBytes: number; heapUsedBytes: number } };
+export type Settings = { version: number; bind: '127.0.0.1'; port: number; backfillWindowDays: number; replayWindow: number; webBundle: boolean; sources: { source: string; enabled: boolean }[] };
