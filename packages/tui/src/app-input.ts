@@ -2,7 +2,7 @@ import type { WindowedCollection } from '@pi-console/viewmodels';
 import type { Section, UiState } from './state/ui.ts';
 import type { Data } from './store/store.ts';
 
-const listCollection: Partial<Record<Section, WindowedCollection>> = { fleet: 'sessions', requests: 'requests', questions: 'questions', messages: 'messages', work: 'jobs' };
+const listCollection: Partial<Record<Section, WindowedCollection>> = { fleet: 'sessions', requests: 'requests', questions: 'questions', messages: 'messages', work: 'jobs', timeline: 'resets' };
 
 /** The list to fetch older history for: only when a list section is open at its last row, never inside a session. */
 export const collectionToLoad = (ui: Pick<UiState, 'section' | 'sessionId'>, atEnd: boolean): WindowedCollection | undefined =>
@@ -14,5 +14,5 @@ const sizeOf = (data: Data, collection: WindowedCollection): number => data.tota
 /** The counts shown in settings, in display order. */
 export const countsOf = (data: Data) => ({
   sessions: sizeOf(data, 'sessions'), requests: sizeOf(data, 'requests'), questions: sizeOf(data, 'questions'), messages: sizeOf(data, 'messages'), jobs: sizeOf(data, 'jobs'),
-  resets: data.resets.length, 'needs you': data.needsYou.length,
+  resets: sizeOf(data, 'resets'), 'needs you': data.needsYou.length,
 });

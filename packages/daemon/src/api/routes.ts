@@ -91,6 +91,7 @@ const routes = new Map<string, Route>(Object.entries({
   questions: listRoute('questions', context => context.queries().questions()),
   messages: listRoute('messages', context => context.queries().messages()),
   jobs: listRoute('jobs', context => context.queries().jobs()),
+  resets: listRoute('resets', context => context.queries().resets()),
   'needs-you': context => ({ items: context.queries().needsYou() }),
   graph: context => context.queries().graph(),
   health: context => context.health(),

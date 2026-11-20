@@ -1,9 +1,9 @@
-import type { Job, Message, Question, Request, Session } from '@pi-console/contract';
+import type { Job, Message, Question, Request, Reset, Session } from '@pi-console/contract';
 import type { AttentionItem } from '../attention/needs-you.ts';
 import type { ReadModels } from '../projections/index.ts';
 import type { RequestFilter } from './console-queries.ts';
 import type { Entry } from './paging.ts';
-import { toJob, toMessage, toQuestion, toRequest, toSession } from './entities.ts';
+import { resetsOf, toJob, toMessage, toQuestion, toRequest, toSession } from './entities.ts';
 
 
 /** Ids the "needs you" list points at, by kind (`request:`/`answer:` are requests, `question:`, `session:`). */
@@ -29,6 +29,11 @@ export function sessionEntries(models: ReadModels, attention: readonly Attention
     const session = toSession(models, row, attention);
     return { key: session.startedAt, id: session.id, active: !inactiveSession.has(session.status), build: () => session };
   });
+}
+
+export function resetEntries(models: ReadModels): Entry<Reset>[] {
+  return Object.values(models.sessions.sessions).flatMap(resetsOf)
+    .map(reset => ({ key: reset.at, id: reset.id, active: false, build: () => reset }));
 }
 
 export function jobEntries(models: ReadModels): Entry<Job>[] {

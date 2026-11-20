@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import type { Event, TranscriptEntry } from '@pi-console/contract';
+import type { Event, Reset, Snapshot, TranscriptEntry } from '@pi-console/contract';
 import { Store } from './store.ts';
 import { generate } from '@pi-console/testkit';
 
@@ -9,6 +9,26 @@ const fixture = generate().fixture as unknown as { repositories: unknown[]; sess
 const entry = (id: string, cursor: number): TranscriptEntry => ({ ...fixture.transcript[0], id, cursor, sessionId: 's1' });
 const snapshot = { seq: 1, type: 'snapshot', payload: { repositories: fixture.repositories, sessions: fixture.sessions, requests: fixture.requests, questions: fixture.questions, messages: fixture.messages, jobs: fixture.jobs, resets: fixture.resets } } as unknown as Event;
 const settle = async (store: Store) => { store.flush(); await Promise.resolve(); };
+
+const reset = (id: string): Reset => ({ id, sessionId: 's1', at: '2026-01-01T00:00:00Z', kind: 'compaction', carriedRequestIds: [], interruptedRequestIds: [] });
+const resetSnapshot = (resets: Reset[]): Snapshot => ({
+  version: 0, generatedAt: '2026-01-01T00:00:00Z', repositories: [], sessions: [], requests: [], questions: [], messages: [], jobs: [], resets,
+  transcriptCursors: [], interventions: [], totals: { sessions: 0, requests: 0, questions: 0, messages: 0, jobs: 0, resets: 3000 }, bounded: ['resets'],
+});
+
+test('reset pages and live rows survive a bounded reconnect without duplicates; complete snapshots replace them', () => {
+  const store = new Store();
+  store.apply({ seq: 1, occurredAt: '2026-01-01T00:00:00Z', type: 'snapshot', payload: resetSnapshot([reset('new')]) });
+  store.mergePage('resets', { items: [reset('old'), reset('new')], nextCursor: null, hasMore: false, total: 3000 });
+  store.apply({ seq: 2, occurredAt: '2026-01-01T00:00:00Z', type: 'reset.occurred', payload: reset('live') });
+  store.apply({ seq: 3, occurredAt: '2026-01-01T00:00:00Z', type: 'snapshot', payload: resetSnapshot([]) });
+  assert.deepEqual(store.getSnapshot().resets.map(row => row.id), ['live', 'new', 'old']);
+  assert.equal(store.getSnapshot().totals?.resets, 3000);
+  assert.deepEqual(store.getSnapshot().history, {});
+  store.apply({ seq: 4, occurredAt: '2026-01-01T00:00:00Z', type: 'snapshot', payload: { ...resetSnapshot([]), bounded: [] } });
+  assert.deepEqual(store.getSnapshot().resets, []);
+  store.dispose();
+});
 
 test('a snapshot loads every collection and tracks the stream position', async () => {
   const store = new Store();

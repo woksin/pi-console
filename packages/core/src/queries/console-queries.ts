@@ -4,7 +4,7 @@ import { compareText } from '../projector/canonical.ts';
 import type { ReadModels } from '../projections/index.ts';
 import { graphOf } from './graph.ts';
 import { sparkline } from './sparkline.ts';
-import { jobEntries, messageEntries, questionEntries, referencedBy, requestEntries, sessionEntries } from './collections.ts';
+import { jobEntries, messageEntries, questionEntries, referencedBy, requestEntries, resetEntries, sessionEntries } from './collections.ts';
 import { pageOf, type Page, type PageCollection, type PageParams } from './paging.ts';
 import { screenSnapshot } from './screen-snapshot.ts';
 import { repositoryName, resetsOf, toJob, toMessage, toQuestion, toRequest, toSession } from './entities.ts';
@@ -152,7 +152,7 @@ export class ConsoleQueries {
   }
 
   /** One keyset page of a list, in the list's total order (or its exact reverse). */
-  page(collection: PageCollection, query: PageQuery): Page<Session | Request | Question | Message | Job> {
+  page(collection: PageCollection, query: PageQuery): Page<Session | Request | Question | Message | Job | Reset> {
     const models = this.#models();
     const owned = (id: string | undefined) => (entry: { build: () => { sessionId: string } }) => id === undefined || entry.build().sessionId === id;
     switch (collection) {
@@ -161,6 +161,7 @@ export class ConsoleQueries {
       case 'questions': return pageOf(collection, questionEntries(models, referencedBy([])).filter(owned(query.sessionId)), query);
       case 'messages': return pageOf(collection, messageEntries(models).filter(entry => query.sessionId === undefined || [entry.build().fromSessionId, entry.build().toSessionId].includes(query.sessionId)), query);
       case 'jobs': return pageOf(collection, jobEntries(models).filter(owned(query.sessionId)), query);
+      case 'resets': return pageOf(collection, resetEntries(models).filter(owned(query.sessionId)), query);
     }
   }
 }

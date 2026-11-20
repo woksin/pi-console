@@ -10,7 +10,7 @@ export interface Entry<Out> {
   build: () => Out;
 }
 
-export type PageCollection = 'sessions' | 'requests' | 'questions' | 'messages' | 'jobs';
+export type PageCollection = 'sessions' | 'requests' | 'questions' | 'messages' | 'jobs' | 'resets';
 export type PageOrder = 'asc' | 'desc';
 
 export interface PageParams { limit: number; after?: string; order?: PageOrder }

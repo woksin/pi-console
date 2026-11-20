@@ -53,7 +53,7 @@ export function applyEvents(state: ConsoleState, events: readonly ApiEvent[]): C
 
 type SnapshotPayload = Extract<ApiEvent, { type: 'snapshot' }>['payload'];
 
-const windowed: readonly WindowedCollection[] = ['sessions', 'requests', 'questions', 'messages', 'jobs'];
+const windowed: readonly WindowedCollection[] = ['sessions', 'requests', 'questions', 'messages', 'jobs', 'resets'];
 
 function fromSnapshot(state: ConsoleState, snapshot: SnapshotPayload): ConsoleState {
   const known = state.seq > 0 || state.sessions.length > 0;
@@ -62,7 +62,7 @@ function fromSnapshot(state: ConsoleState, snapshot: SnapshotPayload): ConsoleSt
   const lists = Object.fromEntries(windowed.map(name => [name, bounded.includes(name) ? mergeSnapshot(name, state[name] as { id: string }[], snapshot[name] as { id: string }[]) : snapshot[name]])) as Pick<ConsoleState, WindowedCollection>;
   return {
     ...state, ...lists,
-    repositories: snapshot.repositories, resets: snapshot.resets, interventions: snapshot.interventions,
+    repositories: snapshot.repositories, interventions: snapshot.interventions,
     totals: snapshot.totals ?? null, bounded,
     // A resnapshot drops rows that stopped being active, so exhausted paging progress is void: history is reloadable again.
     history: {},

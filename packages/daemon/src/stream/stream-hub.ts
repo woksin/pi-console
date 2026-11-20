@@ -1,4 +1,5 @@
 import type { ServerResponse } from 'node:http';
+import type { Snapshot } from '@pi-console/contract';
 import { HttpError } from '../security/guard.ts';
 import { safeJson } from '../http/output.ts';
 
@@ -14,12 +15,24 @@ export interface StreamOptions {
   maxBufferedBytes: number;
   /** Current screen state as the `snapshot` payload; `activeOnly` asks for the smallest window (active items alone). */
   snapshot: (activeOnly?: boolean) => unknown;
-  /** Told when a snapshot had to degrade to active-only to fit the buffer cap. */
+  /** Told when a snapshot had to degrade to fit the buffer cap, with the frame sizes. */
   warn?: (message: string) => void;
   now?: () => Date;
 }
 
 interface Frame { seq: number; text: string }
+
+const collections = ['sessions', 'requests', 'questions', 'messages', 'jobs', 'resets'] as const;
+
+/** Last-resort bootstrap: REST pages and per-session detail supply every omitted row. */
+function minimalSnapshot(payload: unknown, generatedAt: string): Snapshot {
+  const source = payload as Partial<Snapshot> | null;
+  const totals = Object.fromEntries(collections.map(name => [name, source?.totals?.[name] ?? source?.[name]?.length ?? 0])) as NonNullable<Snapshot['totals']>;
+  return {
+    version: 0, generatedAt, repositories: [], sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [],
+    transcriptCursors: [], interventions: [], totals, bounded: [...collections],
+  };
+}
 
 /** Parses `Last-Event-ID`; nonnumeric, unsafe or future ids are a 400 before any stream bytes are written. */
 export function resumePoint(lastId: string | undefined, current: number): number | undefined {
@@ -72,9 +85,10 @@ export class StreamHub {
 
   connect(client: ServerResponse, lastEventId: string | undefined): void {
     const after = resumePoint(lastEventId, this.#seq);
+    const catchUp = this.#catchUp(after);
     client.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', Connection: 'keep-alive', 'X-Accel-Buffering': 'no' });
     client.flushHeaders();
-    for (const text of this.#catchUp(after)) this.#send(client, text);
+    for (const text of catchUp) this.#send(client, text);
     if (client.destroyed) return;
     this.#clients.add(client);
     client.on('close', () => { this.#clients.delete(client); });
@@ -92,17 +106,33 @@ export class StreamHub {
     return this.#ring.filter(frame => frame.seq > after).map(frame => frame.text);
   }
 
-  /** One snapshot frame that fits the slow-client cap: above half of it, degrade once to the active-only window. */
+  /** Prefer half the slow-client cap; even an oversized active window cannot bypass the hard limit. */
   #snapshotFrame(): string {
     const limit = this.#options.maxBufferedBytes / 2;
     const text = this.#frame(this.#seq, 'snapshot', this.#options.snapshot()).text;
-    if (Buffer.byteLength(text) <= limit) return text;
-    this.#options.warn?.(`snapshot frame of ${Buffer.byteLength(text)} bytes exceeds ${limit}; sending active items only`);
-    return this.#frame(this.#seq, 'snapshot', this.#options.snapshot(true)).text;
+    const size = Buffer.byteLength(text);
+    if (size <= limit) return text;
+    const payload = this.#options.snapshot(true);
+    const active = this.#frame(this.#seq, 'snapshot', payload).text;
+    const activeSize = Buffer.byteLength(active);
+    if (activeSize <= this.#options.maxBufferedBytes) {
+      this.#options.warn?.(`snapshot frame of ${size} bytes exceeds ${limit}; sending active items only (${activeSize} bytes)`);
+      return active;
+    }
+    const minimal = this.#frame(this.#seq, 'snapshot', minimalSnapshot(payload, this.#now())).text;
+    const minimalSize = Buffer.byteLength(minimal);
+    this.#options.warn?.(`snapshot frames of ${size} bytes and active-only ${activeSize} bytes exceed ${this.#options.maxBufferedBytes}; sending minimal snapshot (${minimalSize} bytes)`);
+    // A cap too small even for the empty envelope cannot carry a snapshot: fail before sending SSE headers or bytes.
+    if (minimalSize > this.#options.maxBufferedBytes) throw new HttpError(503, 'Snapshot frame exceeds buffer cap');
+    return minimal;
+  }
+
+  #now(): string {
+    return (this.#options.now ?? (() => new Date()))().toISOString();
   }
 
   #frame(seq: number, type: string, payload: unknown): Frame {
-    const occurredAt = (this.#options.now ?? (() => new Date()))().toISOString();
+    const occurredAt = this.#now();
     return { seq, text: `id: ${seq}\nevent: ${type}\ndata: ${safeJson({ seq, type, occurredAt, payload })}\n\n` };
   }
 

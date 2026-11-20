@@ -18,7 +18,7 @@ const refreshDebounceMs = 350;
 const historyPageSize = 1000;
 /** Rows per history page: newest first, so the first page mostly repeats the snapshot window and later pages go back in time. */
 const listPageSize = 500;
-const windowedNames: readonly WindowedCollection[] = ['sessions', 'requests', 'questions', 'messages', 'jobs'];
+const windowedNames: readonly WindowedCollection[] = ['sessions', 'requests', 'questions', 'messages', 'jobs', 'resets'];
 /** Enough pages to reach the tail of any realistic session (the TUI pages the same way); only the newest entries are retained. */
 const maxHistoryPages = 60;
 

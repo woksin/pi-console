@@ -77,7 +77,7 @@ const v0Snapshot = apiV0Schema.$defs.snapshot as { properties: Record<string, Sc
 const snapshot = strict({
   ...v0Snapshot.properties,
   totals: strict({ sessions: int, requests: int, questions: int, messages: int, jobs: int, resets: int }),
-  bounded: array(oneOf('sessions', 'requests', 'questions', 'messages', 'jobs')),
+  bounded: array(oneOf('sessions', 'requests', 'questions', 'messages', 'jobs', 'resets')),
 }, v0Snapshot.required);
 
 /** Keyset page of one list endpoint; only returned when the request sends `limit`. `nextCursor` is opaque. */
@@ -85,7 +85,7 @@ const pageOf = (item: string) => strict({ items: array(ref(item)), nextCursor: n
 
 const v1Defs: Record<string, Schema> = {
   snapshot, sessionPage: pageOf('session'), requestPage: pageOf('request'), questionPage: pageOf('question'),
-  messagePage: pageOf('message'), jobPage: pageOf('job'),
+  messagePage: pageOf('message'), jobPage: pageOf('job'), resetPage: pageOf('reset'), resets: strict({ items: array(ref('reset')) }),
   toolResult, sourcePointer, attentionReason, attentionItem, graphNode, graphEdge, requestEvidence, requestUncertainty, request,
   transcriptEntry: strict({
     id, cursor: int, sessionId: id, at: time,

@@ -10,7 +10,7 @@ test('without limit every list is complete and unchanged; with limit it is a key
   try {
     const headers = { Authorization: `Bearer ${spec.token}` };
     const get = (path: string) => call(spec.daemon.port, `/api/v1${path}`, { headers });
-    for (const name of ['jobs', 'messages', 'requests', 'questions', 'sessions']) {
+    for (const name of ['jobs', 'messages', 'requests', 'questions', 'sessions', 'resets']) {
       const complete = (await get(`/${name}`)).body as { items: { id: string }[]; hasMore?: unknown };
       assert.deepEqual(Object.keys(complete), ['items'], name);
       const walked: string[] = [];

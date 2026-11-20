@@ -1,11 +1,11 @@
-import type { Event as ApiEvent, AttentionItem, Job, Message, NeedsYou, Question, Request, Session, SessionDetail, Transcript, TranscriptEntry } from '@pi-console/contract';
+import type { Event as ApiEvent, AttentionItem, Job, Message, NeedsYou, Question, Request, Reset, Session, SessionDetail, Transcript, TranscriptEntry } from '@pi-console/contract';
 import type { WindowedCollection } from '@pi-console/viewmodels';
 import type { HealthRecord } from '../state/state.ts';
 import { SseParser } from './sse.ts';
 
 export class Unauthorized extends Error {}
 
-export interface ListItems { sessions: Session; requests: Request; questions: Question; messages: Message; jobs: Job }
+export interface ListItems { sessions: Session; requests: Request; questions: Question; messages: Message; jobs: Job; resets: Reset }
 /** One keyset page of a list endpoint (`limit` sent); `nextCursor` is opaque. */
 export interface ListPage<C extends WindowedCollection = WindowedCollection> { items: ListItems[C][]; nextCursor: string | null; hasMore: boolean; total: number }
 export interface PageParams { limit: number; after?: string | null; order?: 'asc' | 'desc' }

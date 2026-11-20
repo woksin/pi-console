@@ -10,6 +10,51 @@ const now = () => new Date('2026-06-01T00:00:00Z');
 const small = () => syntheticModels({ sessions: 40, jobs: 5000, messages: 2000, requests: 2000, questions: 1000 });
 const queriesOver = (models: ReadModels) => new ConsoleQueries(() => models, now);
 
+function resetModels(): ReadModels {
+  const models = syntheticModels({ sessions: 600, jobs: 0, messages: 0, requests: 0, questions: 0 });
+  Object.values(models.sessions.sessions).forEach((session, owner) => {
+    session.resets = Array.from({ length: 10 }, (_, index) => ({
+      id: `reset-${session.id}-${index}`, kind: 'compaction', at: new Date(Date.UTC(2026, 0, 1) + (owner * 10 + index) * 1000).toISOString(),
+      carriedRequestIds: [], interruptedRequestIds: [],
+    }));
+  });
+  return models;
+}
+
+test('thousands of resets are capped to the newest of kept sessions with full totals and deterministic order', () => {
+  const models = resetModels();
+  const queries = queriesOver(models);
+  const snapshot = queries.screenSnapshot('t');
+  const kept = new Set(snapshot.sessions.map(session => session.id));
+  const eligible = queries.resets().filter(reset => kept.has(reset.sessionId));
+  assert.equal(snapshot.resets.length, recentWindow);
+  assert.ok(snapshot.resets.every(reset => kept.has(reset.sessionId)));
+  assert.deepEqual(snapshot.resets, eligible.slice(-recentWindow).reverse());
+  assert.equal(snapshot.totals?.resets, 6000);
+  assert.ok(snapshot.bounded?.includes('resets'));
+  assert.ok(kept.size < 600);
+  assert.deepEqual(queries.screenSnapshot('t'), snapshot);
+  const reversed = structuredClone(models);
+  reversed.sessions.sessions = Object.fromEntries(Object.entries(reversed.sessions.sessions).reverse());
+  for (const session of Object.values(reversed.sessions.sessions)) session.resets.reverse();
+  assert.deepEqual(queriesOver(reversed).screenSnapshot('t'), snapshot);
+});
+
+test('active-only omits reset history while session detail and keyset pages retain it all', () => {
+  const queries = queriesOver(resetModels());
+  const active = queries.screenSnapshot('t', 0);
+  assert.deepEqual(active.resets, []);
+  assert.equal(active.totals?.resets, 6000);
+  assert.ok(active.bounded?.includes('resets'));
+  const sessionId = active.sessions[0].id;
+  const first = queries.page('resets', { limit: 6, order: 'desc', sessionId });
+  const second = queries.page('resets', { limit: 6, order: 'desc', sessionId, after: first.nextCursor ?? undefined });
+  assert.equal(first.total, 10);
+  assert.equal(first.hasMore, true);
+  assert.equal(second.hasMore, false);
+  assert.deepEqual([...first.items, ...second.items], queries.session(sessionId)?.resets.slice().reverse());
+});
+
 test('the screen snapshot holds every active item plus the newest window, in the existing ascending order', () => {
   const models = small();
   const queries = queriesOver(models);

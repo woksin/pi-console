@@ -2,6 +2,7 @@ import { pan, timelineViewModel, zoom, type TimeWindow } from '@pi-console/viewm
 import { useMemo, useState } from 'react';
 import type { ViewProps } from '../app/view.tsx';
 import { useActions } from '../app/commands.ts';
+import { LoadOlder } from './load-older.tsx';
 import { EmptyState } from '../ui/primitives.tsx';
 
 const columns = 120;
@@ -23,7 +24,8 @@ export function TimelineView({ state }: ViewProps) {
     setWindow(apply(window ?? view.window));
     return true;
   });
-  if (view.lanes.length === 0) return <EmptyState title="Nothing on the timeline yet" mark="▭">Requests, answers, resets, questions and messages are placed on one time axis as they happen.</EmptyState>;
+  const history = <LoadOlder state={state} collection="resets" shown={state.resets.length} noun="resets" />;
+  if (view.lanes.length === 0) return <><EmptyState title="Nothing on the timeline yet" mark="▭">Requests, answers, resets, questions and messages are placed on one time axis as they happen.</EmptyState>{history}</>;
   const height = view.lanes.length * laneHeight + 44;
   return (
     <div className="page timeline">
@@ -45,6 +47,7 @@ export function TimelineView({ state }: ViewProps) {
             {lane.cells.map(cell => <text key={cell.markerId} className={`mark tone-${cell.color}`} x={x(cell.column)} y={20} textAnchor="middle"><title>{view.markers.find(marker => marker.id === cell.markerId)?.text ?? ''}</title>{cell.glyph}</text>)}
           </g>))}
       </svg>
+      {history}
     </div>
   );
 }

@@ -5,7 +5,7 @@ export type WindowedCollection = NonNullable<Snapshot['bounded']>[number];
 export type Totals = NonNullable<Snapshot['totals']>;
 
 interface Row { id: string }
-type Dated = Row & Partial<Record<'startedAt' | 'createdAt' | 'sentAt', string>>;
+type Dated = Row & Partial<Record<'startedAt' | 'createdAt' | 'sentAt' | 'at', string>>;
 
 const activeRules: Record<WindowedCollection, (row: never) => boolean> = {
   sessions: (row: { status: string }) => !['done', 'idle', 'failed'].includes(row.status),
@@ -13,12 +13,13 @@ const activeRules: Record<WindowedCollection, (row: never) => boolean> = {
   questions: (row: { status: string }) => row.status === 'open',
   messages: (row: { status: string }) => row.status !== 'read',
   jobs: (row: { status: string }) => row.status === 'running',
+  resets: () => false,
 };
 
 /** The daemon's "active" rule: an active row is always in a snapshot, so a previously active row missing from one is stale. */
 export const isActive = (collection: WindowedCollection, row: Row): boolean => (activeRules[collection] as (row: Row) => boolean)(row);
 
-const keyOf = (row: Dated) => row.startedAt ?? row.createdAt ?? row.sentAt ?? '';
+const keyOf = (row: Dated) => row.startedAt ?? row.createdAt ?? row.sentAt ?? row.at ?? '';
 const ascending = (a: Dated, b: Dated) => (keyOf(a) === keyOf(b) ? (a.id < b.id ? -1 : a.id > b.id ? 1 : 0) : keyOf(a) < keyOf(b) ? -1 : 1);
 
 /**

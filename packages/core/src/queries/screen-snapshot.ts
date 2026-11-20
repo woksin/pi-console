@@ -1,9 +1,9 @@
 import type { Snapshot } from '@pi-console/contract';
 import type { AttentionItem } from '../attention/needs-you.ts';
 import type { ReadModels } from '../projections/index.ts';
-import { jobEntries, messageEntries, questionEntries, referencedBy, requestEntries, sessionEntries } from './collections.ts';
+import { jobEntries, messageEntries, questionEntries, referencedBy, requestEntries, resetEntries, sessionEntries } from './collections.ts';
 import { compareEntries, newest, sortedEntries, windowOf } from './paging.ts';
-import { repositoryName, resetsOf } from './entities.ts';
+import { repositoryName } from './entities.ts';
 import { compareText } from '../projector/canonical.ts';
 
 /** Newest items per collection that the screen snapshot carries on top of every active one. */
@@ -28,7 +28,9 @@ export function screenSnapshot(models: ReadModels, attention: readonly Attention
   for (const message of messages.items) { owners.add(message.fromSessionId); owners.add(message.toSessionId); }
   const keep = everySession.length <= sessionCap ? everySession : withAncestors(everySession, owners, recent);
   const sessions = sortedEntries(keep).map(entry => entry.build());
-  const resets = Object.values(models.sessions.sessions).flatMap(resetsOf).sort((a, b) => compareText(a.at, b.at) || compareText(a.id, b.id));
+  const allResets = resetEntries(models);
+  const keptIds = new Set(sessions.map(session => session.id));
+  const resets = newest(allResets.filter(entry => keptIds.has(entry.build().sessionId)), recent).map(entry => entry.build());
   const repositories = [...new Set(everySession.map(entry => entry.build().repositoryId))].sort(compareText)
     .map(id => ({ id, name: repositoryName(id) }));
   const bounded: Bounded = [];
@@ -37,12 +39,13 @@ export function screenSnapshot(models: ReadModels, attention: readonly Attention
   if (questions.bounded) bounded.push('questions');
   if (messages.bounded) bounded.push('messages');
   if (jobs.bounded) bounded.push('jobs');
+  if (resets.length < allResets.length) bounded.push('resets');
   return {
     version: 0, generatedAt, repositories, sessions, requests: requests.items, questions: questions.items,
     messages: messages.items, jobs: jobs.items, resets, transcriptCursors: [], interventions: [],
     totals: {
       sessions: everySession.length, requests: requests.total, questions: questions.total, messages: messages.total,
-      jobs: jobs.total, resets: resets.length,
+      jobs: jobs.total, resets: allResets.length,
     },
     bounded,
   };
