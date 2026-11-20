@@ -105,6 +105,7 @@ describe('web console e2e', () => {
     await palette.getByRole('combobox').fill('timeline');
     await page.keyboard.press('Enter');
     await page.waitForFunction(() => window.location.hash === '#/timeline');
+    await page.getByRole('dialog').waitFor({ state: 'detached' });
     await page.keyboard.press('/');
     assert.equal(await page.evaluate(() => document.activeElement?.tagName), 'BODY', 'a view without a search box ignores the filter key');
     await page.context().close();
@@ -116,6 +117,26 @@ describe('web console e2e', () => {
     await page.locator('.tline.target').waitFor();
     assert.equal(await page.locator('.tline.target').getAttribute('id'), 'line-entry1');
     assert.ok(await page.locator('.tline.target').isVisible());
+    await page.context().close();
+  });
+
+  test('reading back pauses following and keeps the viewport on the same line while new lines arrive', async () => {
+    const page = await rig.open('/session/s2');
+    await page.locator('.tline').nth(30).waitFor();
+    const follow = page.getByRole('button', { name: /Following/ });
+    await follow.waitFor();
+    await page.locator('.transcript').hover();
+    await page.mouse.wheel(0, -600);
+    await page.getByRole('button', { name: /Follow tail/ }).waitFor();
+    const probe = (): Promise<[string, number] | null> => page.evaluate(() => {
+      const pane = document.querySelector('.transcript');
+      const edge = pane?.getBoundingClientRect().top ?? 0;
+      const found = [...(pane?.querySelectorAll('[id^="line-"]') ?? [])].find(node => node.getBoundingClientRect().bottom > edge + 1);
+      return found ? [found.id, Math.round(found.getBoundingClientRect().top - edge)] : null;
+    });
+    const before = await probe();
+    await page.waitForTimeout(1500);
+    assert.deepEqual(await probe(), before, 'the viewport stays anchored while the transcript changes');
     await page.context().close();
   });
 
@@ -131,10 +152,10 @@ describe('web console e2e', () => {
     await page.evaluate(() => { window.location.hash = '#/session/s2'; });
     const line = page.locator('#line-evil1');
     await line.waitFor();
-    assert.match(await line.innerText(), /<img src=x onerror=/, 'shown as text');
+    assert.match(await line.evaluate(node => node.textContent ?? ''), /<img src=x onerror=/, 'shown as text');
     assert.equal(await line.locator('img, script').count(), 0);
     assert.equal(await page.evaluate(() => (window as unknown as { __pwned?: number }).__pwned), undefined);
-    assert.doesNotMatch(await line.innerText(), /\u001b/);
+    assert.doesNotMatch(await line.evaluate(node => node.textContent ?? ''), /\u001b/);
     await page.context().close();
   });
 
