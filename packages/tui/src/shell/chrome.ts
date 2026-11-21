@@ -1,4 +1,4 @@
-import { hints } from '@pi-console/viewmodels';
+import { connectionBanner, hints } from '@pi-console/viewmodels';
 import { Clickable, Row, Spacer, Text, h, type Line } from '../view/renderer.ts';
 import { fit, t } from '../view/parts.ts';
 import { contextOf, sections, type Section, type UiState } from '../state/ui.ts';
@@ -28,10 +28,9 @@ export function Header(props: HeaderProps) {
 
 /** One-line banner while the stream is down; the client reconnects on its own with capped backoff. */
 export function banner(connection: Connection, width: number): Line | undefined {
-  if (connection.connected) return undefined;
-  const text = connection.error || 'Disconnected';
-  const note = connection.lastSeq === undefined ? 'waiting for the daemon' : `will resume after #${String(connection.lastSeq)}`;
-  return fit([t(' ⚠ ', 'bg', { background: 'amber', bold: true }), t(` ${text} · ${note} · retrying`, 'amber')], width, 'raised');
+  const text = connectionBanner(connection);
+  if (!text) return undefined;
+  return fit([t(' ⚠ ', 'bg', { background: 'amber', bold: true }), t(` ${text}`, 'amber')], width, 'raised');
 }
 
 /** The footer: the text being typed while a field is open, otherwise the shared keymap's hints for the context. */
