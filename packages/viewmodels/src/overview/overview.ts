@@ -1,6 +1,7 @@
 import type { AttentionItem, AttentionReason, Session, SourcePointer } from '@pi-console/contract';
 import { age, clip, compactNumber, money, sanitize, sparkline } from '../format/format.ts';
 import { statusCell, type StatusCell } from '../format/status-cell.ts';
+import { emptyStates } from '../empty/empty.ts';
 
 export interface OverviewInput { needsYou: readonly AttentionItem[]; sessions: readonly Session[]; repositories: number; now: number }
 export interface AttentionCard {
@@ -64,6 +65,7 @@ export function overviewViewModel(input: OverviewInput): OverviewViewModel {
     title: title(item, byId), text: clip(sanitize(item.text), 160), age: age(item.since, input.now), sessionId: item.sessionId, pointer: item.pointer,
   }));
   const counts = order.map(status => ({ status: statusCell(status), count: input.sessions.filter(session => session.status === status).length }));
-  const headline = cards.length === 0 ? 'All clear: nothing needs you' : `${String(cards.length)} ${cards.length === 1 ? 'thing needs' : 'things need'} you`;
+  const calmHeadline = input.sessions.length === 0 ? emptyStates.fleet.title : 'All clear: nothing needs you';
+  const headline = cards.length === 0 ? calmHeadline : `${String(cards.length)} ${cards.length === 1 ? 'thing needs' : 'things need'} you`;
   return { headline, cards, counts, fleet: fleetSummary(input.sessions, input.repositories) };
 }

@@ -23,6 +23,10 @@ test('attention sections preserve daemon rank and every card', () => {
   assert.ok(sections.every(section => section.label && section.cards.length > 0));
 });
 
-test('empty needs-you reads as all clear', () => {
-  assert.equal(overviewViewModel({ needsYou: [], sessions: [], repositories: 0, now }).headline, 'All clear: nothing needs you');
+test('first run uses the information architecture wording instead of declaring all clear', () => {
+  assert.equal(overviewViewModel({ needsYou: [], sessions: [], repositories: 0, now }).headline, 'No pi sessions found yet.');
+});
+
+test('empty needs-you with sessions reads as all clear', () => {
+  assert.equal(overviewViewModel({ needsYou: [], sessions: fixture.sessions, repositories: fixture.repositories.length, now }).headline, 'All clear: nothing needs you');
 });
