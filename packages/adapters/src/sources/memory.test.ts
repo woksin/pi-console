@@ -45,6 +45,18 @@ test('add events map every kind, authority mode and supersedes list to MemoryIte
   assert.deepEqual([rows[0].payload.sourceMessageId, map(sealed(event('ev-x', 'add', { item: item('item-x') })), memoryEventMapper)[0].payload.sourceMessageId], [null, 'msg-1']);
 });
 
+test('coordinator orders preserve their injected journal message reference for session linkage', () => {
+  const order = item('order-1', {
+    kind: 'order', scope: { kind: 'lane', key: 'L1' }, text: 'synth',
+    source: { type: 'coordinator_order', ref: 'msg-injected', span: { start: 0, end: 5 } }, authority: undefined,
+  });
+  const [mapped] = map(sealed(event('ev-order', 'add', { item: order })), memoryEventMapper);
+  assert.equal(mapped.type, 'MemoryItemRecorded');
+  assert.deepEqual([mapped.payload.sourceType, mapped.payload.sourceMessageId, mapped.payload.scopeKind], ['coordinator_order', 'msg-injected', 'lane']);
+  const [message] = map(sealed(journal('msg-injected', { origin: 'injected', injectedKind: 'lane_message' })), memoryJournalMapper);
+  assert.deepEqual([message.payload.messageId, message.payload.sessionId], ['msg-injected', 'sess-1']);
+});
+
 test('confirm, every retire status and both classify shapes map to their events', () => {
   const rows = [
     event('ev-1', 'confirm', { itemId: 'item-1', via: 'ui' }),

@@ -51,7 +51,7 @@ function added(row: Row): Fact {
   const gloss = item.gloss === undefined ? {} : { gloss: excerpt(item.gloss).excerpt };
   return fact('MemoryItemRecorded', `source:memory-item:${itemId}`, {
     itemId, kind: member(item.kind, itemKinds), scopeKind: member(scope.kind, scopeKinds), scopeKey: text(scope.key), sourceType,
-    sourceMessageId: sourceType === 'user_message' ? sourceRef : null,
+    sourceMessageId: sourceType === 'user_message' || sourceType === 'coordinator_order' ? sourceRef : null,
     authorityMode: authorityMode(item.authority),
     supersedes: supersededIds(item.supersedes), ...body, ...gloss,
   }, row.at, text(row.id));
