@@ -1,4 +1,19 @@
 /* Signature views: communication graph and timeline. Edges animate along their direction; reduced motion stops it (base.css). */
+.summary-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); color: var(--muted); font-size: var(--type-caption); }
+.summary-strip > span { white-space: nowrap; }
+.attention-sections { display: grid; gap: 12px; }
+.attention-heading { margin: 0 0 6px; color: var(--muted); font-size: var(--type-caption); font-weight: 500; }
+@media (min-width: 1180px) {
+  .attention-sections { gap: 4px; }
+  .attention-sections > section { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; }
+  .attention-heading { margin: 0; padding-top: 6px; }
+}
+.attention-sections .cards { gap: 4px; }
+.attention-sections .card { padding: 4px 12px; gap: 0; }
+.attention-sections .card-head { flex-wrap: nowrap; gap: 8px; }
+.attention-body { display: flex; align-items: baseline; gap: 12px; padding-top: 2px; }
+.attention-body .card-text { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.attention-body a { flex-shrink: 0; font-size: var(--type-caption); }
 .graph-page { display: flex; flex-direction: column; gap: 14px; }
 .graph-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; }
 .graph { width: 100%; height: auto; max-height: 520px; background: radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--cyan) 7%, transparent), transparent 70%); }

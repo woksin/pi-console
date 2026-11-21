@@ -15,6 +15,18 @@ export interface OverviewViewModel {
   fleet: { sessions: number; repositories: number; working: number; tokens: string; cost: string; contextSeries: number[]; contextSpark: string };
 }
 
+/** Group adjacent reasons only: the daemon's attention ranking remains authoritative. */
+export function attentionSections(cards: readonly AttentionCard[]): { label: string; cards: AttentionCard[] }[] {
+  const sections: { label: string; cards: AttentionCard[] }[] = [];
+  for (const card of cards) {
+    const label = card.reasonLabel;
+    const previous = sections.at(-1);
+    if (previous?.label === label) previous.cards.push(card);
+    else sections.push({ label, cards: [card] });
+  }
+  return sections;
+}
+
 const reasons: Record<AttentionReason, { label: string; status: string }> = {
   'open-request': { label: 'Open request', status: 'open' },
   'answer-possibly-unseen': { label: 'Answer possibly unseen', status: 'unanswered' },
