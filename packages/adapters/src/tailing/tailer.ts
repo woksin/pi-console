@@ -1,6 +1,7 @@
 import { fstatSync, readSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname } from 'node:path';
+import { setImmediate as yieldToLoop } from 'node:timers/promises';
 import type { EventLog, NewEvent, SourceCheckpoint } from '@pi-console/contract';
 import { mapLine, warning, type Mapper } from './events.ts';
 import { sourcePath } from './paths.ts';
@@ -14,6 +15,8 @@ export interface TailerOptions {
   scanner?: Scanner;
   replay?: boolean;
   batchBytes?: number;
+  /** Skip complete over-batch records with a body-free warning; use 'error' when retrying with a larger batch. */
+  oversizedRecords?: 'skip' | 'error';
   /** Where to start a file with no saved checkpoint (or after truncation) instead of byte 0: must be a line start. */
   startOffset?: (fd: number, size: number) => number;
   /** Lines failing this are neither parsed nor mapped; their bytes are still consumed. */
@@ -46,6 +49,19 @@ function validateBatchSize(size: number): void {
 
 function sameEpoch(saved: SourceCheckpoint, current: SourceCheckpoint): boolean {
   return saved.size > 0 && saved.generation === current.generation;
+}
+
+/** Scan only the captured file size, reusing the batch buffer and yielding between chunks. */
+async function recordEnd(fd: number, offset: number, size: number, bytes: Buffer): Promise<number | undefined> {
+  while (offset < size) {
+    await yieldToLoop();
+    const read = readSync(fd, bytes, 0, Math.min(bytes.length, size - offset), offset);
+    if (read === 0) break;
+    const newline = bytes.subarray(0, read).indexOf(10);
+    if (newline !== -1) return offset + newline + 1;
+    offset += read;
+  }
+  return undefined;
 }
 
 /** Bounded read-only transport. Source adapters supply a schema-guarded domain mapper. */
@@ -125,20 +141,35 @@ export class FileTailer {
     const events: NewEvent[] = [];
     this.checkHead(handle, saved, checkpoint, events);
     checkpoint.offset = this.startAt(handle, saved, checkpoint);
-    const bytes = this.readBatch(handle, checkpoint);
-    const complete = bytes.lastIndexOf(10) + 1;
-    if (complete === 0 && bytes.length === (this.options.batchBytes ?? 1024 * 1024)) {
-      throw new Error('Source record exceeds batch limit; checkpoint not advanced');
-    }
-    events.push(...this.mapBatch(bytes.subarray(0, complete), checkpoint));
-    checkpoint.offset += complete;
+    if (await this.readRecords(handle, checkpoint, events)) result.partialFiles++;
     checkpoint.headHash = headHash(handle.fd, checkpoint.size);
     const appended = await this.log.append(events, [checkpoint]);
     handle.replayed = true;
     result.entries += events.length;
     result.appended += appended.appended;
     result.lagBytes += checkpoint.size - checkpoint.offset;
-    if (complete < bytes.length) result.partialFiles++;
+  }
+
+  /** Consumes complete records only; returns whether an incomplete line was encountered. */
+  private async readRecords(handle: Handle, checkpoint: SourceCheckpoint, events: NewEvent[]): Promise<boolean> {
+    const bytes = this.readBatch(handle, checkpoint);
+    const complete = bytes.lastIndexOf(10) + 1;
+    if (complete === 0 && bytes.length === (this.options.batchBytes ?? 1024 * 1024)) {
+      return !await this.skipOversized(handle, checkpoint, bytes, events);
+    }
+    events.push(...this.mapBatch(bytes.subarray(0, complete), checkpoint));
+    checkpoint.offset += complete;
+    return complete < bytes.length;
+  }
+
+  /** An unterminated oversized tail remains pending at its line start, even across restarts. */
+  private async skipOversized(handle: Handle, checkpoint: SourceCheckpoint, bytes: Buffer, events: NewEvent[]): Promise<boolean> {
+    if (this.options.oversizedRecords === 'error') throw new Error('Source record exceeds batch limit; checkpoint not advanced');
+    const end = await recordEnd(handle.fd, checkpoint.offset + bytes.length, checkpoint.size, bytes);
+    if (end === undefined) return false;
+    events.push(warning(checkpoint, checkpoint.offset, 'Source record exceeds batch limit; body withheld'));
+    checkpoint.offset = end;
+    return true;
   }
 
   private checkHead(handle: Handle, saved: SourceCheckpoint | undefined, checkpoint: SourceCheckpoint, events: NewEvent[]): void {

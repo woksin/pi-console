@@ -151,6 +151,7 @@ function tailerOptions(feed: Feed, since: number, size: number): TailerOptions {
   return {
     roots: feed.trustRoot ? [feed.trustRoot] : undefined,
     batchBytes: size,
+    oversizedRecords: 'error',
     startOffset: seekBy ? (fd, size) => seekStart(fd, size, since, timeOfRow(seekBy)) : undefined,
     lineFilter: lineFilter ? line => line.includes(lineFilter) : undefined,
   };

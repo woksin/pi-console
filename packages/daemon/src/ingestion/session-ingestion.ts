@@ -4,7 +4,8 @@ import { discover, sessionTailer } from '@pi-console/adapters';
 import { yieldToLoop } from './yield-to-loop.ts';
 import { SourceRoot } from './source-root.ts';
 
-export interface SourceStatus { source: string; files: number; lagBytes: number; lastPollAt: string | null }
+export interface SourceStatus { source: string; files: number; lagBytes: number; lastPollAt: string | null; errors: number }
+interface FileStatus { lagBytes: number; errors: number }
 
 export interface IngestionOptions {
   /** Directories searched recursively for pi session JSONL files. */
@@ -25,6 +26,18 @@ const pollBudgetBytes = 1024 * 1024;
 /** Unchanged files cost a stat each; the loop is yielded to after this many of them in a row. */
 const skippedPerYield = 64;
 const oversizeRecord = (error: unknown): boolean => error instanceof Error && error.message.startsWith('Source record exceeds batch limit');
+
+/** Best-effort unread bytes after a failure; unknown sizes are represented by the error counter, not guessed. */
+function unreadBytes(path: string, saved: ReadonlyMap<string, SourceCheckpoint>): number {
+  try {
+    const stat = statSync(path);
+    const checkpoint = saved.get(`${stat.dev}:${stat.ino}:${stat.birthtimeMs}`);
+    const offset = checkpoint && stat.size >= checkpoint.size ? checkpoint.offset : 0;
+    return Math.max(0, stat.size - offset);
+  } catch {
+    return 0;
+  }
+}
 
 /**
  * True when the checkpoint already covers every byte of this exact file (same identity, size and mtime). Only metadata
@@ -49,7 +62,7 @@ export class SessionIngestion {
   readonly #roots: readonly SourceRoot[];
   readonly #files = new Set<string>();
   #timer: NodeJS.Timeout | undefined;
-  #status: SourceStatus = { source: 'session-jsonl', files: 0, lagBytes: 0, lastPollAt: null };
+  #status: SourceStatus = { source: 'session-jsonl', files: 0, lagBytes: 0, lastPollAt: null, errors: 0 };
   #polls = 0;
   #running: Promise<void> | undefined;
   #stopped = false;
@@ -85,7 +98,7 @@ export class SessionIngestion {
   async poll(): Promise<void> {
     const now = (this.#options.now ?? (() => new Date()))();
     const since = now.getTime() - this.#options.backfillWindowDays * 86_400_000;
-    let lagBytes = 0;
+    const totals: FileStatus = { lagBytes: 0, errors: 0 };
     try {
       const roots = this.#roots.flatMap(root => root.available() ?? []);
       const paths = roots.flatMap(root => discover(root, since));
@@ -93,26 +106,32 @@ export class SessionIngestion {
       let skipped = 0;
       for (const path of paths) {
         if (this.#stopped) break;
-        const lag = await this.#pollFile(path, saved);
-        if (lag !== undefined) lagBytes += lag;
-        if (lag !== undefined || ++skipped % skippedPerYield === 0) await yieldToLoop();
+        const status = await this.#pollFile(path, saved);
+        if (status !== undefined) {
+          totals.lagBytes += status.lagBytes;
+          totals.errors += status.errors;
+        }
+        if (status !== undefined || ++skipped % skippedPerYield === 0) await yieldToLoop();
       }
+    } catch (error) {
+      totals.errors++;
+      throw error;
     } finally {
       this.#polls++; // An unreadable directory is a finished attempt too: it must not hold the other sources back forever.
+      this.#status = { source: 'session-jsonl', files: this.#files.size, ...totals, lastPollAt: now.toISOString() };
     }
-    this.#status = { source: 'session-jsonl', files: this.#files.size, lagBytes, lastPollAt: now.toISOString() };
   }
 
-  /** Unread bytes left in the file, or `undefined` when it was skipped without being opened. */
-  async #pollFile(path: string, saved: ReadonlyMap<string, SourceCheckpoint>): Promise<number | undefined> {
+  /** Unread bytes and failures, or `undefined` when the file was already caught up without being opened. */
+  async #pollFile(path: string, saved: ReadonlyMap<string, SourceCheckpoint>): Promise<FileStatus | undefined> {
     try {
       if (caughtUp(path, saved)) {
         this.#files.add(path);
         return undefined;
       }
-      return await this.#tail(path);
+      return { lagBytes: await this.#tail(path), errors: 0 };
     } catch {
-      return 0;
+      return { lagBytes: unreadBytes(path, saved), errors: 1 };
     }
   }
 
@@ -127,9 +146,12 @@ export class SessionIngestion {
     }
   }
 
-  /** Reads up to the per-poll budget in batches (or until caught up or no longer progressing); returns the unread bytes. */
+  /** Reads up to the per-poll budget; oversized skips may scan further, yielding between bounded chunks. */
   async #tailBatches(path: string, size: number): Promise<number> {
-    const tailer = sessionTailer(this.#log, path, { roots: this.#roots.flatMap(root => root.available() ?? []), batchBytes: size });
+    const tailer = sessionTailer(this.#log, path, {
+      roots: this.#roots.flatMap(root => root.available() ?? []), batchBytes: size,
+      oversizedRecords: size < pollBudgetBytes ? 'error' : 'skip',
+    });
     this.#files.add(path);
     try {
       let lag = (await tailer.poll([path])).lagBytes;
