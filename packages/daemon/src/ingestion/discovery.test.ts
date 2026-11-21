@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { discoverFiles, discoverFilesSliced } from './source-table.ts';
+import { discoverFiles, discoverFilesSliced } from './discover-files.ts';
 
 const since = Date.parse('2026-05-01T00:00:00Z');
 

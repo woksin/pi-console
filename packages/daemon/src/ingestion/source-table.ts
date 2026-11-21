@@ -1,11 +1,7 @@
-import { existsSync, lstatSync, readdirSync, statSync } from 'node:fs';
-import { basename, join } from 'node:path';
-import { contextMapper, issueMapper, laneMapper, laneStatusMapper, orchMapper, pathDenied, phaseMapper, questionMapper, rosterMapper, type Mapper } from '@pi-console/adapters';
-import { yieldToLoop } from './yield-to-loop.ts';
+import { join } from 'node:path';
+import { contextMapper, issueMapper, laneMapper, laneStatusMapper, orchMapper, phaseMapper, questionMapper, rosterMapper, type Mapper } from '@pi-console/adapters';
 import { laneStatusJson } from './lane-status.ts';
 import type { SourceId } from './source-ids.ts';
-
-const day = 86_400_000;
 
 /** One directory family of a source: how its files are read and which mapper understands them. */
 export interface Feed {
@@ -68,56 +64,3 @@ export function sourceTable({ agentRoot, orchRoot, lanesRoot, laneStatusDir }: S
   ];
 }
 
-type Scope = Pick<Feed, 'extension' | 'recursive' | 'name' | 'window'>;
-
-/**
- * Files of the feed under `directory` that are inside the window `since`. Same boundary as the adapters' `discover`:
- * deny-listed names and symlinks (including the root) are skipped. A missing directory is empty; an unreadable one
- * throws. Only `mtime` windows stat a file.
- */
-export function discoverFiles(directory: string, feed: Scope, since: number): string[] {
-  return [...walk(directory, feed, since)].filter((path): path is string => path !== undefined).sort();
-}
-
-/** Yield even across empty/denied directories; no discovery slice intentionally exceeds 5 ms. */
-export async function discoverFilesSliced(directory: string, feed: Scope, since: number): Promise<string[]> {
-  const files: string[] = [];
-  let started = performance.now();
-  for (const path of walk(directory, feed, since)) {
-    if (path !== undefined) files.push(path);
-    if (performance.now() - started < 5) continue;
-    await yieldToLoop();
-    started = performance.now();
-  }
-  files.sort();
-  return files;
-}
-
-/** A real, existing, non-denied directory: a missing root is empty and a symlinked root is never followed. */
-function isReadableDirectory(directory: string): boolean {
-  return !pathDenied(directory) && existsSync(directory) && !lstatSync(directory).isSymbolicLink();
-}
-
-function* walk(directory: string, feed: Scope, since: number): Generator<string | undefined> {
-  if (!isReadableDirectory(directory)) return;
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
-    yield undefined;
-    const path = join(directory, entry.name);
-    if (pathDenied(path) || entry.isSymbolicLink()) continue;
-    if (entry.isDirectory()) {
-      if (feed.recursive !== false) yield* walk(path, feed, since);
-    } else if (entry.isFile() && wanted(path, feed, since)) yield path;
-  }
-}
-
-function wanted(path: string, feed: Scope, since: number): boolean {
-  if (!path.endsWith(feed.extension) || feed.name?.test(basename(path)) === false) return false;
-  return inWindow(path, feed.window ?? 'mtime', since);
-}
-
-function inWindow(path: string, window: NonNullable<Feed['window']>, since: number): boolean {
-  if (window === 'none') return true;
-  if (window === 'mtime') return statSync(path).mtimeMs >= since;
-  const named = Date.parse(basename(path).slice(0, 10));
-  return Number.isNaN(named) || named >= Math.floor(since / day) * day - day;
-}
