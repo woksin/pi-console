@@ -22,7 +22,7 @@ export interface Harness {
 export async function startHarness(size = { width: 140, height: 42 }, options: { rate?: number } = {}): Promise<Harness> {
   const directory = mkdtempSync(join(tmpdir(), 'pi-console-tui-'));
   const daemon = await startDaemon({ port: await freePort(), dataDirectory: directory, rate: options.rate });
-  palette.configure('truecolor', false);
+  palette.configure('truecolor', 'midnight');
   const runtime = connect({ baseUrl: `http://127.0.0.1:${String(daemon.port)}`, token: daemon.token, tokenSource: 'test' });
   const quit = { requested: false };
   const ui = await mountHeadless(h(App, {

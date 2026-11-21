@@ -6,7 +6,7 @@ import { Store } from './store/store.ts';
 import { App } from './app.ts';
 import { launch } from './view/renderer.ts';
 import type { WindowedCollection } from '@pi-console/viewmodels';
-import { detectDepth, palette } from './view/theme.ts';
+import { detectDepth, palette, themeFromEnv } from './view/theme.ts';
 
 export interface Runtime { store: Store; client: DaemonClient; stop: () => void }
 
@@ -42,7 +42,7 @@ export interface RunOptions { env?: NodeJS.ProcessEnv }
 export async function run(options: RunOptions = {}): Promise<number> {
   const env = options.env ?? process.env;
   const credentials = resolveCredentials(env);
-  palette.configure(detectDepth(env), env.PI_CONSOLE_HIGH_CONTRAST === '1');
+  palette.configure(detectDepth(env), themeFromEnv(env));
   const runtime = connect(credentials);
   const animate = env.PI_CONSOLE_REDUCED_MOTION !== '1' && env.NO_MOTION === undefined;
   const fixed = Date.parse(env.PI_CONSOLE_NOW ?? '');

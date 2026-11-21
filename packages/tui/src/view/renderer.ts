@@ -17,7 +17,7 @@ export interface Part { text: string; color?: Color; background?: Color; bold?: 
 export type Line = readonly Part[];
 
 const attributes = (part: Part): number =>
-  (part.bold ? TextAttributes.BOLD : 0) | (part.dim ? TextAttributes.DIM : 0) | (part.italic ? TextAttributes.ITALIC : 0) | (part.underline ? TextAttributes.UNDERLINE : 0);
+  (part.bold || (part.color !== undefined && palette.emphasised(part.color)) ? TextAttributes.BOLD : 0) | (part.dim ? TextAttributes.DIM : 0) | (part.italic ? TextAttributes.ITALIC : 0) | (part.underline ? TextAttributes.UNDERLINE : 0);
 
 function renderLine(line: Line, key: string | number, extra: object = {}): ReactElement {
   return element('text', { key, wrapMode: 'none', ...extra }, ...line.map((part, index) => element('span', {

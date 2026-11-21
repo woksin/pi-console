@@ -12,6 +12,7 @@ export * from './request-list/request-list.ts';
 export * from './questions/questions.ts';
 export * from './messages/messages.ts';
 export * from './settings/settings.ts';
+export * from './settings/theme-preview.ts';
 export * from './timeline/timeline.ts';
 export * from './timeline/ticks.ts';
 export * from './graph/graph.ts';

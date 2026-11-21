@@ -1,4 +1,4 @@
-import { themeColors, type ThemeToken } from '@pi-console/contract';
+import { accentTokens, monoOverrides, themeColors, type ThemeToken } from '@pi-console/contract';
 
 import { pressureColor } from '@pi-console/viewmodels';
 
@@ -26,16 +26,34 @@ export function detectDepth(env: NodeJS.ProcessEnv = process.env): ColorDepth {
   return (env.TERM ?? '').includes('256') ? '256' : '16';
 }
 
+export type TuiTheme = 'midnight' | 'contrast' | 'mono';
+export const tuiThemes: readonly TuiTheme[] = ['midnight', 'contrast', 'mono'];
+
+/** PI_CONSOLE_THEME wins; the older PI_CONSOLE_HIGH_CONTRAST=1 still means contrast, and NO_COLOR asks for mono. */
+export function themeFromEnv(env: NodeJS.ProcessEnv = process.env): TuiTheme {
+  const named = tuiThemes.find(theme => theme === env.PI_CONSOLE_THEME);
+  if (named) return named;
+  if (env.PI_CONSOLE_HIGH_CONTRAST === '1') return 'contrast';
+  return env.NO_COLOR ? 'mono' : 'midnight';
+}
+
+const colorsOf = (theme: TuiTheme): Record<ThemeToken, string> => (theme === 'mono' ? { ...monoOverrides } : themeColors(theme === 'contrast'));
+
 /** Module-level on purpose: set once at start-up, read by the renderer. */
 class Palette {
   private colors: Record<ThemeToken, string> = themeColors(false);
   private source: Record<ThemeToken, string> = themeColors(false);
   private depth: ColorDepth = 'truecolor';
-  configure(depth: ColorDepth, highContrast: boolean): void {
-    this.source = themeColors(highContrast);
+  private current: TuiTheme = 'midnight';
+  configure(depth: ColorDepth, theme: TuiTheme): void {
+    this.current = theme;
+    this.source = colorsOf(theme);
     this.depth = depth;
-    this.colors = Object.fromEntries(Object.entries(themeColors(highContrast)).map(([token, hex]) => [token, quantize(hex, depth)])) as Record<ThemeToken, string>;
+    this.colors = Object.fromEntries(Object.entries(this.source).map(([token, hex]) => [token, quantize(hex, depth)])) as Record<ThemeToken, string>;
   }
+  get theme(): TuiTheme { return this.current; }
+  /** Mono carries meaning by weight: text drawn in an accent token is bold. */
+  emphasised(token: Color): boolean { return this.current === 'mono' && accentTokens.includes(token as ThemeToken); }
   resolve(token: Color): string {
     if (!token.startsWith('pressure:')) return this.colors[token as ThemeToken];
     const color = pressureColor(Number(token.slice(9)), this.source);

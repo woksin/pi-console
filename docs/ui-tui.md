@@ -12,7 +12,7 @@ npm start -w @pi-console/tui                # the TUI, in another terminal
 node packages/cli/bin/pi-console.mjs tui    # the same through the CLI (adds --experimental-ffi in a child process)
 ```
 
-Needs Node 26 (the engine floor) because OpenTUI loads its native core through `node:ffi`. Connection settings, in order: `PI_CONSOLE_URL` (loopback HTTP only, default `http://127.0.0.1:4777`), `PI_CONSOLE_TOKEN`, `PI_CONSOLE_TOKEN_FILE`, `<PI_CONSOLE_DATA_DIR or ~/.pi-console>/token`. A token file readable by anyone but its owner is refused. `PI_CONSOLE_REDUCED_MOTION=1` turns spinners and pulses off; `PI_CONSOLE_HIGH_CONTRAST=1` uses the high-contrast tokens; colour depth follows `COLORTERM`/`TERM`.
+Needs Node 26 (the engine floor) because OpenTUI loads its native core through `node:ffi`. Connection settings, in order: `PI_CONSOLE_URL` (loopback HTTP only, default `http://127.0.0.1:4777`), `PI_CONSOLE_TOKEN`, `PI_CONSOLE_TOKEN_FILE`, `<PI_CONSOLE_DATA_DIR or ~/.pi-console>/token`. A token file readable by anyone but its owner is refused. `PI_CONSOLE_REDUCED_MOTION=1` turns spinners and pulses off; `PI_CONSOLE_THEME=midnight|contrast|mono` picks the theme (`PI_CONSOLE_HIGH_CONTRAST=1` still means contrast, and `NO_COLOR` means mono: greys only, with meaning carried by glyphs and bold; Settings shows a preview); colour depth follows `COLORTERM`/`TERM`.
 
 ## Views
 

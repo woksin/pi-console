@@ -12,15 +12,15 @@ import { startHarness, type Harness } from './testing/harness.ts';
 test('web gradient and true-colour terminal use the same ramp at 51%, with threshold ticks and band fallbacks', () => {
   for (const highContrast of [false, true]) {
     const colors = themeColors(highContrast);
-    palette.configure('truecolor', highContrast);
+    palette.configure('truecolor', highContrast ? 'contrast' : 'midnight');
     assert.equal(palette.resolve('pressure:51'), pressureColor(51, colors));
     assert.ok(pressureGradient(colors).includes(`${palette.resolve('pressure:51')} 51%`));
     for (const depth of ['256', '16'] as const) {
-      palette.configure(depth, highContrast);
+      palette.configure(depth, highContrast ? 'contrast' : 'midnight');
       assert.ok([colors.green, colors.amber, colors.red].map(color => quantize(color, depth)).includes(palette.resolve('pressure:51')));
     }
   }
-  palette.configure('truecolor', false);
+  palette.configure('truecolor', 'midnight');
   const bar = pressureBar(100, 101);
   assert.equal(bar[51].color, 'pressure:51');
   assert.equal(bar[60].text, '│');

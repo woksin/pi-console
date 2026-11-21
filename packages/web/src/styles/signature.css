@@ -76,3 +76,13 @@
 .first-run ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .first-run li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; align-items: start; color: var(--text); }
 .first-run-glyph { color: var(--tone, var(--muted)); font-weight: 700; text-align: center; }
+
+/* Theme preview cards in Settings: each card sets its own tokens, so it shows the theme it would apply. */
+.theme-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.theme-card { display: grid; gap: 6px; text-align: left; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--panel); color: var(--text); font: inherit; cursor: pointer; }
+.theme-card[aria-pressed="true"] { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.theme-card:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.theme-card-name { font-weight: 600; }
+.theme-card-statuses, .theme-card-text { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: var(--type-caption); align-items: center; }
+.theme-card-statuses > span { color: var(--tone); } .theme-card .text { color: var(--text); }
+.theme-card-ramp { display: inline-block; width: 72px; height: 8px; border-radius: 4px; background: var(--pressure-gradient); }

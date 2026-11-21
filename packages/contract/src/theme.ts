@@ -21,6 +21,16 @@ export const highContrastOverrides: Partial<Record<ThemeToken, string>> = {
   bg: '#000000', panel: '#000000', text: '#ffffff', muted: '#c0c0c0', border: '#819cff',
 };
 
+/** Accent tokens: in the mono theme they all collapse to one grey, so meaning rests on glyphs and weight. */
+export const accentTokens: readonly ThemeToken[] = ['cyan', 'blue', 'amber', 'green', 'red', 'orange', 'violet', 'pink'];
+
+/** Mono (information architecture §8): greys only; every foreground stays ≥ 4.5:1 on every surface. */
+export const monoOverrides: Record<ThemeToken, string> = {
+  ...Object.fromEntries(accentTokens.map(token => [token, '#f2f2f2'])) as Record<ThemeToken, string>,
+  bg: '#0d0d0d', panel: '#141414', raised: '#1e1e1e', border: '#3a3a3a', 'border-strong': '#7a7a7a', 'hot-text': '#0d0d0d',
+  text: '#e6e6e6', muted: '#a6a6a6', faint: '#9a9a9a', select: '#303030', flash: '#2a2a2a',
+};
+
 export function themeColors(highContrast = false): Record<ThemeToken, string> {
   return { ...themeTokens, ...(highContrast ? highContrastOverrides : {}) };
 }

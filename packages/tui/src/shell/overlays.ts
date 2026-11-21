@@ -1,9 +1,9 @@
-import { keyLabel, keymapGroups, pad, paletteScopes, paletteView, settingsViewModel, wrap, type KeymapGroup, type PaletteItem, type PaletteView, type SettingsInput, type SettingsRow, type Tone } from '@pi-console/viewmodels';
+import { keyLabel, keymapGroups, pad, paletteScopes, paletteView, settingsViewModel, themePreview, wrap, type KeymapGroup, type PaletteItem, type PaletteView, type SettingsInput, type SettingsRow, type Tone } from '@pi-console/viewmodels';
 import { Column, Lines, Overlay, Panel, Row, h, type Line, type Part } from '../view/renderer.ts';
 import { blank, fit, gap, heading, rule, selectable, split, t, windowOf } from '../view/parts.ts';
 import type { Data } from '../store/store.ts';
 import type { UiState } from '../state/ui.ts';
-import type { Color } from '../view/theme.ts';
+import { palette, type Color } from '../view/theme.ts';
 
 const frame = (width: number, height: number, wanted: { width: number; height: number }) => {
   const w = Math.min(wanted.width, width - 2), tall = Math.min(wanted.height, height - 2);
@@ -73,9 +73,19 @@ export function Help(props: { width: number; height: number }) {
 const tone: Record<Tone, Color> = { good: 'green', warn: 'amber', bad: 'red', plain: 'text' };
 const section = (title: string, rows: SettingsRow[]): Line[] => [heading(title), ...rows.map((row): Line => [t(row.label.padEnd(18), 'muted'), t(row.value, tone[row.tone])]), blank];
 
+/** The same samples the web Settings shows, in the theme this terminal is drawing with. */
+function themeLines(): Line[] {
+  const preview = themePreview();
+  return [heading('Theme'),
+    [t('Theme'.padEnd(18), 'muted'), t(palette.theme, 'text', { bold: true }), t('  PI_CONSOLE_THEME=midnight|contrast|mono', 'faint')],
+    preview.statuses.flatMap((sample, index) => [...(index ? [t('  ')] : []), t(sample.text, sample.color)]),
+    [...preview.text.flatMap(sample => [t(sample.text, sample.color), t('  ')]), ...preview.ramp.map(value => t('██', `pressure:${value}` as const)), t(' context ramp', 'faint')],
+    blank];
+}
+
 export function Settings(props: { input: SettingsInput; width: number; height: number }) {
-  const box = frame(props.width, props.height, { width: 76, height: 22 });
+  const box = frame(props.width, props.height, { width: 76, height: 27 });
   const model = settingsViewModel(props.input);
-  const lines = [...section('Health', model.health), ...section('Data', model.data), ...section('Sources', model.sources)];
+  const lines = [...section('Health', model.health), ...section('Data', model.data), ...section('Sources', model.sources), ...themeLines()];
   return h(Overlay, box, h(Panel, { title: 'Settings', right: 'esc closes', focused: true, grow: 1, background: 'raised' }, h(Lines, { lines, grow: 1 })));
 }
