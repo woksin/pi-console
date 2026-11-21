@@ -18,6 +18,32 @@ function watchErrors(page: Page): string[] {
 const connection = (page: Page): Promise<string | null> => page.locator('.conn').getAttribute('data-connection');
 
 describe('web console e2e', () => {
+  test('P1 type scale stays readable and contained at desktop and narrow desktop widths', async () => {
+    for (const width of [1280, 1100]) {
+      for (const view of ['overview', 'requests', 'fleet']) {
+        const page = await rig.open(`/${view}`, { width, height: 800 });
+        try {
+          await page.locator('.conn[data-connection="live"]').waitFor();
+          await page.locator('h1').first().waitFor();
+          const layout = await page.evaluate(() => {
+            const title = document.querySelector('h1');
+            const hero = document.querySelector('.hero-title');
+            return {
+              body: getComputedStyle(document.body).fontSize,
+              title: title ? getComputedStyle(title).fontSize : null,
+              hero: hero ? getComputedStyle(hero).fontSize : null,
+              overflow: document.documentElement.scrollWidth > window.innerWidth,
+            };
+          });
+          assert.equal(layout.body, '14px');
+          assert.ok(layout.title === '14px' || layout.title === '20px', 'breadcrumb or page title uses the shared scale');
+          if (layout.hero) assert.equal(layout.hero, '20px');
+          assert.equal(layout.overflow, false, `${view} at ${String(width)}px`);
+        } finally { await page.context().close(); }
+      }
+    }
+  });
+
   test('loads with the launch-link token, shows the fleet live, and scrubs the token from the URL', async () => {
     const page = await rig.open('/fleet');
     const errors = watchErrors(page);
