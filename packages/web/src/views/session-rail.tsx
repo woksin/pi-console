@@ -17,7 +17,7 @@ const sparkOf = (glyphs: string): number[] => Array.from(glyphs, glyph => '‚ñÅ‚ñ
 export function SessionRail({ view }: { view: SessionViewModel }) {
   return (
     <aside className="rail" aria-label="Session details">
-      <Panel title="Context"><PressureBar percent={view.context.percent} pressure={view.context.pressure} /><Sparkline values={sparkOf(view.context.spark)} width={240} height={40} fill label="Context over time" /></Panel>
+      <Panel title="Context"><PressureBar percent={view.context.percent} pressure={view.context.pressure} /><Sparkline values={sparkOf(view.context.spark)} marks={view.context.resetMarks} width={240} height={40} fill label={view.context.resetMarks.length > 0 ? `Context over time, ${String(view.context.resetMarks.length)} reset ticks` : 'Context over time'} /></Panel>
       <Panel title="Requests" aside={view.requests.length}>
         <ul className="mini-list stacked">{view.requests.map(request => <li key={request.id}><StatusBadge cell={request.status} compact /><span className="truncate" title={request.text}>{request.text}</span></li>)}</ul>
         {view.requests.length === 0 && <span className="faint">None observed</span>}

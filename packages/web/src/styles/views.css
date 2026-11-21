@@ -130,7 +130,16 @@
 .kind-thinking { --tone: var(--muted); }
 .kind-thinking .ttext { color: var(--muted); }
 .kind-user .ttext, .kind-assistant .ttext { font-family: var(--sans); font-size: var(--type-body); }
-.reset-marker { display: flex; justify-content: space-between; align-items: center; margin: 8px 14px; padding: 6px 12px; border: 1px dashed var(--amber); border-radius: 6px; color: var(--amber); background: color-mix(in oklab, var(--amber) 8%, transparent); }
+.reset-marker { margin: var(--space-3) 14px; padding: var(--space-2) var(--space-3); border: 1px solid color-mix(in oklab, var(--pink) 45%, var(--border)); border-left: 3px solid var(--pink); border-radius: 6px; background: color-mix(in oklab, var(--pink) 7%, transparent); }
+.reset-rule { display: flex; align-items: center; gap: var(--space-3); color: var(--pink); }
+.reset-rule::after { content: ""; flex: 1; order: 1; border-top: 1px dashed color-mix(in oklab, var(--pink) 55%, transparent); }
+.reset-rule time { order: 2; color: var(--muted); font-variant-numeric: tabular-nums; }
+.reset-title { font-weight: 650; letter-spacing: 0.01em; }
+.reset-note { margin: var(--space-1) 0 0; color: var(--muted); }
+.reset-lists { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px var(--space-3); margin: var(--space-2) 0 0; font-size: var(--type-caption); }
+.reset-list { display: contents; }
+.reset-list dt { grid-column: 1; color: var(--muted); }
+.reset-list dd { grid-column: 2; margin: 0; overflow: hidden; color: var(--text); text-overflow: ellipsis; white-space: nowrap; }
 .session .rail { overflow: auto; max-height: calc(100vh - 150px); }
 
 /* Empty, token, overlays */
@@ -143,8 +152,6 @@
 .dialog.token input { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
 .dialog.token input:focus { border-color: var(--cyan); outline: none; box-shadow: var(--focus); }
 .dialog.token input[aria-invalid='true'] { border-color: var(--red); }
-.pal-group { color: var(--faint); font-size: var(--type-caption); text-transform: uppercase; width: 64px; }
-.pal-empty { cursor: default; } .palette li { align-items: center; gap: 10px; }
 .help { width: min(920px, 94vw); padding: 18px 22px; max-height: 76vh; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
 .help-head { display: flex; justify-content: space-between; align-items: center; }
 .help-list { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; }

@@ -16,7 +16,10 @@
   "context": {
     "percent": 51,
     "pressure": "calm",
-    "spark": "█▅▄▆▇▂▄▄▄▄▄▆▇▅▂▅▄▇▇▆▆▅▆▅"
+    "spark": "█▅▄▆▇▂▄▄▄▄▄▆▇▅▂▅▄▇▇▆▆▅▆▅",
+    "resetMarks": [
+      0
+    ]
   },
   "requests": [
     {
@@ -144,6 +147,7 @@
       "text": "Inspect the synthetic queue and propose a bounded retry policy.",
       "requestId": "r1",
       "resetId": null,
+      "reset": null,
       "tool": null
     },
     {
@@ -159,6 +163,7 @@
       "text": "I will compare the checkpoint boundaries before changing the queue.",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": null
     },
     {
@@ -174,6 +179,7 @@
       "text": "A bounded queue keeps the retry budget predictable. ",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": null
     },
     {
@@ -189,6 +195,7 @@
       "text": "read src/queue.ts",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": {
         "name": "read",
         "args": "src/queue.ts",
@@ -210,6 +217,7 @@
       "text": "export const retryLimit = 3; // synthetic example",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": {
         "name": "read",
         "args": "src/queue.ts",
@@ -231,6 +239,7 @@
       "text": "--- a/src/queue.ts\n+++ b/src/queue.ts\n@@ -1 +1 @@\n-export const retryLimit = 3;\n+export const retryLimit = 4;",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": null
     },
     {
@@ -246,6 +255,7 @@
       "text": "The retry budget is bounded; the focused checks pass.",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": null
     },
     {
@@ -261,6 +271,7 @@
       "text": "Inspect the synthetic queue and propose a bounded retry policy.",
       "requestId": "r2",
       "resetId": null,
+      "reset": null,
       "tool": null
     },
     {
@@ -276,6 +287,7 @@
       "text": "I will compare the checkpoint boundaries before changing the queue.",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": null
     },
     {
@@ -291,6 +303,7 @@
       "text": "A bounded queue keeps the retry budget predictable. ",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": null
     },
     {
@@ -306,6 +319,7 @@
       "text": "read src/queue.ts",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": {
         "name": "read",
         "args": "src/queue.ts",
@@ -327,6 +341,7 @@
       "text": "export const retryLimit = 3; // synthetic example",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": {
         "name": "read",
         "args": "src/queue.ts",
@@ -348,6 +363,7 @@
       "text": "--- a/src/queue.ts\n+++ b/src/queue.ts\n@@ -1 +1 @@\n-export const retryLimit = 3;\n+export const retryLimit = 4;",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": null
     },
     {
@@ -363,6 +379,7 @@
       "text": "The retry budget is bounded; the focused checks pass.",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": null
     },
     {
@@ -378,6 +395,7 @@
       "text": "Inspect the synthetic queue and propose a bounded retry policy.",
       "requestId": "r3",
       "resetId": null,
+      "reset": null,
       "tool": null
     },
     {
@@ -393,6 +411,7 @@
       "text": "I will compare the checkpoint boundaries before changing the queue.",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": null
     },
     {
@@ -408,6 +427,7 @@
       "text": "A bounded queue keeps the retry budget predictable. ",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": null
     },
     {
@@ -423,6 +443,7 @@
       "text": "read src/queue.ts",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": {
         "name": "read",
         "args": "src/queue.ts",
@@ -444,6 +465,7 @@
       "text": "export const retryLimit = 3; // synthetic example",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": {
         "name": "read",
         "args": "src/queue.ts",
@@ -465,6 +487,7 @@
       "text": "--- a/src/queue.ts\n+++ b/src/queue.ts\n@@ -1 +1 @@\n-export const retryLimit = 3;\n+export const retryLimit = 4;",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": null
     },
     {
@@ -480,6 +503,7 @@
       "text": "The retry budget is bounded; the focused checks pass.",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": null
     },
     {
@@ -495,6 +519,7 @@
       "text": "Inspect the synthetic queue and propose a bounded retry policy.",
       "requestId": "r1",
       "resetId": null,
+      "reset": null,
       "tool": null
     },
     {
@@ -510,6 +535,7 @@
       "text": "I will compare the checkpoint boundaries before changing the queue.",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": null
     },
     {
@@ -525,6 +551,7 @@
       "text": "A bounded queue keeps the retry budget predictable. ",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": null
     },
     {
@@ -540,6 +567,7 @@
       "text": "read src/queue.ts",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": {
         "name": "read",
         "args": "src/queue.ts",
@@ -561,6 +589,7 @@
       "text": "export const retryLimit = 3; // synthetic example",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": {
         "name": "read",
         "args": "src/queue.ts",
@@ -582,6 +611,7 @@
       "text": "--- a/src/queue.ts\n+++ b/src/queue.ts\n@@ -1 +1 @@\n-export const retryLimit = 3;\n+export const retryLimit = 4;",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": null
     },
     {
@@ -597,6 +627,7 @@
       "text": "The retry budget is bounded; the focused checks pass.",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": null
     },
     {
@@ -612,6 +643,7 @@
       "text": "Inspect the synthetic queue and propose a bounded retry policy.",
       "requestId": "r2",
       "resetId": null,
+      "reset": null,
       "tool": null
     },
     {
@@ -627,6 +659,7 @@
       "text": "I will compare the checkpoint boundaries before changing the queue.",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": null
     },
     {
@@ -642,6 +675,7 @@
       "text": "A bounded queue keeps the retry budget predictable. ",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": null
     },
     {
@@ -657,6 +691,7 @@
       "text": "read src/queue.ts",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": {
         "name": "read",
         "args": "src/queue.ts",
@@ -678,6 +713,7 @@
       "text": "export const retryLimit = 3; // synthetic example",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": {
         "name": "read",
         "args": "src/queue.ts",
@@ -699,6 +735,7 @@
       "text": "--- a/src/queue.ts\n+++ b/src/queue.ts\n@@ -1 +1 @@\n-export const retryLimit = 3;\n+export const retryLimit = 4;",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": null
     },
     {
@@ -714,6 +751,7 @@
       "text": "The retry budget is bounded; the focused checks pass.",
       "requestId": null,
       "resetId": null,
+      "reset": null,
       "tool": null
     }
   ]

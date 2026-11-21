@@ -1,4 +1,4 @@
-import { glyphs, clip, memoryPanelViewModel, sessionViewModel, wrap, type SessionViewModel, type TranscriptLine } from '@pi-console/viewmodels';
+import { glyphs, clip, memoryPanelViewModel, sessionViewModel, wrap, type ResetRequest, type SessionViewModel, type TranscriptLine } from '@pi-console/viewmodels';
 import { Column, Lines, Panel, Row, h, type Line, type Part } from '../view/renderer.ts';
 import type { Color } from '../view/theme.ts';
 import { pressureBar, blank, fit, pressureTone, rule, split, statusParts, t } from '../view/parts.ts';
@@ -33,11 +33,30 @@ function toolLine(entry: TranscriptLine & { tool: NonNullable<TranscriptLine['to
   return [stamp, t(`${glyphs.tool} `, 'cyan'), t(entry.tool.name, 'cyan', { bold: true }), t(' ' + clip(entry.tool.args, Math.max(4, body - entry.tool.name.length - 1)), 'muted')];
 }
 
+/** The last `cells` samples of the context sparkline; a sample with a reset tick is drawn pink. */
+function contextSpark(context: SessionViewModel['context'], cells: number): Part[] {
+  const start = Math.max(0, context.spark.length - cells);
+  const marks = new Set(context.resetMarks);
+  return Array.from(context.spark.slice(start), (cell, index) => t(cell, marks.has(start + index) ? 'pink' : 'faint', marks.has(start + index) ? { bold: true } : {}));
+}
+
+/** A request list under a reset rule: `carried  r1 Compare the queue…`, one request per line. */
+const resetRequestLines = (label: string, requests: readonly ResetRequest[], width: number): Line[] => requests.map((request, index): Line =>
+  [t(' '.repeat(10)), t('┊ ', 'pink'), t((index === 0 ? label : '').padEnd(12), 'muted'), t(`${request.id} `, 'faint'), t(clip(request.text, Math.max(4, width - 26 - request.id.length)), 'text')]);
+
+/** The `⟲` divider: a bold pink rule naming the kind and counts, then what was carried over and what was interrupted. */
+function resetDividerLines(entry: TranscriptLine, stamp: Part, width: number): Line[] {
+  const title = entry.reset ? entry.reset.summary : `reset · ${entry.text}`;
+  const head: Line = [stamp, ...rule(width - 9, `${glyphs.reset} ${title}`, 'pink').map(part => ({ ...part, bold: true }))];
+  if (!entry.reset) return [head];
+  return [head, ...resetRequestLines('carried', entry.reset.carried, width), ...resetRequestLines('interrupted', entry.reset.interrupted, width), [t('')]];
+}
+
 /** Turns one transcript entry into display lines for a column `width` cells wide. */
 export function renderEntry(entry: TranscriptLine, width: number): Line[] {
   const stamp = t(`${entry.time} `, 'faint');
   const body = width - 12;
-  if (entry.kind === 'reset') return [[stamp, ...rule(width - 9, `${glyphs.reset} reset · ${entry.text}`, 'pink').map(part => ({ ...part, bold: true }))]];
+  if (entry.kind === 'reset') return resetDividerLines(entry, stamp, width);
   if (entry.kind === 'tool' && entry.tool) return [toolLine({ ...entry, tool: entry.tool }, stamp, body)];
   const lines = bodyLines(entry, stamp, body);
   if (entry.streaming && lines.length > 0) lines[lines.length - 1] = [...lines[lines.length - 1], t(' ▍', 'cyan')];
@@ -75,7 +94,7 @@ function transcriptLines(env: Env, model: SessionViewModel, key: unknown, width:
 function header(model: SessionViewModel, width: number, phase: number): Line[] {
   return [
     split([...statusParts(model.status, phase), t('  '), t(model.title, 'text', { bold: true })], [t(`updated ${model.age} ago`, 'faint')], width),
-    fit([t(`${model.role} · `, 'muted'), t(model.branch, 'violet'), t(` · ${model.model} · `, 'muted'), t(model.cost, 'text'), t('  ctx ', 'muted'), ...pressureBar(model.context.percent, 14), t(` ${String(model.context.percent)}% `, pressureTone(model.context.pressure)), t(model.context.spark.slice(-16), 'faint')], width),
+    fit([t(`${model.role} · `, 'muted'), t(model.branch, 'violet'), t(` · ${model.model} · `, 'muted'), t(model.cost, 'text'), t('  ctx ', 'muted'), ...pressureBar(model.context.percent, 14), t(` ${String(model.context.percent)}% `, pressureTone(model.context.pressure)), ...contextSpark(model.context, 16)], width),
   ];
 }
 

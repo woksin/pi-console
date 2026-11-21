@@ -123,3 +123,13 @@ for (const width of [80, 132]) {
     } finally { await narrow.stop(); }
   });
 }
+
+test('a reset divider names its kind and counts, then lists what it carried over and interrupted', () => {
+  const [line] = transcriptLines([{ id: 'x', sessionId: 's', cursor: 1, at: '2026-11-20T09:00:18Z', kind: 'reset', text: 'Handoff', toolCallId: null, resetId: 'reset1', requestId: null, toolResult: null }]);
+  const reset = { kind: 'handoff' as const, summary: 'handoff · 2 carried · 1 interrupted', carried: [{ id: 'r1', text: 'Compare' }, { id: 'r2', text: 'Write' }], interrupted: [{ id: 'r1', text: 'Compare' }] };
+  const text = renderEntry({ ...line, reset }, 100).map(parts => parts.map(part => part.text).join(''));
+  assert.match(text[0], /09:00:18 .*⟲ handoff · 2 carried · 1 interrupted/);
+  assert.match(text[1], /carried\s+r1 Compare/);
+  assert.match(text[2], /^\s+┊\s+r2 Write/);
+  assert.match(text[3], /interrupted\s+r1 Compare/);
+});

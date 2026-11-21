@@ -1,4 +1,4 @@
-import { glyphs, type TranscriptLine } from '@pi-console/viewmodels';
+import { glyphs, type ResetRequest, type TranscriptLine } from '@pi-console/viewmodels';
 import { useListNav } from '../app/hooks.ts';
 import { focusKey } from './transcript-jump.ts';
 import { useTranscriptScroll } from './transcript-scroll.ts';
@@ -33,8 +33,25 @@ function LineMeta({ line }: { line: TranscriptLine }) {
   );
 }
 
+function ResetRequests({ label, requests }: { label: string; requests: readonly ResetRequest[] }) {
+  if (requests.length === 0) return null;
+  return <div className="reset-list"><dt>{label}</dt>{requests.map(request => <dd key={request.id} title={request.text}><span className="mono faint">{request.id}</span> {request.text}</dd>)}</div>;
+}
+
+/** The inline `⟲` divider: kind and counts on the rule, then what was carried over and what was interrupted. */
+function ResetDividerLine({ line }: { line: TranscriptLine }) {
+  const { reset } = line;
+  return (
+    <div id={`line-${line.key}`} className="reset-marker" role="separator" aria-label={`Context reset at ${line.time}: ${reset?.summary ?? line.text}`}>
+      <div className="reset-rule"><span className="reset-title">{glyphs.reset} {reset ? reset.summary : line.text || 'context reset'}</span><time>{line.time}</time></div>
+      {reset && line.text && <p className="reset-note">{line.text}</p>}
+      {reset && <dl className="reset-lists"><ResetRequests label="Carried over" requests={reset.carried} /><ResetRequests label="Interrupted" requests={reset.interrupted} /></dl>}
+    </div>
+  );
+}
+
 function Line({ line, selected, focused, onSelect }: { line: TranscriptLine; selected: boolean; focused: boolean; onSelect: () => void }) {
-  if (line.kind === 'reset') return <div id={`line-${line.key}`} className="reset-marker" role="separator"><span>{glyphs.reset} {line.text || 'context reset'}</span><time>{line.time}</time></div>;
+  if (line.kind === 'reset') return <ResetDividerLine line={line} />;
   return (
     <div id={`line-${line.key}`} className={`tline kind-${line.kind} tone-${line.color}${selected ? ' selected' : ''}${focused ? ' target' : ''}${line.streaming ? ' streaming' : ''}`} onClick={onSelect} data-kind={line.kind}>
       <span className="tglyph" aria-hidden="true">{glyphs[line.kind]}</span>
