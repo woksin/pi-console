@@ -41,10 +41,17 @@ async function terminal(rig: Rig, options: { cols: number; rows: number; theme?:
 
 const finish = async (term: Terminal): Promise<void> => { term.pty.kill(); await term.page.context().close(); };
 
-/** Opens the first session and searches for its reset divider, so the divider and its carried/interrupted lists are on screen. */
+/** Selects the reset-bearing session by name, never by an ingestion-order-dependent fleet cursor. */
+async function openSession(pty: Pty): Promise<void> {
+  pty.send(':'); await pty.waitFor('Command palette');
+  pty.send('@aurora implementation'); await pty.waitFor(/\b1 of \d+/);
+  pty.send('\r'); await pty.waitFor('aurora / L192 / aurora implementation');
+  await pty.waitFor('following tail');
+}
+
+/** Searches for the reset divider so its carried/interrupted lists are on screen. */
 async function openSessionAtReset(pty: Pty): Promise<void> {
-  pty.send('2'); await pty.waitFor('Fleet');
-  pty.send('jj\r'); await pty.waitFor('following tail');
+  await openSession(pty);
   pty.send('/'); await pause(250);
   pty.send('handoff\r'); await pty.waitFor('⟲ handoff');
 }
@@ -81,16 +88,16 @@ async function tourGif(rig: Rig, work: Work): Promise<void> {
   const { pty } = term;
   const frames = new FrameSet(work, 'tui-tour');
   const hold = async (ms: number): Promise<void> => { frames.add(await snap(term, 'pi-console TUI tour'), ms); };
-  await hold(1600);
-  pty.send('2'); await pty.waitFor('Fleet'); await hold(1600);
-  pty.send('jj\r'); await pty.waitFor('following tail'); await hold(1400);
-  pty.send('/'); await pause(250); pty.send('handoff\r'); await pty.waitFor('⟲ handoff'); await hold(2000);
+  await hold(900);
+  pty.send('2'); await pty.waitFor('Fleet'); await hold(900);
+  await openSession(pty); await hold(900);
+  pty.send('/'); await pause(250); pty.send('handoff\r'); await pty.waitFor('⟲ handoff'); await hold(1400);
   pty.send('\u001b'); await pause(300);
-  pty.send(ctrlP); await pause(300); await hold(900);
-  for (const letter of 'aur') { pty.send(letter); await hold(450); }
-  await hold(1200);
+  pty.send(ctrlP); await pause(300); await hold(500);
+  for (const letter of 'aur') { pty.send(letter); await hold(200); }
+  await hold(800);
   pty.send('\u001b'); await pause(300);
-  pty.send('6'); await pty.waitFor('Timeline'); await hold(1800);
+  pty.send('6'); await pty.waitFor('Timeline'); await hold(1400);
   frames.finish();
   await finish(term);
 }

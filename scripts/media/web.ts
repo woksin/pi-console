@@ -26,9 +26,29 @@ async function openConsole(rig: Rig, options: { theme: Theme; scale: number; rou
   return page;
 }
 
-const settle = async (page: Page): Promise<void> => { await page.waitForTimeout(600); };
+const settle = async (page: Page): Promise<void> => {
+  await page.waitForTimeout(600);
+  await page.evaluate(async () => {
+    await document.fonts.ready;
+    await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+  });
+};
 const go = async (page: Page, route: string): Promise<void> => { await page.evaluate(hash => { location.hash = hash; }, route); await settle(page); };
 const png = (page: Page): Promise<Buffer> => page.screenshot({ animations: 'disabled' });
+
+/** Pin the tail after fonts/layout settle, rather than recording a race with React's initial scrollIntoView effect. */
+async function showTranscriptTail(page: Page): Promise<void> {
+  await page.locator('.transcript .tline').last().waitFor();
+  await page.evaluate(() => {
+    const pane = document.querySelector('.transcript');
+    if (pane) pane.scrollTop = pane.scrollHeight;
+    window.scrollTo(0, 0);
+  });
+  await page.waitForFunction(() => {
+    const pane = document.querySelector('.transcript');
+    return pane && Math.abs(pane.scrollHeight - pane.clientHeight - pane.scrollTop) < 1 && window.scrollY === 0;
+  });
+}
 
 /** Scrolls the transcript so the first ⟲ reset divider sits in the middle of the pane, then lets the layout settle. */
 async function showResetDivider(page: Page): Promise<void> {
@@ -85,6 +105,7 @@ async function paletteGif(rig: Rig, work: Work): Promise<void> {
   frames.add(await png(page), 1400);
   await page.keyboard.press('Enter');
   await settle(page);
+  await showTranscriptTail(page);
   frames.add(await png(page), 1800);
   frames.finish();
   await page.context().close();
@@ -98,6 +119,7 @@ async function tourGif(rig: Rig, work: Work): Promise<void> {
   await settle(page);
   frames.add(await png(page), 1500);
   await go(page, '/session/s2');
+  await showTranscriptTail(page);
   frames.add(await png(page), 1000);
   await showResetDivider(page);
   frames.add(await png(page), 2000);

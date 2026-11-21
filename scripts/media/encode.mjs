@@ -1,6 +1,6 @@
 // Encoding: ffmpeg for scaling and GIFs, cwebp for stills. Flags are chosen so the same frames always give the same bytes.
 import { spawnSync } from 'node:child_process';
-import { rmSync } from 'node:fs';
+import { readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 
 const bitexact = ['-fflags', '+bitexact', '-flags', '+bitexact', '-map_metadata', '-1'];
@@ -25,5 +25,8 @@ export function encodeStill(png, out, width, quality = 84) {
 /** A frames.txt concat list -> a GIF with one shared 96-colour palette, bayer dithering and rectangle diffs. */
 export function encodeGif(frameDir, out, width, fps, colors = 96) {
   const filter = `fps=${String(fps)},scale=${String(width)}:-2:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff:max_colors=${String(colors)}[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle`;
-  run('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', join(frameDir, 'frames.txt'), '-filter_complex', filter, ...bitexact, '-loop', '0', out]);
+  const manifest = join(frameDir, 'frames.txt');
+  const duration = [...readFileSync(manifest, 'utf8').matchAll(/^duration (\d+\.\d+)$/gm)].reduce((total, match) => total + Number(match[1]), 0);
+  // The concat sentinel can inherit the previous hold; end at the scripted duration, not that padding.
+  run('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', manifest, '-filter_complex', filter, ...bitexact, '-t', String(duration), '-loop', '0', out]);
 }
