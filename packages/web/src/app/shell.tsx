@@ -2,6 +2,7 @@ import type { Session } from '@pi-console/contract';
 import { clock, sanitize, statusCell } from '@pi-console/viewmodels';
 import type { ConsoleState } from '../state/state.ts';
 import { Kbd, StatusBadge } from '../ui/primitives.tsx';
+import { FleetPulse } from './pulse.tsx';
 import { hrefFor, sectionIds, sectionMeta, type SectionId } from './routes.ts';
 
 interface SidebarProps { active: SectionId | null; settings: boolean; attention: number; questions: number; collapsed: boolean; onCollapse: () => void }
@@ -45,6 +46,7 @@ export function TopBar({ title, hint, state, wall, session, onPalette, onHelp }:
       {session && <StatusBadge cell={statusCell(session.status)} />}
       {hint && <span className="muted">{hint}</span>}
       <span className="grow" />
+      <FleetPulse sessions={state.sessions} needsYou={state.needsYou.length} />
       {staleData(state, wall) && <time className="stale-asof muted" dateTime={new Date(state.lastFrameAt).toISOString()}>As of {clock(new Date(state.lastFrameAt).toISOString())}</time>}
       <span className={`conn tone-${connectionTone[state.connection]}`} role="status" data-connection={state.connection}><span className="dot" />{state.connection}</span>
       <button type="button" className="btn ghost" onClick={onPalette}>Palette <Kbd>:</Kbd></button>

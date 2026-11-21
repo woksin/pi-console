@@ -1,11 +1,11 @@
-import { useEffect, useRef, useState, useSyncExternalStore, type ReactElement } from 'react';
-import { paletteItems, rememberPick, type Action, type PaletteInput, type WindowedCollection } from '@pi-console/viewmodels';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactElement } from 'react';
+import { paletteItems, pulseViewModel, rememberPick, type Action, type PaletteInput, type WindowedCollection } from '@pi-console/viewmodels';
 import { Column, Screen, Text, h, useClipboard, useKeys, useSize, useTerminalTitle, useTick } from './view/renderer.ts';
 import type { Store } from './store/store.ts';
 import { commit, handleKey, initial, reduce, typing, type Bounds, type Section, type UiState } from './state/ui.ts';
 import { emptyLayout, resumeTranscript, transcriptViewport } from './state/transcript-window.ts';
 import { neutralKey, typedCharacter, type KeyInput } from './state/keys.ts';
-import { Header, banner, footerLine, terminalTitle } from './shell/chrome.ts';
+import { Header, banner, footerLine, pulseLine, terminalTitle } from './shell/chrome.ts';
 import { Help, Palette, Settings } from './shell/overlays.ts';
 import { collectionToLoad, countsOf } from './app-input.ts';
 import type { Env, SectionView } from './views/common.ts';
@@ -69,7 +69,9 @@ export function App(props: AppProps): ReactElement {
   useTick(props.animate ? 6 : 1, () => { setClock(previous => ({ now: (props.clock ?? Date.now)(), phase: props.animate ? previous.phase + 1 : 0 })); });
 
   const showBanner = !data.connection.connected;
-  const bodyHeight = Math.max(4, size.height - 2 - (showBanner ? 1 : 0));
+  const showPulse = size.height >= 24 && data.sessions.length > 0;
+  const pulse = useMemo(() => pulseViewModel({ sessions: data.sessions, needsYou: data.needsYou.length }), [data.sessions, data.needsYou.length]);
+  const bodyHeight = Math.max(4, size.height - 2 - (showBanner ? 1 : 0) - (showPulse ? 1 : 0));
   const env: Env = {
     data, ui, now: clock.now, width: size.width - 2, height: bodyHeight, phase: clock.phase,
     click: index => { apply(openAt(uiRef.current, index, boundsOf(viewRef.current, bodyHeight))); },
@@ -99,6 +101,7 @@ export function App(props: AppProps): ReactElement {
 
   return h(Screen, {},
     h(Header, { ui, width: size.width, attention: data.needsYou.length, connection: data.connection, select: selectSection }),
+    ...(showPulse ? [h(Text, { line: pulseLine(pulse, size.width) })] : []),
     ...(connectionBanner ? [h(Text, { line: connectionBanner })] : []),
     h(Column, { grow: 1, paddingX: 1 }, view.render()),
     h(Text, { line: footerLine(ui, size.width) }),

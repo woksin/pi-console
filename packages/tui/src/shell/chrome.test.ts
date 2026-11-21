@@ -1,9 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Header, banner, terminalTitle } from './chrome.ts';
+import { Header, banner, pulseLine, terminalTitle } from './chrome.ts';
 import { initial } from '../state/ui.ts';
 import { Screen, h, mountHeadless } from '../view/renderer.ts';
 import type { Connection } from '../store/store.ts';
+import type { Session } from '@pi-console/contract';
 
 const offline: Connection = { connected: false, error: 'terminated', lastSeq: 42, lastEventAt: Date.parse('2026-11-20T12:00:03Z'), eventsReceived: 1 };
 
@@ -33,4 +34,21 @@ test('the OSC 2 terminal title leads with the needs-you count and strips control
   assert.doesNotMatch(title, /[\u0000-\u001f\u007f-\u009f]/);
   assert.match(title, /^\(3\) pwn.* · pi console$/);
   assert.equal(terminalTitle({ section: 'work', sessionId: null }, { needsYou: [], sessions: [] }), 'Work · pi console');
+});
+
+test('the pulse row shows one cell per session, activity and the counts, and collapses cells it cannot fit', async () => {
+  const { pulseViewModel } = await import('@pi-console/viewmodels');
+  const { fixture } = (await import('@pi-console/testkit')).generate();
+  const sessions = (fixture as unknown as { sessions: Session[] }).sessions;
+  const pulse = pulseViewModel({ sessions, needsYou: 16 });
+  const text = (width: number) => pulseLine(pulse, width).map(part => part.text).join('');
+  const wide = text(132);
+  assert.equal(Array.from(wide).length, 132);
+  assert.equal(Array.from(wide).filter(cell => '█▆▄'.includes(cell)).length, sessions.length);
+  assert.match(wide, /activity [\u2800-\u28ff]{12}/);
+  assert.match(wide, /30 sessions · \d+ working · 16 need you $/);
+  const narrow = text(60);
+  assert.equal(Array.from(narrow).length, 60);
+  assert.match(narrow, /\+\d+/);
+  assert.doesNotMatch(narrow, /activity/);
 });
