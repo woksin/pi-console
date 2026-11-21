@@ -6,7 +6,8 @@ import { pathDenied } from './paths.ts';
 interface SourceScope { path: string; roots: readonly string[] }
 export interface OpenedSource { handle: FileHandle; path: string; stat: Stats }
 
-const readFlags = constants.O_RDONLY | (constants.O_NONBLOCK ?? 0) | (constants.O_NOFOLLOW ?? 0);
+const platformFlags: Partial<typeof constants> = constants;
+const readFlags = constants.O_RDONLY | (platformFlags.O_NONBLOCK ?? 0) | (platformFlags.O_NOFOLLOW ?? 0);
 
 function inside(root: string, path: string): boolean {
   const rel = relative(root, path);

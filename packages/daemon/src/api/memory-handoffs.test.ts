@@ -108,7 +108,7 @@ for (const replacement of ['fifo', 'symlink', 'directory', 'oversize', 'normal']
     const child = spawnSync(process.execPath, ['--input-type=module', '-e', raceScript, path, replacement, outside], {
       cwd: new URL('../../../..', import.meta.url), encoding: 'utf8', timeout: 2000,
     });
-    assert.equal(child.error, undefined, child.error?.message);
+    assert.equal(child.error, undefined, child.error);
     assert.equal(child.status, 0, child.stderr);
     assert.deepEqual(JSON.parse(child.stdout), { replaced: true, items: replacement === 'normal' ? 4 : null });
   });

@@ -43,7 +43,7 @@ async function ingest(spec: { directory: string; log: EventLog }, id: string): P
   const bytes = [header, job, completion].map(row => JSON.stringify(row)).join('\n') + '\n';
   writeFileSync(path, bytes);
   const tailer = sessionTailer(spec.log, path);
-  try { await tailer.poll([path]); } finally { tailer.close(); }
+  try { await tailer.poll([path]); } finally { await tailer.close(); }
   assert.equal(readFileSync(path, 'utf8'), bytes);
   for (const [index, [source, mapper, row]] of snapshots(id).entries()) {
     const file = join(spec.directory, `${index}-${source}.json`);

@@ -86,7 +86,7 @@ test('small paced batches produce the same events as one large batch, long recor
   const reference = new SqliteEventLog(':memory:');
   t.after(() => { reference.close(); });
   const tailer = sessionTailer(reference, path);
-  try { while ((await tailer.poll([path])).lagBytes > 0); } finally { tailer.close(); }
+  try { while ((await tailer.poll([path])).lagBytes > 0); } finally { await tailer.close(); }
   assert.deepEqual(await events(log), await events(reference));
 });
 

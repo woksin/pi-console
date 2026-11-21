@@ -53,14 +53,16 @@ export class FileTailer {
   private readonly handles = new Map<string, Handle>();
   private readonly log: EventLog;
   private readonly source: string;
-  private readonly mapper: Mapper;
+  private mapper: Mapper;
+  private loadMapper: (() => Promise<Mapper>) | undefined;
   private readonly options: TailerOptions;
   private polling = false;
 
-  constructor(log: EventLog, source: string, mapper: Mapper, options: TailerOptions = {}) {
+  constructor(log: EventLog, source: string, mapper: Mapper | { load: () => Promise<Mapper> }, options: TailerOptions = {}) {
     this.log = log;
     this.source = source;
-    this.mapper = mapper;
+    this.mapper = typeof mapper === 'function' ? mapper : () => [];
+    this.loadMapper = typeof mapper === 'function' ? undefined : mapper.load;
     this.options = options;
     validateBatchSize(options.batchBytes ?? 1024 * 1024);
   }
@@ -97,6 +99,10 @@ export class FileTailer {
     if (this.polling) throw new Error('Concurrent poll is not allowed');
     this.polling = true;
     try {
+      if (this.loadMapper) {
+        this.mapper = await this.loadMapper();
+        this.loadMapper = undefined;
+      }
       for (const path of paths) await this.track(path);
       const saved = new Map((await this.log.checkpoints(this.source)).map(checkpoint => [checkpoint.identity, checkpoint]));
       const result: PollResult = { entries: 0, appended: 0, lagBytes: 0, partialFiles: 0 };
