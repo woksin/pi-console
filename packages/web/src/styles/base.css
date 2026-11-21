@@ -1,6 +1,7 @@
 :root {
   /* Fallbacks only; applyTheme() writes the shared tokens from the contract before first paint of the app. */
-  --bg: #0b1019; --panel: #101925; --raised: #172434; --border: #2b3b50; --text: #d8e2ef; --muted: #8b9eb5; --faint: #627992;
+  --bg: #0b1019; --panel: #101925; --raised: #172434; --border: #2b3b50; --text: #d8e2ef; --muted: #8b9eb5; --faint: #7a8fa8;
+  --border-strong: #667d96; --hot-text: #1c1300;
   --cyan: #66d9ef; --blue: #819cff; --amber: #f5bf65; --green: #85d9a0; --red: #fa7989; --orange: #f49b6c; --violet: #b49afa; --pink: #e996d0;
   --select: #203c50; --flash: #32413b;
   --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -21,6 +22,8 @@ a { color: var(--cyan); text-decoration: none; }
 a:hover { text-decoration: underline; }
 button, input { font: inherit; color: inherit; }
 button { cursor: pointer; }
+/* Input containers and focusable outlines use the AA boundary token, not decorative borders. */
+input, select, textarea, .search, .btn, .seg { --border: var(--border-strong); }
 button:disabled { cursor: not-allowed; opacity: 0.5; }
 :focus-visible { outline: none; box-shadow: var(--focus); border-radius: 4px; }
 code, .mono, pre { font-family: var(--mono); }
