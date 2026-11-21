@@ -1,3 +1,9 @@
+.request-card.human-request { padding: 6px 12px; gap: 4px; }
+.request-card.human-request .card-text, .request-card.human-request .answer p { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; margin: 0; line-height: 18px; }
+.request-card.human-request .answer { display: flex; align-items: baseline; gap: 8px; margin: 0; padding: 2px 8px; }
+.request-card.human-request .answer > span { flex-shrink: 0; white-space: nowrap; }
+.request-card.human-request .answer p { -webkit-line-clamp: 1; }
+.request-card.human-request [data-origin='human'] { background: transparent; color: var(--muted); border-color: var(--border); }
 .requests-split { display: grid; grid-template-columns: minmax(0, 3fr) minmax(320px, 2fr); gap: 14px; align-items: start; }
 .request-detail { display: flex; flex-direction: column; gap: 10px; position: sticky; top: 12px; }
 .requests .field { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
