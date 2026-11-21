@@ -129,7 +129,7 @@ export class SessionIngestion {
 
   /** Reads up to the per-poll budget in batches (or until caught up or no longer progressing); returns the unread bytes. */
   async #tailBatches(path: string, size: number): Promise<number> {
-    const tailer = sessionTailer(this.#log, path, { roots: this.#roots.map(root => root.path), batchBytes: size });
+    const tailer = sessionTailer(this.#log, path, { roots: this.#roots.flatMap(root => root.available() ?? []), batchBytes: size });
     this.#files.add(path);
     try {
       let lag = (await tailer.poll([path])).lagBytes;

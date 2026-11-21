@@ -17,9 +17,10 @@ function run(tool, args) {
 /** PNG (shot at 2x) -> lossy WebP `width` pixels wide, Lanczos-scaled. */
 export function encodeStill(png, out, width, quality = 84) {
   const scaled = `${out}.png`;
-  run('ffmpeg', ['-y', '-loglevel', 'error', '-i', png, '-vf', `scale=${String(width)}:-2:flags=lanczos`, ...bitexact, scaled]);
-  run('cwebp', ['-quiet', '-q', String(quality), '-m', '6', '-alpha_q', '90', scaled, '-o', out]);
-  rmSync(scaled, { force: true });
+  try {
+    run('ffmpeg', ['-y', '-loglevel', 'error', '-i', png, '-vf', `scale=${String(width)}:-2:flags=lanczos`, ...bitexact, scaled]);
+    run('cwebp', ['-quiet', '-q', String(quality), '-m', '6', '-alpha_q', '90', scaled, '-o', out]);
+  } finally { rmSync(scaled, { force: true }); }
 }
 
 /** A frames.txt concat list -> a GIF with one shared 96-colour palette, bayer dithering and rectangle diffs. */
