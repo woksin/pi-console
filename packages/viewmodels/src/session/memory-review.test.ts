@@ -19,7 +19,13 @@ const receipt = (state: MemoryActionReceipt['state'], request: MemoryActionReque
   updatedAt: Date.now(), expiresAt: Date.now() + 60_000, reason: null, eventId: null,
 });
 const flush = () => new Promise<void>(resolve => { setImmediate(resolve); });
-function rig(states: MemoryActionReceipt['state'][] = ['awaiting-human', 'awaiting-ingestion', 'observed-applied']) {
+const waitForTimeout = () => new Promise<void>(resolve => { setTimeout(resolve, 30); });
+function neverRespond<T>(signals: AbortSignal[], signal?: AbortSignal): Promise<T> {
+  assert.ok(signal);
+  signals.push(signal);
+  return new Promise<T>(() => undefined); // Deliberately ignores cancellation, like a stuck transport.
+}
+function rig(states: MemoryActionReceipt['state'][] = ['awaiting-human', 'awaiting-ingestion', 'observed-applied'], callTimeoutMs = 10_000) {
   let pending: (() => void) | null = null;
   let request: MemoryActionRequest = { requestId: '', itemId: '', action: 'confirm' };
   const posts: { sessionId: string; request: MemoryActionRequest }[] = [];
@@ -33,7 +39,7 @@ function rig(states: MemoryActionReceipt['state'][] = ['awaiting-human', 'awaiti
     requestMemoryAction: (sessionId, input) => { request = input; posts.push({ sessionId, request }); return Promise.resolve({ ...receipt(states.shift() ?? 'unknown', request), expiresAt }); },
     memoryActionReceipt: () => Promise.resolve({ ...receipt(states.shift() ?? 'unknown', request), expiresAt }),
   };
-  const controller = new MemoryReviewController(api, (id, value) => { views.set(id, value); }, id => { reloads.push(id); return Promise.resolve(); }, timers);
+  const controller = new MemoryReviewController(api, (id, value) => { views.set(id, value); }, id => { reloads.push(id); return Promise.resolve(); }, { timers, callTimeoutMs });
   return { api, controller, views, posts, reloads, delays, expiresAt, tick: async () => { const next = pending; pending = null; next?.(); await flush(); }, hasTimer: () => pending !== null };
 }
 
@@ -133,6 +139,89 @@ test('disposing an in-flight receipt GET cannot schedule a late retry or canonic
   assert.equal(r.hasTimer(), false);
   assert.deepEqual(r.reloads, []);
   assert.equal(r.posts.length, 1);
+});
+
+test('availability calls time out into the existing fallback and release the shared load', async t => {
+  const r = rig([], 5);
+  t.after(() => { r.controller.dispose(); });
+  await r.controller.load('s1');
+  const signals: AbortSignal[] = [];
+  r.api.memoryActionAvailability = (_sessionId, signal) => neverRespond(signals, signal);
+  const loading = r.controller.load('s1');
+  assert.equal(r.controller.load('s1'), loading);
+  let settled = false;
+  void loading.then(() => { settled = true; });
+  await waitForTimeout();
+  assert.equal(signals[0].aborted, true);
+  assert.equal(signals[0].reason.name, 'TimeoutError');
+  assert.equal(settled, true);
+  assert.equal(r.views.get('s1')?.availability, null);
+  assert.match(memoryReviewHint(r.views.get('s1')?.availability ?? null), /unsupported or disconnected/);
+  r.api.memoryActionAvailability = () => Promise.resolve(available);
+  await r.controller.load('s1');
+  assert.deepEqual(r.views.get('s1')?.availability, available);
+});
+
+test('a timed-out POST becomes unknown and never automatically retries', async t => {
+  const r = rig([], 5);
+  t.after(() => { r.controller.dispose(); });
+  await r.controller.load('s1');
+  const signals: AbortSignal[] = [];
+  r.api.requestMemoryAction = (sessionId, request, signal) => { r.posts.push({ sessionId, request }); return neverRespond(signals, signal); };
+  const requesting = r.controller.request('s1', item.id, 'confirm');
+  assert.equal(r.views.get('s1')?.items.get(item.id)?.state, 'requesting');
+  await waitForTimeout();
+  assert.equal(signals[0].aborted, true);
+  assert.equal(signals[0].reason.name, 'TimeoutError');
+  assert.equal(r.views.get('s1')?.items.get(item.id)?.state, 'unknown');
+  assert.match(r.views.get('s1')?.items.get(item.id)?.message ?? '', /check pi before retrying/);
+  await requesting;
+  await r.controller.load('s1');
+  assert.equal(r.posts.length, 1);
+  assert.equal(r.hasTimer(), false);
+  assert.deepEqual(r.reloads, ['s1']);
+});
+
+test('a timed-out receipt GET backs off and recovers without another POST', async t => {
+  const r = rig(['awaiting-human', 'observed-applied'], 5);
+  t.after(() => { r.controller.dispose(); });
+  await r.controller.load('s1');
+  await r.controller.request('s1', item.id, 'confirm');
+  const normal = r.api.memoryActionReceipt.bind(r.api);
+  const signals: AbortSignal[] = [];
+  r.api.memoryActionReceipt = (_requestId, signal) => neverRespond(signals, signal);
+  await r.tick();
+  await waitForTimeout();
+  assert.equal(signals[0].aborted, true);
+  assert.equal(signals[0].reason.name, 'TimeoutError');
+  assert.equal(r.views.get('s1')?.items.get(item.id)?.state, 'awaiting-human');
+  assert.equal(r.hasTimer(), true);
+  assert.equal(r.delays.at(-1), 2000);
+  assert.deepEqual(r.reloads, []);
+  r.api.memoryActionReceipt = normal;
+  await r.tick();
+  assert.equal(r.views.get('s1')?.items.get(item.id)?.state, 'observed-applied');
+  assert.equal(r.posts.length, 1);
+  assert.deepEqual(r.reloads, ['s1']);
+});
+
+for (const phase of ['availability', 'request', 'receipt'] as const) test(`disposal cancels a stuck ${phase} call without publishing an unknown outcome`, async () => {
+  const r = rig(['awaiting-human'], 5);
+  await r.controller.load('s1');
+  const signals: AbortSignal[] = [];
+  if (phase === 'availability') r.api.memoryActionAvailability = (_sessionId, signal) => neverRespond(signals, signal);
+  if (phase === 'request') r.api.requestMemoryAction = (_sessionId, _request, signal) => neverRespond(signals, signal);
+  if (phase === 'receipt') r.api.memoryActionReceipt = (_requestId, signal) => neverRespond(signals, signal);
+  const pending = phase === 'availability' ? r.controller.load('s1') : r.controller.request('s1', item.id, 'confirm');
+  if (phase === 'receipt') { await pending; await r.tick(); }
+  const current = r.views.get('s1');
+  r.controller.dispose();
+  assert.equal(signals[0].aborted, true);
+  assert.equal(signals[0].reason.name, 'AbortError');
+  await waitForTimeout();
+  assert.equal(r.views.get('s1'), current);
+  assert.equal(r.hasTimer(), false);
+  assert.deepEqual(r.reloads, []);
 });
 
 test('POST errors become unknown; never auto-retry a POST or leak unsafe error text', async () => {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import type { MemoryItem, SessionMemory, TranscriptEntry } from '@pi-console/contract';
+import type { Event, MemoryItem, SessionMemory, TranscriptEntry } from '@pi-console/contract';
 import { ConsoleStore, memoryRefreshMs, type Clock } from './store.ts';
 import type { Api } from './api.ts';
 
@@ -47,9 +47,13 @@ test('a failed history load is retried on the next open instead of being cached'
 const job = (id: string, status: 'running' | 'done', startedAt: string) => ({ id, sessionId: 's1', kind: 'job' as const, name: id, status, startedAt, exitCode: null });
 const emptyList = { items: [], nextCursor: null, hasMore: false, total: 0 };
 
-function windowedSnapshot(jobs: ReturnType<typeof job>[], total: number) {
+function windowedSnapshot(jobs: ReturnType<typeof job>[], total: number): Extract<Event, { type: 'snapshot' }> {
   const base = { version: 0 as const, generatedAt: '2026-06-01T00:00:00.000Z', repositories: [], sessions: [], requests: [], questions: [], messages: [], jobs, resets: [], transcriptCursors: [], interventions: [] };
-  return { seq: 5, type: 'snapshot' as const, payload: { ...base, totals: { sessions: 0, requests: 0, questions: 0, messages: 0, jobs: total, resets: 0 }, bounded: ['jobs' as const] } };
+  return { seq: 5, type: 'snapshot' as const, occurredAt: base.generatedAt, payload: { ...base, totals: { sessions: 0, requests: 0, questions: 0, messages: 0, jobs: total, resets: 0 }, bounded: ['jobs' as const] } };
+}
+
+function snapshotStream(snapshot: ReturnType<typeof windowedSnapshot>): Api['stream'] {
+  return (_seq, _signal, onFrame) => { onFrame(snapshot); return new Promise<void>(() => undefined); };
 }
 
 test('a windowed snapshot is paged older-ward on request; pages merge without duplicates and end the paging', async () => {
@@ -58,7 +62,7 @@ test('a windowed snapshot is paged older-ward on request; pages merge without du
   const snapshot = windowedSnapshot([job('j4', 'running', '2026-01-04T00:00:00Z'), job('j3', 'done', '2026-01-03T00:00:00Z')], 4);
   const api = {
     page: (_name: string, params: unknown) => { calls.push(params); return Promise.resolve({ ...emptyList, items: older, total: 4 }); },
-    stream: (_seq: number, _signal: AbortSignal, onFrame: (frame: unknown) => void) => { onFrame(snapshot); return new Promise<void>(() => undefined); },
+    stream: snapshotStream(snapshot),
     needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null),
   } as unknown as Api;
   const store = new ConsoleStore(api, clock);

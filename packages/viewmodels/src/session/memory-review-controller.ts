@@ -7,6 +7,7 @@ export interface MemoryReviewApi {
   memoryActionReceipt(requestId: string, signal?: AbortSignal): Promise<MemoryActionReceipt>;
 }
 export interface ReviewScheduler { set(callback: () => void, delayMs?: number): unknown; clear(timer: unknown): void }
+export interface MemoryReviewOptions { timers?: ReviewScheduler; callTimeoutMs?: number }
 interface ReviewTarget { readonly sessionId: string; readonly failures?: number }
 const scheduler: ReviewScheduler = { set: (callback, delayMs = 1000) => setTimeout(callback, delayMs), clear: timer => { clearTimeout(timer as ReturnType<typeof setTimeout>); } };
 
@@ -16,12 +17,29 @@ export class MemoryReviewController {
   readonly #publish: (sessionId: string, review: MemoryReviewSession) => void;
   readonly #reload: (sessionId: string) => Promise<void>;
   readonly #scheduler: ReviewScheduler;
+  readonly #callTimeoutMs: number;
   readonly #sessions = new Map<string, MemoryReviewSession>();
   readonly #loading = new Map<string, Promise<void>>();
   readonly #timers = new Set<unknown>();
   readonly #abort = new AbortController();
-  constructor(api: MemoryReviewApi, publish: (sessionId: string, review: MemoryReviewSession) => void, reload: (sessionId: string) => Promise<void>, timers = scheduler) {
-    this.#api = api; this.#publish = publish; this.#reload = reload; this.#scheduler = timers;
+  constructor(api: MemoryReviewApi, publish: (sessionId: string, review: MemoryReviewSession) => void, reload: (sessionId: string) => Promise<void>, options: MemoryReviewOptions | ReviewScheduler = {}) {
+    const settings: MemoryReviewOptions = 'set' in options ? { timers: options } : options;
+    this.#api = api; this.#publish = publish; this.#reload = reload; this.#scheduler = settings.timers ?? scheduler;
+    this.#callTimeoutMs = settings.callTimeoutMs ?? 10_000; // Each call is bounded well below the 30 s request expiry.
+  }
+  async #call<T>(operation: (signal: AbortSignal) => Promise<T>): Promise<T> {
+    const signal = AbortSignal.any([this.#abort.signal, AbortSignal.timeout(this.#callTimeoutMs)]);
+    signal.throwIfAborted();
+    let onAbort: () => void = () => undefined;
+    const aborted = new Promise<never>((_resolve, reject) => {
+      onAbort = () => {
+        const reason: unknown = signal.reason;
+        reject(reason instanceof Error ? reason : new Error('Request failed'));
+      };
+      signal.addEventListener('abort', onAbort, { once: true });
+    });
+    try { return await Promise.race([operation(signal), aborted]); }
+    finally { signal.removeEventListener('abort', onAbort); }
   }
   #session(id: string): MemoryReviewSession { return this.#sessions.get(id) ?? emptyMemoryReview(); }
   #set(id: string, value: MemoryReviewSession): void {
@@ -38,7 +56,7 @@ export class MemoryReviewController {
   }
   async #availability(sessionId: string): Promise<void> {
     let availability: MemoryActionAvailability | null = null;
-    try { availability = await this.#api.memoryActionAvailability(sessionId, this.#abort.signal); }
+    try { availability = await this.#call(signal => this.#api.memoryActionAvailability(sessionId, signal)); }
     catch { /* Older daemons and disconnects retain command fallback. */ }
     const current = this.#session(sessionId);
     if (JSON.stringify(current.availability) !== JSON.stringify(availability)) this.#set(sessionId, { ...current, availability });
@@ -55,7 +73,7 @@ export class MemoryReviewController {
     this.#progress(sessionId, itemId, requestingMemoryReview());
     const request: MemoryActionRequest = { requestId: globalThis.crypto.randomUUID(), itemId, action };
     try {
-      const receipt = await this.#api.requestMemoryAction(sessionId, request, this.#abort.signal);
+      const receipt = await this.#call(signal => this.#api.requestMemoryAction(sessionId, request, signal));
       await this.#accept({ sessionId }, receipt);
     } catch (error) { this.#progress(sessionId, itemId, failedMemoryReview(error)); await this.#refresh({ sessionId }); }
   }
@@ -89,7 +107,7 @@ export class MemoryReviewController {
   async #poll(target: ReviewTarget, receipt: MemoryActionReceipt): Promise<void> {
     if (this.#abort.signal.aborted) return;
     if (Date.now() >= this.#deadline(receipt)) { this.#pending(target, receipt); return; }
-    try { await this.#accept({ ...target, failures: 0 }, await this.#api.memoryActionReceipt(receipt.requestId, this.#abort.signal)); }
+    try { await this.#accept({ ...target, failures: 0 }, await this.#call(signal => this.#api.memoryActionReceipt(receipt.requestId, signal))); }
     catch { this.#pending({ ...target, failures: (target.failures ?? 0) + 1 }, receipt); }
   }
   dispose(): void {
