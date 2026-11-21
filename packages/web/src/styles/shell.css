@@ -25,6 +25,7 @@
 .banner { padding: 8px 18px; background: color-mix(in oklab, var(--tone) 18%, var(--bg)); border-bottom: 1px solid var(--tone); color: var(--text); animation: slide-in 0.2s; }
 /* Use AA-tested neutral tokens, not opacity/filter (which can reduce text contrast). */
 .app[data-stale='true'] {
+  --muted: color-mix(in srgb, var(--text) 80%, var(--bg));
   --cyan: var(--muted); --blue: var(--muted); --amber: var(--muted); --green: var(--muted);
   --red: var(--muted); --orange: var(--muted); --violet: var(--muted); --pink: var(--muted);
   --select: var(--raised); --flash: var(--raised); --hot-text: var(--bg);
