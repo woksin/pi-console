@@ -33,6 +33,19 @@ function derivedSessions(queries: ConsoleQueries): Map<string, string> {
   return new Map(queries.sessions().map(session => [session.id, JSON.stringify([session.status, attention.get(session.id) ?? []])]));
 }
 
+interface DerivedState {
+  sessions: Map<string, string>;
+  requests: Map<string, string>;
+}
+
+/** Detached fingerprints preserve the last visible state even when projection rows are mutated in place. */
+function derivedState(queries: ConsoleQueries): DerivedState {
+  return {
+    sessions: derivedSessions(queries),
+    requests: new Map(queries.requests().map(request => [request.id, JSON.stringify(request)])),
+  };
+}
+
 /** Flushes may take at most this share of the event loop: after a flush of d ms the next waits (1 / share - 1) × d. */
 const maxDutyShare = 0.2;
 /** Longest a pending delta waits behind an expensive flush. */
@@ -60,8 +73,8 @@ export class DeltaBatcher {
   readonly #clock: () => number;
   readonly #discard: (() => boolean) | undefined;
   #pending: EventEnvelope[] = [];
-  /** Derived session state as the observing clients last saw it; `undefined` after unobserved batches until `rebase`. */
-  #derived: Map<string, string> | undefined;
+  /** Derived entity state as the observing clients last saw it; `undefined` after unobserved batches until `rebase`. */
+  #derived: DerivedState | undefined;
   #nextFlushAt = 0;
   #timer: NodeJS.Timeout | undefined;
 
@@ -71,7 +84,7 @@ export class DeltaBatcher {
     this.#now = now;
     this.#clock = options.clock ?? (() => performance.now());
     this.#discard = options.discard;
-    this.#derived = derivedSessions(new BatchQueries(models, now));
+    this.#derived = derivedState(new BatchQueries(models, now));
   }
 
   get pending(): number {
@@ -83,7 +96,7 @@ export class DeltaBatcher {
    * clients have seen, so later batches compare derived state against it.
    */
   rebase(): void {
-    this.#derived ??= derivedSessions(new BatchQueries(this.#models, this.#now));
+    this.#derived ??= derivedState(new BatchQueries(this.#models, this.#now));
   }
 
   add(event: EventEnvelope): void {
@@ -118,18 +131,29 @@ export class DeltaBatcher {
       const delta = deltaFor(queries, event, seen);
       if (delta && !deltas.has(keyOf(delta))) deltas.set(keyOf(delta), delta);
     }
-    this.#addDerivedSessions(queries, deltas);
+    this.#addDerivedEntities(queries, deltas);
     for (const delta of deltas.values()) this.#publish(delta);
   }
 
-  #addDerivedSessions(queries: ConsoleQueries, deltas: Map<string, Delta>): void {
-    const derived = derivedSessions(queries);
+  #addDerivedEntities(queries: ConsoleQueries, deltas: Map<string, Delta>): void {
+    const derived = derivedState(queries);
     const before = this.#derived ?? derived;
+    this.#addDerivedRequests(queries, before, derived, deltas);
     for (const session of queries.sessions()) {
-      if (before.get(session.id) === derived.get(session.id)) continue;
+      if (before.sessions.get(session.id) === derived.sessions.get(session.id)) continue;
       const delta = { type: 'session.updated', payload: session };
       deltas.set(keyOf(delta), delta);
     }
     this.#derived = derived;
+  }
+
+  #addDerivedRequests(queries: ConsoleQueries, before: DerivedState, derived: DerivedState, deltas: Map<string, Delta>): void {
+    for (const request of queries.requests()) {
+      if (before.requests.get(request.id) === derived.requests.get(request.id)) continue;
+      // Catalogue routes already cover explicitly linked events; do not duplicate their request entities.
+      if (deltas.has(`request.observed:${request.id}`) || deltas.has(`request.interrupted:${request.id}`)) continue;
+      const delta = { type: request.status === 'interrupted' ? 'request.interrupted' : 'request.observed', payload: request };
+      deltas.set(keyOf(delta), delta);
+    }
   }
 }
