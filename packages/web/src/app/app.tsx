@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { hints, rememberPick, resolve, type Action, type KeyContext, type PaletteItem } from '@pi-console/viewmodels';
+import { consoleTitle, hints, rememberPick, resolve, type Action, type KeyContext, type PaletteItem } from '@pi-console/viewmodels';
 import { dispatch } from './commands.ts';
 import { clockNow, navigate, useConsole, useRoute } from './hooks.ts';
 import { contextFor, isTyping, neutralKey } from './keys.ts';
@@ -7,6 +7,7 @@ import { Help, Palette } from './overlays.tsx';
 import { parseRoute, sectionIds, sectionMeta, sessionHref, titleFor, hrefFor, sectionFor } from './routes.ts';
 import { Banner, Hints, Sidebar, TopBar, staleData } from './shell.tsx';
 import { applyTheme } from './theme.ts';
+import { faviconHref, setFavicon } from './favicon.ts';
 import { setPrefs, usePrefs } from './prefs.ts';
 import { View } from './view.tsx';
 import { useTick } from '../ui/hooks.ts';
@@ -57,7 +58,6 @@ export function App() {
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [recents, setRecents] = useState<readonly string[]>([]);
   useEffect(() => { applyTheme(document.documentElement, prefs.theme, prefs.reducedMotion); }, [prefs.theme, prefs.reducedMotion]);
-  useEffect(() => { document.title = `${titleFor(route.view)} · pi console`; }, [route.view]);
 
   const context = contextFor({ route, palette: overlay === 'palette', help: overlay === 'help' });
   useShortcuts(context, overlay, setOverlay);
@@ -68,6 +68,9 @@ export function App() {
     else if (!handleGlobal(item.target.action, { overlay: null, setOverlay })) { const { action } = item.target; window.setTimeout(() => { dispatch(action); }, 0); }
   };
   const attention = useMemo(() => state.needsYou.length, [state.needsYou]);
+  const place = route.view === 'session' ? state.sessions.find(session => session.id === route.id)?.name ?? titleFor(route.view) : titleFor(route.view);
+  useEffect(() => { document.title = consoleTitle({ needsYou: attention, place }); }, [attention, place]);
+  useEffect(() => { setFavicon(faviconHref(attention)); }, [attention]);
   const wall = useTick(1000);
   const now = clockNow(state, wall);
   return (

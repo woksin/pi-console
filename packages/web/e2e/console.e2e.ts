@@ -158,6 +158,23 @@ describe('web console e2e', () => {
     await page.context().close();
   });
 
+  test('title and favicon carry the needs-you count; the palette groups, highlights and ranks prefix matches first', async () => {
+    const page = await rig.open('/overview');
+    await page.locator('.conn[data-connection="live"]').waitFor();
+    await page.waitForFunction(() => /^\(\d+\) Overview · pi console$/.test(document.title));
+    assert.match(await page.locator("link[rel='icon']").getAttribute('href') ?? '', /circle/, 'the favicon shows the needs-you dot');
+    await page.keyboard.press('Control+p');
+    const palette = page.getByRole('dialog', { name: 'Command palette' });
+    await palette.getByRole('combobox').fill('aur');
+    const first = palette.getByRole('option').first();
+    assert.equal(await first.locator('mark').first().innerText(), 'aur');
+    assert.ok((await palette.getByRole('group').count()) >= 1, 'results are grouped');
+    await palette.getByRole('combobox').fill('>sett');
+    assert.equal(await palette.getByRole('option').first().locator('.pal-label').innerText(), 'Open settings');
+    await page.keyboard.press('Escape');
+    await page.context().close();
+  });
+
   test('keyboard map: sections, help, palette, selection, open and back', async () => {
     const page = await rig.open('/overview');
     await page.locator('.conn[data-connection="live"]').waitFor();

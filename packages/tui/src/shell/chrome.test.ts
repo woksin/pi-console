@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Header, banner } from './chrome.ts';
+import { Header, banner, terminalTitle } from './chrome.ts';
 import { initial } from '../state/ui.ts';
 import { Screen, h, mountHeadless } from '../view/renderer.ts';
 import type { Connection } from '../store/store.ts';
@@ -22,4 +22,15 @@ test('reconnect banner shows human wording, as-of time and retrying at 80 column
   assert.match(text ?? '', /Daemon unreachable · showing data as of 12:00:03 UTC · retrying/);
   assert.doesNotMatch(text ?? '', /terminated|#42/);
   assert.equal(banner({ ...offline, connected: true }, 80), undefined);
+});
+
+test('the OSC 2 terminal title leads with the needs-you count and strips control characters from a hostile session name', () => {
+  const hostile = { id: 's9', name: 'pwn\u001b]2;owned\u0007\u001b[2J\u009b31m\r\nrm -rf\u0000' };
+  const data = { needsYou: [1, 2, 3], sessions: [hostile] };
+  assert.equal(terminalTitle({ section: 'fleet', sessionId: null }, data), '(3) Fleet · pi console');
+  const title = terminalTitle({ section: 'fleet', sessionId: 's9' }, data);
+  // eslint-disable-next-line no-control-regex -- asserting no control characters survive
+  assert.doesNotMatch(title, /[\u0000-\u001f\u007f-\u009f]/);
+  assert.match(title, /^\(3\) pwn.* · pi console$/);
+  assert.equal(terminalTitle({ section: 'work', sessionId: null }, { needsYou: [], sessions: [] }), 'Work · pi console');
 });

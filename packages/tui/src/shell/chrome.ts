@@ -1,4 +1,4 @@
-import { connectionBanner, hints } from '@pi-console/viewmodels';
+import { connectionBanner, consoleTitle, hints } from '@pi-console/viewmodels';
 import { Clickable, Row, Spacer, Text, h, type Line } from '../view/renderer.ts';
 import { fit, t } from '../view/parts.ts';
 import { contextOf, sections, type Section, type UiState } from '../state/ui.ts';
@@ -7,6 +7,12 @@ import type { Connection } from '../store/store.ts';
 const labels: Record<Section, string> = {
   overview: 'Overview', fleet: 'Fleet', requests: 'Requests', questions: 'Questions', messages: 'Messages', timeline: 'Timeline', work: 'Work',
 };
+
+/** The terminal title: needs-you count, then the open session's name or the section. Sanitised by `consoleTitle`. */
+export function terminalTitle(ui: Pick<UiState, 'section' | 'sessionId'>, data: { needsYou: readonly unknown[]; sessions: readonly { id: string; name: string }[] }): string {
+  const session = ui.sessionId ? data.sessions.find(item => item.id === ui.sessionId) : undefined;
+  return consoleTitle({ needsYou: data.needsYou.length, place: session?.name ?? labels[ui.section] });
+}
 
 export interface HeaderProps { ui: UiState; width: number; attention: number; connection: Connection; select: (section: Section) => void }
 

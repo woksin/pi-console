@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactElement } from 'react';
 import { paletteItems, rememberPick, type Action, type PaletteInput, type WindowedCollection } from '@pi-console/viewmodels';
-import { Column, Screen, Text, h, useClipboard, useKeys, useSize, useTick } from './view/renderer.ts';
+import { Column, Screen, Text, h, useClipboard, useKeys, useSize, useTerminalTitle, useTick } from './view/renderer.ts';
 import type { Store } from './store/store.ts';
 import { commit, handleKey, initial, reduce, typing, type Bounds, type Section, type UiState } from './state/ui.ts';
 import { emptyLayout, resumeTranscript, transcriptViewport } from './state/transcript-window.ts';
 import { neutralKey, typedCharacter, type KeyInput } from './state/keys.ts';
-import { Header, banner, footerLine } from './shell/chrome.ts';
+import { Header, banner, footerLine, terminalTitle } from './shell/chrome.ts';
 import { Help, Palette, Settings } from './shell/overlays.ts';
 import { collectionToLoad, countsOf } from './app-input.ts';
 import type { Env, SectionView } from './views/common.ts';
@@ -91,6 +91,7 @@ export function App(props: AppProps): ReactElement {
     apply(nextState(uiRef.current, key, { palette: dataRef.current, view: current, bounds: boundsOf(current, heightRef.current), copy }));
   });
 
+  useTerminalTitle(terminalTitle(ui, data));
   const connectionBanner = banner(data.connection, size.width);
   const input = { endpoint: props.endpoint, tokenSource: props.tokenSource, ...data.connection, now: clock.now,
     counts: countsOf(data) };
