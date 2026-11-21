@@ -19,11 +19,16 @@ export function Header(props: HeaderProps) {
     h(Text, { line: section === active
       ? [t(` ${String(index + 1)} `, 'bg', { background: 'cyan', bold: true }), t(` ${labels[section]} `, 'text', { bold: true, underline: true })]
       : [t(` ${String(index + 1)} `, 'faint'), t(compact ? '' : `${labels[section]} `, 'muted')] })));
-  const attention: Line = props.attention > 0 ? [t(`● ${String(props.attention)}${compact ? ' ' : ' need you '}`, 'amber', { bold: true })] : [t(compact ? '● ' : '● all clear ', 'green')];
+  const attention = attentionLine(props.attention, compact);
   const link: Line = connection.connected ? [t('◉ live ', 'green')] : [t('◌ offline ', 'red', { bold: true })];
   return h(Row, { background: 'raised', paddingX: 1, height: 1 },
     h(Text, { line: [t('π ', 'violet', { bold: true }), t(compact ? '' : 'console', 'text', { bold: true }), t(' ', 'faint')] }), ...tabs,
     h(Spacer, {}), h(Text, { line: attention }), h(Text, { line: link }));
+}
+
+function attentionLine(count: number, compact: boolean): Line {
+  if (count === 0) return [t(compact ? '● ' : '● all clear ', 'green')];
+  return [t(compact ? `! ${String(count)} ` : `● ${String(count)} need you `, 'amber', { bold: true })];
 }
 
 /** One-line banner while the stream is down; the client reconnects on its own with capped backoff. */
