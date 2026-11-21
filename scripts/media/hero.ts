@@ -3,6 +3,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import type { Rig } from '../../packages/web/e2e/harness.ts';
 import { wanted, type Work } from './capture.ts';
+import { captureWeb } from './web.ts';
+import { captureTui } from './tui.ts';
 
 const canvas = { width: 1600, height: 900 };
 const dataUri = (file: string): string => `data:image/png;base64,${readFileSync(file).toString('base64')}`;
@@ -25,13 +27,20 @@ function page(theme: keyof typeof palettes, web: string, tui: string): string {
 }
 
 export async function captureHero(rig: Rig, work: Work): Promise<void> {
-  const context = await rig.browser.newContext({ viewport: canvas, deviceScaleFactor: 1.5 });
-  const view = await context.newPage();
-  for (const [theme, webId] of [['dark', 'web-overview'], ['light', 'web-overview-light']] as const) {
-    if (!wanted(work, `hero-${theme}`)) continue;
-    await view.setContent(page(theme, dataUri(join(work.dir, `${webId}.png`)), dataUri(join(work.dir, 'tui-overview.png'))));
-    writeFileSync(join(work.dir, `hero-${theme}.png`), await view.screenshot());
-    console.log(`  captured hero-${theme}`);
+  const themes = ([['dark', 'web-overview'], ['light', 'web-overview-light']] as const).filter(([theme]) => wanted(work, `hero-${theme}`));
+  if (themes.length === 0) return;
+  // A partial run starts clean too: capture the inputs instead of relying on a previous full run.
+  if (work.only !== undefined) {
+    for (const [, webId] of themes) await captureWeb(rig, { ...work, only: webId });
+    await captureTui(rig, { ...work, only: 'tui-overview' });
   }
-  await context.close();
+  const context = await rig.browser.newContext({ viewport: canvas, deviceScaleFactor: 1.5 });
+  try {
+    const view = await context.newPage();
+    for (const [theme, webId] of themes) {
+      await view.setContent(page(theme, dataUri(join(work.dir, `${webId}.png`)), dataUri(join(work.dir, 'tui-overview.png'))));
+      writeFileSync(join(work.dir, `hero-${theme}.png`), await view.screenshot());
+      console.log(`  captured hero-${theme}`);
+    }
+  } finally { await context.close(); }
 }

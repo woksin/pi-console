@@ -92,6 +92,44 @@ for (const layout of ['leaf', 'ancestor', 'relative-chain']) for (const created 
   });
 }
 
+for (const unavailable of ['missing', 'cyclic']) {
+  test(`a previously pinned session root stays pending when its configured alias becomes ${unavailable}`, async t => {
+    const { root, log } = fixture(t);
+    const target = join(root, 'target');
+    const alias = join(root, 'configured');
+    mkdirSync(target);
+    symlinkSync(target, alias);
+    const path = join(target, 's.jsonl');
+    writeFileSync(path, header('pinned') + message('pinned', 1, 'initial'));
+    let invalidate = false;
+    const gated = counted(log).log;
+    Object.assign(gated, { checkpoints: (source: string) => {
+      if (invalidate) {
+        invalidate = false;
+        rmSync(alias);
+        if (unavailable === 'cyclic') symlinkSync('configured', alias);
+      }
+      return log.checkpoints(source);
+    } });
+    const worker = new SessionIngestion(gated, { roots: [alias], backfillWindowDays: 14, pollMs: 60_000, now: () => now });
+    await worker.poll();
+    const before = await events(log);
+    assert.equal(before.some(event => event.type === 'SessionStarted'), true);
+    // Discovery succeeds, then the configured root stops resolving before the descriptor is opened.
+    invalidate = true;
+    appendFileSync(path, message('pinned', 2, 'pending'));
+    await worker.poll();
+    assert.equal(invalidate, false);
+    assert.deepEqual(await events(log), before);
+    await worker.poll();
+    assert.deepEqual(await events(log), before);
+    rmSync(alias, { force: true });
+    symlinkSync(target, alias);
+    await worker.poll();
+    assert.equal((await events(log)).length > before.length, true);
+  });
+}
+
 for (const layout of ['cycle', 'expanding']) {
   test(`a configured ${layout} session alias fails closed`, async t => {
     const { root, log } = fixture(t);

@@ -64,7 +64,7 @@ function verify() {
 if (args.includes('--check')) { verify(); process.exit(0); }
 preflight();
 const work = { dir: join(root, '.ai-work/media-work'), only };
-if (only === undefined) rmSync(work.dir, { recursive: true, force: true });
+rmSync(work.dir, { recursive: true, force: true });
 mkdirSync(work.dir, { recursive: true });
 await capture(work);
 encode(work);
