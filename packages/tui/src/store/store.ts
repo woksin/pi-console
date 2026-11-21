@@ -16,6 +16,8 @@ export interface Data {
   /** Paging progress per windowed collection once its history has been requested. */
   history: Partial<Record<WindowedCollection, { cursor: string | null; more: boolean }>>;
   needsYou: AttentionItem[]; transcripts: ReadonlyMap<string, TranscriptEntry[]>;
+  /** True once the daemon's attention list has arrived; it is fetched after the snapshot, so `loaded` alone is too early. */
+  needsYouLoaded: boolean;
   /** Read-only intent memory per session id, fetched when its session is opened. */
   memory: ReadonlyMap<string, SessionMemory>; memoryItems: ReadonlyMap<string, MemoryItem[]>;
   /** Ids of entities touched since the last render, used for the brief "just changed" highlight. */
@@ -29,7 +31,7 @@ export interface Data {
 export class Store {
   private data: Data = {
     loaded: false, connection: { connected: false, error: 'Connecting…', lastSeq: undefined, lastEventAt: undefined, eventsReceived: 0 }, repositories: 0,
-    sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], totals: null, bounded: [], history: {}, needsYou: [], transcripts: new Map(), memory: new Map(), memoryItems: new Map(), fresh: new Map(),
+    sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], totals: null, bounded: [], history: {}, needsYou: [], needsYouLoaded: false, transcripts: new Map(), memory: new Map(), memoryItems: new Map(), fresh: new Map(),
   };
   private readonly listeners = new Set<() => void>();
   private timer: ReturnType<typeof setTimeout> | undefined;
@@ -81,7 +83,7 @@ export class Store {
   }
 
   setNeedsYou(needsYou: AttentionItem[]): void {
-    this.data = { ...this.data, needsYou };
+    this.data = { ...this.data, needsYou, needsYouLoaded: true };
     this.schedule();
   }
 

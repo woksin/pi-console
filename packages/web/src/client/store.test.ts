@@ -92,6 +92,20 @@ test('a resnapshot voids exhausted paging so dropped rows can be reloaded', asyn
   store.stop();
 });
 
+test('the attention list counts as loaded only once a fetch of it succeeds, so "new since you looked" has a real baseline', async () => {
+  let fail = true;
+  const api = {
+    needsYou: () => (fail ? Promise.reject(new Error('offline')) : Promise.resolve([])), health: () => Promise.resolve(null),
+  } as unknown as Api;
+  const store = new ConsoleStore(api, clock);
+  assert.equal(store.getState().needsYouLoaded, false);
+  await store.refresh();
+  assert.equal(store.getState().needsYouLoaded, false, 'a failed fetch is not a loaded list');
+  fail = false;
+  await store.refresh();
+  assert.equal(store.getState().needsYouLoaded, true);
+});
+
 test('a complete (unbounded) snapshot never pages', async () => {
   let calls = 0;
   const store = new ConsoleStore({ page: () => { calls++; return Promise.resolve(null); } } as unknown as Api, clock);

@@ -15,10 +15,13 @@ function cardLines(card: AttentionCard, width: number, marks: CardMarks, env: En
   return [selectable(head, width, marks.selected, marks.flash), selectable([t('  '), t(text, 'muted')], width, marks.selected, marks.flash), [t('')]];
 }
 
-/** What changed since the user last looked: new cards and status flashes (only with motion on). Nothing before the data loads. */
+/**
+ * What changed since the user last looked: new cards and status flashes (only with motion on). Nothing before both the
+ * snapshot and the attention list have loaded, so the first look's baseline is the real list rather than an empty one.
+ */
 function changesOf(model: OverviewViewModel, env: Env): { fresh: NewSince; flashing: (id: string) => boolean } {
   const changes = env.changes;
-  if (!changes || !env.data.loaded) return { fresh: newSince(null, []), flashing: () => false };
+  if (!changes || !env.data.loaded || !env.data.needsYouLoaded) return { fresh: newSince(null, []), flashing: () => false };
   const fresh = changes.look.look(model.cards.map(card => card.id));
   changes.flash.observe(model.cards.map(card => ({ id: card.id, status: card.status.status })), env.now);
   return { fresh, flashing: id => changes.motion && changes.flash.isFlashing(id, env.now) };

@@ -14,7 +14,7 @@ export function OverviewView({ state, now }: ViewProps) {
   const histogram = useMemo(() => pressureHistogram(state.sessions), [state.sessions]);
   const byId = new Map(view.cards.map(card => [card.id, card]));
   const sections = groupAttentionCards(view.cards);
-  const fresh = useNewSince(view.cards.map(card => card.id), state.snapshotLoaded);
+  const fresh = useNewSince(view.cards.map(card => card.id), state.snapshotLoaded && state.needsYouLoaded);
   const nav = useListNav(sections.flatMap(section => section.cards.map(card => card.id)), { onOpen: id => { const card = byId.get(id); if (card?.sessionId) navigate(sessionHref(card.sessionId, card.pointer?.entryId)); } });
   if (!state.snapshotLoaded) return <div className="page"><SkeletonRows label="overview" /></div>;
   return (
