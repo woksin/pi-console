@@ -43,7 +43,6 @@ function handler(store: Store, token: string, info: MockInfo) {
 export async function startDaemon(options: { port?: number; speed?: number; rate?: number; dataDirectory?: string; replayWindow?: number } = {}) {
   const token = loadToken(options.dataDirectory ?? resolve('.pi-console-dev'));
   const eventLoop = monitorEventLoopDelay({ resolution: 5 });
-  eventLoop.enable();
   const info: MockInfo = { port: 0, startedAt: new Date().toISOString(), replayWindow: options.replayWindow ?? 10000, eventLoop };
   const store = createStore(options.speed ?? 1, options.rate, info.replayWindow);
   const server = createServer(handler(store, token, info));
@@ -56,6 +55,7 @@ export async function startDaemon(options: { port?: number; speed?: number; rate
       server.listen(options.port ?? 4777, '127.0.0.1', () => { server.removeListener('error', reject); resolveListen(); });
     });
   } catch (error) { store.close(); eventLoop.disable(); throw error; }
+  eventLoop.enable();
   const address = server.address() as { port: number; address: string };
   info.port = address.port;
   return {

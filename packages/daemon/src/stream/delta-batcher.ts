@@ -41,6 +41,8 @@ const maxFlushDelayMs = 2_000;
 export interface DeltaBatcherOptions {
   /** Monotonic milliseconds; injectable for specs. */
   clock?: () => number;
+  /** Skip unused queries only after the owner has made omitted deltas non-replayable. */
+  discard?: () => boolean;
 }
 
 /**
@@ -56,6 +58,7 @@ export class DeltaBatcher {
   readonly #publish: (delta: Delta) => void;
   readonly #now: () => Date;
   readonly #clock: () => number;
+  readonly #discard: (() => boolean) | undefined;
   #pending: EventEnvelope[] = [];
   #derived: Map<string, string>;
   #nextFlushAt = 0;
@@ -66,6 +69,7 @@ export class DeltaBatcher {
     this.#publish = publish;
     this.#now = now;
     this.#clock = options.clock ?? (() => performance.now());
+    this.#discard = options.discard;
     this.#derived = derivedSessions(new BatchQueries(models, now));
   }
 
@@ -85,7 +89,8 @@ export class DeltaBatcher {
     if (events.length === 0) return;
     this.#pending = [];
     const started = this.#clock();
-    this.#flushEvents(events);
+    if (this.#discard?.()) this.#derived.clear();
+    else this.#flushEvents(events);
     const ended = this.#clock();
     this.#nextFlushAt = ended + Math.min(maxFlushDelayMs, (ended - started) * (1 / maxDutyShare - 1));
   }

@@ -1,6 +1,7 @@
-import { existsSync, lstatSync, readdirSync, statSync, type Dirent } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, statSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { contextMapper, issueMapper, laneMapper, laneStatusMapper, orchMapper, pathDenied, phaseMapper, questionMapper, rosterMapper, type Mapper } from '@pi-console/adapters';
+import { yieldToLoop } from './yield-to-loop.ts';
 import { laneStatusJson } from './lane-status.ts';
 import type { SourceId } from './source-ids.ts';
 
@@ -75,8 +76,21 @@ type Scope = Pick<Feed, 'extension' | 'recursive' | 'name' | 'window'>;
  * throws. Only `mtime` windows stat a file.
  */
 export function discoverFiles(directory: string, feed: Scope, since: number): string[] {
-  if (!isReadableDirectory(directory)) return [];
-  return readdirSync(directory, { withFileTypes: true }).flatMap(entry => filesOf(join(directory, entry.name), entry, feed, since)).sort();
+  return [...walk(directory, feed, since)].filter((path): path is string => path !== undefined).sort();
+}
+
+/** Yield even across empty/denied directories; no discovery slice intentionally exceeds 5 ms. */
+export async function discoverFilesSliced(directory: string, feed: Scope, since: number): Promise<string[]> {
+  const files: string[] = [];
+  let started = performance.now();
+  for (const path of walk(directory, feed, since)) {
+    if (path !== undefined) files.push(path);
+    if (performance.now() - started < 5) continue;
+    await yieldToLoop();
+    started = performance.now();
+  }
+  files.sort();
+  return files;
 }
 
 /** A real, existing, non-denied directory: a missing root is empty and a symlinked root is never followed. */
@@ -84,10 +98,16 @@ function isReadableDirectory(directory: string): boolean {
   return !pathDenied(directory) && existsSync(directory) && !lstatSync(directory).isSymbolicLink();
 }
 
-function filesOf(path: string, entry: Dirent, feed: Scope, since: number): string[] {
-  if (pathDenied(path) || entry.isSymbolicLink()) return [];
-  if (entry.isDirectory()) return feed.recursive === false ? [] : discoverFiles(path, feed, since);
-  return entry.isFile() && wanted(path, feed, since) ? [path] : [];
+function* walk(directory: string, feed: Scope, since: number): Generator<string | undefined> {
+  if (!isReadableDirectory(directory)) return;
+  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+    yield undefined;
+    const path = join(directory, entry.name);
+    if (pathDenied(path) || entry.isSymbolicLink()) continue;
+    if (entry.isDirectory()) {
+      if (feed.recursive !== false) yield* walk(path, feed, since);
+    } else if (entry.isFile() && wanted(path, feed, since)) yield path;
+  }
 }
 
 function wanted(path: string, feed: Scope, since: number): boolean {

@@ -114,7 +114,9 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
     maxBufferedBytes: options.maxBufferedBytes ?? 1024 * 1024, snapshot: activeOnly => queries().screenSnapshot(now().toISOString(), activeOnly ? 0 : undefined), now,
     warn: message => { process.stderr.write(`pi-console: ${message}\n`); },
   });
-  const batcher = new DeltaBatcher(() => readModels(projector), delta => { stream.publish(delta.type, delta.payload); }, now);
+  const batcher = new DeltaBatcher(() => readModels(projector), delta => { stream.publish(delta.type, delta.payload); }, now, {
+    discard: () => stream.invalidateIfIdle(),
+  });
   const stopDeltas = projector.onApplied(event => { batcher.add(event); });
   const ingestion = new SessionIngestion(new CheckpointCache(log), { roots: options.sessionRoots, backfillWindowDays: options.backfillWindowDays, pollMs: options.pollMs, now });
   const sources = sourceSetFor(log, options, now);

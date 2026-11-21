@@ -44,8 +44,8 @@ export function resumePoint(lastId: string | undefined, current: number): number
 }
 
 /**
- * SSE fan-out with a bounded replay ring. Ids are contiguous per process. A resume inside the ring replays the
- * deltas after the id and continues live; a resume before it (or across a restart) gets a fresh snapshot.
+ * SSE fan-out with a bounded replay ring. Ids are contiguous between replay barriers. A resume inside the ring
+ * replays deltas after the id; a resume before it, across an unobserved gap or restart gets a fresh snapshot.
  */
 export class StreamHub {
   readonly #options: StreamOptions;
@@ -73,10 +73,23 @@ export class StreamHub {
     return this.#ring.length;
   }
 
-  publish(type: string, payload: unknown): void {
+  /** Omit unobserved deltas, reserving an id so any pre-gap resume must take a fresh snapshot. */
+  invalidateIfIdle(): boolean {
+    if (this.#clients.size > 0) return false;
+    this.#advance();
+    this.#ring.length = 0;
+    return true;
+  }
+
+  #advance(): number {
     const seq = this.#seq + 1;
     this.#options.persist(seq);
     this.#seq = seq;
+    return seq;
+  }
+
+  publish(type: string, payload: unknown): void {
+    const seq = this.#advance();
     const frame = this.#frame(seq, type, payload);
     this.#ring.push(frame);
     if (this.#ring.length > this.#options.ringSize) this.#ring.shift();

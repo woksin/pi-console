@@ -188,9 +188,10 @@ function sse(harness: ConformanceHarness): void {
       const t = await start(10_000);
       const first = await openStream(t.port, bearer(t));
       const snapshot = await first.next();
+      // Keep a subscriber while producing retained history; idle daemons may instead reserve snapshot barriers.
+      await t.emit();
+      await t.emit();
       first.close();
-      await t.emit();
-      await t.emit();
       const resumed = await openStream(t.port, bearer(t, { 'Last-Event-ID': String(snapshot.data.seq) }));
       const replay = [await resumed.next(), await resumed.next()];
       assert.deepEqual(replay.map(frame => Number(frame.id)), [snapshot.data.seq + 1, snapshot.data.seq + 2]);
