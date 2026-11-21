@@ -21,13 +21,15 @@ const securityHeaders = {
 
 export interface StaticServerOptions { root: string; daemon: { host: string; port: number } }
 
-/** Resolves a URL path inside `root`; anything that escapes it (or is not a file) falls back to the SPA shell. */
-async function fileFor(root: string, pathname: string): Promise<string> {
+/** Resolves a URL path inside `root`, falling back to the SPA shell when present, or null if neither file exists. */
+async function fileFor(root: string, pathname: string): Promise<string | null> {
   const relative = normalize(decodeURIComponent(pathname)).replace(/^([/\\])+/, '');
   const candidate = resolve(root, relative);
   const inside = candidate === root || candidate.startsWith(root + sep);
   const found = inside && await stat(candidate).then(info => info.isFile(), () => false);
-  return found ? candidate : join(root, 'index.html');
+  if (found) return candidate;
+  const shell = join(root, 'index.html');
+  return stat(shell).then(info => info.isFile() ? shell : null, () => null);
 }
 
 /** The daemon only accepts its own host and origin (DNS-rebinding and CSRF defence), so the dev proxy presents itself as that origin. */
@@ -59,6 +61,23 @@ function proxy(options: StaticServerOptions, req: IncomingMessage, res: ServerRe
   req.pipe(upstream);
 }
 
+function serveFile(file: string | null, req: IncomingMessage, res: ServerResponse): void {
+  if (file === null) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', ...securityHeaders });
+    res.end('Web bundle unavailable. Run npm run build -w @pi-console/web.\n');
+    return;
+  }
+  const cache = file.endsWith('index.html') ? 'no-store' : 'public, max-age=31536000, immutable';
+  const headers = { 'Content-Type': types[extname(file)] ?? 'application/octet-stream', 'Cache-Control': cache, ...securityHeaders };
+  if (req.method === 'HEAD') { res.writeHead(200, headers).end(); return; }
+  const stream = createReadStream(file);
+  stream.once('open', () => { res.writeHead(200, headers); });
+  stream.on('error', () => {
+    if (res.headersSent) res.destroy(); else res.writeHead(500, securityHeaders).end();
+  });
+  stream.pipe(res);
+}
+
 /** The request target, or null when it is not a parseable URL (e.g. `//[`). */
 function parseTarget(target: string | undefined): URL | null {
   try { return new URL(target ?? '/', 'http://localhost'); } catch { return null; }
@@ -72,10 +91,6 @@ export function createStaticServer(options: StaticServerOptions): Server {
     if (!url) { res.writeHead(400, securityHeaders).end(); return; }
     if (url.pathname.startsWith('/api/')) { proxy(options, req, res); return; }
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405, securityHeaders).end(); return; }
-    void fileFor(root, url.pathname).then(file => {
-      const cache = file.endsWith('index.html') ? 'no-store' : 'public, max-age=31536000, immutable';
-      res.writeHead(200, { 'Content-Type': types[extname(file)] ?? 'application/octet-stream', 'Cache-Control': cache, ...securityHeaders });
-      if (req.method === 'HEAD') res.end(); else createReadStream(file).pipe(res);
-    }, () => { res.writeHead(400, securityHeaders).end(); });
+    void fileFor(root, url.pathname).then(file => { serveFile(file, req, res); }, () => { res.writeHead(400, securityHeaders).end(); });
   });
 }
