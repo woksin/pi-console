@@ -53,5 +53,6 @@ test('the daemon command serves the API until stopped and never prints the token
 test('help prints usage without starting anything', async () => {
   const lines: string[] = [];
   assert.equal(await runDaemon(['--help'], { out: line => lines.push(line), stopSignal: Promise.resolve() }), 0);
-  assert.match(lines[0], /127\.0\.0\.1/);
+  assert.match(lines[0], /http:\/\/127\.0\.0\.1:<port>\/#token=<token>/);
+  assert.equal(lines[0].includes('?token='), false);
 });
