@@ -129,6 +129,7 @@ export class ConsoleStore {
     const now = this.#clock.now();
     if (frame === 'heartbeat') { this.#set({ ...this.#state, lastFrameAt: now, connection: 'live', received: this.#state.received + 1 }); return; }
     const next = applyEvent(this.#state, frame);
+    if (next.gapCount !== this.#state.gapCount) this.#memoryAt.clear();
     if (frame.type !== 'snapshot') for (const name of next.bounded) if (next[name].length > this.#state[name].length) this.#staleTotals.add(name);
     this.#set({ ...next, lastFrameAt: now, connection: 'live', received: this.#state.received + 1 });
     this.#scheduleRefresh();

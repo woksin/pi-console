@@ -135,6 +135,25 @@ test('session memory loads summary and bounded items together, sharing requests 
   assert.deepEqual(store.getState().memory.s2, memorySummary('s2'));
 });
 
+test('a resnapshot clears the session memory throttle even before its refresh interval expires', async () => {
+  let emit: (frame: unknown) => void = () => undefined;
+  let calls = 0;
+  const api = {
+    stream: (_seq: number, _signal: AbortSignal, onFrame: (frame: unknown) => void) => { emit = onFrame; onFrame(windowedSnapshot([], 0)); return new Promise<void>(() => undefined); },
+    sessionMemory: () => { calls++; return Promise.resolve(memorySummary('s1')); },
+    memoryItems: () => Promise.resolve([proposedItem]),
+  } as unknown as Api;
+  const store = new ConsoleStore(api, clock);
+  store.start();
+  await store.loadSessionMemory('s1');
+  await store.loadSessionMemory('s1');
+  assert.equal(calls, 1);
+  emit({ ...windowedSnapshot([], 0), seq: 9 });
+  await store.loadSessionMemory('s1');
+  store.stop();
+  assert.equal(calls, 2);
+});
+
 for (const cached of [false, true]) test(`an items failure preserves the ${cached ? 'cached' : 'empty'} memory pair and retries immediately`, async () => {
   let now = 0;
   let calls = 0;
