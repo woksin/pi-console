@@ -11,6 +11,7 @@ import { buildLargeTree, call } from '@pi-console/testkit';
 import { loadConfig } from '../config.ts';
 import { startDaemon, type RunningDaemon } from '../daemon.ts';
 import { loadToken } from '../security/token.ts';
+import { describeTurns, LoopTurns } from '../testing/loop-turns.ts';
 
 const mebibyte = 1024 * 1024;
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -28,6 +29,8 @@ test('a large tree backfills in the background: /health stays fast, memory flat,
   const dataDir = join(base, 'data');
   const config = loadConfig(dataDir, { port: 0, agentRoot: tree.root, orchRoot: tree.orchRoot, sessionRoots: [tree.sessionRoot], pollMs: 1_000, sourcePollMs: 250 });
   const baseline = process.memoryUsage().rss;
+  const turns = new LoopTurns();
+  turns.start();
   const started = performance.now();
   const daemon = await startDaemon(config);
   t.after(async () => { await daemon.close().catch(() => undefined); });
@@ -47,16 +50,22 @@ test('a large tree backfills in the background: /health stays fast, memory flat,
     complete = health.backfill.complete && health.projection.queueDepth === 0 && health.sources.every(source => source.lagBytes === 0);
     await wait(50);
   }
+  const summary = await turns.stop();
+  console.log(describeTurns(summary));
   const grown = process.memoryUsage().rss - baseline;
   console.log(`volume: first 200 ${firstOk?.toFixed(0)} ms, worst /health ${worst.toFixed(0)} ms, backfill ${((performance.now() - started) / 1000).toFixed(1)} s, rss growth ${(grown / mebibyte).toFixed(0)} MiB`);
   console.log(`event loop: p50 ${loop.p50.toFixed(1)} ms, p99 ${loop.p99.toFixed(1)} ms, max ${loop.max.toFixed(1)} ms`);
   assert.ok(complete, 'backfill finished');
   assert.ok((firstOk ?? Infinity) < 3_000, `first 200 after ${firstOk} ms`);
-  // HTTP wall time also includes client work and host scheduling; the histogram is the tighter bound.
-  assert.ok(worst < 1_000, `worst /health ${worst} ms`);
-  // 5 ms sampling exposes long synchronous tasks even when the HTTP polls happen to miss them.
-  assert.ok(loop.p99 < 100, `event-loop p99 ${loop.p99} ms`);
-  assert.ok(loop.max < 250, `event-loop max ${loop.max} ms`);
+  // Main-thread CPU per loop turn is what the daemon controls: descheduling on a loaded host or CI runner adds wall
+  // time, not CPU time. Healthy turns peak at 24-36 ms of CPU; a 150 ms synchronous step fails both bounds.
+  const heavy = summary.long.filter(turn => turn.cpuMs >= 50);
+  assert.ok(summary.maxCpuMs < 100, `a loop turn used ${summary.maxCpuMs} ms of CPU`);
+  assert.ok(heavy.length <= 3, `${heavy.length} loop turns used 50 ms of CPU or more`);
+  // Wall time (HTTP and event-loop delay) includes host descheduling, seen at 1.5 s on a loaded host with 20 ms of
+  // CPU in the turn, so it only proves the daemon is not hung.
+  assert.ok(worst < 5_000, `worst /health ${worst} ms`);
+  assert.ok(loop.max < 5_000, `event-loop max ${loop.max} ms`);
   assert.ok(grown < 150 * mebibyte, `rss grew ${grown / mebibyte} MiB`);
   const events = await allEvents(daemon);
   assert.equal(events.filter(event => event.type === 'SessionStarted').length, 100, 'every synthetic session was ingested');
