@@ -30,6 +30,17 @@ function changesOf(model: OverviewViewModel, env: Env): { fresh: NewSince; flash
 /** The "N new since you looked" divider, cyan like the web one. */
 const newSinceLine = (label: string, width: number): Line => [t('── ', 'cyan'), t(label, 'cyan', { bold: true }), t(` ${'─'.repeat(Math.max(0, width - label.length - 4))}`, 'cyan')];
 
+function calmLines(model: OverviewViewModel, env: Env, width: number): Line[] {
+  return env.data.sessions.length === 0
+    ? checklistLines({ connected: env.data.connection.connected, sessions: 0 }, width)
+    : emptyLines(overviewEmpty(model.fleet.working), width);
+}
+
+function attentionPosition(total: number, end: number, cursor: number): string {
+  if (total > end) return `↓ ${String(total - end)} more`;
+  return total > 0 ? `${String(cursor + 1)}/${String(total)}` : '';
+}
+
 function attentionPanel(model: OverviewViewModel, env: Env, width: number, height: number): ReturnType<typeof h> {
   const inner = width - 4;
   const { fresh, flashing } = changesOf(model, env);
@@ -38,12 +49,10 @@ function attentionPanel(model: OverviewViewModel, env: Env, width: number, heigh
   const cursor = env.ui.cursor.overview;
   const { start, end } = windowOf(model.cards.length, cursor, visible);
   const lines: Line[] = model.cards.length === 0
-    ? (env.data.sessions.length === 0
-      ? checklistLines({ connected: env.data.connection.connected, sessions: 0 }, inner)
-      : emptyLines(overviewEmpty(model.fleet.working), inner))
+    ? calmLines(model, env, inner)
     : [...divider, ...model.cards.slice(start, end).flatMap((card, offset) =>
       cardLines(card, inner, { selected: start + offset === cursor, isNew: fresh.ids.has(card.id), flash: flashing(card.id) }, env))];
-  const more = model.cards.length > end ? `↓ ${String(model.cards.length - end)} more` : model.cards.length > 0 ? `${String(cursor + 1)}/${String(model.cards.length)}` : '';
+  const more = attentionPosition(model.cards.length, end, cursor);
   return h(Panel, { title: model.headline, right: more, focused: true, accent: model.cards.length > 0 ? 'amber' : 'green', grow: 1 },
     h(Lines, { lines, grow: 1, onLineClick: index => { if (index >= divider.length) env.click(start + Math.floor((index - divider.length) / CARD_HEIGHT)); } }));
 }
@@ -74,17 +83,23 @@ export function pressureLines(histogram: PressureHistogram): Line[] {
   ];
 }
 
-function fleetPanel(model: OverviewViewModel, histogram: PressureHistogram, width: number, height: number): ReturnType<typeof h> {
-  const inner = width - 4;
+function statusLines(model: OverviewViewModel, width: number): Line[] {
   const peak = Math.max(1, ...model.counts.map(entry => entry.count));
+  return model.counts.map(entry => {
+    const tone = entry.count ? 'text' : 'faint';
+    return fit([
+      ...statusParts(entry.status, 0, false), t(` ${entry.status.label.padEnd(10)}`, tone), t(String(entry.count).padStart(3), tone), t(' '),
+      ...bar(entry.count / peak * 100, Math.max(4, width - 19), entry.count ? entry.status.color : 'border'),
+    ], width);
+  });
+}
+
+function fleetPanel(model: OverviewViewModel, histogram: PressureHistogram, width: number, height: number): ReturnType<typeof h> {
   const lines: Line[] = [
     [t(String(model.fleet.sessions), 'text', { bold: true }), t(` sessions in ${String(model.fleet.repositories)} repositories`, 'muted')],
     [t(String(model.fleet.working), 'cyan', { bold: true }), t(' working right now', 'muted')],
     blank, heading('Status'),
-    ...model.counts.map(entry => fit([
-      ...statusParts(entry.status, 0, false), t(` ${entry.status.label.padEnd(10)}`, entry.count ? 'text' : 'faint'), t(String(entry.count).padStart(3), entry.count ? 'text' : 'faint'), t(' '),
-      ...bar(entry.count / peak * 100, Math.max(4, inner - 19), entry.count ? entry.status.color : 'border'),
-    ], inner)),
+    ...statusLines(model, width - 4),
     blank, heading('Context, fleet average'),
     [t(model.fleet.contextSpark, 'cyan')],
     blank,

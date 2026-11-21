@@ -27,16 +27,20 @@ test('side labels grow toward the centre, the rest stay centred, and long names 
   assert.equal(placeLabel('short', { x: 180, y: 50 }).text, 'short');
 });
 
+function assertNoOverlaps(labels: ReturnType<typeof layout>, count: number): void {
+  for (const a of labels) {
+    for (const b of labels) {
+      if (a === b || Math.abs(a.at.y - b.at.y) > 14) continue;
+      assert.ok(a.span[1] <= b.span[0] || b.span[1] <= a.span[0], `${String(count)}: ${a.label.text} overlaps ${b.label.text}`);
+    }
+  }
+}
+
 test('for 3 to 8 nodes no label leaves the drawing and no two labels on the same row overlap', () => {
   for (let count = 3; count <= 8; count++) {
     const labels = layout(count, index => `aurora/L19${String(index)} subagent with a long tail`);
     for (const { label, span: [left, right] } of labels) assert.ok(left >= 0 && right <= graphSize, `${String(count)}: ${label.text} spans ${String(left)}..${String(right)}`);
-    for (const a of labels) {
-      for (const b of labels) {
-        if (a === b || Math.abs(a.at.y - b.at.y) > 14) continue;
-        assert.ok(a.span[1] <= b.span[0] || b.span[1] <= a.span[0], `${String(count)}: ${a.label.text} overlaps ${b.label.text}`);
-      }
-    }
+    assertNoOverlaps(labels, count);
   }
 });
 
