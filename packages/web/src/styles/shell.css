@@ -41,9 +41,6 @@
 .palette ul { list-style: none; margin: 0; padding: 6px; max-height: 50vh; overflow: auto; }
 .palette li { display: flex; justify-content: space-between; padding: 8px 10px; border-radius: 6px; cursor: pointer; }
 .palette li.active { background: var(--select); }
-.help { width: min(820px, 94vw); padding: 20px 24px; max-height: 80vh; overflow: auto; }
-.help-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; margin: 14px 0; }
-.help dl { margin: 6px 0 0; } .help dl div { display: flex; gap: 10px; padding: 3px 0; } .help dt { min-width: 64px; } .help dd { margin: 0; color: var(--muted); }
 .token-screen { min-height: 100%; display: grid; place-items: center; background: radial-gradient(60% 50% at 50% 30%, color-mix(in oklab, var(--blue) 16%, var(--bg)), var(--bg)); }
 .token { width: min(440px, 92vw); padding: 28px; display: flex; flex-direction: column; gap: 14px; }
 .token label { display: flex; flex-direction: column; gap: 6px; color: var(--muted); }
