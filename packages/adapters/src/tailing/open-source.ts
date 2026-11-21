@@ -4,7 +4,7 @@ import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'nod
 import { pathDenied } from './paths.ts';
 
 interface SourceScope { path: string; roots: readonly string[] }
-interface OpenedSource { handle: FileHandle; path: string }
+export interface OpenedSource { handle: FileHandle; path: string; stat: Stats }
 
 const readFlags = constants.O_RDONLY | (constants.O_NONBLOCK ?? 0) | (constants.O_NOFOLLOW ?? 0);
 
@@ -35,8 +35,9 @@ class SourceBoundary {
     if (pathDenied(this.path)) throw new Error('Source path denied');
     const handle = await open(this.path, readFlags);
     try {
-      this.#checkFile(await handle.stat());
-      return { handle, path: this.#canonicalPath() };
+      const stat = await handle.stat();
+      this.#checkFile(stat);
+      return { handle, path: this.#canonicalPath(), stat };
     } catch (error) {
       await handle.close();
       throw error;
@@ -60,6 +61,17 @@ class SourceBoundary {
     if (pathDenied(canonical)) throw new Error('Source path denied');
     return canonical;
   }
+}
+
+/** Resolve configured root aliases once, preserving the candidate's path beneath its root. */
+export function resolveSourceScope(candidate: string, configuredRoots: readonly string[]): SourceScope {
+  const path = resolve(candidate);
+  const roots = configuredRoots.map(root => ({ lexical: resolve(root), canonical: realpathSync(root) }));
+  const root = roots.find(root => inside(root.lexical, path));
+  return {
+    path: root ? join(root.canonical, relative(root.lexical, path)) : path,
+    roots: roots.map(root => root.canonical),
+  };
 }
 
 /** Open the candidate itself; roots must be the trust boundaries resolved once before discovery. */

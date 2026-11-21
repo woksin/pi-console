@@ -11,6 +11,8 @@ export interface Feed {
   kind: 'tail' | 'snapshot';
   /** Allow-listed directories. Every file read is scoped to them; nothing else is ever opened. */
   directories: readonly string[];
+  /** Configured root resolved once, before discovery; pins the boundary while individual files are opened. */
+  trustRoot?: string;
   /** Directories below the resolved configured root, validated before following any feed. */
   ancestors?: readonly string[];
   /** File name suffix, for example `.json`. */
@@ -59,11 +61,11 @@ export function sourceTable({ agentRoot, orchRoot, lanesRoot, laneStatusDir }: S
   orchRoot = resolveRoot(orchRoot);
   lanesRoot = lanesRoot === undefined ? undefined : resolveRoot(lanesRoot);
   laneStatusDir = resolveRoot(laneStatusDir);
-  const scope = (directory: string[]) => ({ directories: [join(...directory)], ancestors: directory.slice(1).map((_, index) => join(...directory.slice(0, index + 2))) });
+  const scope = (directory: string[]) => ({ directories: [join(...directory)], trustRoot: directory[0], ancestors: directory.slice(1).map((_, index) => join(...directory.slice(0, index + 2))) });
   const snapshot = (mapper: Mapper, recursive: boolean, ...directory: string[]): Feed => ({ mapper, kind: 'snapshot', extension: '.json', ...scope(directory), recursive, window: 'none' });
   const tail = (mapper: Mapper, name: RegExp, extra: Partial<Feed>, ...directory: string[]): Feed => ({ mapper, kind: 'tail', extension: '.jsonl', ...scope(directory), recursive: false, name, ...extra });
   const lanes = lanesRoot === undefined ? [] : [snapshot(rosterMapper, false, lanesRoot, '.state', 'roster'), { ...snapshot(laneMapper, false, lanesRoot), name: /^lanes\.json$/ }];
-  const status: Feed = { mapper: laneStatusMapper, kind: 'snapshot', extension: '.status', directories: [laneStatusDir], recursive: false, window: 'none', decode: laneStatusJson };
+  const status: Feed = { mapper: laneStatusMapper, kind: 'snapshot', extension: '.status', directories: [laneStatusDir], trustRoot: laneStatusDir, recursive: false, window: 'none', decode: laneStatusJson };
   return [
     { id: 'question-store', feeds: [snapshot(questionMapper, true, agentRoot, 'user-questions', 'items')] },
     { id: 'lane-messages', feeds: [snapshot(orchMapper, true, orchRoot, 'inbox'), ...lanes, status] },

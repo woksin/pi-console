@@ -98,7 +98,7 @@ export class SourceIngestion implements AdapterWorker {
   }
 
   async #snapshot(feed: Feed, file: string): Promise<number> {
-    await pollSnapshot(this.#log, this.#options.id, file, feed.mapper, { roots: feed.directories, decode: feed.decode });
+    await pollSnapshot(this.#log, this.#options.id, file, feed.mapper, { roots: feed.directories, resolvedRoots: feed.trustRoot ? [feed.trustRoot] : undefined, decode: feed.decode });
     return 0;
   }
 
@@ -126,7 +126,7 @@ export class SourceIngestion implements AdapterWorker {
       }
       return lag;
     } finally {
-      tailer.close();
+      await tailer.close();
     }
   }
 
@@ -143,6 +143,7 @@ export class SourceIngestion implements AdapterWorker {
 function tailerOptions(feed: Feed, since: number, size: number): TailerOptions {
   const { seekBy, lineFilter } = feed;
   return {
+    roots: feed.trustRoot ? [feed.trustRoot] : undefined,
     batchBytes: size,
     startOffset: seekBy ? (fd, size) => seekStart(fd, size, since, timeOfRow(seekBy)) : undefined,
     lineFilter: lineFilter ? line => line.includes(lineFilter) : undefined,
