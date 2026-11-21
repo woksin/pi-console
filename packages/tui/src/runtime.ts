@@ -54,6 +54,7 @@ export async function run(options: RunOptions = {}): Promise<number> {
       store: runtime.store, endpoint: credentials.baseUrl, tokenSource: credentials.tokenSource, animate, clock,
       loadMore: collection => { void loadMore(runtime, collection); },
       loadTranscript: id => { void runtime.client.session(id).then(detail => { runtime.store.mergeDetail(detail); }, () => undefined); void runtime.client.transcript(id).then(entries => { runtime.store.mergeTranscript(id, entries); }, () => { runtime.store.mergeTranscript(id, []); }); },
+      loadMemory: id => { void Promise.all([runtime.client.sessionMemory(id), runtime.client.memoryItems(id)]).then(([memory, items]) => { runtime.store.mergeMemory(id, memory, items); }, () => undefined); },
       onQuit: () => { handle?.destroy(); finish(); },
     });
     void launch(node, { fps: animate ? 20 : 8, onDestroy: finish }).then(started => { handle = started; });

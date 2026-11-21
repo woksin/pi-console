@@ -52,6 +52,15 @@ The TUI uses OpenTUI ([ADR-0003](adr/0003-tui-stack-bake-off.md)), which loads a
 
 Supported only through (a) Tailscale Serve (tailnet only) or (b) a TLS reverse proxy that you configure with an explicit Host allowlist and trusted-proxy list. Do not expose the daemon directly. Self-host authentication (passkeys or OIDC with a single-owner allowlist) arrives in M3; until then remote use relies on the tailnet or proxy and the token.
 
+## Intent-memory store (read-only)
+
+The `intent-memory` source reads `<agent root>/memory/events.jsonl` and `journal/*.jsonl` only: no lock, no write, no
+confirm. `answers/`, `blobs/` and the prune cursor are never opened; a symlinked store root is skipped. Item text and
+reasons go through the same redactor as other sources (secret-shaped content is withheld) and journal message text is
+dropped at the mapper, so only origin, size and a withheld flag are kept. The handoff reader (`/sessions/:id/memory`) opens only
+an absolute `.ai-work/handoffs/<name>.md` path that passes the denylist, is a regular non-symlink file of at most 256 KiB, and returns
+integers only; it logs nothing and returns no path.
+
 ## Specs required
 
 Every milestone includes hostile-case specs: wrong or missing token, wrong Host, foreign Origin (also on SSE and WebSocket), no Origin with cookie only, missing CSRF header, read-only token attempting a command, forged extension connect, oversized and malformed frames, a transcript containing terminal escape sequences and script tags, a fixture with known secret shapes, a scan failure (must withhold), and a replayed intervention (must not run twice).

@@ -76,3 +76,7 @@ The Go Bubble Tea implementation from the bake-off ([round 2](spikes/tui-bubblet
 
 - Help lists the whole keymap and is cut off on terminals shorter than about 45 rows.
 - No visual regression of the colour output; specs assert text, and the SVGs are for review.
+
+## Session memory pane
+
+The session view's side pane cycles through `memory` as its fifth tab (same keys as the other panes). It renders the same panel as the web: counts, unresolved bound, items, the exact `/memory confirm <id>` text for proposed items and the handoff figures. No key writes anything.

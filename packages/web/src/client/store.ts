@@ -15,6 +15,9 @@ const realClock: Clock = {
 export const reconnectDelays = [400, 800, 1600, 3200, 5000] as const;
 export const staleAfterMs = 45_000;
 const refreshDebounceMs = 350;
+/** A session's memory is refetched at most this often. */
+export const memoryRefreshMs = 5000;
+const memoryItemLimit = 100;
 const historyPageSize = 1000;
 /** Rows per history page: newest first, so the first page mostly repeats the snapshot window and later pages go back in time. */
 const listPageSize = 500;
@@ -49,6 +52,8 @@ export class ConsoleStore {
   #isStopped(): boolean { return this.#stopped; }
   #takeRefreshAgain(): boolean { const again = this.#refreshAgain; this.#refreshAgain = false; return again; }
   readonly #loaded = new Map<string, Promise<void>>();
+  /** When each session's memory was last requested (clock ms), for the refetch throttle. */
+  readonly #memoryAt = new Map<string, number>();
   readonly #paging = new Map<WindowedCollection, Promise<void>>();
   /** Bounded collections that gained an id the client had not seen: their snapshot total may have moved, so it is refetched. */
   readonly #staleTotals = new Set<WindowedCollection>();
@@ -124,6 +129,7 @@ export class ConsoleStore {
     const now = this.#clock.now();
     if (frame === 'heartbeat') { this.#set({ ...this.#state, lastFrameAt: now, connection: 'live', received: this.#state.received + 1 }); return; }
     const next = applyEvent(this.#state, frame);
+    if (next.gapCount !== this.#state.gapCount) this.#memoryAt.clear();
     if (frame.type !== 'snapshot') for (const name of next.bounded) if (next[name].length > this.#state[name].length) this.#staleTotals.add(name);
     this.#set({ ...next, lastFrameAt: now, connection: 'live', received: this.#state.received + 1 });
     this.#scheduleRefresh();
@@ -190,6 +196,23 @@ export class ConsoleStore {
     this.#loaded.set(key, task);
     return task;
   }
+
+  /** Loads a session's read-only memory summary and newest items; at most once per `memoryRefreshMs` per session, and again after a gap. A failed load is retried on the next call. */
+  loadSessionMemory(sessionId: string): Promise<void> {
+    const key = `memory:${sessionId}`;
+    const last = this.#memoryAt.get(key);
+    const existing = this.#loaded.get(key);
+    const recent = last !== undefined && this.#clock.now() - last < memoryRefreshMs;
+    if (existing && recent) return existing;
+    this.#memoryAt.set(key, this.#clock.now());
+    const task = Promise.all([this.#api.sessionMemory(sessionId).catch(() => null), this.#api.memoryItems(sessionId, memoryItemLimit).catch(() => null)]).then(([memory, items]) => {
+      if (!memory || !items) { this.#memoryAt.delete(key); return; }
+      this.#set({ ...this.#state, memory: { ...this.#state.memory, [sessionId]: memory }, memoryItems: { ...this.#state.memoryItems, [sessionId]: items } });
+    });
+    this.#loaded.set(key, task);
+    return task;
+  }
+
   /** Loads a session's transcript history once per gap; the live tail arrives over the stream. History is paged to its end (only the newest entries are kept), or, with `focus`, until that entry is present. A failed load is forgotten so the next open retries it. */
   loadTranscript(sessionId: string, focus: string | null = null): Promise<void> {
     const key = `${sessionId}:${String(this.#state.gapCount)}:${focus ?? ''}`;

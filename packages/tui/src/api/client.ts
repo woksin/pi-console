@@ -1,5 +1,5 @@
 import type { WindowedCollection } from '@pi-console/viewmodels';
-import type { Event, SessionDetail, TranscriptEntry, Transcript, NeedsYou, AttentionItem } from '@pi-console/contract';
+import type { Event, MemoryItem, SessionDetail, SessionMemory, TranscriptEntry, Transcript, NeedsYou, AttentionItem } from '@pi-console/contract';
 import { FrameParser } from './sse.ts';
 import type { Credentials } from './token.ts';
 import { TRANSCRIPT_LIMIT } from '../store/store.ts';
@@ -42,6 +42,15 @@ export class DaemonClient {
 
   async session(sessionId: string): Promise<SessionDetail> {
     return await this.json<SessionDetail>(`/sessions/${encodeURIComponent(sessionId)}`);
+  }
+
+  async sessionMemory(sessionId: string): Promise<SessionMemory> {
+    return await this.json<SessionMemory>(`/sessions/${encodeURIComponent(sessionId)}/memory`);
+  }
+
+  /** The newest memory items of one session. */
+  async memoryItems(sessionId: string, limit = 100): Promise<MemoryItem[]> {
+    return (await this.json<{ items: MemoryItem[] }>(`/memory-items?limit=${String(limit)}&order=desc&sessionId=${encodeURIComponent(sessionId)}`)).items;
   }
 
   /** Backfills the newest `TRANSCRIPT_LIMIT` entries: pages forward to the end (so the tail is never the part that is missing), keeping only the tail. Bounded to `pages` pages. */

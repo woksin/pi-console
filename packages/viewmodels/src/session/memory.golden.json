@@ -1,0 +1,87 @@
+{
+  "title": "Memory",
+  "available": true,
+  "counts": [
+    {
+      "status": "active",
+      "label": "active",
+      "count": 2
+    },
+    {
+      "status": "proposed",
+      "label": "proposed",
+      "count": 1
+    },
+    {
+      "status": "done",
+      "label": "done",
+      "count": 0
+    },
+    {
+      "status": "superseded",
+      "label": "superseded",
+      "count": 0
+    },
+    {
+      "status": "withdrawn",
+      "label": "withdrawn",
+      "count": 0
+    },
+    {
+      "status": "rejected",
+      "label": "rejected",
+      "count": 1
+    }
+  ],
+  "unresolved": {
+    "text": "unresolved: 2+ (lower bound) · last handoff: 3"
+  },
+  "items": [
+    {
+      "id": "item-1",
+      "kind": "order",
+      "scope": "session:s1",
+      "status": "proposed",
+      "statusLabel": "proposed",
+      "text": "synthetic item-1",
+      "command": "/memory confirm item-1",
+      "rejectCommand": "/memory reject item-1",
+      "sourceNote": "from a coordinator order"
+    },
+    {
+      "id": "item-2",
+      "kind": "directive",
+      "scope": "session:s1",
+      "status": "active",
+      "statusLabel": "active (assumed)",
+      "text": "synthetic item-2",
+      "command": null,
+      "rejectCommand": null,
+      "sourceNote": "from a user message"
+    },
+    {
+      "id": "item-3",
+      "kind": "order",
+      "scope": "session:s1",
+      "status": "rejected",
+      "statusLabel": "rejected",
+      "text": "[withheld: secret-shaped content]",
+      "command": null,
+      "rejectCommand": null,
+      "sourceNote": "from a coordinator order"
+    }
+  ],
+  "handoffs": [
+    {
+      "id": "sess-1-1.md",
+      "age": "15m",
+      "text": "4 items · 3 unresolved · 1 proposed"
+    },
+    {
+      "id": "sess-1-2.md",
+      "age": "14m",
+      "text": "memory degraded at handoff"
+    }
+  ],
+  "hint": "Confirming needs an interactive pi session (a confirmation dialog); the console is read-only and cannot confirm or reject."
+}

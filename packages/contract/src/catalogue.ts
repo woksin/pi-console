@@ -1,7 +1,7 @@
 import { array, bool, excerpt, id, int, nullable, num, oneOf, open, percent, str, time, type Schema } from './schema-dsl.ts';
 import { validate } from './validate.ts';
 
-export type EventGroup = 'sessions' | 'requests' | 'questions' | 'messages-lanes' | 'work' | 'system';
+export type EventGroup = 'sessions' | 'requests' | 'questions' | 'messages-lanes' | 'work' | 'memory' | 'system';
 
 export interface EventDefinition {
   type: string;
@@ -80,7 +80,23 @@ const work = defs('work', ['session-jsonl', 'job-logs', 'phase-ledger', 'review-
   ReviewRecorded: open({ reviewId: id, headSha: id, verdict: str }),
 });
 
-const system = defs('system', ['console', 'session-jsonl', 'context-budget', 'lane-messages', 'question-store', 'phase-ledger', 'job-logs'], {
+/** Read-only intent-memory records (ADR-0008, event-model S3): items, and journal message metadata without text. */
+const memoryItemId = { itemId: id };
+const memory = defs('memory', ['intent-memory'], {
+  MemoryItemRecorded: open({
+    ...memoryItemId, kind: oneOf('directive', 'order', 'decision'), scopeKind: oneOf('global', 'repo', 'lane', 'session', 'task'), scopeKey: str,
+    sourceType: oneOf('user_message', 'coordinator_order', 'agent_decision', 'question_item'), sourceMessageId: nullable(id),
+    authorityMode: nullable(oneOf('auto', 'command', 'none')), supersedes: array(id), excerpt, withheld: bool, gloss: excerpt,
+  }, ['itemId', 'kind', 'scopeKind', 'scopeKey', 'sourceType', 'sourceMessageId', 'authorityMode', 'supersedes', 'excerpt', 'withheld']),
+  MemoryItemConfirmed: open({ ...memoryItemId, actorKind: str }),
+  MemoryItemRetired: open({ ...memoryItemId, status: oneOf('done', 'superseded', 'withdrawn', 'rejected'), actorKind: str, reasonExcerpt: excerpt }),
+  MemoryMessageRecorded: open({
+    ...messageId, ...sessionId, origin: oneOf('human', 'unattended', 'launch', 'injected'), injectedKind: nullable(str), withheld: bool, textBytes: int,
+  }, ['messageId', 'sessionId', 'origin', 'injectedKind', 'withheld', 'textBytes']),
+  MemoryMessageClassified: open({ ...messageId, whole: nullable(oneOf('none')), spanCount: int }),
+});
+
+const system = defs('system', ['console', 'session-jsonl', 'context-budget', 'lane-messages', 'question-store', 'phase-ledger', 'job-logs', 'intent-memory'], {
   SourceCheckpointAdvanced: open({ source: id, identity: id, generation: int, offset: int }),
   SourceUnavailable: open({ source: id, reason: str }),
   SourceSchemaUnknown: open({ source: id, identity: id, detail: str }),
@@ -88,7 +104,7 @@ const system = defs('system', ['console', 'session-jsonl', 'context-budget', 'la
 });
 
 /** The M1 event catalogue (event-model section 2, trimmed to what M1 ingests and derives). */
-export const catalogue: readonly EventDefinition[] = [...sessions, ...requests, ...questions, ...messagesAndLanes, ...work, ...system];
+export const catalogue: readonly EventDefinition[] = [...sessions, ...requests, ...questions, ...messagesAndLanes, ...work, ...memory, ...system];
 
 const byType = new Map(catalogue.map(definition => [definition.type, definition]));
 export const definitionOf = (type: string): EventDefinition | undefined => byType.get(type);

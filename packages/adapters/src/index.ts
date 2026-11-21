@@ -10,6 +10,7 @@ export { contextMapper } from './sources/context.ts';
 export { laneMapper, laneStatusMapper, rosterMapper, laneMessageMapper } from './sources/lanes.ts';
 export { orchMapper } from './sources/orch.ts';
 export { questionMapper } from './sources/questions.ts';
+export { memoryEventMapper, memoryJournalMapper, crc32 } from './sources/memory.ts';
 export { issueMapper } from './sources/issues.ts';
 export { phaseMapper } from './sources/phases.ts';
 export { opaqueLogMapper } from './sources/gaps.ts';

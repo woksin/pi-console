@@ -1,6 +1,7 @@
 import type { SessionViewModel } from '@pi-console/viewmodels';
 import { PressureBar, Panel, Sparkline, StatusBadge } from '../ui/primitives.tsx';
 import { sessionHref } from '../app/routes.ts';
+import { SessionMemory } from './session-memory.tsx';
 
 export function SessionHeader({ view }: { view: SessionViewModel }) {
   return (
@@ -33,6 +34,7 @@ export function SessionRail({ view }: { view: SessionViewModel }) {
         <ul className="mini-list">{view.resets.map(reset => <li key={reset.id}><span>┃ {reset.kind}</span><span className="faint small">{reset.time} · {reset.carried} carried · {reset.interrupted} interrupted</span></li>)}</ul>
         {view.resets.length === 0 && <span className="faint">None</span>}
       </Panel>
+      <SessionMemory id={view.id} />
       {view.subagents.length > 0 && <Panel title="Subagents" aside={view.subagents.length}>
         <ul className="mini-list">{view.subagents.map(sub => <li key={sub.id}><a href={sessionHref(sub.id)}>{sub.name}</a><StatusBadge cell={sub.status} compact /></li>)}</ul>
       </Panel>}

@@ -1,5 +1,6 @@
 import type { IncomingMessage } from 'node:http';
 import { apiV1Schema as schema, validate } from '@pi-console/contract';
+import { memoryItems, sessionMemory } from './memory.ts';
 import { needsYou } from './needs-you.ts';
 import { HttpError } from './security.ts';
 import { pageOf, type Collection } from './paging.ts';
@@ -44,6 +45,7 @@ function sessionResponse(store: Store, url: URL) {
   const session = store.fixture.sessions.find(item => item.id === parts[4]);
   if (!session) throw new HttpError(404, 'Session not found');
   if (parts.length === 6 && parts[5] === 'transcript') return transcriptResponse(store, session.id, url);
+  if (parts.length === 6 && parts[5] === 'memory') return sessionMemory(store, session.id);
   if (parts.length !== 5) throw new HttpError(404, 'Not found');
   return sessionDetail(store, session);
 }
@@ -75,12 +77,19 @@ const exactRoutes = new Map<string, Route>([
   ['/api/v1/questions', listing('questions', store => store.fixture.questions)],
   ['/api/v1/messages', listing('messages', store => store.fixture.messages)],
   ['/api/v1/jobs', listing('jobs', store => store.fixture.jobs)],
+  ['/api/v1/memory-items', listing('memoryItems', (_store, url) => memoryRows(url))],
 ]);
 export function query(store: Store, url: URL, info: MockInfo): unknown {
   if (url.pathname.startsWith('/api/v1/sessions/')) return sessionResponse(store, url);
   const route = exactRoutes.get(url.pathname) ?? v1Routes.get(url.pathname);
   if (!route) throw new HttpError(404, 'Not found');
   return route(store, info, url);
+}
+const memoryStatuses = ['active', 'proposed', 'done', 'superseded', 'withdrawn', 'rejected'];
+function memoryRows(url: URL) {
+  const status = url.searchParams.get('status');
+  if (status !== null && !memoryStatuses.includes(status)) throw new HttpError(400, 'Invalid status');
+  return memoryItems().filter(row => status === null || row.status === status);
 }
 function requestRows(store: Store, url: URL) {
   const filter = url.searchParams.get('filter') ?? 'all';

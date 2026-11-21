@@ -21,6 +21,7 @@ const reasons: Record<AttentionReason, { label: string; status: string }> = {
   'blocking-question': { label: 'Blocking question', status: 'needs-you' },
   'lane-waiting-on-user': { label: 'Lane waiting on you', status: 'waiting' },
   'stale-session': { label: 'Stale session', status: 'idle' },
+  'proposed-memory': { label: 'Proposed memory', status: 'needs-you' },
 };
 const order = ['needs-you', 'blocked', 'failed', 'working', 'waiting', 'idle', 'done'] as const;
 
