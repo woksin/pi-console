@@ -13,7 +13,23 @@ test('docs/api/schemas/api.json is valid JSON and v1 only adds to or replaces v0
   assert.deepEqual(published, apiV0Schema);
   for (const name of Object.keys(apiV0Schema.$defs)) assert.ok(name in apiV1Schema.$defs, name);
   const added = Object.keys(apiV1Schema.$defs).filter(name => !(name in apiV0Schema.$defs));
-  assert.deepEqual(added.sort(), ['attentionItem', 'attentionReason', 'graph', 'graphEdge', 'graphNode', 'health', 'jobPage', 'memoryActionAvailability', 'memoryActionReceipt', 'memoryActionRequest', 'memoryHandoff', 'memoryItem', 'memoryItemPage', 'memoryItems', 'memoryStatus', 'messagePage', 'needsYou', 'questionPage', 'requestEvidence', 'requestPage', 'requestUncertainty', 'resetPage', 'resets', 'sessionMemory', 'sessionPage', 'settings', 'sourcePointer', 'toolResult']);
+  assert.deepEqual(added.sort(), ['attentionItem', 'attentionReason', 'graph', 'graphEdge', 'graphNode', 'health', 'jobPage', 'memoryActionAvailability', 'memoryActionReceipt', 'memoryActionRequest', 'memoryHandoff', 'memoryItem', 'memoryItemPage', 'memoryItems', 'memoryStatus', 'messagePage', 'needsYou', 'questionPage', 'requestEvidence', 'requestPage', 'requestUncertainty', 'resetPage', 'resets', 'sessionMemory', 'sessionPage', 'sessionUpdate', 'settings', 'sourcePointer', 'toolResult']);
+});
+
+test('session memory invalidation is optional, typed and event-local', () => {
+  const session = {
+    id: 's1', repositoryId: 'repo', name: '', laneId: 'lane', role: 'main', parentSessionId: null,
+    orchestratorSessionId: 's1', branch: '', cwd: '', model: '', status: 'idle',
+    startedAt: '2026-11-20T09:00:00Z', updatedAt: '2026-11-20T09:00:00Z', contextPercent: 0, samples: [],
+  };
+  const frame = { seq: 1, type: 'session.updated', occurredAt: session.updatedAt, payload: session };
+  validate(frame, apiV1Schema.$defs.event, apiV1Schema);
+  validate(frame, apiV0Schema.$defs.event, apiV0Schema);
+  const marked = { ...session, memoryChanged: true };
+  validate(marked, apiV1Schema.$defs.sessionUpdate, apiV1Schema);
+  validate({ ...frame, payload: marked }, apiV1Schema.$defs.event, apiV1Schema);
+  assert.throws(() => validate({ ...frame, payload: { ...marked, memoryChanged: 'true' } }, apiV1Schema.$defs.event, apiV1Schema));
+  assert.throws(() => validate(marked, apiV1Schema.$defs.session, apiV1Schema));
 });
 
 test('a v0 request is valid under v1, and v1 requests accept the derivation fields', () => {
