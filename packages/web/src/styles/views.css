@@ -127,6 +127,8 @@
 .live-dot { color: var(--green); animation: blink 1.2s steps(2) infinite; }
 .ttext, .targs { margin: 2px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font-size: var(--type-body); line-height: 1.5; }
 .targs { color: var(--muted); } .ttext.withheld { color: var(--faint); font-style: italic; }
+.kind-thinking { --tone: var(--muted); }
+.kind-thinking .ttext { color: var(--muted); }
 .kind-user .ttext, .kind-assistant .ttext { font-family: var(--sans); font-size: var(--type-body); }
 .reset-marker { display: flex; justify-content: space-between; align-items: center; margin: 8px 14px; padding: 6px 12px; border: 1px dashed var(--amber); border-radius: 6px; color: var(--amber); background: color-mix(in oklab, var(--amber) 8%, transparent); }
 .session .rail { overflow: auto; max-height: calc(100vh - 150px); }

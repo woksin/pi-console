@@ -26,7 +26,7 @@ export function SessionRail({ view }: { view: SessionViewModel }) {
         {view.questions.length === 0 && <span className="faint">None</span>}
       </Panel>
       <Panel title="Jobs" aside={view.jobs.length}>
-        <ul className="mini-list">{view.jobs.map(job => <li key={job.id}><span className="truncate">{job.name}</span><StatusBadge cell={job.status} compact />{job.exit && <span className="faint small">{job.exit}</span>}</li>)}</ul>
+        <ul className="mini-list">{view.jobs.map(job => <li key={job.id}><span className="truncate">{job.name}</span><StatusBadge cell={job.status} />{job.exit && <span className="faint small">{job.exit}</span>}</li>)}</ul>
         {view.jobs.length === 0 && <span className="faint">None</span>}
       </Panel>
       <Panel title="Resets" aside={view.resets.length}>

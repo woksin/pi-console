@@ -1,5 +1,7 @@
+import type { Session } from '@pi-console/contract';
+import { sanitize, statusCell } from '@pi-console/viewmodels';
 import type { ConsoleState } from '../state/state.ts';
-import { Kbd } from '../ui/primitives.tsx';
+import { Kbd, StatusBadge } from '../ui/primitives.tsx';
 import { hrefFor, sectionIds, sectionMeta, type SectionId } from './routes.ts';
 
 interface SidebarProps { active: SectionId | null; settings: boolean; attention: number; questions: number; collapsed: boolean; onCollapse: () => void }
@@ -34,12 +36,13 @@ const connectionTone: Record<ConsoleState['connection'], string> = { live: 'gree
 export const staleData = (state: ConsoleState, wall: number): boolean =>
   state.snapshotLoaded && (state.connection !== 'live' || (state.lastFrameAt > 0 && wall - state.lastFrameAt > 20_000));
 
-interface TopBarProps { title: string; hint: string; state: ConsoleState; wall: number; onPalette: () => void; onHelp: () => void }
+interface TopBarProps { title: string; hint: string; state: ConsoleState; wall: number; session?: Session; onPalette: () => void; onHelp: () => void }
 
-export function TopBar({ title, hint, state, wall, onPalette, onHelp }: TopBarProps) {
+export function TopBar({ title, hint, state, wall, session, onPalette, onHelp }: TopBarProps) {
   return (
     <header className="topbar">
-      <h1 className="crumb">{title}</h1>
+      <h1 className="crumb truncate" title={session ? `${session.repositoryId} / ${session.laneId} / ${session.name}` : title}>{session ? `${sanitize(session.repositoryId)} / ${sanitize(session.laneId)} / ${sanitize(session.name)}` : title}</h1>
+      {session && <StatusBadge cell={statusCell(session.status)} />}
       {hint && <span className="muted">{hint}</span>}
       <span className="grow" />
       {staleData(state, wall) && <time className="stale-asof muted" dateTime={new Date(state.lastFrameAt).toISOString()}>As of {new Date(state.lastFrameAt).toLocaleTimeString()}</time>}

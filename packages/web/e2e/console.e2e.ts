@@ -18,6 +18,14 @@ function watchErrors(page: Page): string[] {
 const connection = (page: Page): Promise<string | null> => page.locator('.conn').getAttribute('data-connection');
 
 describe('web console e2e', () => {
+  test('session topbar includes repository, lane, name and status', async () => {
+    const page = await rig.open('/session/s2');
+    await page.locator('.conn[data-connection="live"]').waitFor();
+    assert.match(await page.locator('.topbar h1').innerText(), /.+ \/ L\d+ \/ .+/);
+    await page.locator('.topbar .badge').waitFor();
+    await page.context().close();
+  });
+
   test('initial stream hold shows skeletons, not empty states', async () => {
     const page = await rig.open('/fleet', { token: null });
     await page.route('**/api/v1/stream*', route => route.abort());
