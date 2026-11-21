@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, readdirSync, statSync, type Dirent } from 'node:fs';
+import { existsSync, lstatSync, readdirSync, realpathSync, statSync, type Dirent } from 'node:fs';
 import { basename, join } from 'node:path';
 import { contextMapper, issueMapper, laneMapper, laneStatusMapper, memoryEventMapper, memoryJournalMapper, orchMapper, pathDenied, phaseMapper, questionMapper, rosterMapper, type Mapper } from '@pi-console/adapters';
 import { laneStatusJson } from './lane-status.ts';
@@ -13,7 +13,7 @@ export interface Feed {
   kind: 'tail' | 'snapshot';
   /** Allow-listed directories. Every file read is scoped to them; nothing else is ever opened. */
   directories: readonly string[];
-  /** Configured root and intermediate directories, validated before following any feed. */
+  /** Directories below the resolved configured root, validated before following any feed. */
   ancestors?: readonly string[];
   /** File name suffix, for example `.json`. */
   extension: string;
@@ -48,7 +48,7 @@ export interface SourceRoots {
 }
 
 /**
- * Where each source lives, as a pure function of the two roots (docs/architecture.md, adapters README), in the order
+ * Where each source lives, resolving configured roots once (docs/architecture.md, adapters README), in the order
  * they start: smallest first, the large ledger last. Phase ledger rows live under pi-phase's state directory. Lane
  * status files are one prose line each: a snapshot feed with a decoder (adapters README S4). The lanes root feeds the
  * roster first (a true start time), then `lanes.json`. Context
@@ -57,7 +57,11 @@ export interface SourceRoots {
  * `answers/`, `blobs/` and the prune cursor are never opened.
  */
 export function sourceTable({ agentRoot, orchRoot, lanesRoot, laneStatusDir }: SourceRoots): SourceSpec[] {
-  const scope = (directory: string[]) => ({ directories: [join(...directory)], ancestors: directory.map((_, index) => join(...directory.slice(0, index + 1))) });
+  agentRoot = resolveRoot(agentRoot);
+  orchRoot = resolveRoot(orchRoot);
+  lanesRoot = lanesRoot === undefined ? undefined : resolveRoot(lanesRoot);
+  laneStatusDir = resolveRoot(laneStatusDir);
+  const scope = (directory: string[]) => ({ directories: [join(...directory)], ancestors: directory.slice(1).map((_, index) => join(...directory.slice(0, index + 2))) });
   const snapshot = (mapper: Mapper, recursive: boolean, ...directory: string[]): Feed => ({ mapper, kind: 'snapshot', extension: '.json', ...scope(directory), recursive, window: 'none' });
   const tail = (mapper: Mapper, name: RegExp, extra: Partial<Feed>, ...directory: string[]): Feed => ({ mapper, kind: 'tail', extension: '.jsonl', ...scope(directory), recursive: false, name, ...extra });
   const lanes = lanesRoot === undefined ? [] : [snapshot(rosterMapper, false, lanesRoot, '.state', 'roster'), { ...snapshot(laneMapper, false, lanesRoot), name: /^lanes\.json$/ }];
@@ -76,11 +80,16 @@ export function sourceTable({ agentRoot, orchRoot, lanesRoot, laneStatusDir }: S
   ];
 }
 
+/** Configured roots may be symlinks; pin their targets without preventing a missing store from appearing later. */
+function resolveRoot(root: string): string {
+  try { return realpathSync(root); } catch { return root; }
+}
+
 type Scope = Pick<Feed, 'extension' | 'recursive' | 'name' | 'window' | 'ancestors'>;
 
 /**
  * Files of the feed under `directory` that are inside the window `since`. Same boundary as the adapters' `discover`:
- * deny-listed names and symlinks (including the root) are skipped. A missing directory is empty; an unreadable one
+ * deny-listed names and symlinks below the resolved configured root are skipped. A missing directory is empty; an unreadable one
  * throws. Only `mtime` windows stat a file.
  */
 export function discoverFiles(directory: string, feed: Scope, since: number): string[] {
@@ -88,7 +97,7 @@ export function discoverFiles(directory: string, feed: Scope, since: number): st
   return readdirSync(directory, { withFileTypes: true }).flatMap(entry => filesOf(join(directory, entry.name), entry, feed, since)).sort();
 }
 
-/** A real, existing, non-denied directory: a missing root is empty and a symlinked root is never followed. */
+/** A real, existing, non-denied feed directory: a missing directory is empty and a symlink is never followed. */
 function isReadableDirectory(directory: string): boolean {
   return !pathDenied(directory) && existsSync(directory) && !lstatSync(directory).isSymbolicLink();
 }

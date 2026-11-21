@@ -77,6 +77,17 @@ test('answers, blobs, the prune cursor and odd journal names are never opened', 
   assert.deepEqual([log.events.length, status.files, status.errors], [0, 0, 0]);
 });
 
+test('a symlinked configured agent root ingests both memory events and journal records', async t => {
+  const { root, memory } = store(t);
+  put(join(memory, 'events.jsonl'), add('item-1', 'synthetic order A'));
+  put(join(memory, 'journal/sess-1.jsonl'), message('msg-1'));
+  const alias = join(root, 'agent-link');
+  symlinkSync(root, alias);
+  const { log, status } = await poll(alias);
+  assert.deepEqual(types(log).sort(), ['MemoryItemRecorded', 'MemoryMessageRecorded']);
+  assert.deepEqual([log.saved.size, status.files, status.errors], [2, 2, 0]);
+});
+
 test('a symlinked store root is skipped and a store that appears later is picked up', async t => {
   const { root, memory } = store(t);
   const elsewhere = mkdtempSync(join(tmpdir(), 'pi-console-memory-elsewhere-'));
