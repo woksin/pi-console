@@ -45,16 +45,28 @@ function added(row: Row): Fact {
   const source = object(item.source);
   const itemId = text(item.id);
   const sourceType = member(source.type, sourceTypes);
-  const sourceRef = source.ref === undefined ? null : text(source.ref);
+  const sourceRef = optionalText(source.ref);
   const scope = object(item.scope);
   const body = excerpt(text(item.text));
   const gloss = item.gloss === undefined ? {} : { gloss: excerpt(item.gloss).excerpt };
   return fact('MemoryItemRecorded', `source:memory-item:${itemId}`, {
     itemId, kind: member(item.kind, itemKinds), scopeKind: member(scope.kind, scopeKinds), scopeKey: text(scope.key), sourceType,
     sourceMessageId: sourceType === 'user_message' ? sourceRef : null,
-    authorityMode: item.authority === undefined ? null : member(object(item.authority).mode, authorityModes),
-    supersedes: (Array.isArray(item.supersedes) ? item.supersedes : []).map(text), ...body, ...gloss,
+    authorityMode: authorityMode(item.authority),
+    supersedes: supersededIds(item.supersedes), ...body, ...gloss,
   }, row.at, text(row.id));
+}
+
+function optionalText(value: unknown): string | null {
+  return value === undefined ? null : text(value);
+}
+
+function authorityMode(value: unknown): string | null {
+  return value === undefined ? null : member(object(value).mode, authorityModes);
+}
+
+function supersededIds(value: unknown): string[] {
+  return (Array.isArray(value) ? value : []).map(text);
 }
 
 const actorKind = (row: Row) => text(object(row.actor).kind);
@@ -86,15 +98,20 @@ export const memoryEventMapper: Mapper = value => {
   return [mapped(row)];
 };
 
+function journalWithheld(row: Row): boolean {
+  if (row.text !== null && typeof row.text !== 'string') throw new Error('Expected string or null');
+  return row.text === null || (row.withheld !== null && row.withheld !== undefined);
+}
+
 /** `journal/<session>.jsonl`: metadata only. The message text is validated as present or null and then dropped. */
 export const memoryJournalMapper: Mapper = value => {
   const row = verified(value, journalSchema);
-  if (row.text !== null && typeof row.text !== 'string') throw new Error('Expected string or null');
+  const withheld = journalWithheld(row);
   const sessionId = text(object(row.session).id);
   const messageId = text(row.id);
   return [fact('MemoryMessageRecorded', `session:${sessionId}`, {
     messageId, sessionId, origin: member(row.origin, origins),
     injectedKind: typeof row.injectedKind === 'string' ? row.injectedKind : null,
-    withheld: row.text === null || (row.withheld !== null && row.withheld !== undefined), textBytes: integer(row.textBytes),
+    withheld, textBytes: integer(row.textBytes),
   }, row.at, messageId)];
 };
