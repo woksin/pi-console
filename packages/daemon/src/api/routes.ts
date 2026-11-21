@@ -68,12 +68,12 @@ function listRoute(collection: PageCollection, complete: (context: ApiContext, u
   };
 }
 
-function transcript(context: ApiContext, sessionId: string, url: URL): unknown {
+async function transcript(context: ApiContext, sessionId: string, url: URL): Promise<unknown> {
   const limit = queryInteger(url, 'limit', 100, 1000);
   if (limit === 0) throw new HttpError(400, 'Invalid limit');
   const around = url.searchParams.get('around');
   if (around === null) return context.transcripts.page(sessionId, queryInteger(url, 'after', 0, Number.MAX_SAFE_INTEGER), limit);
-  const window = context.transcripts.around(sessionId, around, limit);
+  const window = await context.transcripts.around(sessionId, around, limit);
   if (!window) throw new HttpError(404, 'Transcript entry not found');
   return window;
 }

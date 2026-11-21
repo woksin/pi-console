@@ -6,9 +6,9 @@ import type { Transcript } from '@pi-console/contract';
  */
 export interface TranscriptReader {
   /** Entries with cursor > `after`, ascending, at most `limit`. */
-  page(sessionId: string, after: number, limit: number): Transcript;
+  page(sessionId: string, after: number, limit: number): Transcript | Promise<Transcript>;
   /** A window of `limit` entries centred on `entryId`, or undefined when the entry is unknown. */
-  around(sessionId: string, entryId: string, limit: number): Transcript | undefined;
+  around(sessionId: string, entryId: string, limit: number): Transcript | undefined | Promise<Transcript | undefined>;
 }
 
 export const noTranscripts: TranscriptReader = {

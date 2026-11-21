@@ -68,7 +68,7 @@ Containment starts at the resolved canonical target, pinned for discovery and fi
 paths are re-resolved on the next poll: a changed alias is re-pinned, while a failed lookup skips the root rather than
 using a stale pin. Symlinked files and directories beneath that canonical trust root remain rejected.
 
-Ingestion and handoff figures open the candidate with nonblocking, no-follow descriptor flags where available,
+Ingestion, transcript pages and handoff figures open the candidate with nonblocking, no-follow descriptor flags where available,
 validate the descriptor as a regular file, check the canonical parent against the pinned trust root, and recheck
 path/descriptor identity before reading bounded bytes. Ordinary leaf replacements and observed symlinked ancestors
 are rejected. These portable Node checks are snapshots, not an atomic directory walk: without descriptor-relative
