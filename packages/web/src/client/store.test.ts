@@ -135,6 +135,28 @@ test('session memory loads summary and bounded items together, sharing requests 
   assert.deepEqual(store.getState().memory.s2, memorySummary('s2'));
 });
 
+for (const cached of [false, true]) test(`an items failure preserves the ${cached ? 'cached' : 'empty'} memory pair and retries immediately`, async () => {
+  let now = 0;
+  let calls = 0;
+  let fail = false;
+  const api = {
+    sessionMemory: () => { calls++; return Promise.resolve(memorySummary('s1')); },
+    memoryItems: () => fail ? Promise.reject(new Error('unreachable')) : Promise.resolve([proposedItem]),
+  } as unknown as Api;
+  const store = new ConsoleStore(api, { ...clock, now: () => now });
+  if (cached) await store.loadSessionMemory('s1');
+  const good = store.getState();
+  now = memoryRefreshMs;
+  fail = true;
+  await store.loadSessionMemory('s1');
+  assert.equal(store.getState(), good);
+  fail = false;
+  await store.loadSessionMemory('s1');
+  assert.equal(calls, cached ? 3 : 2);
+  assert.deepEqual(store.getState().memory.s1, memorySummary('s1'));
+  assert.deepEqual(store.getState().memoryItems.s1, [proposedItem]);
+});
+
 test('a failed session memory refresh preserves the last good copy and retries immediately', async () => {
   let now = 0;
   let calls = 0;

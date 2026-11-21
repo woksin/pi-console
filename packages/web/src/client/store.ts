@@ -205,8 +205,8 @@ export class ConsoleStore {
     if (existing && recent) return existing;
     this.#memoryAt.set(key, this.#clock.now());
     const task = Promise.all([this.#api.sessionMemory(sessionId).catch(() => null), this.#api.memoryItems(sessionId, memoryItemLimit).catch(() => null)]).then(([memory, items]) => {
-      if (!memory) { this.#memoryAt.delete(key); return; }
-      this.#set({ ...this.#state, memory: { ...this.#state.memory, [sessionId]: memory }, memoryItems: { ...this.#state.memoryItems, [sessionId]: items ?? [] } });
+      if (!memory || !items) { this.#memoryAt.delete(key); return; }
+      this.#set({ ...this.#state, memory: { ...this.#state.memory, [sessionId]: memory }, memoryItems: { ...this.#state.memoryItems, [sessionId]: items } });
     });
     this.#loaded.set(key, task);
     return task;
