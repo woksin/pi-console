@@ -101,20 +101,27 @@ const raceScript = `
   const mapper = () => [{ type: 'SessionHeartbeat', subject: 'session:fixture', payload: { sessionId: 'fixture', status: 'ok' } }];
   let tailer;
   let appended = 0;
+  let pending;
   try {
     tailer = mode === 'session' ? sessionTailer(log, discovered, { roots: [root], batchBytes: 1024 }) : new FileTailer(log, 'intent-memory', mapper, { roots: [root], batchBytes: 1024 });
     if (mode === 'snapshot') appended = await pollSnapshot(log, 'intent-memory', discovered, mapper, { roots: [root], resolvedRoots: [root], maxBytes: 1024 });
     else {
-      for (;;) {
+      let previousLag = Infinity;
+      for (let poll = 0; poll < 64; poll++) {
         const result = await tailer.poll([discovered]);
         appended += result.appended;
         if (result.lagBytes === 0) break;
+        if (result.lagBytes === previousLag) {
+          pending = { lagBytes: result.lagBytes, partialFiles: result.partialFiles, offset: log.positions[0]?.offset };
+          break;
+        }
+        previousLag = result.lagBytes;
       }
     }
   } catch { /* Ingestion skips a rejected file without persisting any bytes or checkpoint. */ }
   finally { await tailer?.close(); }
   if (replacement === 'swap-back' && !restored) throw new Error('Swap-back seam did not execute');
-  process.stdout.write(JSON.stringify({ replaced, appended, checkpoints: log.positions.length, unclosed: opened - closed, unsafeReads }));
+  process.stdout.write(JSON.stringify({ replaced, appended, checkpoints: log.positions.length, unclosed: opened - closed, unsafeReads, pending }));
 `;
 
 for (const mode of ['tail', 'snapshot', 'session']) {
@@ -135,7 +142,14 @@ for (const mode of ['tail', 'snapshot', 'session']) {
       assert.equal(child.error, undefined, child.error);
       assert.equal(child.status, 0, child.stderr);
       const accepted = replacement === 'normal';
-      assert.deepEqual(JSON.parse(child.stdout), { replaced: true, appended: accepted ? (mode === 'session' ? 7 : 1) : 0, checkpoints: accepted ? 1 : 0, unclosed: 0, unsafeReads: 0 });
+      const incomplete = replacement === 'oversize' && mode !== 'snapshot';
+      const result = JSON.parse(child.stdout);
+      if (incomplete) assert.ok(result.pending.lagBytes > 0);
+      assert.deepEqual(result, {
+        replaced: true, appended: accepted ? (mode === 'session' ? 7 : 1) : 0,
+        checkpoints: accepted || incomplete ? 1 : 0, unclosed: 0, unsafeReads: 0,
+        ...(incomplete ? { pending: { lagBytes: 2048, partialFiles: 1, offset: 0 } } : {}),
+      });
     });
   }
 }
