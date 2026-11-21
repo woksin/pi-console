@@ -1,11 +1,16 @@
 /* Signature views: communication graph and timeline. Edges animate along their direction; reduced motion stops it (base.css). */
-.summary-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius); color: var(--muted); font-size: var(--type-caption); }
-.summary-strip > span { white-space: nowrap; }
+.overview .hero { padding: 0; background: none; border: 0; gap: 4px; }
+.overview .hero p { margin: 0; font-size: var(--type-caption); }
+.summary-strip { display: flex; align-items: center; gap: 16px; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); color: var(--muted); font-size: var(--type-caption); overflow-x: auto; }
+.summary-counts { display: flex; justify-content: space-between; gap: 14px; flex: 1; }
+.summary-counts > span { white-space: nowrap; }
+.summary-counts .badge { font-size: inherit; }
+.summary-strip > svg { flex-shrink: 0; }
 .attention-sections { display: grid; gap: 12px; }
-.attention-heading { margin: 0 0 6px; color: var(--muted); font-size: var(--type-caption); font-weight: 500; }
+.attention-heading { margin: 0 0 6px; color: var(--muted); font-size: var(--type-caption); font-weight: 500; white-space: nowrap; }
 @media (min-width: 1180px) {
   .attention-sections { gap: 4px; }
-  .attention-sections > section { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; }
+  .attention-sections > section { display: grid; grid-template-columns: 180px minmax(0, 1fr); gap: 12px; }
   .attention-heading { margin: 0; padding-top: 6px; }
 }
 .attention-sections .cards { gap: 4px; }
