@@ -49,12 +49,13 @@ function pulseCells(cells: readonly PulseCell[], room: number): Part[] {
   return [...shown.map(cell => t(cellGlyph(cell), cell.status.color)), ...(more > 0 ? [t(` +${String(more)}`, 'muted')] : [])];
 }
 
-/** The fleet pulse row under the tabs: one coloured cell per session, braille fleet activity, and the counts in words. */
+/** The fleet pulse row under the tabs: one coloured cell per session, braille fleet activity when there is room, and the counts in words. */
 export function pulseLine(pulse: PulseViewModel, width: number): Line {
   const counts: Part[] = [t(`${String(pulse.sessions)} sessions · ${String(pulse.working)} working`, 'muted'), ...(pulse.needsYou > 0 ? [t(` · ${String(pulse.needsYou)} need you`, 'amber', { bold: true })] : []), t(' ')];
   const activity: Part[] = [t('activity ', 'faint'), t(pulse.braille, 'cyan'), t('  ')];
   const base = width - 10 - cells(counts);
-  const wide = base - cells(activity) >= Math.min(pulse.cells.length, 12);
+  // The session cells are the point of the row: activity only shows when every cell still fits beside it.
+  const wide = base - cells(activity) >= pulse.cells.length;
   const room = wide ? base - cells(activity) : base;
   return split([t(' pulse ', 'faint'), ...pulseCells(pulse.cells, Math.max(4, room)), t('  '), ...(wide ? activity : [])], counts, width);
 }

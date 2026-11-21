@@ -72,12 +72,13 @@
 }
 
 /* Fleet pulse (P4.4): one status-coloured cell per session, activity, needs-you count. */
-.pulse { display: flex; align-items: center; gap: var(--space-3); padding: 4px var(--space-3); border: 1px solid var(--border); border-radius: 999px; background: color-mix(in oklab, var(--raised) 70%, transparent); }
-.pulse-cells { display: flex; align-items: center; gap: 2px; }
-.pulse-cell { display: block; width: 5px; height: 14px; border-radius: 2px; background: var(--tone); }
+.pulse { display: flex; align-items: center; gap: var(--space-3); min-width: 0; flex: 0 1 auto; padding: 4px var(--space-3); border: 1px solid var(--border); border-radius: 999px; background: color-mix(in oklab, var(--raised) 70%, transparent); }
+.pulse-cells { display: flex; align-items: center; gap: 2px; min-width: 0; }
+/* Cells give way before anything else does: a big fleet or a narrow window compresses them to 2 px rather than hiding the strip. */
+.pulse-cell { display: block; flex: 0 1 5px; min-width: 2px; height: 14px; border-radius: 2px; background: var(--tone); }
 .pulse-cell.st-idle, .pulse-cell.st-done { height: 9px; }
 .pulse-cell.st-needs-you, .pulse-cell.st-blocked, .pulse-cell.st-failed { height: 16px; }
 .pulse-count { color: var(--amber); font: 650 12px/1 var(--mono); font-variant-numeric: tabular-nums; }
 .pulse-activity .spark { display: block; }
 @media (max-width: 1279px) { .pulse-activity { display: none; } }
-@media (max-width: 1099px) { .pulse { display: none; } }
+@media (max-width: 1099px) { .pulse { gap: var(--space-2); padding-inline: var(--space-2); } .pulse-cells { gap: 1px; } }
