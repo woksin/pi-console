@@ -12,7 +12,7 @@ import { screenSnapshot } from './screen-snapshot.ts';
 import { repositoryName, resetsOf, toJob, toMessage, toQuestion, toRequest, toSession } from './entities.ts';
 
 export type RequestFilter = 'all' | 'unanswered' | 'interrupted';
-export interface PageQuery extends PageParams { filter?: RequestFilter; sessionId?: string; status?: MemoryItemStatus }
+export interface PageQuery extends PageParams { filter?: RequestFilter; sessionId?: Session['id']; status?: MemoryItemStatus }
 
 export const requestFilters: readonly RequestFilter[] = ['all', 'unanswered', 'interrupted'];
 export { memoryStatuses };
@@ -20,7 +20,7 @@ export { memoryStatuses };
 type Listed = Session | Request | Question | Message | Job | Reset | MemoryItem;
 
 /** Own-property lookup: ingested ids may be JavaScript prototype property names. */
-const own = <Row>(rows: Record<string, Row>, id: string): Row | undefined => Object.hasOwn(rows, id) ? rows[id] : undefined;
+const own = <Row>(rows: Record<string, Row>, id: keyof typeof rows): Row | undefined => Object.hasOwn(rows, id) ? rows[id] : undefined;
 
 const statuses = ['working', 'needs-you', 'blocked', 'waiting', 'idle', 'done', 'failed'] as const;
 
@@ -57,17 +57,17 @@ export class ConsoleQueries {
       .sort(by(session => session.startedAt, session => session.id));
   }
 
-  sessionById(id: string): Session | undefined {
+  sessionById(id: Session['id']): Session | undefined {
     const models = this.#models();
     const row = own(models.sessions.sessions, id);
     return row ? toSession(models, row, this.needsYou()) : undefined;
   }
 
-  session(id: string): SessionDetail | undefined {
+  session(id: Session['id']): SessionDetail | undefined {
     const sessions = this.sessions();
     const session = sessions.find(item => item.id === id);
     if (!session) return undefined;
-    const belongs = (item: { sessionId: string }) => item.sessionId === id;
+    const belongs = (item: Pick<Request, 'sessionId'>) => item.sessionId === id;
     return {
       session, requests: this.requests().filter(belongs), questions: this.questions().filter(belongs),
       jobs: this.jobs().filter(belongs), resets: this.resets().filter(belongs),
@@ -83,7 +83,7 @@ export class ConsoleQueries {
       .sort(by(request => request.createdAt, request => request.id));
   }
 
-  requestById(id: string): Request | undefined {
+  requestById(id: Request['id']): Request | undefined {
     const row = own(this.#models().requests.requests, id);
     return row && row.createdAt !== '' ? toRequest(row) : undefined;
   }
@@ -93,7 +93,7 @@ export class ConsoleQueries {
       .map(toQuestion).sort(by(question => question.createdAt, question => question.id));
   }
 
-  questionById(id: string): Question | undefined {
+  questionById(id: Question['id']): Question | undefined {
     const row = own(this.#models().questions.questions, id);
     return row && row.createdAt !== '' ? toQuestion(row) : undefined;
   }
@@ -106,12 +106,12 @@ export class ConsoleQueries {
       .sort(by(message => message.sentAt, message => message.id));
   }
 
-  messageById(id: string): Message | undefined {
+  messageById(id: Message['id']): Message | undefined {
     const row = own(this.#models().messages.messages, id);
     return row && row.sentAt !== '' ? toMessage(row) : undefined;
   }
 
-  jobById(id: string): Job | undefined {
+  jobById(id: Job['id']): Job | undefined {
     const row = own(this.#models().work.jobs, id);
     return row ? toJob(row) : undefined;
   }
@@ -125,7 +125,7 @@ export class ConsoleQueries {
   }
 
   // Reset ids are nested and need not be globally unique. Keep the list's existing tie-breaking semantics.
-  resetById(id: string): Reset | undefined { return this.resets().find(reset => reset.id === id); }
+  resetById(id: Reset['id']): Reset | undefined { return this.resets().find(reset => reset.id === id); }
 
   repositories(): { id: string; name: string }[] {
     const ids = [...new Set(this.sessions().map(session => session.repositoryId))].sort(compareText);
@@ -152,7 +152,7 @@ export class ConsoleQueries {
     return { counts: { sessions: sessions.length, repositories: this.repositories().length, byStatus }, needsYou: needs, sparkline: sparkline(sessions) };
   }
 
-  snapshot(generatedAt: string): Snapshot {
+  snapshot(generatedAt: Snapshot['generatedAt']): Snapshot {
     return {
       version: 0, generatedAt, repositories: this.repositories(), sessions: this.sessions(), requests: this.requests(),
       questions: this.questions(), messages: this.messages(), jobs: this.jobs(), resets: this.resets(),
@@ -161,7 +161,7 @@ export class ConsoleQueries {
   }
 
   /** Bounded screen state for the stream: every active item plus the newest of each collection, with totals. */
-  screenSnapshot(generatedAt: string, recent?: number): Snapshot {
+  screenSnapshot(generatedAt: Snapshot['generatedAt'], recent?: number): Snapshot {
     return screenSnapshot(this.#models(), this.needsYou(), generatedAt, recent);
   }
 
