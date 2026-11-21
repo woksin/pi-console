@@ -16,11 +16,22 @@ const item: MemoryItem = {
 };
 const plain = (lines: Line[]) => lines.map(line => line.map(part => part.text).join('')).join('\n');
 
-test('a proposed item shows the exact confirm and reject commands and the read-only hint', () => {
+test('a proposed item shows the exact confirm and reject commands and the unavailable fallback', () => {
   const text = plain(memoryLines(memoryPanelViewModel({ memory, items: [item], now }), 60));
   assert.match(text, /\/memory confirm item-1/);
   assert.match(text, /\/memory reject item-1/);
-  assert.match(text, /cannot confirm/);
+  assert.match(text, /Run the command in pi/);
+});
+
+test('hostile memory text is inert next to review controls and contains no terminal escape sequence', () => {
+  const escape = String.fromCharCode(27);
+  const hostile = `<img src=x onerror="globalThis.__memoryReviewXss=true">${escape}[31munsafe${escape}[0m`;
+  const review = { availability: { version: 1 as const, available: true, providerVersion: 1, generation: 'g1', reason: 'available' as const }, items: new Map() };
+  const text = plain(memoryLines(memoryPanelViewModel({ memory, items: [{ ...item, text: hostile }], review, now }), 200, 0));
+  assert.match(text, /c Confirm… · x Reject…/);
+  assert.match(text, /<img src=x onerror="globalThis.__memoryReviewXss=true">/);
+  assert.equal(text.includes(escape), false);
+  assert.match(text, /unsafe/);
 });
 
 test('an unseen store renders a single explanatory line', () => {

@@ -131,6 +131,10 @@ and is never committed. The first sample (134 requests from 68 copied files) sho
 and possibly-unseen cases and, because of the adapter gap above, all requests `unproven`. The hand check of the sample is
 done in P6.
 
+## Memory review is separate from request derivation
+
+Session memory panels in both consoles can request confirm/reject review of recorded, non-withheld proposals, only with a separate memory-control token and a ready owning interactive pi provider. This does not change Phase A pairing or the read-only Requests view. Every request requires the native human confirmation in pi; a receipt reporting approval still waits for canonical producer ingestion. Declined, conflicted, unavailable, expired or unknown requests never synthesize memory status. The ordinary read token, disabled/offline/unsupported/not-ready providers and older daemons retain exact command fallback. See [web memory review](ui-web.md#memory-review) and [TUI memory review](ui-tui.md#memory-review) for credentials, controls and progress.
+
 ## The Requests view (web and TUI)
 
 Both clients render the same view model (`packages/viewmodels/src/requests/`): list, filters, detail and the transcript

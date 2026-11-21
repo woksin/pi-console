@@ -31,6 +31,7 @@ export interface UiState {
   focusEntry: string | null;
   search: string;
   pane: SidePane;
+  memoryIndex: number;
   messagesGraph: boolean;
   window: TimeWindow | null;
   scrub: boolean;
@@ -42,7 +43,7 @@ export interface UiState {
 export const initial: UiState = {
   section: 'overview', sessionId: null, overlay: 'none', input: '', paletteIndex: 0, recents: [], filter: '',
   cursor: { overview: 0, fleet: 0, requests: 0, questions: 0, messages: 0, timeline: 0, work: 0 },
-  collapsed: [], follow: true, anchor: null, requestFilter: { state: 'all', origin: 'all', sessionId: null }, focusEntry: null, search: '', pane: 'requests', messagesGraph: false, window: null, scrub: false, scrubColumn: 0, quit: false, notice: '',
+  collapsed: [], follow: true, anchor: null, requestFilter: { state: 'all', origin: 'all', sessionId: null }, focusEntry: null, search: '', pane: 'requests', memoryIndex: 0, messagesGraph: false, window: null, scrub: false, scrubColumn: 0, quit: false, notice: '',
 };
 
 /** What the reducer needs to know about the rendered world; supplied by the view layer. */

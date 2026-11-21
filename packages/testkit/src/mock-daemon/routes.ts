@@ -45,6 +45,7 @@ function sessionResponse(store: Store, url: URL) {
   const session = store.fixture.sessions.find(item => item.id === parts[4]);
   if (!session) throw new HttpError(404, 'Session not found');
   if (parts.length === 6 && parts[5] === 'transcript') return transcriptResponse(store, session.id, url);
+  if (parts.length === 6 && parts[5] === 'memory-actions') return { version: 1, available: false, providerVersion: 1, generation: null, reason: 'read-only' };
   if (parts.length === 6 && parts[5] === 'memory') return sessionMemory(store, session.id);
   if (parts.length !== 5) throw new HttpError(404, 'Not found');
   return sessionDetail(store, session);

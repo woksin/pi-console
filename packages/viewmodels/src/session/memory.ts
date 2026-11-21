@@ -1,11 +1,13 @@
 import type { MemoryItem, SessionMemory } from '@pi-console/contract';
 import { age, clip, sanitize } from '../format/format.ts';
+import { emptyMemoryReview, memoryReviewHint, memoryReviewPending, memoryReviewRetryable, type MemoryReviewProgress, type MemoryReviewSession } from './memory-review.ts';
 
-export interface MemoryPanelInput { memory: SessionMemory | null; items: readonly MemoryItem[]; now: number }
+export interface MemoryPanelInput { memory: SessionMemory | null; items: readonly MemoryItem[]; now: number; review?: MemoryReviewSession }
 export interface MemoryPanelItem {
   id: string; kind: MemoryItem['kind']; scope: string; status: MemoryItem['status']; statusLabel: string; text: string;
   /** The exact text a human runs in a pi session; the console never runs it. */
   command: string | null; rejectCommand: string | null; sourceNote: string;
+  canRequest: boolean; review: MemoryReviewProgress | null;
 }
 export interface MemoryPanelViewModel {
   title: string;
@@ -18,7 +20,7 @@ export interface MemoryPanelViewModel {
   hint: string;
 }
 
-export const memoryHint = 'Confirming needs an interactive pi session (a confirmation dialog); the console is read-only and cannot confirm or reject.';
+export const memoryHint = memoryReviewHint(null);
 const statuses: readonly MemoryItem['status'][] = ['active', 'proposed', 'done', 'superseded', 'withdrawn', 'rejected'];
 const sources: Record<MemoryItem['sourceType'], string> = {
   user_message: 'from a user message', coordinator_order: 'from a coordinator order', agent_decision: 'from an agent decision', question_item: 'from a question',
@@ -35,12 +37,17 @@ function unresolvedText(memory: SessionMemory): string {
   return last ? `unresolved: ${lower} · last handoff: ${String(last.count)}` : `unresolved: ${lower} · last handoff: unknown`;
 }
 
-function itemOf(item: MemoryItem): MemoryPanelItem {
+function itemOf(item: MemoryItem, review: MemoryReviewSession, busy: boolean): MemoryPanelItem {
   return {
     id: item.id, kind: item.kind, scope: `${item.scope.kind}:${sanitize(item.scope.key)}`, status: item.status, statusLabel: statusLabel(item),
     text: item.withheld ? withheldText : sanitize(item.text), command: item.command === null ? null : sanitize(item.command),
     rejectCommand: item.command === null ? null : `/memory reject ${sanitize(item.id)}`, sourceNote: sources[item.sourceType],
+    canRequest: requestable(item, review) && !busy && memoryReviewRetryable(review.items.get(item.id)), review: review.items.get(item.id) ?? null,
   };
+}
+
+function requestable(item: MemoryItem, review: MemoryReviewSession): boolean {
+  return review.availability?.available === true && item.status === 'proposed' && item.statusBasis === 'recorded' && !item.withheld;
 }
 
 function handoffText(handoff: SessionMemory['handoffs'][number]): string {
@@ -52,13 +59,15 @@ function handoffText(handoff: SessionMemory['handoffs'][number]): string {
 /** The session memory panel shared by both clients: counts, items, the unresolved bound and the handoff figures. */
 export function memoryPanelViewModel(input: MemoryPanelInput): MemoryPanelViewModel {
   const { memory, items, now } = input;
+  const review = input.review ?? emptyMemoryReview();
+  const busy = [...review.items.values()].some(progress => memoryReviewPending(progress.state));
   const available = memory?.storeDetected === true;
   return {
     title: 'Memory', available,
     counts: memory ? statuses.map(status => ({ status, label: status, count: memory.counts[status] })) : [],
     unresolved: { text: memory ? unresolvedText(memory) : '' },
-    items: items.map(itemOf),
+    items: items.map(item => itemOf(item, review, busy)),
     handoffs: (memory?.handoffs ?? []).map(handoff => ({ id: clip(sanitize(handoff.handoffId), 40), age: age(handoff.at, now), text: handoffText(handoff) })),
-    hint: memoryHint,
+    hint: memoryReviewHint(review.availability),
   };
 }

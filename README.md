@@ -133,13 +133,15 @@ This builds the web bundle, generates synthetic data and starts the **real daemo
 
 Press **Ctrl-C** in the demo terminal to stop it and remove its temporary data and token. Each run starts fresh. The synthetic event log is static; the separate developer mock remains available with `npm start`.
 
-**Run it on your own pi data** (read-only in M1; it reads `~/.pi/agent` and keeps its own store in `~/.pi-console`):
+**Run it on your own pi data** (read-only by default; it reads `~/.pi/agent` and keeps its own store in `~/.pi-console`):
 
 ```bash
 npm run build -w @pi-console/web
 node packages/cli/bin/pi-console.mjs daemon --web-dist packages/web/dist   # prints the URL; the token is ~/.pi-console/token
 node packages/cli/bin/pi-console.mjs tui                                    # in a second terminal
 ```
+
+Memory review is a narrow opt-in exception: with daemon review enabled, a separate `memory-control-token` and a ready owning interactive pi provider, both consoles can request **Confirm…** / **Reject…**. Every request requires native human confirmation in pi and then canonical producer ingestion; the console never writes memory directly. The ordinary token remains read-only, with exact command fallback and reasons when review is unavailable. See [web memory review](docs/ui-web.md#memory-review) and [TUI memory review](docs/ui-tui.md#memory-review) for credential setup and controls.
 
 `pi-console daemon --help` lists the data directory, port and source options. Interventions (answering, steering, pausing) are milestone M2; there is no global install yet.
 

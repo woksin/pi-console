@@ -1,5 +1,5 @@
 import type { Event as ApiEvent } from '@pi-console/contract';
-import type { WindowedCollection } from '@pi-console/viewmodels';
+import { MemoryReviewController, type WindowedCollection } from '@pi-console/viewmodels';
 import { applyEvent, mergePage, mergeSessionDetail, mergeTranscript } from '../state/reduce.ts';
 import { emptyState, type Connection, type ConsoleState } from '../state/state.ts';
 import { Unauthorized, type Api } from './api.ts';
@@ -39,6 +39,7 @@ export class ConsoleStore {
   #state: ConsoleState = emptyState();
   readonly #listeners = new Set<Listener>();
   readonly #api: Api;
+  #reviews: MemoryReviewController;
   readonly #clock: Clock;
   #abort: AbortController | null = null;
   #refresh: number | null = null;
@@ -48,8 +49,9 @@ export class ConsoleStore {
   #watchTimer: number | null = null;
   #attempt = 0;
   #stopped = false;
-  /** Read through methods: both flags change across awaits, which control-flow narrowing cannot see. */
-  #isStopped(): boolean { return this.#stopped; }
+  #generation = 0;
+  /** Read through methods: these flags change across awaits, which control-flow narrowing cannot see. */
+  #active(generation: number): boolean { return !this.#stopped && this.#generation === generation; }
   #takeRefreshAgain(): boolean { const again = this.#refreshAgain; this.#refreshAgain = false; return again; }
   readonly #loaded = new Map<string, Promise<void>>();
   /** When each session's memory was last requested (clock ms), for the refetch throttle. */
@@ -61,6 +63,13 @@ export class ConsoleStore {
   constructor(api: Api, clock: Clock = realClock) {
     this.#api = api;
     this.#clock = clock;
+    this.#reviews = this.#createReviews();
+  }
+
+  #createReviews(): MemoryReviewController {
+    return new MemoryReviewController(this.#api, (id, review) => {
+      this.#set({ ...this.#state, memoryReviews: new Map(this.#state.memoryReviews).set(id, review) });
+    }, id => { this.#memoryAt.delete(`memory:${id}`); return this.loadSessionMemory(id); });
   }
 
   readonly subscribe = (listener: Listener): (() => void) => {
@@ -80,28 +89,36 @@ export class ConsoleStore {
   }
 
   start(): void {
+    if (this.#stopped) {
+      this.#reviews = this.#createReviews();
+      this.#memoryAt.clear();
+      this.#set({ ...this.#state, memoryReviews: new Map() });
+    }
     this.#stopped = false;
-    void this.#run();
+    void this.#run(++this.#generation);
   }
 
   stop(): void {
     this.#stopped = true;
+    this.#generation++;
+    this.#reviews.dispose();
     this.#abort?.abort();
     this.#unwatch();
     if (this.#refresh !== null) this.#clock.clearTimeout(this.#refresh);
   }
 
-  async #run(): Promise<void> {
-    while (!this.#stopped) {
+  async #run(generation: number): Promise<void> {
+    while (this.#active(generation)) {
       this.#abort = new AbortController();
       this.#connection(this.#state.seq > 0 ? 'reconnecting' : 'connecting');
       this.#watch(this.#abort);
       try {
-        await this.#api.stream(this.#state.seq, this.#abort.signal, frame => { this.#frame(frame); });
+        await this.#api.stream(this.#state.seq, this.#abort.signal, frame => { this.#frameWhenActive(generation, frame); });
       } catch (error) {
+        if (!this.#active(generation)) return;
         if (error instanceof Unauthorized) { this.#connection('unauthorized'); return; }
-      } finally { this.#unwatch(); }
-      if (this.#isStopped()) return;
+      } finally { if (this.#active(generation)) this.#unwatch(); }
+      if (!this.#active(generation)) return;
       this.#connection('offline');
       await this.#sleep(reconnectDelays[Math.min(this.#attempt++, reconnectDelays.length - 1)]);
     }
@@ -122,6 +139,10 @@ export class ConsoleStore {
 
   #sleep(ms: number): Promise<void> {
     return new Promise(resolve => { this.#clock.setTimeout(resolve, ms); });
+  }
+
+  #frameWhenActive(generation: number, frame: ApiEvent | 'heartbeat'): void {
+    if (this.#active(generation)) this.#frame(frame);
   }
 
   #frame(frame: ApiEvent | 'heartbeat'): void {
@@ -197,6 +218,10 @@ export class ConsoleStore {
     return task;
   }
 
+  requestMemoryAction(sessionId: string, itemId: string, action: 'confirm' | 'reject'): Promise<void> {
+    return this.#reviews.request(sessionId, itemId, action);
+  }
+
   /** Loads a session's read-only memory summary and newest items; at most once per `memoryRefreshMs` per session, and again after a gap. A failed load is retried on the next call. */
   loadSessionMemory(sessionId: string): Promise<void> {
     const key = `memory:${sessionId}`;
@@ -205,6 +230,7 @@ export class ConsoleStore {
     const recent = last !== undefined && this.#clock.now() - last < memoryRefreshMs;
     if (existing && recent) return existing;
     this.#memoryAt.set(key, this.#clock.now());
+    void this.#reviews.load(sessionId);
     const task = Promise.all([this.#api.sessionMemory(sessionId).catch(() => null), this.#api.memoryItems(sessionId, memoryItemLimit).catch(() => null)]).then(([memory, items]) => {
       if (!memory || !items) { this.#memoryAt.delete(key); return; }
       this.#set({ ...this.#state, memory: { ...this.#state.memory, [sessionId]: memory }, memoryItems: { ...this.#state.memoryItems, [sessionId]: items } });

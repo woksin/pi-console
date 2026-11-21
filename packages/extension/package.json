@@ -1,0 +1,11 @@
+{
+  "name": "@pi-console/extension",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": { ".": "./src/index.ts" },
+  "pi": { "extensions": ["./src/index.ts"] },
+  "dependencies": { "@pi-console/contract": "*", "ws": "8.23.0" },
+  "devDependencies": { "@types/ws": "8.18.2" },
+  "scripts": { "test": "node --test \"src/**/*.test.ts\"" }
+}

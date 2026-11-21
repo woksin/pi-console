@@ -50,6 +50,10 @@ Scope: the MVP slices listed in [event-model.md](event-model.md#mvp-slices).
 - Cold start to first screen under 3 seconds with a 14-day backfill running in the background (target, UNVERIFIED); idle daemon memory under 150 MiB (target, UNVERIFIED).
 - Requests with no valid token, wrong Host or foreign Origin are refused (specs).
 
+### Narrow memory-review exception
+
+The session Memory panel now supports request-only **Confirm…** / **Reject…** in both consoles, independently of general interventions. Daemon enablement, the separate memory-control token and a ready owning interactive pi provider are required. Every request needs native human confirmation in pi; reported approval remains awaiting producer ingestion until canonical memory changes are observed. Read-only/disabled/offline/unsupported/not-ready and old-daemon cases retain commands with a reason. This does not ship answering, steering, pausing or direct console memory writes. See [web](ui-web.md#memory-review) and [TUI](ui-tui.md#memory-review).
+
 ## M2: live transcript and interventions
 
 - The `pi-console` extension: live status and streaming transcript ([ADR-0005](adr/0005-live-session-integration-via-pi-extension.md)).

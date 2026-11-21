@@ -46,7 +46,9 @@
       "text": "synthetic item-1",
       "command": "/memory confirm item-1",
       "rejectCommand": "/memory reject item-1",
-      "sourceNote": "from a coordinator order"
+      "sourceNote": "from a coordinator order",
+      "canRequest": false,
+      "review": null
     },
     {
       "id": "item-2",
@@ -57,7 +59,9 @@
       "text": "synthetic item-2",
       "command": null,
       "rejectCommand": null,
-      "sourceNote": "from a user message"
+      "sourceNote": "from a user message",
+      "canRequest": false,
+      "review": null
     },
     {
       "id": "item-3",
@@ -68,7 +72,9 @@
       "text": "[withheld: secret-shaped content]",
       "command": null,
       "rejectCommand": null,
-      "sourceNote": "from a coordinator order"
+      "sourceNote": "from a coordinator order",
+      "canRequest": false,
+      "review": null
     }
   ],
   "handoffs": [
@@ -83,5 +89,5 @@
       "text": "memory degraded at handoff"
     }
   ],
-  "hint": "Confirming needs an interactive pi session (a confirmation dialog); the console is read-only and cannot confirm or reject."
+  "hint": "Memory review is unavailable (daemon unsupported or disconnected). Run the command in pi."
 }

@@ -67,6 +67,17 @@ export function checkCsrf(req: IncomingMessage): void {
   if (header(req, 'origin') === undefined) throw new HttpError(403, 'Origin required');
 }
 
+export function hasControlScope(req: IncomingMessage, credentials: Credentials): boolean {
+  return credentials.controls(bearerToken(req) ?? cookieToken(req));
+}
+
+/** Normal bearer/cookie policy applies; scope never serves as human proof. */
+export function authenticateControl(req: IncomingMessage, url: URL, credentials: Credentials): string {
+  authenticate(req, url, credentials);
+  if (!hasControlScope(req, credentials)) throw new HttpError(403, 'Control scope required');
+  return credentials.controlId();
+}
+
 const mutating = (method: string | undefined): boolean => !['GET', 'HEAD'].includes(method ?? 'GET');
 
 /**

@@ -26,7 +26,7 @@ test('memory panel: counts, unresolved bound with the last handoff figure, items
     ['proposed', '/memory confirm item-1', '/memory reject item-1'], ['active (assumed)', null, null], ['rejected', null, null],
   ]);
   assert.equal(model.items[2].text, '[withheld: secret-shaped content]');
-  assert.match(model.hint, /cannot confirm/);
+  assert.match(model.hint, /Run the command in pi/);
   golden('session', model, 'memory.golden.json');
 });
 

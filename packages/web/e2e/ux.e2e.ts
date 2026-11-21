@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
-import type { AttentionItem } from '@pi-console/contract';
+import type { AttentionItem, MemoryItem } from '@pi-console/contract';
 import type { Page } from 'playwright-core';
 import { startRig, type Rig } from './harness.ts';
 
@@ -58,6 +58,88 @@ test('questions distinguish blocking and urgent, with read-only lettered options
     await page.keyboard.press('j');
     await page.locator('[data-question="neutral-ux"].selected').waitFor();
   } finally { fixture.questions = original; await page.context().close(); }
+});
+
+test('memory review requests wait for pi and producer ingestion; actions never optimistically change status', async () => {
+  const page = await rig.open('/session/s1');
+  let phase = 'awaiting-human';
+  let posted = { requestId: '', itemId: '', action: '' };
+  let posts = 0;
+  const hostile = `<img src=x onerror="globalThis.__memoryReviewXss=true">${String.fromCharCode(27)}[31munsafe`;
+  await page.route('**/api/v1/memory-items?*', async route => {
+    const response = await route.fetch();
+    const body = await response.json() as { items: MemoryItem[] };
+    await route.fulfill({ response, json: { ...body, items: body.items.map(item => item.id === 'item-2' ? { ...item, text: hostile } : item) } });
+  });
+  const reply = () => ({
+    version: 1, ...posted, sessionId: 's1', generation: 'g1', connectionGeneration: 'c1', tokenId: 'synthetic-control',
+    state: phase, reason: null, eventId: null, createdAt: Date.now(), updatedAt: Date.now(), expiresAt: Date.now() + 60_000,
+  });
+  await page.route('**/api/v1/**/memory-actions*', async route => {
+    if (route.request().method() === 'POST') { posts++; posted = route.request().postDataJSON() as typeof posted; await route.fulfill({ json: reply() }); return; }
+    await route.fulfill({ json: { version: 1, available: true, providerVersion: 1, generation: 'g1', reason: 'available' } });
+  });
+  await page.route('**/api/v1/memory-actions/*', route => route.fulfill({ json: reply() }));
+  try {
+    await page.reload();
+    const row = page.locator('[data-memory-item="item-2"]');
+    await row.getByRole('button', { name: 'Confirm…', exact: true }).waitFor();
+    assert.match(await row.innerText(), /<img src=x onerror=/);
+    assert.equal((await row.innerText()).includes(String.fromCharCode(27)), false);
+    assert.equal(await row.locator('img, script').count(), 0);
+    assert.equal(await page.evaluate(() => Object.hasOwn(globalThis, '__memoryReviewXss')), false);
+    await row.getByRole('button', { name: 'Confirm…', exact: true }).click();
+    await row.getByRole('status').filter({ hasText: 'Awaiting confirmation in pi' }).waitFor();
+    assert.equal(await row.getByRole('button', { name: 'Confirm…', exact: true }).isDisabled(), true);
+    assert.match(await row.innerText(), /proposed/);
+    assert.equal(posts, 1);
+    assert.deepEqual(Object.keys(posted).sort(), ['action', 'itemId', 'requestId']);
+    phase = 'awaiting-ingestion';
+    await row.getByRole('status').filter({ hasText: 'awaiting producer ingestion' }).waitFor();
+    assert.match(await row.innerText(), /proposed/);
+    phase = 'observed-applied';
+    await row.getByRole('status').filter({ hasText: 'Producer change observed' }).waitFor();
+    assert.match(await row.innerText(), /proposed/, 'a receipt alone cannot synthesize a producer update');
+    assert.equal(posts, 1);
+  } finally { await page.context().close(); }
+});
+
+test('memory review exposes every unavailability fallback and preserves copy commands', async () => {
+  const page = await rig.open('/session/s1');
+  let reason = 'read-only';
+  await page.route('**/api/v1/sessions/*/memory-actions', route => route.fulfill({ json: { version: 1, available: false, providerVersion: null, generation: null, reason } }));
+  try {
+    for (const [value, label] of [['read-only', 'This token is read-only'], ['disabled', 'Memory review is disabled'], ['offline', 'The owning pi session is offline'], ['unsupported', 'does not support memory review v1'], ['not-ready', 'not ready for review']]) {
+      reason = value;
+      await page.reload();
+      await page.locator('.memory-panel').getByText(label, { exact: false }).waitFor();
+      assert.equal(await page.getByRole('button', { name: 'Confirm…', exact: true }).count(), 0);
+      assert.equal(await page.getByRole('button', { name: 'Copy command', exact: true }).count(), 1);
+    }
+  } finally { await page.context().close(); }
+});
+
+test('memory reject requests report pi decline and receipt loss as non-applied outcomes', async () => {
+  for (const outcome of ['declined', 'lost']) {
+    const page = await rig.open('/session/s1');
+    let body: Record<string, unknown> = {};
+    await page.route('**/api/v1/sessions/*/memory-actions', async route => {
+      if (route.request().method() === 'GET') { await route.fulfill({ json: { version: 1, available: true, providerVersion: 1, generation: 'g1', reason: 'available' } }); return; }
+      body = route.request().postDataJSON() as Record<string, unknown>;
+      await route.fulfill({ json: { ...body, version: 1, sessionId: 's1', generation: 'g1', connectionGeneration: 'c1', tokenId: 'synthetic', state: 'awaiting-human', reason: null, eventId: null, createdAt: Date.now() - 60_000, updatedAt: Date.now(), expiresAt: outcome === 'lost' ? Date.now() - 28_500 : Date.now() + 60_000 } });
+    });
+    await page.route('**/api/v1/memory-actions/*', route => outcome === 'lost'
+      ? route.fulfill({ status: 404, json: { error: 'Receipt not found' } })
+      : route.fulfill({ json: { ...body, state: 'declined', reason: 'cancelled' } }));
+    try {
+      await page.reload();
+      const row = page.locator('[data-memory-item="item-2"]');
+      await row.getByRole('button', { name: 'Reject…', exact: true }).click();
+      await row.getByRole('status').filter({ hasText: outcome === 'lost' ? 'Review outcome unknown' : 'Review declined in pi' }).waitFor();
+      assert.equal(body.action, 'reject');
+      assert.match(await row.innerText(), /proposed/);
+    } finally { await page.context().close(); }
+  }
 });
 
 test('repository lane labels, readable timeline ticks and selected row survive zoom and pan', async () => {

@@ -1,6 +1,6 @@
 # Web UI
 
-The web console is a read-only React app (`packages/web`) at parity with the TUI. Both render the same view models from `@pi-console/viewmodels` and use the same keymap, so a screen means the same thing in either.
+The web console is a React app with request-only memory review (`packages/web`) at parity with the TUI. Both render the same view models from `@pi-console/viewmodels` and use the same keymap, so a screen means the same thing in either.
 
 ## Run
 
@@ -17,7 +17,7 @@ Checks: `npm test -w @pi-console/web` (unit), `npm run e2e -w @pi-console/web` (
 
 - **Strict CSP**, sent by the static server on every response: `default-src 'none'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'; object-src 'none'`. No inline script or style, no external origin, no `eval`. Also `nosniff`, `Referrer-Policy: no-referrer`, `X-Frame-Options: DENY`, COOP/CORP `same-origin`.
 - **Token**: carried in the URL *fragment* of the launch link (never sent to a server or logged), read once, and immediately scrubbed from the address bar. It lives in `sessionStorage` for that tab only: never a cookie, never `localStorage`. A wrong or missing token shows the token screen; the right one recovers without a reload.
-- **Read-only**: the UI issues only `GET`s and a read-only event stream. There are no intervention controls in M1.
+- **Read-only by default**: the normal token and event stream remain read-only. Memory review is the narrow exception: `Confirm…` / `Reject…` POST a request for a native pi human confirmation, never a direct memory write. Answering, steering and pausing remain unavailable.
 - **Untrusted text**: transcript, request, message and question text is agent/external input. Every view renders view-model output (already stripped of terminal and control sequences) as React text nodes. There is no `dangerouslySetInnerHTML` and no URL built from external text. An e2e spec feeds `<img onerror>`, `<script>` and ANSI/OSC sequences and asserts they are shown inertly.
 
 ## Behaviour worth knowing
@@ -26,6 +26,14 @@ Checks: `npm test -w @pi-console/web` (unit), `npm run e2e -w @pi-console/web` (
 - **Jump to the exact line**: "Open in session" on an attention item pages the transcript history until the entry is present (retention is 2,500 lines, raised to 20,000 for a deliberate jump), scrolls once, and highlights it.
 - **Follow / pause**: the transcript follows the tail. Scrolling up (wheel, touch, PageUp/↑/Home) or `f` pauses it, and while paused the viewport is pinned to a line id, so evicted or merged history never shifts what you are reading.
 - Long transcripts use `content-visibility` rather than virtualization (accepted for M1).
+
+## Memory review
+
+Enable review explicitly on the daemon and connect an owning interactive pi provider supporting memory-action protocol v1. Paste the separate `<data-dir>/memory-control-token` into the existing access-token screen (a new tab can use another token); the normal `<data-dir>/token` remains read-only. Never put either token in logs or source control.
+
+For a recorded, non-withheld proposed item, **Confirm…** / **Reject…** request a review. Finish the native human confirmation in the owning pi session. The panel shows **Awaiting confirmation in pi**, then **Pi reported approval; awaiting producer ingestion**. Only canonical producer ingestion changes the item/counts; a receipt alone never marks memory active or rejected. Decline, conflict, unavailable and expiry before approval are non-applied outcomes. Unknown is not proof that nothing was applied: a reported producer write can remain unverified while ingestion catches up. Tracking retries transient receipt failures with backoff through the deadline plus ingestion grace, then refreshes canonical memory once. Check pi before explicitly retrying an unknown outcome; reported-but-unverified writes are never labelled expired. Requests are never automatically re-sent on reconnect, navigation or tab closure.
+
+Disabled review, read-only tokens, offline sessions, unsupported providers and not-ready providers each show a reason and keep `/memory confirm <id>` / `/memory reject <id>` plus **Copy command**. Older daemons/disconnections also retain this command fallback. Availability is session- and credential-scoped, not inferred from activity or proposed counts. The consoles never read private `session-facts` or producer event files.
 
 ## Keyboard map
 

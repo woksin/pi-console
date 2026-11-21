@@ -1,7 +1,7 @@
 import type {
   AttentionItem, Event as ApiEvent, Graph, Intervention, Job, MemoryItem, Message, Overview, Question, Request, Reset, Session, SessionMemory, Snapshot, TranscriptEntry,
 } from '@pi-console/contract';
-import type { Totals, WindowedCollection } from '@pi-console/viewmodels';
+import type { MemoryReviewSession, Totals, WindowedCollection } from '@pi-console/viewmodels';
 
 export type Repository = Snapshot['repositories'][number];
 
@@ -26,6 +26,7 @@ export interface ConsoleState {
   memory: Partial<Record<string, SessionMemory>>;
   /** The newest memory items per session id. */
   memoryItems: Partial<Record<string, MemoryItem[]>>;
+  memoryReviews: ReadonlyMap<string, MemoryReviewSession>;
   /** The daemon's single attention list; clients never compute their own. */
   needsYou: AttentionItem[];
   /** True once the attention list has arrived; it is fetched after the snapshot, so `snapshotLoaded` alone is too early. */
@@ -62,7 +63,7 @@ export const retentionFor = (state: Pick<ConsoleState, 'deepHistory'>, sessionId
 export function emptyState(): ConsoleState {
   return {
     repositories: [], sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], interventions: [],
-    transcripts: {}, memory: {}, memoryItems: {}, needsYou: [], needsYouLoaded: false, graph: null, health: null, overview: null, liveAt: 0, snapshotLoaded: false, seq: 0,
+    transcripts: {}, memory: {}, memoryItems: {}, memoryReviews: new Map(), needsYou: [], needsYouLoaded: false, graph: null, health: null, overview: null, liveAt: 0, snapshotLoaded: false, seq: 0,
     connection: 'connecting', lastFrameAt: 0, gapCount: 0, received: 0, deepHistory: [], totals: null, bounded: [], history: {},
   };
 }

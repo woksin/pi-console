@@ -1,6 +1,6 @@
 # TUI (OpenTUI)
 
-Status: M1 implementation, read-only. Decision: [ADR-0003](adr/0003-tui-stack-bake-off.md). Same API and the same view models as the web console ([information architecture](information-architecture.md)); the TUI holds no attention, pairing or status logic.
+Status: M1 implementation, read-only by default, with request-only memory review. Decision: [ADR-0003](adr/0003-tui-stack-bake-off.md). Same API and the same view models as the web console ([information architecture](information-architecture.md)); the TUI holds no attention, pairing or status logic.
 
 ## Run it
 
@@ -16,7 +16,7 @@ Needs Node 26 (the engine floor) because OpenTUI loads its native core through `
 
 ## Views
 
-Number keys jump, clicks work on tabs and rows. Everything is read-only; `q` only leaves the TUI.
+Number keys jump, clicks work on tabs and rows. Everything except explicit memory-review requests is read-only; `q` only leaves the TUI.
 
 | Key | View | What it shows |
 |---|---|---|
@@ -47,6 +47,16 @@ Animated tour: [tui-tour.gif](media/tui-tour.gif).
 - `packages/tui/src/view/renderer.ts` is the **only** file that imports OpenTUI: primitives (Screen, Panel, Lines, Row, Column, Overlay, Clickable), hooks (`useKeys`, `useSize`, `useTick`, `useClipboard`), `launch` and a headless mount for specs. Views are written against it with plain `createElement` (no TSX, because Node strips types but does not compile JSX).
 - `state/` pure UI reducer and key translation to the neutral names of the shared keymap; `store/` coalescing mirror of daemon state (at most about 20 renders a second); `api/` HTTP client, SSE parser and token resolution; `views/` one module per view; `shell/` header, footer, banner, overlays; `app.ts` wiring; `runtime.ts` connects client, store and renderer.
 - View models, the keymap, the palette and settings come from `packages/viewmodels`, shared with the web UI; golden JSON snapshots there are what both clients are tested against.
+
+## Memory review
+
+With daemon review explicitly enabled and a compatible owning interactive pi provider (protocol v1), connect using the separate memory-control credential: `PI_CONSOLE_TOKEN_FILE=<data-dir>/memory-control-token` (or explicitly supply it through `PI_CONSOLE_TOKEN`). Default `<data-dir>/token` stays read-only; credentials still use owner-only file checks and are never printed.
+
+In a session, use `Tab` / `Shift+Tab` to reach the **Memory** pane. At terminal widths of at least 112 columns, `[` / `]` select a memory item; `c` requests **Confirm…**, `x` requests **Reject…** for the selected recorded, non-withheld proposal. These keys do nothing in other panes, overlays, searches or hidden narrow-screen panes. Transcript movement, search, follow-tail and pane navigation are unchanged.
+
+Finish each native human confirmation in the owning pi session. Progress is **Awaiting confirmation in pi**, then **Pi reported approval; awaiting producer ingestion**. Only producer ingestion updates canonical item status and counts; approval receipts cannot do so. Decline, conflict, unavailable and expiry before approval are non-applied outcomes. Unknown is not proof that nothing was applied: reported writes remain unverified until canonical ingestion is observed, never falsely expired. Transient receipt failures retry with backoff through the deadline plus ingestion grace, then canonical memory refreshes once. Request identity stays bound to its original session across navigation; reconnect never re-sends a POST, and exit cancels polling. Check pi before retrying an unknown/lost result.
+
+The pane explains disabled, read-only, offline, unsupported and not-ready availability separately; old daemons/disconnections also fall back safely. Exact `/memory confirm <id>` and `/memory reject <id>` commands remain available. No private producer store is read by the TUI.
 
 ## Tests
 

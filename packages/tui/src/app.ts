@@ -3,11 +3,12 @@ import { FlashTracker, LookTracker, paletteItems, pulseViewModel, rememberPick, 
 import { Column, Screen, Text, h, useClipboard, useKeys, useSize, useTerminalTitle, useTick } from './view/renderer.ts';
 import type { Store } from './store/store.ts';
 import { commit, handleKey, initial, reduce, typing, type Bounds, type Section, type UiState } from './state/ui.ts';
+import { terminalContentWidth } from './state/session-layout.ts';
 import { emptyLayout, resumeTranscript, transcriptViewport } from './state/transcript-window.ts';
 import { neutralKey, typedCharacter, type KeyInput } from './state/keys.ts';
 import { Header, banner, footerLine, pulseLine, terminalTitle } from './shell/chrome.ts';
 import { Help, Palette, Settings } from './shell/overlays.ts';
-import { collectionToLoad, countsOf } from './app-input.ts';
+import { collectionToLoad, countsOf, memoryInput, type RequestMemoryAction } from './app-input.ts';
 import type { Env, SectionView } from './views/common.ts';
 import { overviewView } from './views/overview.ts';
 import { fleetView } from './views/fleet.ts';
@@ -28,6 +29,7 @@ export interface AppProps {
   loadTranscript: (sessionId: string) => void;
   /** Fetches the session's read-only memory summary and items. */
   loadMemory: (sessionId: string) => void;
+  requestMemoryAction?: RequestMemoryAction;
   /** Fetches the next older page of a list the snapshot only windowed; called when the cursor reaches the end of a list. */
   loadMore?: (collection: WindowedCollection) => void;
   onQuit: () => void;
@@ -68,15 +70,13 @@ export function App(props: AppProps): ReactElement {
 
   useTick(props.animate ? 6 : 1, () => { setClock(previous => ({ now: (props.clock ?? Date.now)(), phase: props.animate ? previous.phase + 1 : 0 })); });
 
-  const showBanner = !data.connection.connected;
-  const showPulse = size.height >= 24 && data.sessions.length > 0;
+  const { showPulse, bodyHeight } = frameSize(data, size.height);
   const pulse = useMemo(() => pulseViewModel({ sessions: data.sessions, needsYou: data.needsYou.length }), [data.sessions, data.needsYou.length]);
-  const bodyHeight = Math.max(4, size.height - 2 - (showBanner ? 1 : 0) - (showPulse ? 1 : 0));
   const [trackers] = useState(() => ({ look: new LookTracker(), flash: new FlashTracker() }));
   const onOverview = ui.section === 'overview' && !ui.sessionId;
   useEffect(() => { if (!onOverview) trackers.look.leave(); }, [onOverview, trackers]);
   const env: Env = {
-    data, ui, now: clock.now, width: size.width - 2, height: bodyHeight, phase: clock.phase, changes: { ...trackers, motion: props.animate },
+    data, ui, now: clock.now, width: terminalContentWidth(size.width), height: bodyHeight, phase: clock.phase, changes: { ...trackers, motion: props.animate },
     click: index => { apply(openAt(uiRef.current, index, boundsOf(viewRef.current, bodyHeight))); },
   };
   const view = (ui.sessionId ? sessionView : sectionViews[ui.section])(env);
@@ -92,6 +92,8 @@ export function App(props: AppProps): ReactElement {
   heightRef.current = bodyHeight;
 
   useKeys(key => {
+    const memory = memoryInput(uiRef.current, neutralKey(key), dataRef.current, size.width, props.requestMemoryAction);
+    if (memory) { apply(memory); return; }
     const current = viewRef.current;
     apply(nextState(uiRef.current, key, { palette: dataRef.current, view: current, bounds: boundsOf(current, heightRef.current), copy }));
   });
@@ -109,6 +111,11 @@ export function App(props: AppProps): ReactElement {
     h(Column, { grow: 1, paddingX: 1 }, view.render()),
     h(Text, { line: footerLine(ui, size.width) }),
     ...overlays(ui, data, input, size));
+}
+
+function frameSize(data: ReturnType<Store['getSnapshot']>, height: number): { showPulse: boolean; bodyHeight: number } {
+  const showPulse = height >= 24 && data.sessions.length > 0;
+  return { showPulse, bodyHeight: Math.max(4, height - 2 - Number(!data.connection.connected) - Number(showPulse)) };
 }
 
 interface Size { width: number; height: number }

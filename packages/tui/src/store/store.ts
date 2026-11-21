@@ -1,4 +1,4 @@
-import { mergeHistory, mergeSnapshot, type Totals, type WindowedCollection } from '@pi-console/viewmodels';
+import { type MemoryReviewSession, mergeHistory, mergeSnapshot, type Totals, type WindowedCollection } from '@pi-console/viewmodels';
 import type { AttentionItem, Event, Job, MemoryItem, Message, Question, Request, Reset, Session, SessionDetail, SessionMemory, TranscriptEntry } from '@pi-console/contract';
 
 export const TRANSCRIPT_LIMIT = 2500;
@@ -20,6 +20,7 @@ export interface Data {
   needsYouLoaded: boolean;
   /** Read-only intent memory per session id, fetched when its session is opened. */
   memory: ReadonlyMap<string, SessionMemory>; memoryItems: ReadonlyMap<string, MemoryItem[]>;
+  memoryReviews: ReadonlyMap<string, MemoryReviewSession>;
   /** Ids of entities touched since the last render, used for the brief "just changed" highlight. */
   fresh: ReadonlyMap<string, number>;
 }
@@ -31,7 +32,7 @@ export interface Data {
 export class Store {
   private data: Data = {
     loaded: false, connection: { connected: false, error: 'Connecting…', lastSeq: undefined, lastEventAt: undefined, eventsReceived: 0 }, repositories: 0,
-    sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], totals: null, bounded: [], history: {}, needsYou: [], needsYouLoaded: false, transcripts: new Map(), memory: new Map(), memoryItems: new Map(), fresh: new Map(),
+    sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], totals: null, bounded: [], history: {}, needsYou: [], needsYouLoaded: false, transcripts: new Map(), memory: new Map(), memoryItems: new Map(), memoryReviews: new Map(), fresh: new Map(),
   };
   private readonly listeners = new Set<() => void>();
   private timer: ReturnType<typeof setTimeout> | undefined;
@@ -75,6 +76,11 @@ export class Store {
 
   private touch(id: string): void {
     this.pendingFresh.set(id, this.now());
+  }
+
+  setMemoryReview(id: string, review: MemoryReviewSession): void {
+    this.data = { ...this.data, memoryReviews: new Map(this.data.memoryReviews).set(id, review) };
+    this.schedule();
   }
 
   setConnection(connected: boolean, error: string): void {
