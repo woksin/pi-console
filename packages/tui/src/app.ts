@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, useSyncExternalStore, type ReactElement } from 'react';
-import { paletteItems, type Action, type WindowedCollection } from '@pi-console/viewmodels';
+import { paletteItems, rememberPick, type Action, type PaletteInput, type WindowedCollection } from '@pi-console/viewmodels';
 import { Column, Screen, Text, h, useClipboard, useKeys, useSize, useTick } from './view/renderer.ts';
 import type { Store } from './store/store.ts';
 import { commit, handleKey, initial, reduce, typing, type Bounds, type Section, type UiState } from './state/ui.ts';
@@ -88,7 +88,7 @@ export function App(props: AppProps): ReactElement {
 
   useKeys(key => {
     const current = viewRef.current;
-    apply(nextState(uiRef.current, key, { sessions: dataRef.current.sessions, view: current, bounds: boundsOf(current, heightRef.current), copy }));
+    apply(nextState(uiRef.current, key, { palette: dataRef.current, view: current, bounds: boundsOf(current, heightRef.current), copy }));
   });
 
   const connectionBanner = banner(data.connection, size.width);
@@ -117,15 +117,15 @@ function openAt(state: UiState, index: number, bounds: Bounds): UiState {
   return reduce({ ...state, cursor: { ...state.cursor, [state.section]: index } }, 'open', bounds);
 }
 
-type Sessions = Parameters<typeof paletteItems>[0]['sessions'];
-interface KeyContext { sessions: Sessions; view: SectionView; bounds: Bounds; copy: (text: string) => boolean }
+type PaletteData = Pick<PaletteInput, 'sessions' | 'requests' | 'questions' | 'messages'>;
+interface KeyContext { palette: PaletteData; view: SectionView; bounds: Bounds; copy: (text: string) => boolean }
 
 /** Next state for a key: text entry while an input overlay is open, otherwise the keymap (`y` copies the id and keeps the state). */
 function nextState(state: UiState, key: KeyInput, ctx: KeyContext): UiState {
   if (neutralKey(key) === 'Ctrl+C') return reduce(state, 'quit', ctx.bounds);
   if (isTextOverlay(state.overlay)) {
-    if (neutralKey(key) === 'Enter') return state.overlay === 'palette' ? runPalette(state, ctx.sessions, ctx.bounds) : commit(state);
-    return typeInto(state, key, state.overlay === 'palette' ? paletteItems({ sessions: ctx.sessions, query: state.input }).length : 0);
+    if (neutralKey(key) === 'Enter') return state.overlay === 'palette' ? runPalette(state, ctx.palette, ctx.bounds) : commit(state);
+    return typeInto(state, key, state.overlay === 'palette' ? paletteItems({ ...ctx.palette, query: state.input, recents: state.recents, client: 'tui' }).length : 0);
   }
   const name = neutralKey(key);
   if (name === 'y') return copyId(state, ctx.view, ctx.copy);
@@ -133,12 +133,12 @@ function nextState(state: UiState, key: KeyInput, ctx: KeyContext): UiState {
 }
 
 /** Executes the highlighted palette entry: an action goes through the same reducer as its key, a session opens its detail. */
-function runPalette(state: UiState, sessions: Parameters<typeof paletteItems>[0]['sessions'], bounds: Bounds): UiState {
-  const items = paletteItems({ sessions, query: state.input });
+function runPalette(state: UiState, data: PaletteData, bounds: Bounds): UiState {
+  const items = paletteItems({ ...data, query: state.input, recents: state.recents, client: 'tui' });
   const item = items[Math.min(state.paletteIndex, items.length - 1)];
-  const closed: UiState = { ...state, overlay: 'none', input: '', paletteIndex: 0 };
+  const closed: UiState = { ...state, overlay: 'none', input: '', paletteIndex: 0, recents: item ? rememberPick(state.recents, item.id) : state.recents };
   if (!item) return closed;
-  if (item.target.kind === 'session') return { ...closed, sessionId: item.target.sessionId, ...resumeTranscript, search: '', focusEntry: null };
+  if (item.target.kind === 'session') return { ...closed, sessionId: item.target.sessionId, ...resumeTranscript, search: '', focusEntry: item.target.entryId ?? null };
   return reduce(closed, item.target.action, bounds);
 }
 

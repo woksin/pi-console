@@ -16,6 +16,8 @@ export interface UiState {
   /** The text being typed in the palette, filter or transcript search. */
   input: string;
   paletteIndex: number;
+  /** Palette item ids picked before, newest first. */
+  recents: readonly string[];
   filter: string;
   cursor: Record<Section, number>;
   collapsed: readonly string[];
@@ -38,7 +40,7 @@ export interface UiState {
 }
 
 export const initial: UiState = {
-  section: 'overview', sessionId: null, overlay: 'none', input: '', paletteIndex: 0, filter: '',
+  section: 'overview', sessionId: null, overlay: 'none', input: '', paletteIndex: 0, recents: [], filter: '',
   cursor: { overview: 0, fleet: 0, requests: 0, questions: 0, messages: 0, timeline: 0, work: 0 },
   collapsed: [], follow: true, anchor: null, requestFilter: { state: 'all', origin: 'all', sessionId: null }, focusEntry: null, search: '', pane: 'requests', messagesGraph: false, window: null, scrub: false, scrubColumn: 0, quit: false, notice: '',
 };

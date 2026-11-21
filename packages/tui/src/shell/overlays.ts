@@ -1,6 +1,6 @@
-import { keyLabel, keymapGroups, pad, paletteItems, settingsViewModel, wrap, type KeymapGroup, type SettingsInput, type SettingsRow, type Tone } from '@pi-console/viewmodels';
-import { Column, Lines, Overlay, Panel, Row, h, type Line } from '../view/renderer.ts';
-import { blank, fit, heading, selectable, t } from '../view/parts.ts';
+import { keyLabel, keymapGroups, pad, paletteScopes, paletteView, settingsViewModel, wrap, type KeymapGroup, type PaletteItem, type PaletteView, type SettingsInput, type SettingsRow, type Tone } from '@pi-console/viewmodels';
+import { Column, Lines, Overlay, Panel, Row, h, type Line, type Part } from '../view/renderer.ts';
+import { blank, fit, gap, heading, rule, selectable, split, t, windowOf } from '../view/parts.ts';
 import type { Data } from '../store/store.ts';
 import type { UiState } from '../state/ui.ts';
 import type { Color } from '../view/theme.ts';
@@ -10,15 +10,44 @@ const frame = (width: number, height: number, wanted: { width: number; height: n
   return { left: Math.floor((width - w) / 2), top: Math.max(1, Math.floor((height - tall) / 3)), width: w, height: tall };
 };
 
-export function Palette(props: { ui: UiState; data: Data; width: number; height: number }) {
-  const box = frame(props.width, props.height, { width: 72, height: 16 });
+type PaletteData = Pick<Data, 'sessions' | 'requests' | 'questions' | 'messages'>;
+
+const paletteRow = (item: PaletteItem, width: number, selected: boolean): Line => {
+  const label: Part[] = item.segments.map(segment => t(segment.text, segment.hit ? 'cyan' : 'text', segment.hit ? { bold: true, underline: true } : {}));
+  const right: Part[] = [t(item.detail, 'muted'), t(item.key ? `  ${item.key}` : '', 'faint')];
+  return selectable(split([t(item.glyph, item.tone, { bold: true }), gap(), ...label], right, width - 2), width, selected);
+};
+
+/** The sections as lines, with the line index of the highlighted row so the list can scroll to it. */
+function paletteLines(view: PaletteView, index: number, width: number): { lines: Line[]; cursor: number } {
+  const lines: Line[] = [];
+  let cursor = 0;
+  for (const section of view.sections) {
+    lines.push([t(' '), t(section.title.toUpperCase(), 'muted', { bold: true })]);
+    for (const item of section.items) {
+      if (view.items.indexOf(item) === index) cursor = lines.length;
+      lines.push(paletteRow(item, width, view.items.indexOf(item) === index));
+    }
+  }
+  return { lines, cursor };
+}
+
+const paletteFooter = (view: PaletteView, width: number): Line =>
+  split(paletteScopes.flatMap(scope => [t(scope.prefix, 'cyan', { bold: true }), t(` ${scope.label}  `, 'faint')]), [t(`${String(view.shown)} of ${String(view.total)}`, 'muted')], width);
+
+/** Jump anywhere: the shared palette view model with typed groups, prefixes, match highlight and recents. */
+export function Palette(props: { ui: UiState; data: PaletteData; width: number; height: number }) {
+  const box = frame(props.width, props.height, { width: 96, height: 26 });
   const inner = box.width - 4;
-  const items = paletteItems({ sessions: props.data.sessions, query: props.ui.input });
-  const index = Math.min(props.ui.paletteIndex, Math.max(0, items.length - 1));
-  const rows: Line[] = items.length === 0 ? [[t('  Nothing matches. Prefix > for commands, @ for sessions.', 'muted')]]
-    : items.map((item, at) => selectable([t(item.group === 'Command' ? '› ' : '◆ ', item.group === 'Command' ? 'cyan' : 'violet'), t(item.label, 'text'), t(item.detail ? `  ${item.detail}` : '', 'faint'), t(item.key ? `  [${item.key}]` : '', 'muted')], inner, at === index));
+  const view = paletteView({ ...props.data, query: props.ui.input, recents: props.ui.recents, client: 'tui' });
+  const index = Math.min(props.ui.paletteIndex, Math.max(0, view.items.length - 1));
   const prompt: Line = fit([t('❯ ', 'cyan', { bold: true }), t(props.ui.input, 'text'), t('▌', 'cyan')], inner, 'panel');
-  return h(Overlay, box, h(Panel, { title: 'Command palette', right: '↑↓ choose · ⏎ run · esc close', focused: true, grow: 1, background: 'raised' }, h(Lines, { lines: [prompt, blank, ...rows], grow: 1 })));
+  const { lines, cursor } = paletteLines(view, index, inner);
+  const room = Math.max(1, box.height - 6);
+  const shown = windowOf(lines.length, cursor, room);
+  const body = view.items.length === 0 ? [[t(`  No matches in ${view.scope}. Try another word or prefix.`, 'muted')]] : lines.slice(shown.start, shown.end);
+  return h(Overlay, box, h(Panel, { title: 'Command palette', right: '↑↓ choose · ⏎ open · esc close', focused: true, grow: 1, background: 'raised' },
+    h(Lines, { lines: [prompt, rule(inner)], height: 2 }), h(Lines, { lines: body, grow: 1 }), h(Lines, { lines: [paletteFooter(view, inner)], height: 1 })));
 }
 
 function helpLines(groups: KeymapGroup[], width: number): Line[] {

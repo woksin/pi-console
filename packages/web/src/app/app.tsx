@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { hints, resolve, type Action, type KeyContext, type PaletteItem } from '@pi-console/viewmodels';
+import { hints, rememberPick, resolve, type Action, type KeyContext, type PaletteItem } from '@pi-console/viewmodels';
 import { dispatch } from './commands.ts';
 import { clockNow, navigate, useConsole, useRoute } from './hooks.ts';
 import { contextFor, isTyping, neutralKey } from './keys.ts';
@@ -55,6 +55,7 @@ export function App() {
   const route = useRoute();
   const prefs = usePrefs();
   const [overlay, setOverlay] = useState<Overlay>(null);
+  const [recents, setRecents] = useState<readonly string[]>([]);
   useEffect(() => { applyTheme(document.documentElement, prefs.theme, prefs.reducedMotion); }, [prefs.theme, prefs.reducedMotion]);
   useEffect(() => { document.title = `${titleFor(route.view)} · pi console`; }, [route.view]);
 
@@ -62,7 +63,8 @@ export function App() {
   useShortcuts(context, overlay, setOverlay);
   const pick = (item: PaletteItem): void => {
     setOverlay(null);
-    if (item.target.kind === 'session') navigate(sessionHref(item.target.sessionId));
+    setRecents(previous => rememberPick(previous, item.id));
+    if (item.target.kind === 'session') navigate(sessionHref(item.target.sessionId, item.target.entryId));
     else if (!handleGlobal(item.target.action, { overlay: null, setOverlay })) { const { action } = item.target; window.setTimeout(() => { dispatch(action); }, 0); }
   };
   const attention = useMemo(() => state.needsYou.length, [state.needsYou]);
@@ -77,7 +79,7 @@ export function App() {
         <main className={`content${staleData(state, wall) ? ' stale' : ''}`} data-stale={staleData(state, wall)} id="content" tabIndex={-1}><View route={route} state={state} now={now} /></main>
         <Hints items={hints(context, 'web')} />
       </div>
-      {overlay === 'palette' && <Palette sessions={state.sessions} onClose={() => { setOverlay(null); }} onPick={pick} />}
+      {overlay === 'palette' && <Palette data={state} recents={recents} onClose={() => { setOverlay(null); }} onPick={pick} />}
       {overlay === 'help' && <Help onClose={() => { setOverlay(null); }} />}
     </div>
   );
