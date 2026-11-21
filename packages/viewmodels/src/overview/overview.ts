@@ -17,8 +17,8 @@ export interface OverviewViewModel {
 }
 
 /** Group adjacent reasons only: the daemon's attention ranking remains authoritative. */
-export function attentionSections(cards: readonly AttentionCard[]): { label: string; cards: AttentionCard[] }[] {
-  const sections: { label: string; cards: AttentionCard[] }[] = [];
+export function attentionSections<T extends Pick<AttentionCard, 'reasonLabel'>>(cards: readonly T[]): { label: string; cards: T[] }[] {
+  const sections: { label: string; cards: T[] }[] = [];
   for (const card of cards) {
     const label = card.reasonLabel;
     const previous = sections.at(-1);

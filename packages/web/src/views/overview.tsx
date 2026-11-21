@@ -30,7 +30,7 @@ export function OverviewView({ state, now }: ViewProps) {
       </div>}
       <div className="attention-sections" aria-label="Needs you">
         {fresh.label && <p className="new-since" role="status"><span>{fresh.label}</span></p>}
-        {sections.map(section => <section key={section.reason} aria-label={section.label}>
+        {sections.map(section => <section key={section.cards[0].id} aria-label={section.label}>
           <h3 className="attention-heading">{section.label} <span className="faint">{section.cards.length}</span></h3>
           <ol className="cards">{section.cards.map(card => <AttentionCard key={card.id} card={card} isNew={fresh.ids.has(card.id)} selected={nav.selected === card.id} onSelect={() => { nav.select(card.id); }} />)}</ol>
         </section>)}

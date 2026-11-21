@@ -31,6 +31,7 @@ test('dense attention keeps daemon order, ten visible items and keyboard selecti
   await page.locator('[data-reason]').nth(39).waitFor();
   assert.ok(await fullyVisible(page, '[data-reason]') >= 10);
   assert.equal(await page.locator('.attention-heading').count(), 40);
+  assert.deepEqual(await page.locator('[data-reason] .card-text').allTextContents(), items.map(item => item.text));
   await page.keyboard.press('j');
   assert.equal(await page.locator('[data-reason][aria-current="true"] .card-text').innerText(), 'Attention detail 1');
   await page.keyboard.press('Enter');
@@ -73,18 +74,21 @@ test('repository lane labels, readable timeline ticks and selected row survive z
   await page.getByRole('button', { name: 'Pan later', exact: true }).click();
   const labels = await page.locator('.tl .axis').allTextContents();
   assert.ok(labels.length >= 2 && labels.every(label => /^\d{2}:\d{2}:[0-5]0$/.test(label)));
-  const selected = await page.locator('.lane.selected .lane-label').innerText();
+  const selected = await page.locator('.lane.selected .lane-label').textContent();
+  assert.ok(selected?.includes('/L'));
   await page.keyboard.press('j');
-  assert.notEqual(await page.locator('.lane.selected .lane-label').innerText(), selected);
+  assert.notEqual(await page.locator('.lane.selected .lane-label').textContent(), selected);
   await page.context().close();
 });
 
 test('1100px navigation is an icon rail, Fleet fits, and transcript controls do not cover text', async () => {
   const page = await rig.open('/fleet', { width: 1100, height: 900 });
   await page.locator('[data-session]').first().waitFor();
-  assert.equal(await page.locator('.sidebar').evaluate(node => node.getBoundingClientRect().width), 60);
+  // The accepted collapsed rail is 80px; the audit requires collapse and a Fleet table that fits, not a 60px rail.
+  assert.equal(await page.locator('.sidebar').evaluate(node => node.getBoundingClientRect().width), 80);
   assert.ok(await page.locator('table').evaluate(node => node.getBoundingClientRect().right <= innerWidth));
-  await page.locator('table tbody a').first().click();
+  // Only s2 has seeded transcript entries; the first Fleet row correctly has an empty transcript.
+  await page.locator('tr[data-session="s2"] a').click();
   await page.locator('.tline').first().waitFor();
   const bounds = await page.evaluate(() => ({
     controls: document.querySelector('.transcript-controls')?.getBoundingClientRect().bottom ?? Infinity,
