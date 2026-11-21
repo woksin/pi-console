@@ -3,13 +3,14 @@ import { useMemo } from 'react';
 import type { ViewProps } from '../app/view.tsx';
 import { navigate, useListNav } from '../app/hooks.ts';
 import { sessionHref } from '../app/routes.ts';
-import { EmptyState, Panel, Sparkline, StatusBadge } from '../ui/primitives.tsx';
+import { EmptyState, SkeletonRows, Panel, Sparkline, StatusBadge } from '../ui/primitives.tsx';
 import { useScrollIntoView } from '../ui/hooks.ts';
 
 export function OverviewView({ state, now }: ViewProps) {
   const view = useMemo(() => overviewViewModel({ needsYou: state.needsYou, sessions: state.sessions, repositories: state.repositories.length, now }), [state.needsYou, state.sessions, state.repositories.length, now]);
   const byId = new Map(view.cards.map(card => [card.id, card]));
   const nav = useListNav(view.cards.map(card => card.id), { onOpen: id => { const card = byId.get(id); if (card?.sessionId) navigate(sessionHref(card.sessionId, card.pointer?.entryId)); } });
+  if (!state.snapshotLoaded) return <div className="page"><SkeletonRows label="overview" /></div>;
   return (
     <div className="page overview">
       <section className={`hero${view.cards.length === 0 ? ' clear' : ''}`} aria-labelledby="needs-you">

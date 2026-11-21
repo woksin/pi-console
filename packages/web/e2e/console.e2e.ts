@@ -18,6 +18,20 @@ function watchErrors(page: Page): string[] {
 const connection = (page: Page): Promise<string | null> => page.locator('.conn').getAttribute('data-connection');
 
 describe('web console e2e', () => {
+  test('initial stream hold shows skeletons, not empty states', async () => {
+    const page = await rig.open('/fleet', { token: null });
+    await page.route('**/api/v1/stream*', route => route.abort());
+    await page.getByLabel('Access token').fill(rig.daemon.token);
+    await page.getByRole('button', { name: 'Connect' }).click();
+    for (const [view, label] of [['fleet', 'sessions'], ['requests', 'requests'], ['work', 'work'], ['overview', 'overview']]) {
+      await page.evaluate(view => { window.location.hash = `#/${view}`; }, view);
+      await page.getByRole('status', { name: `Loading ${label}` }).waitFor();
+      assert.equal(await page.locator('.empty').count(), 0);
+      assert.ok(!(await page.locator('#content').innerText()).includes('No sessions yet'));
+    }
+    await page.context().close();
+  });
+
   test('Settings renders nested daemon health with human labels', async () => {
     const page = await rig.open('/settings', { token: null });
     await page.route('**/api/v1/health', route => route.fulfill({ json: {

@@ -4,7 +4,7 @@ import type { ViewProps } from '../../app/view.tsx';
 import { useActions } from '../../app/commands.ts';
 import { navigate, useListNav, useSearchFocus } from '../../app/hooks.ts';
 import { sessionHref } from '../../app/routes.ts';
-import { EmptyState, SearchBox, Tabs } from '../../ui/primitives.tsx';
+import { EmptyState, SkeletonRows, SearchBox, Tabs } from '../../ui/primitives.tsx';
 import { LoadOlder } from '../load-older.tsx';
 import { RequestCard } from './request-card.tsx';
 import { RequestDetailPane } from './request-detail.tsx';
@@ -32,6 +32,7 @@ export function RequestsView({ state, now }: ViewProps) {
   const nav = useListNav(view.rows.map(row => row.id), { onOpen: jump });
   const selected = state.requests.find(request => request.id === nav.selected);
   const detail = useMemo(() => (selected ? requestDetail({ request: selected, sessions: state.sessions, now }) : null), [selected, state.sessions, now]);
+  if (!state.snapshotLoaded) return <div className="page"><SkeletonRows label="requests" /></div>;
   return (
     <div className="page requests">
       <div className="toolbar">

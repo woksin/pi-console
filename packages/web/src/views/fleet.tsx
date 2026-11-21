@@ -5,7 +5,7 @@ import { navigate, useListNav, useSearchFocus } from '../app/hooks.ts';
 import { useActions } from '../app/commands.ts';
 import { sessionHref } from '../app/routes.ts';
 import { LoadOlder } from './load-older.tsx';
-import { EmptyState, PressureBar, SearchBox, Sparkline, StatusBadge } from '../ui/primitives.tsx';
+import { EmptyState, SkeletonRows, PressureBar, SearchBox, Sparkline, StatusBadge } from '../ui/primitives.tsx';
 import { useChangeFlash, useScrollIntoView } from '../ui/hooks.ts';
 
 const rowKey = (row: FleetRow): string => (row.kind === 'group' ? `group:${row.id}` : row.id);
@@ -38,6 +38,7 @@ export function FleetView({ state, now }: ViewProps) {
     toggle(selectedGroup);
     return true;
   });
+  if (!state.snapshotLoaded) return <div className="page"><SkeletonRows label="sessions" columns={7} /></div>;
   return (
     <div className="page">
       <div className="toolbar"><SearchBox value={query} onChange={setQuery} placeholder="Filter sessions, lanes, branches…" inputRef={search} /><span className="muted">{view.matched} of {view.sessionCount} sessions</span></div>

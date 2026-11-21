@@ -44,6 +44,15 @@ export function Sparkline({ values, width = 96, height = 24, marks = [], fill = 
   );
 }
 
+/** Static final-width placeholders, also safe when reduced motion is enabled. */
+export function SkeletonRows({ label, columns = 1 }: { label: string; columns?: number }) {
+  return <div className="skeleton-list" role="status" aria-label={`Loading ${label}`} aria-busy="true">
+    {Array.from({ length: 12 }, (_, row) => <div className="skeleton-row" key={row} aria-hidden="true">
+      {Array.from({ length: columns }, (_, column) => <span className="skeleton-cell" key={column} />)}
+    </div>)}
+  </div>;
+}
+
 export function EmptyState({ title, children, mark = '○' }: { title: string; children?: ReactNode; mark?: string }) {
   return (
     <div className="empty">

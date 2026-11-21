@@ -29,6 +29,8 @@ export interface ConsoleState {
   overview: Overview | null;
   /** Latest event time seen (epoch ms). Ages are measured against it so views are deterministic and replayable. */
   liveAt: number;
+  /** True after even an empty first snapshot; connection attempts are not empty data. */
+  snapshotLoaded: boolean;
   seq: number;
   connection: Connection;
   /** Epoch ms of the last frame received; lets clients flag a silent stream as stale. */
@@ -54,7 +56,7 @@ export const retentionFor = (state: Pick<ConsoleState, 'deepHistory'>, sessionId
 export function emptyState(): ConsoleState {
   return {
     repositories: [], sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], interventions: [],
-    transcripts: {}, needsYou: [], graph: null, health: null, overview: null, liveAt: 0, seq: 0,
+    transcripts: {}, needsYou: [], graph: null, health: null, overview: null, liveAt: 0, snapshotLoaded: false, seq: 0,
     connection: 'connecting', lastFrameAt: 0, gapCount: 0, received: 0, deepHistory: [], totals: null, bounded: [], history: {},
   };
 }
