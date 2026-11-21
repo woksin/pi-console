@@ -2,6 +2,8 @@ import type { WindowedCollection } from '@pi-console/viewmodels';
 import type { Section, UiState } from './state/ui.ts';
 import type { Data } from './store/store.ts';
 
+export { memoryInput, type RequestMemoryAction } from './memory-input.ts';
+
 const listCollection: Partial<Record<Section, WindowedCollection>> = { fleet: 'sessions', requests: 'requests', questions: 'questions', messages: 'messages', work: 'jobs', timeline: 'resets' };
 
 /** The list to fetch older history for: only when a list section is open at its last row, never inside a session. */

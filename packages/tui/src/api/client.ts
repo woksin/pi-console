@@ -1,5 +1,5 @@
 import type { WindowedCollection } from '@pi-console/viewmodels';
-import type { Event, MemoryItem, SessionDetail, SessionMemory, TranscriptEntry, Transcript, NeedsYou, AttentionItem } from '@pi-console/contract';
+import type { MemoryActionAvailability, MemoryActionReceipt, MemoryActionRequest, Event, MemoryItem, SessionDetail, SessionMemory, TranscriptEntry, Transcript, NeedsYou, AttentionItem } from '@pi-console/contract';
 import { FrameParser } from './sse.ts';
 import type { Credentials } from './token.ts';
 import { TRANSCRIPT_LIMIT } from '../store/store.ts';
@@ -46,6 +46,28 @@ export class DaemonClient {
 
   async sessionMemory(sessionId: string): Promise<SessionMemory> {
     return await this.json<SessionMemory>(`/sessions/${encodeURIComponent(sessionId)}/memory`);
+  }
+
+  private async reviewJson<T>(path: string, init: RequestInit, signal?: AbortSignal): Promise<T> {
+    const response = await fetch(`${this.credentials.baseUrl}/api/v1${path}`, {
+      ...init, headers: { Authorization: `Bearer ${this.credentials.token}`, 'Content-Type': 'application/json' },
+      signal: signal ? AbortSignal.any([signal, this.abort.signal]) : this.abort.signal,
+    });
+    if (!response.ok) {
+      const body = await response.json().catch(() => null) as { error?: string } | null;
+      throw new Error(body?.error ?? `HTTP ${String(response.status)}`);
+    }
+    return await response.json() as T;
+  }
+
+  memoryActionAvailability(id: string, signal?: AbortSignal): Promise<MemoryActionAvailability | null> {
+    return this.reviewJson<MemoryActionAvailability>(`/sessions/${encodeURIComponent(id)}/memory-actions`, {}, signal).catch(() => null);
+  }
+  requestMemoryAction(id: string, request: MemoryActionRequest, signal?: AbortSignal): Promise<MemoryActionReceipt> {
+    return this.reviewJson(`/sessions/${encodeURIComponent(id)}/memory-actions`, { method: 'POST', body: JSON.stringify(request) }, signal);
+  }
+  memoryActionReceipt(id: string, signal?: AbortSignal): Promise<MemoryActionReceipt> {
+    return this.reviewJson(`/memory-actions/${encodeURIComponent(id)}`, {}, signal);
   }
 
   /** The newest memory items of one session. */

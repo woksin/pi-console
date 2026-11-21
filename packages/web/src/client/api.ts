@@ -1,4 +1,4 @@
-import type { Event as ApiEvent, AttentionItem, Job, MemoryItem, Message, NeedsYou, Question, Request, Reset, Session, SessionDetail, SessionMemory, Transcript, TranscriptEntry } from '@pi-console/contract';
+import type { MemoryActionAvailability, MemoryActionReceipt, MemoryActionRequest, Event as ApiEvent, AttentionItem, Job, MemoryItem, Message, NeedsYou, Question, Request, Reset, Session, SessionDetail, SessionMemory, Transcript, TranscriptEntry } from '@pi-console/contract';
 import type { WindowedCollection } from '@pi-console/viewmodels';
 import type { HealthRecord } from '../state/state.ts';
 import { SseParser } from './sse.ts';
@@ -22,6 +22,9 @@ export interface Api {
   sessionMemory(id: string): Promise<SessionMemory | null>;
   /** The newest memory items of one session (read-only; the console never writes memory). */
   memoryItems(sessionId: string, limit: number): Promise<MemoryItem[] | null>;
+  memoryActionAvailability(id: string, signal?: AbortSignal): Promise<MemoryActionAvailability | null>;
+  requestMemoryAction(id: string, request: MemoryActionRequest, signal?: AbortSignal): Promise<MemoryActionReceipt>;
+  memoryActionReceipt(id: string, signal?: AbortSignal): Promise<MemoryActionReceipt>;
   /** Opens the event stream; resolves when the stream ends or throws on failure. */
   stream(lastEventId: number, signal: AbortSignal, onFrame: (event: ApiEvent | 'heartbeat') => void): Promise<void>;
 }
@@ -37,7 +40,19 @@ export function createApi(token: string, base = '', fetcher: typeof fetch = (...
     return await response.json() as T;
   }
 
+  async function reviewJson<T>(path: string, init: RequestInit): Promise<T> {
+    const response = await fetcher(`${base}/api/v1${path}`, { ...init, headers: headers({ 'Content-Type': 'application/json' }), cache: 'no-store' });
+    if (!response.ok) {
+      const body = await response.json().catch(() => null) as { error?: string } | null;
+      throw new Error(body?.error ?? `HTTP ${String(response.status)}`);
+    }
+    return await response.json() as T;
+  }
+
   return {
+    memoryActionAvailability: (id, signal) => reviewJson<MemoryActionAvailability>(`/sessions/${encodeURIComponent(id)}/memory-actions`, { signal }).catch(() => null),
+    requestMemoryAction: (id, request, signal) => reviewJson(`/sessions/${encodeURIComponent(id)}/memory-actions`, { method: 'POST', body: JSON.stringify(request), signal }),
+    memoryActionReceipt: (id, signal) => reviewJson(`/memory-actions/${encodeURIComponent(id)}`, { signal }),
     async needsYou() { return (await get<NeedsYou>('/needs-you'))?.items ?? []; },
     async health() { return await get<HealthRecord>('/health'); },
     async transcript(sessionId, after, limit) {

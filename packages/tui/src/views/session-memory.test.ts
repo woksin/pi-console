@@ -16,11 +16,11 @@ const item: MemoryItem = {
 };
 const plain = (lines: Line[]) => lines.map(line => line.map(part => part.text).join('')).join('\n');
 
-test('a proposed item shows the exact confirm and reject commands and the read-only hint', () => {
+test('a proposed item shows the exact confirm and reject commands and the unavailable fallback', () => {
   const text = plain(memoryLines(memoryPanelViewModel({ memory, items: [item], now }), 60));
   assert.match(text, /\/memory confirm item-1/);
   assert.match(text, /\/memory reject item-1/);
-  assert.match(text, /cannot confirm/);
+  assert.match(text, /Run the command in pi/);
 });
 
 test('an unseen store renders a single explanatory line', () => {

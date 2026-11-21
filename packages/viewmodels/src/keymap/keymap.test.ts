@@ -40,7 +40,7 @@ test('view-only actions and client-only keys never leak to unrelated hints or we
 
 test('help groups cover each shipped client binding once and render arrows as glyphs', () => {
   const groups = keymapGroups('tui');
-  assert.deepEqual(groups.map(group => group.title), ['Navigate', 'Lists', 'Transcript', 'Timeline', 'Global']);
+  assert.deepEqual(groups.map(group => group.title), ['Navigate', 'Lists', 'Transcript', 'Memory', 'Timeline', 'Global']);
   const grouped = groups.flatMap(group => group.bindings);
   assert.equal(new Set(grouped).size, activeBindings.length);
   assert.equal(grouped.length, activeBindings.length);

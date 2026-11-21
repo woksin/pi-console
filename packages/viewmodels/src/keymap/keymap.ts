@@ -3,7 +3,7 @@
  * their native key events to the neutral key names below and then ask `resolve`; they never define bindings of their own.
  */
 export const listContexts = ['overview', 'fleet', 'requests', 'questions', 'messages', 'work'] as const;
-export type KeyContext = typeof listContexts[number] | 'global' | 'detail' | 'transcript' | 'timeline' | 'graph' | 'palette' | 'filter' | 'help';
+export type KeyContext = typeof listContexts[number] | 'global' | 'detail' | 'transcript' | 'timeline' | 'graph' | 'palette' | 'filter' | 'help' | 'memory';
 export type KeyClient = 'web' | 'tui';
 
 export type Action =
@@ -13,6 +13,7 @@ export type Action =
   | 'open' | 'back' | 'pane.next' | 'pane.previous' | 'follow.toggle' | 'copy.id' | 'view.toggle'
   | 'time.scrub' | 'time.zoomIn' | 'time.zoomOut' | 'time.left' | 'time.right'
   | 'group.toggle' | 'filter.next' | 'filter.previous' | 'filter.origin' | 'filter.session'
+  | 'memory.next' | 'memory.previous' | 'memory.confirm' | 'memory.reject'
   | 'answer' | 'steer' | 'followUp' | 'pause' | 'abort' | 'defer';
 
 export interface Binding {
@@ -64,6 +65,10 @@ export const bindings: readonly Binding[] = [
   { keys: ['['], action: 'filter.previous', label: 'Previous saved filter (Requests: state)', contexts: ['requests'] },
   { keys: ['o'], action: 'filter.origin', label: 'Next origin filter (Requests)', contexts: ['requests'] },
   { keys: ['S'], action: 'filter.session', label: 'Next session filter (Requests)', contexts: ['requests'] },
+  { keys: [']'], action: 'memory.next', label: 'Next memory item', contexts: ['memory'], clients: ['tui'] },
+  { keys: ['['], action: 'memory.previous', label: 'Previous memory item', contexts: ['memory'], clients: ['tui'] },
+  { keys: ['c'], action: 'memory.confirm', label: 'Request confirmation in pi', contexts: ['memory'], clients: ['tui'] },
+  { keys: ['x'], action: 'memory.reject', label: 'Request rejection in pi', contexts: ['memory'], clients: ['tui'] },
   { keys: ['a'], action: 'answer', label: 'Answer a question', contexts: lists, availableFrom: 'M4' },
   { keys: ['s'], action: 'steer', label: 'Steer (composer, mode steer)', contexts: lists, availableFrom: 'M4' },
   { keys: ['F'], action: 'followUp', label: 'Follow-up in composer', contexts: lists, availableFrom: 'M4' },
@@ -76,10 +81,11 @@ export const bindings: readonly Binding[] = [
 export const activeBindings: readonly Binding[] = bindings.filter(binding => !binding.availableFrom);
 
 export interface KeymapGroup { title: string; bindings: readonly Binding[] }
-const groupTitles = ['Navigate', 'Lists', 'Transcript', 'Timeline', 'Global'] as const;
+const groupTitles = ['Navigate', 'Lists', 'Transcript', 'Memory', 'Timeline', 'Global'] as const;
 
 function groupOf(binding: Binding): string {
   if (binding.action.startsWith('section.')) return 'Navigate';
+  if (binding.action.startsWith('memory.')) return 'Memory';
   if (binding.action.startsWith('time.')) return 'Timeline';
   if (binding.action.startsWith('pane.') || binding.action === 'follow.toggle') return 'Transcript';
   return binding.contexts.includes('global') ? 'Global' : 'Lists';

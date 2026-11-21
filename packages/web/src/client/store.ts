@@ -1,5 +1,5 @@
 import type { Event as ApiEvent } from '@pi-console/contract';
-import type { WindowedCollection } from '@pi-console/viewmodels';
+import { MemoryReviewController, type WindowedCollection } from '@pi-console/viewmodels';
 import { applyEvent, mergePage, mergeSessionDetail, mergeTranscript } from '../state/reduce.ts';
 import { emptyState, type Connection, type ConsoleState } from '../state/state.ts';
 import { Unauthorized, type Api } from './api.ts';
@@ -39,6 +39,7 @@ export class ConsoleStore {
   #state: ConsoleState = emptyState();
   readonly #listeners = new Set<Listener>();
   readonly #api: Api;
+  readonly #reviews: MemoryReviewController;
   readonly #clock: Clock;
   #abort: AbortController | null = null;
   #refresh: number | null = null;
@@ -61,6 +62,9 @@ export class ConsoleStore {
   constructor(api: Api, clock: Clock = realClock) {
     this.#api = api;
     this.#clock = clock;
+    this.#reviews = new MemoryReviewController(api, (id, review) => {
+      this.#set({ ...this.#state, memoryReviews: new Map(this.#state.memoryReviews).set(id, review) });
+    }, id => { this.#memoryAt.delete(`memory:${id}`); return this.loadSessionMemory(id); });
   }
 
   readonly subscribe = (listener: Listener): (() => void) => {
@@ -86,6 +90,7 @@ export class ConsoleStore {
 
   stop(): void {
     this.#stopped = true;
+    this.#reviews.dispose();
     this.#abort?.abort();
     this.#unwatch();
     if (this.#refresh !== null) this.#clock.clearTimeout(this.#refresh);
@@ -198,7 +203,12 @@ export class ConsoleStore {
   }
 
   /** Loads a session's read-only memory summary and newest items; at most once per `memoryRefreshMs` per session, and again after a gap. A failed load is retried on the next call. */
+  requestMemoryAction(sessionId: string, itemId: string, action: 'confirm' | 'reject'): Promise<void> {
+    return this.#reviews.request(sessionId, itemId, action);
+  }
+
   loadSessionMemory(sessionId: string): Promise<void> {
+    void this.#reviews.load(sessionId);
     const key = `memory:${sessionId}`;
     const last = this.#memoryAt.get(key);
     const existing = this.#loaded.get(key);
