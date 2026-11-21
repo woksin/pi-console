@@ -1,6 +1,6 @@
-import { fleetViewModel, pad, padStart, type FleetRow, type SessionRow } from '@pi-console/viewmodels';
+import { fleetColumns, fleetViewModel, pad, padStart, type FleetRow, type SessionRow } from '@pi-console/viewmodels';
 import { Lines, Panel, Row, h, type Line } from '../view/renderer.ts';
-import { pressureBar, blank, heading, pressureTone, selectable, statusParts, t, windowOf } from '../view/parts.ts';
+import { pressureBar, blank, fit, heading, pressureTone, selectable, statusParts, t, windowOf } from '../view/parts.ts';
 import type { Env, SectionView } from './common.ts';
 import { listFilter } from '../state/ui.ts';
 
@@ -9,53 +9,85 @@ function groupLine(row: Extract<FleetRow, { kind: 'group' }>, width: number, sel
   return selectable([t(row.collapsed ? '▸ ' : '▾ ', 'cyan'), t(row.label, 'text', { bold: true }), t(`  ${String(row.sessions)}`, 'faint'), ...attention], width, selected);
 }
 
-function sessionLine(row: SessionRow, width: number, selected: boolean, env: Env, fresh: boolean) {
-  const showSpark = width >= 96;
-  const fixed = 15 + 1 + 10 + 1 + 4 + 1 + (showSpark ? 13 : 0) + 6 + 7;
-  const name = Math.max(10, width - fixed - 4 - row.depth * 2);
-  const status = statusParts(row.status, env.phase, false);
-  return selectable([
-    t('  ' + '  '.repeat(row.depth) + (row.depth > 0 ? '└ ' : '')), ...status, t(' '), t(pad(row.status.label, 10), row.status.color), t(' '),
-    t(pad(row.name, name), row.role === 'subagent' ? 'muted' : 'text'), t(' '),
-    ...pressureBar(row.contextPercent, 10), t(padStart(`${String(row.contextPercent)}%`, 5), pressureTone(row.pressure)),
-    ...(showSpark ? [t(' '), t(row.spark.padEnd(12), 'faint')] : []),
-    t(padStart(row.age, 5), 'muted'), t(padStart(row.cost, 7), 'faint'),
-  ], width, selected, fresh);
+const columns = (width: number) => {
+  const spark = width >= 96;
+  return { width, spark, name: Math.max(10, width - 3 - 1 - 13 - 15 - (spark ? 13 : 0) - 7 - 6) };
+};
+type Columns = ReturnType<typeof columns>;
+
+function columnHeadings(layout: Columns): Line {
+  const widths = { name: layout.name + 1, status: 13, context: 15, trend: 13, cost: 7, age: 6 };
+  const cells = fleetColumns.filter(column => column.id !== 'trend' || layout.spark).map(column =>
+    t(column.id === 'cost' || column.id === 'age' ? padStart(column.label, widths[column.id]) : pad(column.label, widths[column.id]), 'muted'));
+  return fit([t('   '), ...cells], layout.width);
 }
 
-function preview(row: SessionRow | undefined, width: number): ReturnType<typeof h> {
-  const lines: Line[] = row ? [
+function sessionName(row: SessionRow, width: number): Line {
+  const indent = row.depth > 0 ? `${'  '.repeat(row.depth)}└ ` : '';
+  return [t(pad(indent + row.name, width), row.role === 'subagent' ? 'muted' : 'text')];
+}
+
+function sessionLine(row: SessionRow, layout: Columns, env: Env, selected: boolean) {
+  return selectable([
+    t('  '), ...sessionName(row, layout.name), t(' '),
+    ...statusParts(row.status, env.phase, false), t(' '), t(pad(row.status.label, 10), row.status.color), t(' '),
+    ...pressureBar(row.contextPercent, 10), t(padStart(`${String(row.contextPercent)}%`, 5), pressureTone(row.pressure)),
+    ...(layout.spark ? [t(' '), t(row.spark.padEnd(12), 'faint')] : []),
+    t(padStart(row.cost, 7), 'faint'), t(padStart(row.age, 6), 'muted'),
+  ], layout.width, selected, env.data.fresh.has(row.id));
+}
+
+function preview(row: FleetRow | undefined, sessions: number): ReturnType<typeof h> {
+  const lines: Line[] = row?.kind === 'session' ? [
     [t(row.name, 'text', { bold: true })], [...statusParts(row.status, 0, true)], blank,
     heading('Lane'), [t(row.lane, 'text')], heading('Branch'), [t(row.branch, 'muted')], heading('Model'), [t(row.model, 'muted')], blank,
     heading('Context'), [...pressureBar(row.contextPercent, 20), t(` ${String(row.contextPercent)}%`, pressureTone(row.pressure))], [t(row.spark, 'cyan')], blank,
     [t('cost ', 'muted'), t(row.cost, 'text'), t('   updated ', 'muted'), t(`${row.age} ago`, 'text')], blank, [t('⏎ ', 'cyan'), t('open transcript', 'muted')],
-  ] : [[t('Select a session', 'faint')]];
-  return h(Panel, { title: 'Selected', width }, h(Lines, { lines }));
+  ] : groupSummary(row, sessions);
+  return h(Panel, { title: 'Selected', width: 39 }, h(Lines, { lines }));
 }
+
+function groupSummary(row: Exclude<FleetRow, SessionRow> | undefined, sessions: number): Line[] {
+  if (!row) return [heading('Fleet'), [t(`${String(sessions)} sessions`, 'muted')], blank, [t('Select a repository or session.', 'faint')]];
+  return [[t(row.label, 'text', { bold: true })], blank, [t(`${String(row.sessions)} sessions`, 'text')],
+    [t(`${String(row.attention)} need attention`, row.attention > 0 ? 'amber' : 'muted')], blank,
+    [t(row.collapsed ? 'Space expands the repository.' : 'Space collapses the repository.', 'muted')]];
+}
+
+function fleetLines(rows: FleetRow[], env: Env, window: { layout: Columns; cursor: number; start: number }): Line[] {
+  const { layout, cursor, start } = window;
+  return rows.map((row, offset) => row.kind === 'group'
+    ? groupLine(row, layout.width, start + offset === cursor)
+    : sessionLine(row, layout, env, start + offset === cursor));
+}
+
+function rowLocation(row: FleetRow | undefined) {
+  if (!row) return { sessionId: null, groupId: null };
+  return row.kind === 'group' ? { sessionId: null, groupId: row.id } : { sessionId: row.id, groupId: null };
+}
+
+const emptyLines = (query: string): Line[] => query
+  ? [blank, [t('  No session matches ', 'muted'), t(`“${query}”`, 'amber'), t('. Esc clears the filter.', 'muted')]]
+  : [blank, [t('  No sessions yet.', 'muted')]];
 
 export function fleetView(env: Env): SectionView {
   const model = fleetViewModel({ sessions: env.data.sessions, now: env.now, query: listFilter(env.ui), collapsed: new Set(env.ui.collapsed) });
   const rows = model.rows;
-  const wide = env.width >= 110;
-  const width = (wide ? env.width - 40 : env.width) - 4;
+  const wide = env.width >= 140;
+  const layout = columns((wide ? env.width - 40 : env.width) - 4);
   const cursor = Math.min(env.ui.cursor.fleet, Math.max(0, rows.length - 1));
-  const visible = Math.max(1, env.height - 4);
-  const { start, end } = windowOf(rows.length, cursor, visible);
-  const lines: Line[] = rows.length === 0
-    ? [blank, [t('  No session matches ', 'muted'), t(`“${model.query}”`, 'amber'), t('. Esc clears the filter.', 'muted')]]
-    : rows.slice(start, end).map((row, offset) => {
-      const selected = start + offset === cursor;
-      return row.kind === 'group' ? groupLine(row, width, selected) : sessionLine(row, width, selected, env, env.data.fresh.has(row.id));
-    });
+  const { start, end } = windowOf(rows.length, cursor, Math.max(1, env.height - 5));
+  const lines = rows.length ? fleetLines(rows.slice(start, end), env, { layout, cursor, start }) : emptyLines(model.query);
   const selected = rows[cursor];
   const title = model.query ? `Fleet · filter “${model.query}” · ${String(model.matched)} of ${String(model.sessionCount)}` : `Fleet · ${String(model.sessionCount)} sessions`;
   return {
     length: rows.length,
-    rowAt: index => { const row = rows[index]; return row ? (row.kind === 'group' ? { sessionId: null, groupId: row.id } : { sessionId: row.id, groupId: null }) : { sessionId: null, groupId: null }; },
+    rowAt: index => rowLocation(rows[index]),
     idAt: index => rows[index]?.id ?? null,
     render: () => h(Row, { grow: 1, gap: 1 },
       h(Panel, { title, focused: true, grow: 1, right: rows.length > end ? `↓ ${String(rows.length - end)} more` : '' },
+        h(Lines, { lines: [columnHeadings(layout)] }),
         h(Lines, { lines, grow: 1, onLineClick: index => { env.click(start + index); } })),
-      ...(wide ? [preview(selected?.kind === 'session' ? selected : undefined, 39)] : [])),
+      ...(wide ? [preview(selected, model.sessionCount)] : [])),
   };
 }
