@@ -4,6 +4,7 @@ import { Lines, Panel, Row, h, type Line } from '../../view/renderer.ts';
 import { fit, selectable, split, statusParts, t, windowOf } from '../../view/parts.ts';
 import { shownOf, type Env, type SectionView } from '../common.ts';
 import { requestDetailLines } from './detail.ts';
+import { listFilter } from '../../state/ui.ts';
 
 const DETAIL_WIDTH = 56;
 export const originColor = (row: { origin: RequestsRow['origin'] }) => (row.origin === 'human' ? 'blue' as const : 'amber' as const);
@@ -24,7 +25,7 @@ const detailPanel = (request: Request | undefined | false, env: Env) => h(Panel,
 
 /** Requests and answers: list, filters (`[` `]` state, `o` origin, `S` session, `/` text) and the detail of the selected row; Enter opens the transcript at the prompt. */
 export function requestsView(env: Env): SectionView {
-  const filter = { ...env.ui.requestFilter, query: env.ui.filter };
+  const filter = { ...env.ui.requestFilter, query: listFilter(env.ui) };
   const model = requestsViewModel({ requests: env.data.requests, sessions: env.data.sessions, now: env.now, filter });
   const { rows } = model;
   const wide = env.width >= 110;
@@ -39,9 +40,9 @@ export function requestsView(env: Env): SectionView {
     rowAt: index => ({ sessionId: rows[index]?.sessionId ?? null, groupId: null, entryId: rows[index]?.transcript?.entryId ?? null }),
     idAt: index => rows[index]?.id ?? null,
     render: () => h(Row, { grow: 1, gap: 1 },
-      h(Panel, { title: `Requests and answers · ${String(model.open)} open${shownOf(env.data, 'requests', model.rows.length)}`, focused: true, grow: 1 },
+      h(Panel, { title: `Requests and answers · ${String(model.open)} open · ${String(rows.length)} of ${String(env.data.requests.length)}${shownOf(env.data, 'requests', model.rows.length)}`, focused: true, grow: 1 },
         h(Lines, { lines: [fit(summaryLine(model), width)] }),
-        h(Lines, { lines: lines.length ? lines : [[t(' Nothing matches.', 'muted')]], grow: 1, onLineClick: index => { env.click(start + index); } })),
+        h(Lines, { lines: lines.length ? lines : [[t(env.data.requests.length ? ' No request matches. Esc clears the filter.' : ' No requests yet.', 'muted')]], grow: 1, onLineClick: index => { env.click(start + index); } })),
       ...(wide ? [detailPanel(selected, env)] : [])),
   };
 }

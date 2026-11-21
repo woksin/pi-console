@@ -2,6 +2,7 @@ import { fleetViewModel, pad, padStart, type FleetRow, type SessionRow } from '@
 import { Lines, Panel, Row, h, type Line } from '../view/renderer.ts';
 import { pressureBar, blank, heading, pressureTone, selectable, statusParts, t, windowOf } from '../view/parts.ts';
 import type { Env, SectionView } from './common.ts';
+import { listFilter } from '../state/ui.ts';
 
 function groupLine(row: Extract<FleetRow, { kind: 'group' }>, width: number, selected: boolean) {
   const attention = row.attention > 0 ? [t(`  ${String(row.attention)} need attention`, 'amber')] : [];
@@ -33,7 +34,7 @@ function preview(row: SessionRow | undefined, width: number): ReturnType<typeof 
 }
 
 export function fleetView(env: Env): SectionView {
-  const model = fleetViewModel({ sessions: env.data.sessions, now: env.now, query: env.ui.filter, collapsed: new Set(env.ui.collapsed) });
+  const model = fleetViewModel({ sessions: env.data.sessions, now: env.now, query: listFilter(env.ui), collapsed: new Set(env.ui.collapsed) });
   const rows = model.rows;
   const wide = env.width >= 110;
   const width = (wide ? env.width - 40 : env.width) - 4;
@@ -47,7 +48,7 @@ export function fleetView(env: Env): SectionView {
       return row.kind === 'group' ? groupLine(row, width, selected) : sessionLine(row, width, selected, env, env.data.fresh.has(row.id));
     });
   const selected = rows[cursor];
-  const title = model.query ? `Fleet · filter “${model.query}” · ${String(model.matched)}/${String(model.sessionCount)}` : `Fleet · ${String(model.sessionCount)} sessions`;
+  const title = model.query ? `Fleet · filter “${model.query}” · ${String(model.matched)} of ${String(model.sessionCount)}` : `Fleet · ${String(model.sessionCount)} sessions`;
   return {
     length: rows.length,
     rowAt: index => { const row = rows[index]; return row ? (row.kind === 'group' ? { sessionId: null, groupId: row.id } : { sessionId: row.id, groupId: null }) : { sessionId: null, groupId: null }; },
