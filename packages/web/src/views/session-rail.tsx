@@ -5,8 +5,8 @@ import { sessionHref } from '../app/routes.ts';
 export function SessionHeader({ view }: { view: SessionViewModel }) {
   return (
     <header className="session-head">
-      <div><h2>{view.title}</h2><div className="muted small mono">{view.cwd} · {view.branch} · {view.model} · {view.role}</div></div>
-      <StatusBadge cell={view.status} /><span className="muted tnum">{view.cost}</span><span className="muted tnum">updated {view.age} ago</span>
+      <div className="muted small mono">{view.cwd} · {view.branch} · {view.model} · {view.role}</div>
+      <span className="muted tnum">{view.cost}</span><span className="muted tnum">updated {view.age} ago</span>
     </header>
   );
 }
@@ -26,7 +26,7 @@ export function SessionRail({ view }: { view: SessionViewModel }) {
         {view.questions.length === 0 && <span className="faint">None</span>}
       </Panel>
       <Panel title="Jobs" aside={view.jobs.length}>
-        <ul className="mini-list">{view.jobs.map(job => <li key={job.id}><span className="truncate">{job.name}</span><StatusBadge cell={job.status} />{job.exit && <span className="faint small">{job.exit}</span>}</li>)}</ul>
+        <ul className="mini-list">{view.jobs.map(job => <li key={job.id}><span className="truncate">{job.name}</span>{job.status.label !== 'Unknown' && <StatusBadge cell={job.status} />}{job.exit && <span className="faint small">{job.exit}</span>}</li>)}</ul>
         {view.jobs.length === 0 && <span className="faint">None</span>}
       </Panel>
       <Panel title="Resets" aside={view.resets.length}>

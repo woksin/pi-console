@@ -23,6 +23,9 @@ describe('web console e2e', () => {
     await page.locator('.conn[data-connection="live"]').waitFor();
     assert.match(await page.locator('.topbar h1').innerText(), /.+ \/ L\d+ \/ .+/);
     await page.locator('.topbar .badge').waitFor();
+    await page.locator('.session-head').waitFor();
+    assert.equal(await page.locator('.session-head h2, .session-head .badge').count(), 0, 'identity and status appear only in the topbar');
+    assert.equal(await page.locator('.rail .badge').filter({ hasText: 'Unknown' }).count(), 0);
     await page.context().close();
   });
 
