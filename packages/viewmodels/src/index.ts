@@ -7,6 +7,7 @@ export * from './keymap/keymap.ts';
 export * from './overview/overview.ts';
 export * from './fleet/fleet.ts';
 export * from './session/session.ts';
+export * from './session/memory.ts';
 export * from './request-list/request-list.ts';
 export * from './questions/questions.ts';
 export * from './messages/messages.ts';

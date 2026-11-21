@@ -14,7 +14,7 @@ test('the M1 catalogue has unique type names, version 1, and covers every group'
   const types = catalogue.map(definition => definition.type);
   assert.equal(new Set(types).size, types.length);
   assert.ok(catalogue.every(definition => definition.version === 1 && definition.sources.length > 0));
-  assert.deepEqual(new Set(catalogue.map(definition => definition.group)), new Set(['sessions', 'requests', 'questions', 'messages-lanes', 'work', 'system']));
+  assert.deepEqual(new Set(catalogue.map(definition => definition.group)), new Set(['sessions', 'requests', 'questions', 'messages-lanes', 'work', 'memory', 'system']));
   for (const required of ['RequestObserved', 'AnswerObserved', 'RequestInterrupted', 'ResetOccurred', 'ContextPressureSampled', 'SourceSchemaUnknown']) {
     assert.ok(definitionOf(required), required);
   }

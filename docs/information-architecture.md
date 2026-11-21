@@ -509,3 +509,7 @@ Direction: a dark-first, high-density, "instrument panel" look. Calm by default,
 | First run | A three-step checklist: daemon running, sources detected, extension installed (optional) |
 
 **Open points**: exact palette hex values, the icon set and the reduced-motion defaults are finalised during the M0 visual bake-off ([milestones](milestones.md)); screenshots and terminal recordings from the bake-off are the acceptance evidence.
+
+## Session memory
+
+Session detail includes a read-only memory panel (intent-memory items, unresolved bound, handoff figures) and Needs-you carries `proposed-memory` entries. Both only show the command a human runs in pi.

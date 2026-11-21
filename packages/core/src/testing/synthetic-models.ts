@@ -13,7 +13,7 @@ const at = (n: number) => new Date(Date.UTC(2026, 0, 1) + n * 1000).toISOString(
 export function syntheticModels(size: SyntheticSize, stride = 997): ReadModels {
   const models: ReadModels = {
     sessions: { sessions: {} }, burn: { sessions: {} }, lanes: { lanes: {} }, questions: { questions: {} }, messages: { messages: {} },
-    work: { jobs: {}, reviews: {} }, requests: { requests: {} },
+    work: { jobs: {}, reviews: {} }, requests: { requests: {} }, memory: { items: {}, messages: {} },
   };
   const owner = (n: number) => `s${pad(n % Math.max(size.sessions, 1))}`;
   for (let n = 0; n < size.sessions; n++) {

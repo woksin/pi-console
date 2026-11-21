@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import type { TranscriptEntry } from '@pi-console/contract';
-import { ConsoleStore, type Clock } from './store.ts';
+import type { MemoryItem, SessionMemory, TranscriptEntry } from '@pi-console/contract';
+import { ConsoleStore, memoryRefreshMs, type Clock } from './store.ts';
 import type { Api } from './api.ts';
 
 const clock: Clock = { now: () => 0, setTimeout: () => 0, clearTimeout: () => undefined };
@@ -97,4 +97,103 @@ test('a complete (unbounded) snapshot never pages', async () => {
   const store = new ConsoleStore({ page: () => { calls++; return Promise.resolve(null); } } as unknown as Api, clock);
   await store.loadMore('jobs');
   assert.equal(calls, 0);
+});
+
+const memorySummary = (sessionId: string): SessionMemory => ({
+  sessionId, storeDetected: true,
+  counts: { active: 0, proposed: 1, done: 0, superseded: 0, withdrawn: 0, rejected: 0 },
+  proposedConfirmable: 1, unresolved: { lowerBound: 2, atLastHandoff: null }, wider: 0, handoffs: [],
+});
+const proposedItem: MemoryItem = {
+  id: 'item-1', sessionId: 's1', kind: 'order', scope: { kind: 'session', key: 's1' },
+  status: 'proposed', statusBasis: 'recorded', text: 'synthetic order', withheld: false,
+  sourceType: 'coordinator_order', sourceMessageId: null, at: '2026-01-01T00:00:00.000Z', command: '/memory confirm item-1',
+};
+
+test('session memory loads summary and bounded items together, sharing requests and throttling per session', async () => {
+  let now = 0;
+  const summaries: string[] = [];
+  const itemCalls: unknown[] = [];
+  const api = {
+    sessionMemory: (sessionId: string) => { summaries.push(sessionId); return Promise.resolve(memorySummary(sessionId)); },
+    memoryItems: (sessionId: string, limit: number) => { itemCalls.push([sessionId, limit]); return Promise.resolve([proposedItem]); },
+  } as unknown as Api;
+  const store = new ConsoleStore(api, { ...clock, now: () => now });
+  const first = store.loadSessionMemory('s1');
+  assert.equal(store.loadSessionMemory('s1'), first);
+  await first;
+  assert.deepEqual(store.getState().memory.s1, memorySummary('s1'));
+  assert.deepEqual(store.getState().memoryItems.s1, [proposedItem]);
+  now = memoryRefreshMs - 1;
+  await store.loadSessionMemory('s1');
+  await store.loadSessionMemory('s2');
+  assert.deepEqual(summaries, ['s1', 's2']);
+  now = memoryRefreshMs;
+  await store.loadSessionMemory('s1');
+  assert.deepEqual(summaries, ['s1', 's2', 's1']);
+  assert.deepEqual(itemCalls, [['s1', 100], ['s2', 100], ['s1', 100]]);
+  assert.deepEqual(store.getState().memory.s2, memorySummary('s2'));
+});
+
+test('a resnapshot clears the session memory throttle even before its refresh interval expires', async () => {
+  let emit: (frame: unknown) => void = () => undefined;
+  let calls = 0;
+  const api = {
+    stream: (_seq: number, _signal: AbortSignal, onFrame: (frame: unknown) => void) => { emit = onFrame; onFrame(windowedSnapshot([], 0)); return new Promise<void>(() => undefined); },
+    sessionMemory: () => { calls++; return Promise.resolve(memorySummary('s1')); },
+    memoryItems: () => Promise.resolve([proposedItem]),
+  } as unknown as Api;
+  const store = new ConsoleStore(api, clock);
+  store.start();
+  await store.loadSessionMemory('s1');
+  await store.loadSessionMemory('s1');
+  assert.equal(calls, 1);
+  emit({ ...windowedSnapshot([], 0), seq: 9 });
+  await store.loadSessionMemory('s1');
+  store.stop();
+  assert.equal(calls, 2);
+});
+
+for (const cached of [false, true]) test(`an items failure preserves the ${cached ? 'cached' : 'empty'} memory pair and retries immediately`, async () => {
+  let now = 0;
+  let calls = 0;
+  let fail = false;
+  const api = {
+    sessionMemory: () => { calls++; return Promise.resolve(memorySummary('s1')); },
+    memoryItems: () => fail ? Promise.reject(new Error('unreachable')) : Promise.resolve([proposedItem]),
+  } as unknown as Api;
+  const store = new ConsoleStore(api, { ...clock, now: () => now });
+  if (cached) await store.loadSessionMemory('s1');
+  const good = store.getState();
+  now = memoryRefreshMs;
+  fail = true;
+  await store.loadSessionMemory('s1');
+  assert.equal(store.getState(), good);
+  fail = false;
+  await store.loadSessionMemory('s1');
+  assert.equal(calls, cached ? 3 : 2);
+  assert.deepEqual(store.getState().memory.s1, memorySummary('s1'));
+  assert.deepEqual(store.getState().memoryItems.s1, [proposedItem]);
+});
+
+test('a failed session memory refresh preserves the last good copy and retries immediately', async () => {
+  let now = 0;
+  let calls = 0;
+  const api = {
+    sessionMemory: () => {
+      calls++;
+      return calls === 2 ? Promise.reject(new Error('unreachable')) : Promise.resolve(memorySummary('s1'));
+    },
+    memoryItems: () => Promise.resolve([proposedItem]),
+  } as unknown as Api;
+  const store = new ConsoleStore(api, { ...clock, now: () => now });
+  await store.loadSessionMemory('s1');
+  const good = store.getState();
+  now = memoryRefreshMs;
+  await store.loadSessionMemory('s1');
+  assert.equal(store.getState(), good);
+  await store.loadSessionMemory('s1');
+  assert.equal(calls, 3);
+  assert.deepEqual(store.getState().memory.s1, memorySummary('s1'));
+  assert.deepEqual(store.getState().memoryItems.s1, [proposedItem]);
 });

@@ -212,7 +212,7 @@ test('a record over the largest batch is counted as an error and does not stop t
 
 test('the table lists question-store first and phase-ledger last, smallest first', () => {
   const ids = sourceTable({ agentRoot: '/a', orchRoot: '/o', laneStatusDir: '/s' }).map(source => source.id);
-  assert.deepEqual(ids, ['question-store', 'lane-messages', 'lane-heartbeats', 'context-budget', 'issue-work', 'phase-ledger']);
+  assert.deepEqual(ids, ['question-store', 'lane-messages', 'lane-heartbeats', 'context-budget', 'issue-work', 'intent-memory', 'phase-ledger']);
 });
 
 test('sources do not start before the gate opens and each starts only after the previous one settled', async () => {

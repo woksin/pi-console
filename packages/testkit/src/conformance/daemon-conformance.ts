@@ -45,7 +45,7 @@ function routes(harness: ConformanceHarness): void {
       const cases: [string, Definition][] = [
         ['/overview', 'overview'], ['/sessions', 'sessions'], ['/requests?filter=all', 'requests'], ['/requests?filter=unanswered', 'requests'],
         ['/requests?filter=interrupted', 'requests'], ['/questions', 'questions'], ['/messages', 'messages'], ['/jobs', 'jobs'],
-        ['/needs-you', 'needsYou'], ['/graph', 'graph'], ['/health', 'health'], ['/settings', 'settings'],
+        ['/memory-items', 'memoryItems'], ['/needs-you', 'needsYou'], ['/graph', 'graph'], ['/health', 'health'], ['/settings', 'settings'],
       ];
       for (const [path, name] of cases) conforms(await get(path), name);
     });
@@ -78,6 +78,16 @@ function routes(harness: ConformanceHarness): void {
       assert.ok(page.items.length <= 5);
       conforms(await get('/sessions/no-such-session'), 'error', 404);
       conforms(await get(`/sessions/${id}/transcript?around=no-such-entry`), 'error', 404);
+    });
+
+    test('memory routes conform: items page with a status filter, the session summary, bad status and unknown session', async () => {
+      const page = conforms(await get('/memory-items?limit=2'), 'memoryItemPage');
+      assert.ok(page.items.length <= 2 && page.total >= 0);
+      conforms(await get('/memory-items?status=proposed&limit=5'), 'memoryItemPage');
+      conforms(await get('/memory-items?status=bogus'), 'error', 400);
+      const id = encodeURIComponent(conforms(await get('/sessions'), 'sessions').items[0].id);
+      assert.equal(conforms(await get(`/sessions/${id}/memory`), 'sessionMemory').sessionId, decodeURIComponent(id));
+      conforms(await get('/sessions/no-such-session/memory'), 'error', 404);
     });
 
     test('invalid parameters are 400, unknown paths 404, other methods 405', async () => {
@@ -188,9 +198,10 @@ function sse(harness: ConformanceHarness): void {
       const t = await start(10_000);
       const first = await openStream(t.port, bearer(t));
       const snapshot = await first.next();
+      // Keep a subscriber while producing retained history; idle daemons may instead reserve snapshot barriers.
+      await t.emit();
+      await t.emit();
       first.close();
-      await t.emit();
-      await t.emit();
       const resumed = await openStream(t.port, bearer(t, { 'Last-Event-ID': String(snapshot.data.seq) }));
       const replay = [await resumed.next(), await resumed.next()];
       assert.deepEqual(replay.map(frame => Number(frame.id)), [snapshot.data.seq + 1, snapshot.data.seq + 2]);

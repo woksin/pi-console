@@ -15,7 +15,7 @@ type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-ex
 interface Running { daemon: RunningDaemon; directory: string; tree: AgentTree; get(path: string): Promise<Json>; stop(): Promise<void> }
 
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-const sourceIds = ['context-budget', 'lane-messages', 'lane-heartbeats', 'question-store', 'issue-work', 'phase-ledger'];
+const sourceIds = ['context-budget', 'lane-messages', 'lane-heartbeats', 'question-store', 'issue-work', 'intent-memory', 'phase-ledger'];
 
 function fixture(t: TestContext, secrets = false): { tree: AgentTree; directory: string } {
   const base = mkdtempSync(join(tmpdir(), 'pi-console-sources-'));
@@ -87,7 +87,7 @@ test('health lists every enabled source with counters and settings lists all, ne
   for (const id of ['session-jsonl', ...sourceIds.filter(id => id !== 'phase-ledger')]) {
     const source = byId.get(id) as { files: number; lagBytes: number; lastPollAt: string | null; errors: number };
     assert.ok(source, id);
-    assert.ok(source.files > 0 || id === 'lane-heartbeats' || id === 'lane-messages', `${id} files`);
+    assert.ok(source.files > 0 || id === 'lane-heartbeats' || id === 'lane-messages' || id === 'intent-memory', `${id} files`);
     assert.equal(source.lagBytes, 0, id);
     assert.equal(typeof source.lastPollAt, 'string', id);
     assert.equal(source.errors, 0, id);

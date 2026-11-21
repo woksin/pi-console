@@ -4,11 +4,11 @@ import { HttpError } from './security.ts';
 // so the conformance suite compares two implementations of one contract.
 
 type Row = { id: string };
-export type Collection = 'sessions' | 'requests' | 'questions' | 'messages' | 'jobs';
+export type Collection = 'sessions' | 'requests' | 'questions' | 'messages' | 'jobs' | 'memoryItems';
 
 const recent = 200;
 const text = (a: string, b: string) => (a === b ? 0 : a < b ? -1 : 1);
-const sortKey: Record<Collection, string> = { sessions: 'startedAt', requests: 'createdAt', questions: 'createdAt', messages: 'sentAt', jobs: 'startedAt' };
+const sortKey: Record<Collection, string> = { sessions: 'startedAt', requests: 'createdAt', questions: 'createdAt', messages: 'sentAt', jobs: 'startedAt', memoryItems: 'at' };
 const keyOf = (collection: Collection, row: Row) => (row as unknown as Record<string, string>)[sortKey[collection]];
 const ascending = (collection: Collection) => (a: Row, b: Row) => text(keyOf(collection, a), keyOf(collection, b)) || text(a.id, b.id);
 
@@ -18,6 +18,7 @@ const activeRules: Record<Collection, (row: Row & { status: string }) => boolean
   questions: row => row.status === 'open',
   messages: row => row.status !== 'read',
   jobs: row => row.status === 'running',
+  memoryItems: row => row.status === 'proposed',
 };
 
 /** Active rows plus the newest `recent`, in ascending order. */

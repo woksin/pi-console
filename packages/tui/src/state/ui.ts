@@ -5,8 +5,8 @@ import { pauseTranscript, resumeTranscript, scrollTranscript, type TranscriptAnc
 export type Section = 'overview' | 'fleet' | 'requests' | 'questions' | 'messages' | 'timeline' | 'work';
 export const sections: readonly Section[] = ['overview', 'fleet', 'requests', 'questions', 'messages', 'timeline', 'work'];
 export type Overlay = 'none' | 'palette' | 'filter' | 'help' | 'settings' | 'search';
-export type SidePane = 'requests' | 'questions' | 'jobs' | 'resets';
-export const sidePanes: readonly SidePane[] = ['requests', 'questions', 'jobs', 'resets'];
+export type SidePane = 'requests' | 'questions' | 'jobs' | 'resets' | 'memory';
+export const sidePanes: readonly SidePane[] = ['requests', 'questions', 'jobs', 'resets', 'memory'];
 
 export interface UiState {
   section: Section;

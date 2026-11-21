@@ -60,3 +60,7 @@ Generated against the mock daemon (`docs/media/web/`).
 | ![Work](media/web/work.png) Work | ![Settings](media/web/settings.png) Settings |
 | ![Palette](media/web/palette.png) Command palette | ![Help](media/web/help.png) Keyboard help |
 | ![Token](media/web/token.png) Token screen | ![Offline](media/web/offline.png) Offline, reconnecting |
+
+## Session memory panel
+
+The session rail has a read-only Memory panel: counts by status, the unresolved lower bound with the last handoff figure, the newest items and handoff figures. A proposed item shows the exact `/memory confirm <id>` and `/memory reject <id>` text with a button that only copies it; confirming needs an interactive pi session. Needs-you lists `proposed-memory` entries and opens the session.

@@ -2,7 +2,9 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { join } from 'node:path';
 import { ConsoleQueries, consoleProjections, Projector, readModels, SqliteEventLog, SqliteProjectionStore } from '@pi-console/core';
 import type { DaemonConfig } from './config.ts';
+import { EventLoopHealth } from './event-loop.ts';
 import { apiQuery, type ApiContext } from './api/routes.ts';
+import { FileMemoryHandoffs, type MemoryHandoffReader } from './api/memory-handoffs.ts';
 import { noTranscripts, type TranscriptReader } from './api/transcripts.ts';
 import { healthOf, settingsOf } from './api/health.ts';
 import { apiPrefix, authenticate, checkSource, exchangeToken, HttpError, streamPath } from './security/guard.ts';
@@ -20,6 +22,8 @@ export interface DaemonOptions extends DaemonConfig {
   /** Start polling session files. Specs that append to the log directly turn this off. */
   ingest?: boolean;
   transcripts?: TranscriptReader;
+  /** Reads memory figures from handoff files on demand; the default reads the real files under the safety rules. */
+  memoryHandoffs?: MemoryHandoffReader;
   /** Unsent SSE bytes per client before it is disconnected (default 1 MiB). */
   maxBufferedBytes?: number;
   now?: () => Date;
@@ -110,17 +114,24 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
   const queries = () => new ConsoleQueries(() => readModels(projector), now);
   const stream = new StreamHub({
     ...streamSequence(store, projector.position), ringSize: options.replayWindow, heartbeatMs: options.heartbeatMs,
-    maxBufferedBytes: options.maxBufferedBytes ?? 1024 * 1024, snapshot: activeOnly => queries().screenSnapshot(now().toISOString(), activeOnly ? 0 : undefined), now,
+    maxBufferedBytes: options.maxBufferedBytes ?? 1024 * 1024, snapshot: activeOnly => {
+      batcher.rebase();
+      return queries().screenSnapshot(now().toISOString(), activeOnly ? 0 : undefined);
+    },
+    now,
     warn: message => { process.stderr.write(`pi-console: ${message}\n`); },
   });
-  const batcher = new DeltaBatcher(() => readModels(projector), delta => { stream.publish(delta.type, delta.payload); }, now);
+  const batcher = new DeltaBatcher(() => readModels(projector), delta => { stream.publish(delta.type, delta.payload); }, now, {
+    discard: () => stream.invalidateIfIdle(),
+  });
   const stopDeltas = projector.onApplied(event => { batcher.add(event); });
   const ingestion = new SessionIngestion(new CheckpointCache(log), { roots: options.sessionRoots, backfillWindowDays: options.backfillWindowDays, pollMs: options.pollMs, now });
   const sources = sourceSetFor(log, options, now);
   let port = options.port;
+  const eventLoop = new EventLoopHealth();
   const apiContext: ApiContext = {
-    queries, transcripts: options.transcripts ?? noTranscripts,
-    health: () => healthOf({ startedAt, dataDir: options.dataDir, log, projector, stream, ingestion, sources, batcher, backfillWindowDays: options.backfillWindowDays }),
+    queries, transcripts: options.transcripts ?? noTranscripts, memoryHandoffs: options.memoryHandoffs ?? new FileMemoryHandoffs(),
+    health: () => healthOf({ startedAt, dataDir: options.dataDir, log, projector, stream, ingestion, sources, batcher, backfillWindowDays: options.backfillWindowDays, eventLoop: eventLoop.read() }),
     settings: () => settingsOf(options, port),
   };
   const server = createHttpServer(handler({ port: () => port, credentials, api: apiContext, stream, webDist: options.webDist }));
@@ -141,6 +152,7 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
       projector.stop();
       store.close();
       log.close();
+      eventLoop.close();
     },
   };
 }
