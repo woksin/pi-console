@@ -26,6 +26,17 @@ test('the pressure histogram draws bars on the shared ramp with the 60 and 80 % 
   assert.match(text(lines[5]), /^3 above 80 % {2}1 at 60–80 %$/);
 });
 
+test('first run shows the checklist without empty fleet status bars or histogram', async () => {
+  const data = { ...new Store().getSnapshot(), loaded: true };
+  const view = overviewView({ data, ui: initial, width: 160, height: 40, now: 0, phase: 0, click: () => undefined });
+  const ui = await mountHeadless(h(Screen, {}, view.render()), { width: 160, height: 40 });
+  try {
+    await ui.settle();
+    assert.match(ui.frame(), /Sources detected/);
+    assert.doesNotMatch(ui.frame(), /Status|Context pressure|Context, fleet average|working right now/);
+  } finally { ui.destroy(); }
+});
+
 test('new attention items get a divider and a tag until the Overview is left', async () => {
   const fixture = generate().fixture;
   const items = needsYou(fixture).items;

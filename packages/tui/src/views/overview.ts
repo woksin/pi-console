@@ -97,7 +97,7 @@ function fleetPanel(model: OverviewViewModel, histogram: PressureHistogram, widt
 
 export function overviewView(env: Env): SectionView {
   const model = overviewViewModel({ needsYou: env.data.needsYou, sessions: env.data.sessions, repositories: env.data.repositories, now: env.now });
-  const wide = env.width >= 100;
+  const wide = env.width >= 100 && model.fleet.sessions > 0;
   return {
     length: model.cards.length,
     rowAt: index => ({ sessionId: model.cards[index]?.sessionId ?? null, groupId: null }),
