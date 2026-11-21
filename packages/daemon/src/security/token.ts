@@ -1,5 +1,5 @@
 import { chmodSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { join } from 'node:path';
 
 /** Read credentials never grant memory-review request scope. */
@@ -45,10 +45,12 @@ export class Credentials {
   readonly scope: Scope = 'read';
 
   readonly #control: Buffer | undefined;
+  readonly #controlId: string;
 
   constructor(token: string, control?: string) {
     this.#hash = digest(token);
     this.#control = control === undefined ? undefined : digest(control);
+    this.#controlId = control === undefined ? '' : createHmac('sha256', control).update('pi-console:memory-review:receipt-id').digest('hex').slice(0, 32);
   }
 
   verify(candidate: string | undefined): boolean {
@@ -60,5 +62,5 @@ export class Credentials {
     return candidate !== undefined && this.#control !== undefined && timingSafeEqual(digest(candidate), this.#control);
   }
 
-  controlId(): string { return this.#control?.toString('hex').slice(0, 16) ?? ''; }
+  controlId(): string { return this.#controlId; }
 }

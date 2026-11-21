@@ -5,7 +5,7 @@ export type * from './event-log.ts';
 export * from './catalogue.ts';
 export * from './upcast.ts';
 export * from './api.ts';
-export { reviewPrefix, reviewReasons, reviewId, memoryActionRequestSchema, reviewRequestSchema, reviewReadinessSchema, reviewResultSchema, channelSchemas, maxReviewFrameBytes, identifier, reviewValue, parseChannelFrame } from './memory-actions.ts';
+export { reviewPrefix, memoryReviewTtlMs, reviewReasons, reviewReadinessChanged, reviewId, memoryActionRequestSchema, reviewRequestSchema, reviewReadinessSchema, reviewResultSchema, channelSchemas, maxReviewFrameBytes, identifier, reviewValue, parseChannelFrame } from './memory-actions.ts';
 export type { ReviewRequest, ReviewReadiness, ReviewResult, ReviewReason, ChannelBinding, ChannelFrame } from './memory-actions.ts';
 export * from './status.ts';
 export * from './theme.ts';

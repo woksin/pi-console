@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { createHmac } from 'node:crypto';
 import { once } from 'node:events';
 import { WebSocketServer } from 'ws';
-import { reviewPrefix } from '@pi-console/contract';
+import { memoryReviewTtlMs, reviewPrefix } from '@pi-console/contract';
 import { MemoryReviewClient, type ReviewBus } from './client.ts';
 
 class Bus implements ReviewBus {
@@ -26,14 +26,14 @@ test('production client authenticates daemon and forwards only v1 intents; disco
   const auth = JSON.parse(String((await hello)[0]));
   assert.equal(auth.binding.sessionId, 's1');
   const proof = createHmac('sha256', secret).update(JSON.stringify(['server', 'c'.repeat(64), 'connection1', auth.nonce, 's1', process.pid, '/repo'])).digest('hex');
-  bus.on(`${reviewPrefix}refresh`, () => { bus.emit(`${reviewPrefix}readiness`, { version: 1, available: true, storeId: 'd'.repeat(64), sessionId: 's1', generation: 'provider1' }); });
+  bus.on(`${reviewPrefix}probe`, probe => { assert.deepEqual(probe, { version: 1 }); bus.emit(`${reviewPrefix}readiness`, { version: 1, available: true, storeId: 'd'.repeat(64), sessionId: 's1', generation: 'provider1' }); });
   const frames: { value?: { generation: string; available: boolean } }[] = [];
   ws.on('message', (bytes: Buffer) => { frames.push(JSON.parse(String(bytes))); });
   const ready = new Promise<void>(resolve => ws.on('message', (bytes: Buffer) => { if (JSON.parse(String(bytes)).value?.available) resolve(); }));
   ws.send(JSON.stringify({ type: 'welcome', proof }));
   await ready;
   assert.equal(frames.at(-1)?.value?.generation, 'provider1');
-  const request = { requestId: 'r1', itemId: 'i1', action: 'confirm', sessionId: 's1', generation: 'provider1', expiresAt: Date.now() + 30_000 };
+  const request = { requestId: 'r1', itemId: 'i1', action: 'confirm', sessionId: 's1', generation: 'provider1', expiresAt: Date.now() + memoryReviewTtlMs };
   const received = new Promise<unknown>(resolve => bus.on(`${reviewPrefix}request`, resolve));
   ws.send(JSON.stringify({ type: 'request', value: request }));
   assert.deepEqual(await received, request);
@@ -47,7 +47,7 @@ test('a fake daemon welcome never reaches the provider', { timeout: 5000 }, asyn
   await once(server, 'listening');
   const bus = new Bus();
   let refreshed = false;
-  bus.on(`${reviewPrefix}refresh`, () => { refreshed = true; });
+  bus.on(`${reviewPrefix}probe`, () => { refreshed = true; });
   const connection = once(server, 'connection');
   const client = new MemoryReviewClient({ url: `ws://127.0.0.1:${(server.address() as { port: number }).port}`, secret: 'a'.repeat(64), binding: { sessionId: 's1', pid: process.pid, cwd: '/repo' }, bus, reconnectMs: 60_000 });
   t.after(() => { client.close(); for (const ws of server.clients) ws.terminate(); server.close(); });

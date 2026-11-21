@@ -1,6 +1,6 @@
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { WebSocket, type RawData } from 'ws';
-import { maxReviewFrameBytes, parseChannelFrame, reviewPrefix, reviewReadinessSchema, reviewResultSchema, reviewValue, type ChannelBinding, type ChannelFrame, type ReviewReadiness, type ReviewResult, type ReviewRequest } from '@pi-console/contract';
+import { reviewReadinessChanged, memoryReviewTtlMs, maxReviewFrameBytes, parseChannelFrame, reviewPrefix, reviewReadinessSchema, reviewResultSchema, reviewValue, type ChannelBinding, type ChannelFrame, type ReviewReadiness, type ReviewResult, type ReviewRequest } from '@pi-console/contract';
 
 export interface ReviewBus { on(name: string, listener: (value: unknown) => void): () => void; emit(name: string, value: unknown): void }
 interface Options { url: string; secret: string; binding: ChannelBinding; bus: ReviewBus; reconnectMs?: number }
@@ -10,8 +10,10 @@ interface Connection { socket: WebSocket; challenge?: Challenge; nonce: string; 
 const mac = (secret: string, role: string, auth: Authentication): string =>
   createHmac('sha256', secret).update(JSON.stringify([role, auth.challenge.nonce, auth.challenge.generation, auth.nonce, auth.binding.sessionId, auth.binding.pid, auth.binding.cwd])).digest('hex');
 const currentRequest = (request: ReviewRequest, binding: ChannelBinding, ready?: ReviewReadiness): boolean => request.sessionId === binding.sessionId && request.generation === ready?.generation;
-const timelyRequest = (request: ReviewRequest): boolean => request.expiresAt > Date.now() && request.expiresAt <= Date.now() + 120_000;
+const timelyRequest = (request: ReviewRequest): boolean => request.expiresAt > Date.now() && request.expiresAt <= Date.now() + memoryReviewTtlMs;
 const currentReady = (ready: ReviewReadiness, binding: ChannelBinding): boolean => ready.sessionId === binding.sessionId && Boolean(ready.generation) && /^[a-f0-9]{64}$/u.test(ready.storeId);
+const activeProvider = (ready?: ReviewReadiness): boolean => ready?.available === true && ready.version === 1;
+const acceptableReady = (ready: ReviewReadiness, binding: ChannelBinding): boolean => ready.version !== 1 || !ready.available || currentReady(ready, binding);
 
 /** An outbound fixed-message transport. It never constructs UI responders or reads/writes memory. */
 export class MemoryReviewClient {
@@ -76,8 +78,7 @@ export class MemoryReviewClient {
     const expected = mac(this.#options.secret, 'server', auth);
     if (!/^[a-f0-9]{64}$/u.test(frame.proof) || !timingSafeEqual(Buffer.from(expected, 'hex'), Buffer.from(frame.proof, 'hex'))) throw new Error('Authentication refused');
     this.#authenticated = true;
-    this.#send({ type: 'readiness', value: { version: 1, available: false, storeId: '' } });
-    this.#options.bus.emit(`${reviewPrefix}refresh`, {});
+    this.#options.bus.emit(`${reviewPrefix}probe`, { version: 1 });
   }
   #receive(frame: ChannelFrame): void {
     if (frame.type === 'cancel') { this.#cancel(frame.requestId); return; }
@@ -85,7 +86,7 @@ export class MemoryReviewClient {
     this.#request(frame.value);
   }
   #request(request: ReviewRequest): void {
-    if (this.#pending.size > 0 || !this.#readiness?.available) throw new Error('Request refused');
+    if (this.#pending.size > 0 || !activeProvider(this.#readiness)) throw new Error('Request refused');
     if (!currentRequest(request, this.#options.binding, this.#readiness) || !timelyRequest(request)) throw new Error('Request refused');
     this.#pending.add(request.requestId);
     this.#options.bus.emit(`${reviewPrefix}request`, request);
@@ -93,8 +94,8 @@ export class MemoryReviewClient {
   #ready(value: unknown): void {
     try {
       const ready = reviewValue(value, reviewReadinessSchema) as ReviewReadiness;
-      if (ready.available && !currentReady(ready, this.#options.binding)) return;
-      if (this.#readiness?.generation !== ready.generation || !ready.available) this.#cancelAll();
+      if (!acceptableReady(ready, this.#options.binding)) return;
+      if (reviewReadinessChanged(this.#readiness, ready)) this.#cancelAll();
       this.#readiness = ready;
       if (this.#authenticated) this.#send({ type: 'readiness', value: ready });
     } catch { this.#readiness = undefined; this.#cancelAll(); this.#socket?.terminate(); }

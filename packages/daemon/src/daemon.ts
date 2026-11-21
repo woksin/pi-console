@@ -143,7 +143,7 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
   };
   let actions: MemoryActions | undefined;
   const server = createHttpServer(handler({ port: () => port, credentials, api: apiContext, stream, webDist: options.webDist, actions: () => actions }));
-  if (control !== undefined) actions = new MemoryActions({ config: options, server, secret: control, queries, models: () => readModels(projector), log });
+  if (control !== undefined) actions = new MemoryActions({ config: options, server, secret: control, queries, log });
   else server.on('upgrade', (_req, socket) => { socket.destroy(); });
   port = await listen(server, options.port);
   actions?.port(port);

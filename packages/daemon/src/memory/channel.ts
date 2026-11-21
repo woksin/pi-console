@@ -1,7 +1,7 @@
 import { createHmac, randomBytes, randomUUID, timingSafeEqual } from 'node:crypto';
 import type { IncomingMessage, Server } from 'node:http';
 import { WebSocketServer, WebSocket, type RawData } from 'ws';
-import { maxReviewFrameBytes, parseChannelFrame, type ChannelBinding, type ChannelFrame, type ReviewRequest, type ReviewReadiness, type ReviewResult } from '@pi-console/contract';
+import { reviewReadinessChanged, maxReviewFrameBytes, parseChannelFrame, type ChannelBinding, type ChannelFrame, type ReviewRequest, type ReviewReadiness, type ReviewResult } from '@pi-console/contract';
 import { checkSource } from '../security/guard.ts';
 
 export const reviewChannelPath = '/api/v1/extensions/memory-review';
@@ -9,7 +9,7 @@ export interface ReviewPeer { binding: ChannelBinding; connectionGeneration: str
 interface Hooks { gone(peer: ReviewPeer): void; result(peer: ReviewPeer, value: ReviewResult): void }
 interface Challenge { nonce: string; generation: string }
 interface Hello { nonce: string; binding: ChannelBinding }
-interface Connection { peer?: ReviewPeer; second: number; frames: number; challenge: Challenge; timer: ReturnType<typeof setTimeout> }
+interface Connection { socket: WebSocket; peer?: ReviewPeer; second: number; frames: number; challenge: Challenge; timer: ReturnType<typeof setTimeout> }
 const mac = (secret: string, role: string, challenge: Challenge, hello: Hello): string =>
   createHmac('sha256', secret).update(JSON.stringify([role, challenge.nonce, challenge.generation, hello.nonce, hello.binding.sessionId, hello.binding.pid, hello.binding.cwd])).digest('hex');
 const equal = (a: string, b: string): boolean => /^[a-f0-9]{64}$/u.test(a) && timingSafeEqual(Buffer.from(a, 'hex'), Buffer.from(b, 'hex'));
@@ -18,6 +18,9 @@ const equal = (a: string, b: string): boolean => /^[a-f0-9]{64}$/u.test(a) && ti
 export class ReviewChannel {
   readonly #server = new WebSocketServer({ noServer: true, maxPayload: maxReviewFrameBytes, perMessageDeflate: false });
   readonly peers = new Map<string, ReviewPeer>();
+  readonly #pending = new Set<WebSocket>();
+  #upgradeSecond = 0;
+  #upgradeCount = 0;
   readonly #hooks: Hooks;
   readonly #secret: string;
   #port = 0;
@@ -33,12 +36,19 @@ export class ReviewChannel {
   port(port: number): void { this.#port = port; }
   #checkUpgrade(request: IncomingMessage): void {
     checkSource(request, this.#port);
-    if (request.url !== reviewChannelPath || this.#server.clients.size >= 32) throw new Error('Upgrade refused');
+    if (request.url !== reviewChannelPath || this.peers.size >= 32) throw new Error('Upgrade refused');
     if (request.headers.cookie && !request.headers.origin) throw new Error('Origin required');
+    this.#admitUpgrade();
+  }
+  #admitUpgrade(): void {
+    const now = Math.floor(Date.now() / 1000);
+    if (now !== this.#upgradeSecond) { this.#upgradeSecond = now; this.#upgradeCount = 0; }
+    if (this.#pending.size >= 8 || ++this.#upgradeCount > 8) throw new Error('Upgrade pressure');
   }
   #connect(socket: WebSocket): void {
     const challenge = { nonce: randomBytes(32).toString('hex'), generation: randomUUID() };
-    const state: Connection = { challenge, second: 0, frames: 0, timer: setTimeout(() => { socket.terminate(); }, 5000) };
+    this.#pending.add(socket);
+    const state: Connection = { socket, challenge, second: 0, frames: 0, timer: setTimeout(() => { socket.terminate(); }, 1000) };
     socket.on('error', () => { socket.terminate(); });
     socket.on('close', () => { this.#disconnect(state); });
     socket.on('message', (bytes, binary) => { this.#message(socket, state, { bytes, binary }); });
@@ -46,6 +56,7 @@ export class ReviewChannel {
   }
   #disconnect(state: Connection): void {
     clearTimeout(state.timer);
+    this.#pending.delete(state.socket);
     const peer = state.peer;
     if (!peer || this.#closed) return;
     if (this.peers.get(peer.binding.sessionId) === peer) this.peers.delete(peer.binding.sessionId);
@@ -67,6 +78,7 @@ export class ReviewChannel {
   }
   #authenticate(socket: WebSocket, frame: ChannelFrame, challenge: Challenge): ReviewPeer {
     if (frame.type !== 'hello' || !equal(frame.proof, mac(this.#secret, 'client', challenge, frame))) throw new Error('Authentication refused');
+    this.#pending.delete(socket);
     const peer: ReviewPeer = { socket, binding: frame.binding, connectionGeneration: challenge.generation };
     const previous = this.peers.get(frame.binding.sessionId);
     if (previous) { this.#hooks.gone(previous); previous.socket.terminate(); }
@@ -76,7 +88,7 @@ export class ReviewChannel {
   }
   #receive(peer: ReviewPeer, frame: ChannelFrame): void {
     if (frame.type === 'readiness') {
-      if (peer.readiness?.generation !== frame.value.generation || !frame.value.available) this.#hooks.gone(peer);
+      if (reviewReadinessChanged(peer.readiness, frame.value)) this.#hooks.gone(peer);
       peer.readiness = frame.value;
       return;
     }
