@@ -84,5 +84,7 @@
 .theme-card:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
 .theme-card-name { font-weight: 600; }
 .theme-card-statuses, .theme-card-text { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: var(--type-caption); align-items: center; }
+/* Statuses in aligned columns rather than a ragged wrap. */
+.theme-card-statuses { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); white-space: nowrap; }
 .theme-card-statuses > span { color: var(--tone); } .theme-card .text { color: var(--text); }
 .theme-card-ramp { display: inline-block; width: 72px; height: 8px; border-radius: 4px; background: var(--pressure-gradient); }
