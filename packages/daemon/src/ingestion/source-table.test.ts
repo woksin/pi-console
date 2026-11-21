@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { mkdirSync, mkdtempSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, sep } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { discoverFiles } from './discover-files.ts';
 import { sourceTable } from './source-table.ts';
 
@@ -10,7 +10,7 @@ const sources = sourceTable({ agentRoot: 'agent', orchRoot: 'orch', lanesRoot: '
 const names = ['item.json', 'lanes.json', 'L192.status', 'events.jsonl', 'registry.jsonl', 's1.jsonl', '2026-11-20.jsonl'];
 
 for (const source of sources) for (const [index, template] of source.feeds.entries()) {
-  const directory = template.directories[0];
+  const directory = relative(process.cwd(), template.directories[0]);
   const components = directory.split(sep);
   for (let depth = 1; depth <= components.length; depth++) {
     const ancestor = join(...components.slice(0, depth));

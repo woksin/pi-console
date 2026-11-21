@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { EventEnvelope, EventLog } from '@pi-console/contract';
@@ -42,6 +42,29 @@ async function events(log: EventLog): Promise<Omit<EventEnvelope, 'seq' | 'recor
     result.push({ type, version, occurredAt, source, idempotencyKey, subject, actor, payload, refs });
   }
   return result;
+}
+
+for (const created of ['directory', 'root-symlink', 'ancestor-symlink']) {
+  test(`a missing session root beneath a configured alias later appears as ${created}`, async t => {
+    const { root, log } = fixture(t);
+    const alias = join(root, 'configured');
+    symlinkSync(root, alias);
+    const sessions = join(alias, 'late', 'sessions');
+    const worker = ingestion(log, sessions);
+    await worker.poll();
+    assert.equal((await events(log)).length, 0);
+    const target = join(root, 'target');
+    mkdirSync(target);
+    if (created === 'ancestor-symlink') symlinkSync(target, join(root, 'late'));
+    else mkdirSync(join(root, 'late'));
+    if (created === 'root-symlink') symlinkSync(target, sessions);
+    else mkdirSync(sessions);
+    writeFileSync(join(sessions, 's.jsonl'), header('late') + message('late', 1, 'hello'));
+    await worker.poll();
+    const found = await events(log);
+    assert.equal(found.some(event => event.type === 'SessionStarted'), created === 'directory');
+    if (created !== 'directory') assert.equal(found.length, 0);
+  });
 }
 
 test('a poll over many files yields to the event loop between files', async t => {

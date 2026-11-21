@@ -1,8 +1,8 @@
-import { existsSync, realpathSync, statSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { statSync } from 'node:fs';
 import type { EventLog, SourceCheckpoint } from '@pi-console/contract';
 import { discover, sessionTailer } from '@pi-console/adapters';
 import { yieldToLoop } from './yield-to-loop.ts';
+import { SourceRoot } from './source-root.ts';
 
 export interface SourceStatus { source: string; files: number; lagBytes: number; lastPollAt: string | null }
 
@@ -46,7 +46,7 @@ function caughtUp(path: string, saved: ReadonlyMap<string, SourceCheckpoint>): b
 export class SessionIngestion {
   readonly #log: EventLog;
   readonly #options: IngestionOptions;
-  readonly #roots: readonly string[];
+  readonly #roots: readonly SourceRoot[];
   readonly #files = new Set<string>();
   #timer: NodeJS.Timeout | undefined;
   #status: SourceStatus = { source: 'session-jsonl', files: 0, lagBytes: 0, lastPollAt: null };
@@ -58,9 +58,7 @@ export class SessionIngestion {
   constructor(log: EventLog, options: IngestionOptions) {
     this.#log = log;
     this.#options = options;
-    this.#roots = options.roots.map(root => {
-      try { return realpathSync(root); } catch { return resolve(root); }
-    });
+    this.#roots = options.roots.map(root => new SourceRoot(root));
   }
 
   get status(): SourceStatus {
@@ -89,7 +87,8 @@ export class SessionIngestion {
     const since = now.getTime() - this.#options.backfillWindowDays * 86_400_000;
     let lagBytes = 0;
     try {
-      const paths = this.#roots.filter(root => existsSync(root)).flatMap(root => discover(root, since));
+      const roots = this.#roots.flatMap(root => root.available() ?? []);
+      const paths = roots.flatMap(root => discover(root, since));
       const saved = new Map((await this.#log.checkpoints(source)).map(checkpoint => [checkpoint.identity, checkpoint]));
       let skipped = 0;
       for (const path of paths) {
@@ -130,7 +129,7 @@ export class SessionIngestion {
 
   /** Reads up to the per-poll budget in batches (or until caught up or no longer progressing); returns the unread bytes. */
   async #tailBatches(path: string, size: number): Promise<number> {
-    const tailer = sessionTailer(this.#log, path, { roots: this.#roots, batchBytes: size });
+    const tailer = sessionTailer(this.#log, path, { roots: this.#roots.map(root => root.path), batchBytes: size });
     this.#files.add(path);
     try {
       let lag = (await tailer.poll([path])).lagBytes;

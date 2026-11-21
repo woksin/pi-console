@@ -1,8 +1,8 @@
-import { realpathSync } from 'node:fs';
 import { join } from 'node:path';
 import { contextMapper, issueMapper, laneMapper, laneStatusMapper, memoryEventMapper, memoryJournalMapper, orchMapper, phaseMapper, questionMapper, rosterMapper, type Mapper } from '@pi-console/adapters';
 import { laneStatusJson } from './lane-status.ts';
 import type { SourceId } from './source-ids.ts';
+import { SourceRoot } from './source-root.ts';
 
 /** One directory family of a source: how its files are read and which mapper understands them. */
 export interface Feed {
@@ -82,5 +82,5 @@ export function sourceTable({ agentRoot, orchRoot, lanesRoot, laneStatusDir }: S
 
 /** Configured roots may be symlinks; pin their targets without preventing a missing store from appearing later. */
 function resolveRoot(root: string): string {
-  try { return realpathSync(root); } catch { return root; }
+  return new SourceRoot(root).path;
 }
