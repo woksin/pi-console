@@ -1,5 +1,5 @@
 // Unit specs: every package `test` script (integration specs are named *.integration.ts and never match), then the
-// spike specs that still pass. Usage: node scripts/test.mjs [--scope <package>]
+// spike specs that still pass, then the demo launcher spec. Usage: node scripts/test.mjs [--scope <package>]
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 
@@ -11,6 +11,6 @@ const run = (command, args) => spawnSync(command, args, { cwd: root, stdio: 'inh
 const packages = scope ? ['-w', `@pi-console/${scope}`] : ['--workspaces'];
 let status = run('npm', ['run', 'test', ...packages, '--if-present']);
 if (status === 0 && !scope) {
-  status = run(process.execPath, ['--test', 'spikes/fixture/*.test.ts', 'spikes/mock-daemon/*.test.ts']);
+  status = run(process.execPath, ['--test', 'spikes/fixture/*.test.ts', 'spikes/mock-daemon/*.test.ts', 'scripts/demo.test.mjs']);
 }
 process.exit(status);

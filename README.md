@@ -80,11 +80,30 @@ Midnight (default), dawn and high contrast, with a live preview in Settings. Sta
 
 <img src="docs/media/web-themes.webp" alt="Settings theme preview cards for midnight, dawn and contrast showing the status colours, text tones and the pressure gradient" width="720">
 
+### Every web view, both themes
+
+| View | Midnight (dark) | Dawn (light) |
+|---|---|---|
+| Overview | [Screenshot](docs/media/web-overview.webp) | [Screenshot](docs/media/web-overview-light.webp) |
+| Fleet | [Screenshot](docs/media/web-fleet.webp) | [Screenshot](docs/media/web-fleet-light.webp) |
+| Requests | [Screenshot](docs/media/web-requests.webp) | [Screenshot](docs/media/web-requests-light.webp) |
+| Questions | [Screenshot](docs/media/web-questions.webp) | [Screenshot](docs/media/web-questions-light.webp) |
+| Messages list | [Screenshot](docs/media/web-messages.webp) | [Screenshot](docs/media/web-messages-light.webp) |
+| Messages graph | [Screenshot](docs/media/web-graph.webp) | [Screenshot](docs/media/web-graph-light.webp) |
+| Timeline | [Screenshot](docs/media/web-timeline.webp) | [Screenshot](docs/media/web-timeline-light.webp) |
+| Work | [Screenshot](docs/media/web-work.webp) | [Screenshot](docs/media/web-work-light.webp) |
+| Session detail | [Screenshot](docs/media/web-session.webp) | [Screenshot](docs/media/web-session-light.webp) |
+| Settings | [Screenshot](docs/media/web-settings.webp) | [Screenshot](docs/media/web-settings-light.webp) |
+
 ### The terminal UI
 
 The same views, models and keymap in a terminal. It runs on [OpenTUI](https://github.com/sst/opentui) and talks to the daemon over the same loopback API.
 
 <img src="docs/media/tui-tour.gif" alt="Animation of the terminal UI: Overview, Fleet, a session filtered to its reset divider, the command palette and the Timeline" width="900">
+
+A [VHS tape](scripts/media/tui.tape) also records the real TUI against the isolated demo daemon:
+
+<img src="docs/media/tui-vhs.gif" alt="VHS recording of the terminal UI against the synthetic demo daemon: Overview, Fleet, Requests and Settings" width="880">
 
 <img src="docs/media/tui-overview.webp" alt="Terminal UI Overview with the needs-you inbox on the left and fleet status bars, average context and the context-pressure histogram on the right" width="900">
 
@@ -104,14 +123,15 @@ Requires Node.js 26 or newer.
 npm ci
 ```
 
-**Try it with synthetic demo data** (a mock daemon replays a fixture; nothing of yours is read):
+### Try it
 
 ```bash
-npm start                                   # mock daemon on http://127.0.0.1:4777, token in .pi-console-dev/token
-npm run build -w @pi-console/web
-npm run serve -w @pi-console/web            # web console on http://127.0.0.1:4780, paste the token on first visit
-PI_CONSOLE_URL=http://127.0.0.1:4777 PI_CONSOLE_TOKEN="$(cat .pi-console-dev/token)" npm start -w @pi-console/tui
+npm run demo
 ```
+
+This builds the web bundle, generates synthetic data and starts the **real daemon** on a free loopback port. Nothing is read from your pi directories and no live agents are connected. Open the printed web URL, then paste the contents of the printed token file into the connection screen. The token is never printed or included in the URL. The launcher also prints a command for opening the TUI in a second terminal against the same daemon.
+
+Press **Ctrl-C** in the demo terminal to stop it and remove its temporary data and token. Each run starts fresh. The synthetic event log is static; the separate developer mock remains available with `npm start`.
 
 **Run it on your own pi data** (read-only in M1; it reads `~/.pi/agent` and keeps its own store in `~/.pi-console`):
 
@@ -159,7 +179,7 @@ pi sessions can run shell commands and hold credentials, so the console treats i
 
 ## Demo data and regenerating the media
 
-All demo data is synthetic: `npm run generate` rebuilds the fixture, and every picture above comes from it. `npm run media` regenerates the pictures and animations in `docs/media/` (needs Chromium, `ffmpeg` and `cwebp`; see [docs/media/README.md](docs/media/README.md) for the shot list, budget and determinism notes). It is a manual step and not part of CI.
+All demo data is synthetic: `npm run generate` rebuilds the fixture used by the media pipeline and demo launcher. `npm run media` regenerates `docs/media/`, including every main web view in midnight and dawn and the [VHS terminal recording](scripts/media/tui.tape). It needs Chromium, `ffmpeg` and `cwebp`; VHS additionally needs `vhs` and `ttyd`. Without VHS, the terminal recording falls back to the existing PTY frame capture and says so. See [docs/media/README.md](docs/media/README.md) for commands, the shot list, budget and determinism notes. Media generation is manual, not part of CI.
 
 ## Status
 

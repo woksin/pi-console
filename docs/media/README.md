@@ -11,17 +11,19 @@ npm run media                      # everything; add `-- --only web-palette` for
 node scripts/media/index.mjs --check   # budget, README image hygiene and orphan checks only
 ```
 
-Needs Chromium (Playwright's headless shell is found in the macOS cache; elsewhere set `PI_CONSOLE_CHROME` to a Chromium or headless-shell binary), `ffmpeg` and `cwebp` (`brew install ffmpeg webp`). It is a manual step: it is not part of `npm run gate` or CI.
+Needs Chromium (Playwright's headless shell is found in the macOS cache; elsewhere set `PI_CONSOLE_CHROME` to a Chromium or headless-shell binary), `ffmpeg` and `cwebp` (`brew install ffmpeg webp`). For the genuine terminal recording, install VHS and ttyd (`brew install vhs ttyd`; other platforms: [VHS installation](https://github.com/charmbracelet/vhs#installation)). It is a manual step: it is not part of `npm run gate` or CI.
+
+The committed [tui.tape](../../scripts/media/tui.tape) records the real TUI against the real, isolated demo daemon. Run `npm run media -- --only tui-vhs` to regenerate just that GIF. Credentials are read from a temporary owner-only file, never typed into the tape or shown on screen. The runner stops the daemon and removes the data afterward. If `vhs` or `ttyd` is unavailable, the script announces a fallback to the existing mock-daemon PTY frame capture for `tui-vhs.gif`.
 
 ## Data and determinism
 
-- Only synthetic data: the mock daemon replays the checked-in fixture (`packages/testkit/src/fixture`) with a throwaway data directory. Nothing is read from `~/.pi`.
-- The daemon stream is frozen (`speed: 1e-9`), the clock is fixed (`2026-11-20T12:00:00Z`, also `PI_CONSOLE_NOW` for the TUI), `/api/v1/health` is mocked, motion is reduced, and animations are frames held for a fixed time (never wall-clock), so reruns produce the same frames.
-- Fonts differ by OS, so pixels do. Regenerate on macOS and commit the result; a rerun on the same machine and tool versions is byte-identical (check all files recursively with `find docs/media -type f -exec shasum {} + | LC_ALL=C sort`).
+- Only synthetic data: the mock daemon replays the checked-in fixture (`packages/testkit/src/fixture`) with a throwaway data directory. The VHS runner instead seeds the real demo daemon with generated synthetic events and disables all source ingestion. Nothing is read from `~/.pi`.
+- For Playwright/PTY captures, the daemon stream is frozen (`speed: 1e-9`), the clock is fixed (`2026-11-20T12:00:00Z`, also `PI_CONSOLE_NOW` for the TUI), `/api/v1/health` is mocked and motion is reduced. Animation frames have fixed holds.
+- VHS records wall-clock terminal rendering with scripted waits, not held screenshots; its timing and daemon health values can vary. Settings captures also show ephemeral loopback ports. Fonts differ by OS. Regenerate on macOS and inspect the result; byte-identical output is not promised for these captures.
 
 ## Budget
 
-Total ≤ 3 MB, no file over 600 KB, heroes ≤ 400 KB. `npm run media` fails when over budget. Git history still holds the larger media of earlier revisions.
+Total ≤ 4 MB, no file over 600 KB, heroes ≤ 400 KB. `npm run media` fails when over budget. Git history still holds the larger media of earlier revisions.
 
 ## Shot list
 
@@ -32,16 +34,24 @@ The list below is `scripts/media/scenes.ts`; the README, this page and the check
 | `hero-dark.webp`, `hero-light.webp` | both | Web Overview with the TUI laid over it, on midnight and dawn |
 | `web-overview.webp`, `web-overview-light.webp` | web | Overview: Needs you inbox, fleet pulse, pressure histogram |
 | `web-pulse.webp` | web | Close-up of the fleet pulse, status strip and pressure histogram |
-| `web-fleet.webp` | web | Fleet table |
+| `web-fleet.webp`, `web-fleet-light.webp` | web | Fleet table, midnight and dawn |
+| `web-requests.webp`, `web-requests-light.webp` | web | Requests and answers, midnight and dawn |
+| `web-questions.webp`, `web-questions-light.webp` | web | Questions and decisions, midnight and dawn |
+| `web-messages.webp`, `web-messages-light.webp` | web | Messages list, midnight and dawn |
+| `web-work.webp`, `web-work-light.webp` | web | Jobs, phases and CI, midnight and dawn |
+| `web-session.webp`, `web-session-light.webp` | web | Session detail, midnight and dawn |
+| `web-settings.webp`, `web-settings-light.webp` | web | Settings, midnight and dawn |
 | `web-session-resets.webp`, `web-session-resets-light.webp` | web | Transcript at a ⟲ reset divider |
-| `web-graph.webp`, `web-timeline.webp` | web | Messages graph; timeline |
+| `web-graph.webp`, `web-graph-light.webp` | web | Messages graph, midnight and dawn |
+| `web-timeline.webp`, `web-timeline-light.webp` | web | Timeline, midnight and dawn |
 | `web-themes.webp` | web | Theme preview cards (midnight, dawn, contrast) |
 | `web-palette.gif`, `web-tour.gif` | web | Palette typing `aur`; keyboard tour of four views |
 | `tui-overview.webp`, `tui-palette.webp`, `tui-session-resets.webp`, `tui-mono.webp` | tui | TUI stills, including the mono theme |
 | `tui-tour.gif` | tui | TUI tour: Overview, Fleet, session at a reset, palette, Timeline |
+| `tui-vhs.gif` | tui | VHS: Overview, Fleet, Requests, Settings against the real demo daemon |
 
 ## How it is made
 
-`scripts/media/web.ts` drives the built web bundle with Playwright (stills at 2x, animation frames at 1x); `tui.ts` runs the real TUI on a pty, renders the emulator screen to SVG and rasterises it in the same Chromium; `hero.ts` composes the hero as an HTML page; `encode.mjs` scales and encodes (ffmpeg: Lanczos scaling, one shared 96-colour palette per GIF, Bayer dithering; `cwebp` for stills); `check.mjs` enforces the budget and the README checks (every image has alt text and a width, relative paths exist, no orphan files).
+`scripts/media/web.ts` drives the built web bundle with Playwright (stills at 2x, animation frames at 1x); `tui.ts` runs the real TUI on a pty, renders the emulator screen to SVG and rasterises it in the same Chromium; `hero.ts` composes the hero as an HTML page; `encode.mjs` scales and encodes (ffmpeg: Lanczos scaling, one shared 96-colour palette per GIF, Bayer dithering; `cwebp` for stills); `vhs.mjs` runs the committed tape and re-encodes its GIF at 880px / 8fps; `check.mjs` enforces the budget and the README checks (every image has alt text and a width, relative paths exist, no orphan files).
 
 Not shown here: a status-change flash for "new since you looked" (it is a transient animation and not deterministic under frozen time).
