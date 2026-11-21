@@ -4,9 +4,14 @@ import { startDemo, root } from '../demo.mjs';
 import { encodeRecording } from './encode.mjs';
 
 const demo = await startDemo();
+let child;
+// On Ctrl-C or SIGTERM, stop VHS so the finally block below still shuts the demo daemon down.
+const interrupt = () => { child?.kill('SIGTERM'); };
+process.on('SIGINT', interrupt);
+process.on('SIGTERM', interrupt);
 try {
   await new Promise((done, reject) => {
-    const child = spawn('vhs', ['scripts/media/tui.tape'], {
+    child = spawn('vhs', ['scripts/media/tui.tape'], {
       cwd: root, stdio: 'inherit',
       env: {
         ...process.env, PI_CONSOLE_URL: `http://127.0.0.1:${demo.port}`,

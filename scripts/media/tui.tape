@@ -1,4 +1,4 @@
-# Regenerate with: npm run media -- --only=tui-vhs
+# Regenerate with: npm run media -- --only tui-vhs
 # The runner supplies an isolated real demo daemon. The token is read from a file,
 # never typed into this recording or printed to the terminal.
 Output .ai-work/media-work/tui-vhs.gif
