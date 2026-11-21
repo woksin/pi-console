@@ -3,8 +3,14 @@ import type { ViewProps } from '../app/view.tsx';
 import { Panel } from '../ui/primitives.tsx';
 import { setPrefs, usePrefs } from '../app/prefs.ts';
 import { themeIds, type ThemeId } from '../app/theme.ts';
+import { settingsTimestamp } from './settings-format.ts';
 
-const rows = (items: SettingsRow[]) => <dl className="kv wide">{items.map(row => <div key={row.label}><dt>{row.label}</dt><dd className={`tone-text-${row.tone}`}>{row.value}</dd></div>)}</dl>;
+function SettingValue({ value }: { value: string }) {
+  const timestamp = settingsTimestamp(value);
+  return timestamp ? <time dateTime={value} title={value}>{timestamp}</time> : <>{value}</>;
+}
+
+const rows = (items: SettingsRow[]) => <dl className="kv wide">{items.map(row => <div key={row.label}><dt>{row.label}</dt><dd className={`tone-text-${row.tone}`}><SettingValue value={row.value} /></dd></div>)}</dl>;
 
 export function SettingsView({ state, now }: ViewProps) {
   const prefs = usePrefs();
