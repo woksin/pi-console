@@ -4,8 +4,15 @@ import { join, resolve } from 'node:path';
 
 const kb = bytes => Math.ceil(bytes / 1024);
 
-export function sizes(mediaDir) {
-  return readdirSync(mediaDir).filter(name => statSync(join(mediaDir, name)).isFile()).map(name => ({ name, bytes: statSync(join(mediaDir, name)).size }));
+// Historical acceptance evidence still linked by docs/m1-acceptance.md, not a showcase output.
+export const retainedMedia = ['tui/tour-colour.cast'];
+
+export function sizes(mediaDir, prefix = '') {
+  return readdirSync(join(mediaDir, prefix)).flatMap(entry => {
+    const name = join(prefix, entry);
+    const stat = statSync(join(mediaDir, name));
+    return stat.isDirectory() ? sizes(mediaDir, name) : [{ name, bytes: stat.size }];
+  });
 }
 
 export function checkBudget(mediaDir, budget) {
@@ -22,20 +29,28 @@ export function checkBudget(mediaDir, budget) {
 
 const attribute = (tag, name) => new RegExp(`\\b${name}="([^"]*)"`).exec(tag)?.[1];
 
-/** Every <img> in the README needs meaningful alt, a width and an existing relative path; every Markdown link into docs/ must exist. */
+function checkImage(root, tag) {
+  const problems = [];
+  const src = attribute(tag, 'src');
+  const alt = attribute(tag, 'alt')?.trim() ?? '';
+  if (!src || /^[a-z]+:|^\//.test(src)) problems.push(`img must use a relative src: ${tag}`);
+  else if (!existsSync(resolve(root, src))) problems.push(`img source missing: ${src}`);
+  if (alt.length < 12) problems.push(`img alt text is empty or too short: ${src ?? tag}`);
+  if (!attribute(tag, 'width')) problems.push(`img has no width: ${src ?? tag}`);
+  return problems;
+}
+
+/** Every image needs meaningful alt, width and a relative path; local links and picture sources must exist. */
 export function checkReadme(root) {
   const text = readFileSync(join(root, 'README.md'), 'utf8');
-  const problems = [];
-  for (const tag of text.match(/<img\b[^>]*>/g) ?? []) {
-    const src = attribute(tag, 'src');
-    const alt = attribute(tag, 'alt')?.trim() ?? '';
-    if (!src || /^[a-z]+:|^\//.test(src)) problems.push(`img must use a relative src: ${tag}`);
-    else if (!existsSync(resolve(root, src))) problems.push(`img source missing: ${src}`);
-    if (alt.length < 12) problems.push(`img alt text is empty or too short: ${src ?? tag}`);
-    if (!attribute(tag, 'width')) problems.push(`img has no width: ${src ?? tag}`);
-  }
-  for (const [, target] of text.matchAll(/\]\(((?:docs|packages|scripts)\/[^)#\s]*)/g)) {
-    if (!existsSync(resolve(root, target))) problems.push(`link target missing: ${target}`);
+  const problems = (text.match(/<img\b[^>]*>/g) ?? []).flatMap(tag => checkImage(root, tag));
+  const targets = [
+    ...Array.from(text.matchAll(/\]\(([^)\s]+)/g), match => match[1]),
+    ...Array.from(text.matchAll(/<source\b[^>]*srcset="([^"]+)"/g), match => match[1]),
+  ];
+  for (const target of targets) {
+    if (/^[a-z]+:|^#/.test(target)) continue;
+    if (!existsSync(resolve(root, target.split('#')[0]))) problems.push(`link target missing: ${target}`);
   }
   return { text, problems };
 }
@@ -44,8 +59,8 @@ export function checkReadme(root) {
 export function checkReferences(root, shots, mediaDir, readmeText) {
   const docs = [readmeText, ...readdirSync(join(root, 'docs')).filter(name => name.endsWith('.md')).map(name => readFileSync(join(root, 'docs', name), 'utf8'))].join('\n');
   const problems = [];
-  const known = new Set(shots.map(shot => shot.file));
-  for (const file of readdirSync(mediaDir)) if (statSync(join(mediaDir, file)).isFile() && file !== 'README.md' && !known.has(file)) problems.push(`orphan file in docs/media: ${file}`);
+  const known = new Set([...shots.map(shot => shot.file), ...retainedMedia, 'README.md']);
+  for (const { name } of sizes(mediaDir)) if (!known.has(name)) problems.push(`orphan file in docs/media: ${name}`);
   for (const shot of shots) if (!docs.includes(shot.file)) problems.push(`${shot.file} is not shown in README.md or docs/*.md`);
   return problems;
 }

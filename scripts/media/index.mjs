@@ -2,11 +2,11 @@
 //   node scripts/media/index.mjs [--only <shot id prefix>] [--check]
 // Never part of `npm run gate`: it needs Chromium, ffmpeg and cwebp, and pixels depend on the machine's fonts (regenerate on macOS).
 // Reads no personal data: the daemon runs the checked-in fixture with a throwaway data directory.
-import { existsSync, mkdirSync, readdirSync, rmSync } from 'node:fs';
+import { existsSync, mkdirSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { budget, gifFps, shots } from './scenes.ts';
-import { checkBudget, checkReadme, checkReferences } from './check.mjs';
+import { checkBudget, checkReadme, checkReferences, retainedMedia, sizes } from './check.mjs';
 import { encodeGif, encodeStill, have } from './encode.mjs';
 
 const root = resolve(import.meta.dirname, '../..');
@@ -48,8 +48,8 @@ function encode(work) {
 }
 
 function prune() {
-  const known = new Set([...shots.map(shot => shot.file), 'README.md']);
-  for (const name of readdirSync(mediaDir)) if (!known.has(name)) rmSync(join(mediaDir, name), { recursive: true, force: true });
+  const known = new Set([...shots.map(shot => shot.file), ...retainedMedia, 'README.md']);
+  for (const { name } of sizes(mediaDir)) if (!known.has(name)) rmSync(join(mediaDir, name));
 }
 
 function verify() {
