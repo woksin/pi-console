@@ -46,11 +46,11 @@ const cellGlyph = (cell: PulseCell): string => (fullCells.has(cell.status.status
 /** The cells that fit in `room` columns; the rest collapse into a `+N` count. */
 function pulseCells(cells: readonly PulseCell[], room: number): Part[] {
   const shown = cells.length <= room ? cells : cells.slice(0, Math.max(0, room - 4));
-  const more = cells.length - shown.length;
+  const more = cells.slice(shown.length).reduce((sum, cell) => sum + cell.count, 0);
   return [...shown.map(cell => t(palette.theme === 'mono' ? cell.monoGlyph : cellGlyph(cell), cell.status.color)), ...(more > 0 ? [t(` +${String(more)}`, 'muted')] : [])];
 }
 
-/** The fleet pulse row under the tabs: one coloured cell per session, braille fleet activity when there is room, and the counts in words. */
+/** Bounded status runs under the tabs, braille fleet activity when there is room, and counts in words. */
 export function pulseLine(pulse: PulseViewModel, width: number): Line {
   const counts: Part[] = [t(`${String(pulse.sessions)} sessions · ${String(pulse.working)} working`, 'muted'), ...(pulse.needsYou > 0 ? [t(` · ${String(pulse.needsYou)} need you`, 'amber', { bold: true })] : []), t(' ')];
   const activity: Part[] = [t('activity ', 'faint'), t(pulse.braille, 'cyan'), t('  ')];

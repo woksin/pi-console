@@ -3,7 +3,7 @@ import { pulseViewModel } from '@pi-console/viewmodels';
 import type { Session } from '@pi-console/contract';
 import { Sparkline } from '../ui/primitives.tsx';
 
-/** The fleet pulse: one status-coloured cell per session, fleet activity, and the needs-you count. Same view model as the TUI strip. */
+/** Bounded status-coloured fleet runs, activity, and the needs-you count. Same view model as the TUI strip. */
 export function FleetPulse({ sessions, needsYou }: { sessions: readonly Session[]; needsYou: number }) {
   const pulse = useMemo(() => pulseViewModel({ sessions, needsYou }), [sessions, needsYou]);
   if (pulse.sessions === 0) return null;

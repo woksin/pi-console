@@ -3,10 +3,10 @@ import { compactNumber } from '../format/format.ts';
 import { laneLabel } from '../format/lane-label.ts';
 import { statusCell, type StatusCell } from '../format/status-cell.ts';
 
-/** One session in the fleet pulse strip. */
-export interface PulseCell { id: string; title: string; status: StatusCell; monoGlyph: string }
+/** One session, or a counted part of a status run for large fleets. */
+export interface PulseCell { id: string; title: string; status: StatusCell; monoGlyph: string; count: number }
 export interface PulseViewModel {
-  /** One cell per session, most urgent status first, then by lane, so like statuses form one coloured run. */
+  /** At most 32 cells, urgent status first; large fleets use proportional counted status runs. */
   cells: PulseCell[];
   /** Tokens per minute across the fleet over the last `minutes` minutes, oldest first. */
   activity: number[];
@@ -48,11 +48,28 @@ export function fleetActivity(sessions: readonly Session[], minutes: number): nu
   return buckets;
 }
 
-/** The fleet pulse: a btop-style strip with one status-coloured cell per session, an activity sparkline and the needs-you count. */
+const CELL_CAP = 32;
+
+/** Reserve a cell per status, then divide the remaining budget proportionally. Every session is counted once. */
+function boundedCells(cells: PulseCell[]): PulseCell[] {
+  if (cells.length <= CELL_CAP) return cells;
+  const groups = Map.groupBy(cells, cell => cell.status.status);
+  const budget = CELL_CAP - groups.size;
+  return [...groups.values()].flatMap(group => {
+    const seats = 1 + Math.floor(budget * group.length / cells.length);
+    return Array.from({ length: seats }, (_, index) => {
+      const start = Math.floor(index * group.length / seats);
+      const count = Math.floor((index + 1) * group.length / seats) - start;
+      return { ...group[start], count, title: `${String(count)} ${group[start].status.label.toLowerCase()} sessions` };
+    });
+  });
+}
+
+/** The fleet pulse: bounded status-coloured runs, fleet activity and the needs-you count. */
 export function pulseViewModel(input: { sessions: readonly Session[]; needsYou: number; minutes?: number }): PulseViewModel {
-  const cells = [...input.sessions]
+  const cells = boundedCells([...input.sessions]
     .sort((a, b) => severity(a.status) - severity(b.status) || laneLabel(a.repositoryId, a.laneId).localeCompare(laneLabel(b.repositoryId, b.laneId)) || a.name.localeCompare(b.name))
-    .map(session => ({ id: session.id, title: `${laneLabel(session.repositoryId, session.laneId)} ${session.name}`, status: statusCell(session.status), monoGlyph: session.status === 'failed' ? '#' : statusCell(session.status).glyph }));
+    .map(session => ({ id: session.id, title: `${laneLabel(session.repositoryId, session.laneId)} ${session.name}`, status: statusCell(session.status), monoGlyph: session.status === 'failed' ? '#' : statusCell(session.status).glyph, count: 1 })));
   const activity = fleetActivity(input.sessions, input.minutes ?? 24);
   const working = input.sessions.filter(session => session.status === 'working').length;
   const latest = activity.at(-1) ?? 0;
