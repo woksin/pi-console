@@ -69,7 +69,7 @@ export function App() {
   const wall = useTick(1000);
   const now = clockNow(state, wall);
   return (
-    <div className="app">
+    <div className="app" data-stale={staleData(state, wall)}>
       <Sidebar active={sectionFor(route.view)} settings={route.view === 'settings'} attention={attention} questions={state.questions.filter(q => q.status === 'open').length} collapsed={prefs.sidebarCollapsed} onCollapse={() => { setPrefs({ sidebarCollapsed: !prefs.sidebarCollapsed }); }} />
       <div className="main">
         <TopBar title={route.view === 'session' ? 'Session' : titleFor(route.view)} hint={sectionFor(route.view) ? sectionMeta[sectionFor(route.view) ?? 'overview'].hint : ''} state={state} wall={wall} session={route.view === 'session' ? state.sessions.find(session => session.id === route.id) : undefined} onPalette={() => { setOverlay('palette'); }} onHelp={() => { setOverlay('help'); }} />

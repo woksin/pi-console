@@ -1,5 +1,5 @@
 import type { Session } from '@pi-console/contract';
-import { sanitize, statusCell } from '@pi-console/viewmodels';
+import { clock, sanitize, statusCell } from '@pi-console/viewmodels';
 import type { ConsoleState } from '../state/state.ts';
 import { Kbd, StatusBadge } from '../ui/primitives.tsx';
 import { hrefFor, sectionIds, sectionMeta, type SectionId } from './routes.ts';
@@ -45,7 +45,7 @@ export function TopBar({ title, hint, state, wall, session, onPalette, onHelp }:
       {session && <StatusBadge cell={statusCell(session.status)} />}
       {hint && <span className="muted">{hint}</span>}
       <span className="grow" />
-      {staleData(state, wall) && <time className="stale-asof muted" dateTime={new Date(state.lastFrameAt).toISOString()}>As of {new Date(state.lastFrameAt).toLocaleTimeString()}</time>}
+      {staleData(state, wall) && <time className="stale-asof muted" dateTime={new Date(state.lastFrameAt).toISOString()}>As of {clock(new Date(state.lastFrameAt).toISOString())}</time>}
       <span className={`conn tone-${connectionTone[state.connection]}`} role="status" data-connection={state.connection}><span className="dot" />{state.connection}</span>
       <button type="button" className="btn ghost" onClick={onPalette}>Palette <Kbd>:</Kbd></button>
       <button type="button" className="btn ghost" onClick={onHelp}>Help <Kbd>?</Kbd></button>

@@ -133,8 +133,14 @@ describe('web console e2e', () => {
       assert.ok(await page.locator('tr[data-session]').count() > 0, 'stale data stays on screen instead of blanking');
       await page.getByTestId('banner').waitFor();
       await page.locator('#content[data-stale="true"]').waitFor();
-      assert.equal(await page.locator('#content').evaluate(el => getComputedStyle(el).opacity), '0.75');
+      assert.equal(await page.locator('#content').evaluate(el => getComputedStyle(el).opacity), '1');
+      assert.equal(await page.locator('.app').getAttribute('data-stale'), 'true');
+      assert.equal(await page.locator('.app').evaluate(el => {
+        const css = getComputedStyle(el);
+        return css.getPropertyValue('--cyan').trim() === css.getPropertyValue('--muted').trim();
+      }), true, 'offline accents use the readable neutral palette');
       await page.locator('.stale-asof').waitFor();
+      assert.match(await page.locator('.stale-asof').innerText(), /^As of \d{2}:\d{2}:\d{2}$/);
       assert.equal(await page.locator('.sidebar').evaluate(el => getComputedStyle(el).opacity), '1');
       await rig.startDaemon();
       down = false;
@@ -144,6 +150,7 @@ describe('web console e2e', () => {
     await page.locator('.conn[data-connection="live"]').waitFor({ timeout: 30_000 });
     assert.equal(await connection(page), 'live');
     await page.locator('#content[data-stale="false"]').waitFor();
+    assert.equal(await page.locator('.app').getAttribute('data-stale'), 'false');
     assert.equal(await page.locator('.stale-asof').count(), 0);
     await page.context().close();
   });
