@@ -177,11 +177,15 @@ export function handleKey(state: UiState, key: string, bounds: Bounds): UiState 
   return action ? reduce(state, action, bounds) : state;
 }
 
-/** Text entry for the palette, filter and transcript search. `commit` is true when Enter should apply the field. */
+/** Preview the draft without changing the committed filter; Escape discards the draft. */
+export const listFilter = (state: UiState): string => state.overlay === 'filter' ? state.input : state.filter;
+
+/** Text entry for the palette, filter and transcript search. */
 export function typing(state: UiState, key: string, character: string | undefined): UiState {
-  if (key === 'Backspace') return { ...state, input: [...state.input].slice(0, -1).join(''), paletteIndex: 0 };
-  if (character) return { ...state, input: state.input + character, paletteIndex: 0 };
-  return state;
+  if (key !== 'Backspace' && !character) return state;
+  const input = key === 'Backspace' ? [...state.input].slice(0, -1).join('') : state.input + (character ?? '');
+  const cursor = state.overlay === 'filter' ? { ...state.cursor, [state.section]: 0 } : state.cursor;
+  return { ...state, input, cursor, paletteIndex: 0 };
 }
 
 /** Enter in a text field for filter and search (the palette is handled by the app, it executes a target). */

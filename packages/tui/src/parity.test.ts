@@ -96,7 +96,13 @@ test('requests show uncertain and possibly-unseen labels, filter with the shared
   await harness.ui.press('ESCAPE');
 });
 
-/** Each flagged row carries its flag on its own line at ordinary widths, however long the request text; the summary counts must match the rows. */
+const requestFlags = (frame: string) => frame.split('\n').flatMap(line => {
+  // Origin then two fixed flag columns; the legend and provenance panel are not request rows.
+  const flags = / [●◆?] ([≈ ])([◌ ]) /.exec(line);
+  return flags ? [{ line, uncertain: flags[1] === '≈', possiblyUnseen: flags[2] === '◌' }] : [];
+});
+
+/** Glyph-only columns preserve the web's per-request semantics; the legend is not evidence of a row's flags. */
 for (const width of [80, 132]) {
   test(`requests rows keep their uncertain and unseen flags on the row at ${String(width)} columns`, async () => {
     const narrow = await startHarness({ width, height: 90 });
@@ -105,9 +111,15 @@ for (const width of [80, 132]) {
       const frame = await narrow.ui.waitFor('Requests');
       const { requests, sessions } = narrow.runtime.store.getSnapshot();
       const model = requestsViewModel({ requests, sessions, now: Date.now(), filter: { state: 'all', origin: 'all', sessionId: null, query: '' } });
-      const marked = (flag: string) => frame.split('\n').filter(line => line.includes(flag) && /\b\d+[smhd]\b/.test(line)).length;
-      assert.equal(marked('≈ uncertain'), model.uncertain, 'uncertain rows flagged on their own line');
-      assert.equal(marked('◌ unseen?'), model.possiblyUnseen, 'possibly unseen rows flagged on their own line');
+      const displayed = requestFlags(frame);
+      assert.equal(displayed.length, model.rows.length, 'every request has its own origin and flag columns');
+      for (const [index, row] of model.rows.entries()) {
+        assert.ok(displayed[index].line.includes(row.text.slice(0, 12)), `flags belong to request ${row.id}`);
+        assert.equal(displayed[index].uncertain, Boolean(row.uncertain), `uncertain flag for ${row.id}`);
+        assert.equal(displayed[index].possiblyUnseen, Boolean(row.possiblyUnseen), `possibly unseen flag for ${row.id}`);
+      }
+      assert.equal(displayed.filter(row => row.uncertain).length, model.uncertain, 'uncertain rows flagged on their own line');
+      assert.equal(displayed.filter(row => row.possiblyUnseen).length, model.possiblyUnseen, 'possibly unseen rows flagged on their own line');
     } finally { await narrow.stop(); }
   });
 }

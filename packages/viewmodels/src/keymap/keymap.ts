@@ -75,6 +75,25 @@ export const bindings: readonly Binding[] = [
 /** Active (shipped in M1) bindings only. */
 export const activeBindings: readonly Binding[] = bindings.filter(binding => !binding.availableFrom);
 
+export interface KeymapGroup { title: string; bindings: readonly Binding[] }
+const groupTitles = ['Navigate', 'Lists', 'Transcript', 'Timeline', 'Global'] as const;
+
+function groupOf(binding: Binding): string {
+  if (binding.action.startsWith('section.')) return 'Navigate';
+  if (binding.action.startsWith('time.')) return 'Timeline';
+  if (binding.action.startsWith('pane.') || binding.action === 'follow.toggle') return 'Transcript';
+  return binding.contexts.includes('global') ? 'Global' : 'Lists';
+}
+
+/** Display groups only: no new bindings or changes to resolution. Client-only rows stay client-only. */
+export function keymapGroups(client: KeyClient): KeymapGroup[] {
+  const active = bindingsFor(client);
+  return groupTitles.map(title => ({ title, bindings: active.filter(binding => groupOf(binding) === title) }));
+}
+
+const keyLabels: Readonly<Record<string, string>> = { ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Enter: '⏎', PageUp: 'PgUp', PageDown: 'PgDn', 'Shift+Tab': '⇧Tab' };
+export const keyLabel = (key: string): string => keyLabels[key] ?? key;
+
 /** Resolves a neutral key name in a context; `global` bindings apply everywhere unless the context text-captures keys. */
 export const bindingsFor = (client: KeyClient): readonly Binding[] => activeBindings.filter(binding => !binding.clients || binding.clients.includes(client));
 

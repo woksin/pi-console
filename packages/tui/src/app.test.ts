@@ -58,15 +58,37 @@ test('palette: @ finds sessions and opens one', async () => {
   await harness.ui.press('ESCAPE');
 });
 
-test('filter narrows the fleet and escape clears it', async () => {
+test('fleet filter updates while typing, cancels edits, commits and clears', async () => {
   await go('2', 'Fleet ·');
   await harness.ui.press('/');
   await harness.ui.type('review');
-  await harness.ui.press('RETURN');
   const filtered = await harness.ui.waitFor('filter “review”');
-  assert.match(filtered, /\d+\/\d+/);
+  assert.match(filtered, /\d+ of \d+/);
+  await harness.ui.press('RETURN');
+  await harness.ui.press('/');
+  await harness.ui.type('zzzzzz');
+  await harness.ui.waitFor('No session matches');
+  await harness.ui.press('BACKSPACE');
+  await harness.ui.press('ESCAPE');
+  await harness.ui.waitFor('filter “review”');
   await harness.ui.press('ESCAPE');
   await harness.ui.waitFor(frame => !frame.includes('filter “review”'));
+});
+
+test('requests filter is live, counts matches and distinguishes no match', async () => {
+  await go('3', 'Requests');
+  await harness.ui.press('/');
+  await harness.ui.type('zzzzzzzzzz');
+  const empty = await harness.ui.waitFor('No request matches');
+  assert.match(empty, /0 of \d+/);
+  await harness.ui.press('BACKSPACE');
+  await harness.ui.press('ESCAPE');
+  await harness.ui.waitFor(frame => !frame.includes('No request matches'));
+  await harness.ui.press('/');
+  await harness.ui.type('Check');
+  await harness.ui.waitFor('“Check”');
+  await harness.ui.press('RETURN');
+  await harness.ui.press('ESCAPE');
 });
 
 test('help lists the shared keymap and settings shows connection health', async () => {

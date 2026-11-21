@@ -13,6 +13,12 @@ export interface SessionRow {
 export type FleetRow = GroupRow | SessionRow;
 export interface FleetViewModel { rows: FleetRow[]; sessionCount: number; matched: number; query: string }
 
+/** Shared Fleet column order; clients may omit trend first when space is limited. */
+export const fleetColumns = [
+  { id: 'name', label: 'Name' }, { id: 'status', label: 'Status' }, { id: 'context', label: 'Ctx' },
+  { id: 'trend', label: 'Trend' }, { id: 'cost', label: 'Cost' }, { id: 'age', label: 'Age' },
+] as const;
+
 const attentionStatuses = new Set(['needs-you', 'blocked', 'failed']);
 const text = (session: Session) => `${session.name} ${session.laneId} ${session.branch} ${session.status} ${session.role}`;
 
