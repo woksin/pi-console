@@ -1,7 +1,7 @@
 // Web captures: the real built bundle against the mock daemon with a frozen stream, so every run draws the same pixels.
 import type { Page } from 'playwright-core';
 import { startRig, type Rig } from '../../packages/web/e2e/harness.ts';
-import { fixedNow, shots } from './scenes.ts';
+import { fixedNow, shots, webViews } from './scenes.ts';
 import { FrameSet, wanted, writeStill, type Work } from './capture.ts';
 
 type Theme = 'midnight' | 'dawn';
@@ -63,10 +63,21 @@ async function showResetDivider(page: Page): Promise<void> {
   await settle(page);
 }
 
+async function captureWebViews(page: Page, work: Work, suffix: string): Promise<void> {
+  for (const view of webViews) {
+    const id = `web-${view.id}${suffix}`;
+    if (!wanted(work, id)) continue;
+    await go(page, view.route);
+    if (view.id === 'session') await showTranscriptTail(page);
+    writeStill(work, id, await png(page));
+  }
+}
+
 async function stillsFor(rig: Rig, work: Work, theme: Theme): Promise<void> {
   const suffix = theme === 'dawn' ? '-light' : '';
   const page = await openConsole(rig, { theme, scale: 2, route: '/overview' });
-  if (wanted(work, `web-overview${suffix}`)) writeStill(work, `web-overview${suffix}`, await png(page));
+  await captureWebViews(page, work, suffix);
+  await go(page, '/overview');
   if (theme === 'midnight' && wanted(work, 'web-pulse')) writeStill(work, 'web-pulse', await page.screenshot({ clip: { x: 224, y: 0, width: 1056, height: 216 } }));
   if (theme === 'midnight') await darkOnlyStills(page, work);
   await go(page, '/session/s2');
@@ -76,12 +87,6 @@ async function stillsFor(rig: Rig, work: Work, theme: Theme): Promise<void> {
 }
 
 async function darkOnlyStills(page: Page, work: Work): Promise<void> {
-  const routes: [string, string][] = [['web-fleet', '/fleet'], ['web-graph', '/messages?view=graph'], ['web-timeline', '/timeline']];
-  for (const [id, route] of routes) {
-    if (!wanted(work, id)) continue;
-    await go(page, route);
-    writeStill(work, id, await png(page));
-  }
   if (!wanted(work, 'web-themes')) return;
   await go(page, '/settings');
   await page.locator('.theme-cards').evaluate(cards => { cards.style.gridTemplateColumns = 'repeat(3, 1fr)'; });

@@ -23,7 +23,7 @@ export const gifFps = 12;
 /** A fixed wall clock for every capture; the fixture itself is dated 2026-11-20. */
 export const fixedNow = '2026-11-20T12:00:00Z';
 
-export const budget = { totalKb: 3072, fileKb: 600, heroKb: 400 } as const;
+export const budget = { totalKb: 4096, fileKb: 600, heroKb: 400 } as const;
 
 const web = (id: string, what: string, theme: Shot['theme'] = 'dark', width: number = stillWidth): Shot =>
   ({ id: `web-${id}${theme === 'light' ? '-light' : ''}`, file: `web-${id}${theme === 'light' ? '-light' : ''}.webp`, kind: 'still', client: 'web', width, theme, what });
@@ -31,17 +31,27 @@ const tui = (id: string, what: string): Shot => ({ id: `tui-${id}`, file: `tui-$
 const gif = (id: string, client: 'web' | 'tui', what: string): Shot =>
   ({ id, file: `${id}.gif`, kind: 'gif', client, width: client === 'web' ? gifWebWidth : gifTuiWidth, theme: 'dark', what });
 
+// The seven sidebar sections, Messages' graph mode, Session detail and Settings.
+export const webViews = [
+  { id: 'overview', route: '/overview', what: 'Overview: Needs you inbox and fleet pulse' },
+  { id: 'fleet', route: '/fleet', what: 'Fleet: sessions grouped by repository' },
+  { id: 'requests', route: '/requests', what: 'Requests and answers' },
+  { id: 'questions', route: '/questions', what: 'Questions and decisions' },
+  { id: 'messages', route: '/messages', what: 'Messages list' },
+  { id: 'graph', route: '/messages?view=graph', what: 'Messages graph' },
+  { id: 'timeline', route: '/timeline', what: 'Timeline of sessions, jobs and resets' },
+  { id: 'work', route: '/work', what: 'Work: jobs, phases and CI' },
+  { id: 'session', route: '/session/s2', what: 'Session detail with requests and transcript' },
+  { id: 'settings', route: '/settings', what: 'Settings: connection, data and appearance' },
+] as const;
+
 export const shots: readonly Shot[] = [
+  ...webViews.flatMap(view => [web(view.id, `${view.what} (midnight)`), web(view.id, `${view.what} (dawn)`, 'light')]),
   { id: 'hero-dark', file: 'hero-dark.webp', kind: 'hero', client: 'both', width: 1280, theme: 'dark', what: 'Web Overview with the TUI laid over it (midnight)' },
   { id: 'hero-light', file: 'hero-light.webp', kind: 'hero', client: 'both', width: 1280, theme: 'light', what: 'The same composition on the dawn theme' },
-  web('overview', 'Overview: the Needs you inbox, the fleet pulse strip and the context-pressure histogram'),
-  web('overview', 'Overview on the dawn (light) theme', 'light'),
   web('pulse', 'Close-up of the fleet pulse, status strip and pressure histogram', 'dark', 1100),
-  web('fleet', 'Fleet table with fixed status semantics'),
   web('session-resets', 'Session transcript scrolled to a ⟲ reset divider with what was carried over and interrupted'),
   web('session-resets', 'Reset divider on the dawn theme', 'light'),
-  web('graph', 'Messages graph: who talked to whom, nodes coloured by status'),
-  web('timeline', 'Zoomed timeline of sessions, jobs and resets'),
   web('themes', 'Theme preview cards in Settings: midnight, dawn, high contrast', 'dark', 1100),
   tui('overview', 'TUI Overview (midnight)'),
   tui('session-resets', 'TUI transcript at a reset divider'),
@@ -50,6 +60,7 @@ export const shots: readonly Shot[] = [
   gif('web-palette', 'web', 'Ctrl+P, type "aur", the palette ranks matches by group, Enter opens the session'),
   gif('web-tour', 'web', 'Keyboard tour: Overview, Fleet, a session at its reset divider, Timeline'),
   gif('tui-tour', 'tui', 'TUI tour: Overview, Fleet, a session, the command palette, Timeline'),
+  gif('tui-vhs', 'tui', 'VHS recording of the real TUI against the isolated demo daemon: Overview, Fleet, Requests, Settings'),
 ];
 
 export const byId = (id: string): Shot => {

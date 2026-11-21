@@ -23,6 +23,12 @@ export function encodeStill(png, out, width, quality = 84) {
   } finally { rmSync(scaled, { force: true }); }
 }
 
+/** A genuine VHS recording -> the gallery's bounded-size terminal GIF. */
+export function encodeRecording(input, out) {
+  const filter = 'fps=8,scale=880:-2:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff:max_colors=96[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle';
+  run('ffmpeg', ['-y', '-loglevel', 'error', '-i', input, '-filter_complex', filter, ...bitexact, '-loop', '0', out]);
+}
+
 /** A frames.txt concat list -> a GIF with one shared 96-colour palette, bayer dithering and rectangle diffs. */
 export function encodeGif(frameDir, out, width, fps, colors = 96) {
   const filter = `fps=${String(fps)},scale=${String(width)}:-2:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff:max_colors=${String(colors)}[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle`;

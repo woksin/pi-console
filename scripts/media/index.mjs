@@ -1,4 +1,4 @@
-// `npm run media`: regenerates every picture in docs/media from the mock daemon's synthetic data, then enforces the budget.
+// `npm run media`: regenerates the synthetic gallery, including a VHS tour against the real demo daemon.
 //   node scripts/media/index.mjs [--only <shot id prefix>] [--check]
 // Never part of `npm run gate`: it needs Chromium, ffmpeg and cwebp, and pixels depend on the machine's fonts (regenerate on macOS).
 // Reads no personal data: the daemon runs the checked-in fixture with a throwaway data directory.
@@ -14,11 +14,16 @@ const mediaDir = join(root, 'docs/media');
 const args = process.argv.slice(2);
 const onlyIndex = args.indexOf('--only');
 const only = onlyIndex >= 0 ? args[onlyIndex + 1] : undefined;
+const onlyVhs = only !== undefined && 'tui-vhs'.startsWith(only) && !'tui-tour'.startsWith(only);
 const fail = message => { console.error(`media: ${message}`); process.exit(1); };
+const hasVhs = spawnSync('vhs', ['--version'], { stdio: 'ignore' }).status === 0 && spawnSync('ttyd', ['--version'], { stdio: 'ignore' }).status === 0;
 
 function preflight() {
   if (!have('ffmpeg')) fail('ffmpeg is required (macOS: brew install ffmpeg; Debian/Ubuntu: apt install ffmpeg)');
   if (!have('cwebp')) fail('cwebp is required (macOS: brew install webp; Debian/Ubuntu: apt install webp)');
+  if (only === undefined || 'tui-vhs'.startsWith(only)) {
+    console.log(hasVhs ? 'tui-vhs: recording with VHS against the real demo daemon' : 'tui-vhs: VHS/ttyd unavailable; falling back to the existing PTY frame capture (mock daemon)');
+  }
   if (!existsSync(join(root, 'packages/web/dist/index.html'))) {
     console.log('building the web bundle first');
     if (spawnSync('npm', ['run', 'build', '-w', '@pi-console/web'], { cwd: root, stdio: 'inherit' }).status !== 0) fail('web build failed');
@@ -26,13 +31,14 @@ function preflight() {
 }
 
 async function capture(work) {
+  if (onlyVhs && hasVhs) return;
   const { startFrozenRig, captureWeb } = await import('./web.ts');
   const { captureTui } = await import('./tui.ts');
   const { captureHero } = await import('./hero.ts');
   const rig = await startFrozenRig();
   try {
     await captureWeb(rig, work);
-    await captureTui(rig, work);
+    await captureTui(rig, onlyVhs ? { ...work, only: 'tui-tour' } : work);
     await captureHero(rig, work);
   } finally { await rig.close(); }
 }
@@ -41,7 +47,10 @@ function encode(work) {
   mkdirSync(mediaDir, { recursive: true });
   for (const shot of shots.filter(candidate => only === undefined || candidate.id.startsWith(only))) {
     const out = join(mediaDir, shot.file);
-    if (shot.kind === 'gif') encodeGif(join(work.dir, shot.id), out, shot.width, gifFps);
+    if (shot.id === 'tui-vhs' && hasVhs) {
+      const recorded = spawnSync(process.execPath, ['scripts/media/vhs.mjs'], { cwd: root, stdio: 'inherit', env: { ...process.env, MEDIA_OUT: mediaDir } });
+      if (recorded.status !== 0) fail('VHS capture failed');
+    } else if (shot.kind === 'gif') encodeGif(join(work.dir, shot.id === 'tui-vhs' ? 'tui-tour' : shot.id), out, shot.width, gifFps);
     else encodeStill(join(work.dir, `${shot.id}.png`), out, shot.width, shot.kind === 'hero' ? 80 : 84);
     console.log(`  encoded ${shot.file}`);
   }
