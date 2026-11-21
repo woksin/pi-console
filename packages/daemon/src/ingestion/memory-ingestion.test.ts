@@ -82,8 +82,10 @@ test('a symlinked store root is skipped and a store that appears later is picked
   const elsewhere = mkdtempSync(join(tmpdir(), 'pi-console-memory-elsewhere-'));
   t.after(() => { rmSync(elsewhere, { recursive: true, force: true }); });
   put(join(elsewhere, 'events.jsonl'), add('item-1', 'synthetic order A'));
+  put(join(elsewhere, 'journal/sess-1.jsonl'), message('msg-1'));
   symlinkSync(elsewhere, memory);
-  assert.equal((await poll(root)).log.events.length, 0);
+  const { log, status } = await poll(root);
+  assert.deepEqual([log.events.length, log.saved.size, status.files], [0, 0, 0]);
   rmSync(memory);
   assert.equal((await poll(root)).log.events.length, 0, 'a missing store is empty');
   put(join(memory, 'events.jsonl'), add('item-1', 'synthetic order A'));

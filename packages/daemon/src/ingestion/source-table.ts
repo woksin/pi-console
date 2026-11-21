@@ -13,6 +13,8 @@ export interface Feed {
   kind: 'tail' | 'snapshot';
   /** Allow-listed directories. Every file read is scoped to them; nothing else is ever opened. */
   directories: readonly string[];
+  /** Configured root and intermediate directories, validated before following any feed. */
+  ancestors?: readonly string[];
   /** File name suffix, for example `.json`. */
   extension: string;
   /** Descend into subdirectories (default true); `false` reads only the files directly inside `directories`. */
@@ -55,8 +57,9 @@ export interface SourceRoots {
  * `answers/`, `blobs/` and the prune cursor are never opened.
  */
 export function sourceTable({ agentRoot, orchRoot, lanesRoot, laneStatusDir }: SourceRoots): SourceSpec[] {
-  const snapshot = (mapper: Mapper, recursive: boolean, ...directory: string[]): Feed => ({ mapper, kind: 'snapshot', extension: '.json', directories: [join(...directory)], recursive, window: 'none' });
-  const tail = (mapper: Mapper, name: RegExp, extra: Partial<Feed>, ...directory: string[]): Feed => ({ mapper, kind: 'tail', extension: '.jsonl', directories: [join(...directory)], recursive: false, name, ...extra });
+  const scope = (directory: string[]) => ({ directories: [join(...directory)], ancestors: directory.map((_, index) => join(...directory.slice(0, index + 1))) });
+  const snapshot = (mapper: Mapper, recursive: boolean, ...directory: string[]): Feed => ({ mapper, kind: 'snapshot', extension: '.json', ...scope(directory), recursive, window: 'none' });
+  const tail = (mapper: Mapper, name: RegExp, extra: Partial<Feed>, ...directory: string[]): Feed => ({ mapper, kind: 'tail', extension: '.jsonl', ...scope(directory), recursive: false, name, ...extra });
   const lanes = lanesRoot === undefined ? [] : [snapshot(rosterMapper, false, lanesRoot, '.state', 'roster'), { ...snapshot(laneMapper, false, lanesRoot), name: /^lanes\.json$/ }];
   const status: Feed = { mapper: laneStatusMapper, kind: 'snapshot', extension: '.status', directories: [laneStatusDir], recursive: false, window: 'none', decode: laneStatusJson };
   return [
@@ -73,7 +76,7 @@ export function sourceTable({ agentRoot, orchRoot, lanesRoot, laneStatusDir }: S
   ];
 }
 
-type Scope = Pick<Feed, 'extension' | 'recursive' | 'name' | 'window'>;
+type Scope = Pick<Feed, 'extension' | 'recursive' | 'name' | 'window' | 'ancestors'>;
 
 /**
  * Files of the feed under `directory` that are inside the window `since`. Same boundary as the adapters' `discover`:
@@ -81,7 +84,7 @@ type Scope = Pick<Feed, 'extension' | 'recursive' | 'name' | 'window'>;
  * throws. Only `mtime` windows stat a file.
  */
 export function discoverFiles(directory: string, feed: Scope, since: number): string[] {
-  if (!isReadableDirectory(directory)) return [];
+  if (!isReadableDirectory(directory) || feed.ancestors?.some(path => !isReadableDirectory(path))) return [];
   return readdirSync(directory, { withFileTypes: true }).flatMap(entry => filesOf(join(directory, entry.name), entry, feed, since)).sort();
 }
 
