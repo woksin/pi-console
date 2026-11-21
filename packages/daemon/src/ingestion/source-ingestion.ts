@@ -2,9 +2,11 @@ import { statSync } from 'node:fs';
 import type { EventLog } from '@pi-console/contract';
 import { FileTailer, pollSnapshot, type AdapterWorker, type TailerOptions } from '@pi-console/adapters';
 import { CheckpointCache } from './checkpoint-cache.ts';
-import { discoverFiles, type Feed } from './source-table.ts';
+import { discoverFilesSliced } from './discover-files.ts';
+import type { Feed } from './source-table.ts';
 import type { SourceId } from './source-ids.ts';
 import { seekStart, windowed } from './window.ts';
+import { yieldToLoop } from './yield-to-loop.ts';
 
 export interface SourceStatus {
   source: string;
@@ -27,7 +29,12 @@ const batchBytes = 64 * 1024;
 /** A record longer than the batch grows it, doubling up to the tailer default; a larger record is counted as a file error. */
 const maxBatchBytes = 1024 * 1024;
 const oversizeRecord = (error: unknown): boolean => error instanceof Error && error.message.startsWith('Source record exceeds batch limit');
-const yieldToLoop = (): Promise<void> => new Promise(resolve => { setImmediate(resolve); });
+
+async function filesFor(feed: Feed, since: number): Promise<string[]> {
+  const files: string[] = [];
+  for (const directory of feed.directories) files.push(...await discoverFilesSliced(directory, feed, since));
+  return files;
+}
 
 interface Seen { mtimeMs: number; size: number }
 
@@ -65,7 +72,7 @@ export class SourceIngestion implements AdapterWorker {
     const since = now.getTime() - this.#options.backfillWindowDays * 86_400_000;
     const totals = { files: 0, lagBytes: 0, errors: 0 };
     for (const feed of this.#options.feeds) {
-      const files = feed.directories.flatMap(directory => discoverFiles(directory, feed, since));
+      const files = await filesFor(feed, since);
       totals.files += files.length;
       for (const file of files) {
         if (this.#aborted) return;

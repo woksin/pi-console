@@ -1,6 +1,7 @@
 import { existsSync, statSync } from 'node:fs';
 import type { EventLog, SourceCheckpoint } from '@pi-console/contract';
 import { discover, sessionTailer } from '@pi-console/adapters';
+import { yieldToLoop } from './yield-to-loop.ts';
 
 export interface SourceStatus { source: string; files: number; lagBytes: number; lastPollAt: string | null }
 
@@ -23,7 +24,6 @@ const pollBudgetBytes = 1024 * 1024;
 /** Unchanged files cost a stat each; the loop is yielded to after this many of them in a row. */
 const skippedPerYield = 64;
 const oversizeRecord = (error: unknown): boolean => error instanceof Error && error.message.startsWith('Source record exceeds batch limit');
-const yieldToLoop = (): Promise<void> => new Promise(resolve => { setImmediate(resolve); });
 
 /**
  * True when the checkpoint already covers every byte of this exact file (same identity, size and mtime). Only metadata

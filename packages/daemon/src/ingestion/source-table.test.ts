@@ -3,7 +3,8 @@ import { test } from 'node:test';
 import { mkdirSync, mkdtempSync, realpathSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, sep } from 'node:path';
-import { discoverFiles, sourceTable } from './source-table.ts';
+import { discoverFiles } from './discover-files.ts';
+import { sourceTable } from './source-table.ts';
 
 const sources = sourceTable({ agentRoot: 'agent', orchRoot: 'orch', lanesRoot: 'lanes', laneStatusDir: 'status' });
 const names = ['item.json', 'lanes.json', 'L192.status', 'events.jsonl', 'registry.jsonl', 's1.jsonl', '2026-11-20.jsonl'];

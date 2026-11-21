@@ -1,10 +1,8 @@
-import { existsSync, lstatSync, readdirSync, realpathSync, statSync, type Dirent } from 'node:fs';
-import { basename, join } from 'node:path';
-import { contextMapper, issueMapper, laneMapper, laneStatusMapper, memoryEventMapper, memoryJournalMapper, orchMapper, pathDenied, phaseMapper, questionMapper, rosterMapper, type Mapper } from '@pi-console/adapters';
+import { realpathSync } from 'node:fs';
+import { join } from 'node:path';
+import { contextMapper, issueMapper, laneMapper, laneStatusMapper, memoryEventMapper, memoryJournalMapper, orchMapper, phaseMapper, questionMapper, rosterMapper, type Mapper } from '@pi-console/adapters';
 import { laneStatusJson } from './lane-status.ts';
 import type { SourceId } from './source-ids.ts';
-
-const day = 86_400_000;
 
 /** One directory family of a source: how its files are read and which mapper understands them. */
 export interface Feed {
@@ -83,39 +81,4 @@ export function sourceTable({ agentRoot, orchRoot, lanesRoot, laneStatusDir }: S
 /** Configured roots may be symlinks; pin their targets without preventing a missing store from appearing later. */
 function resolveRoot(root: string): string {
   try { return realpathSync(root); } catch { return root; }
-}
-
-type Scope = Pick<Feed, 'extension' | 'recursive' | 'name' | 'window' | 'ancestors'>;
-
-/**
- * Files of the feed under `directory` that are inside the window `since`. Same boundary as the adapters' `discover`:
- * deny-listed names and symlinks below the resolved configured root are skipped. A missing directory is empty; an unreadable one
- * throws. Only `mtime` windows stat a file.
- */
-export function discoverFiles(directory: string, feed: Scope, since: number): string[] {
-  if (!isReadableDirectory(directory) || feed.ancestors?.some(path => !isReadableDirectory(path))) return [];
-  return readdirSync(directory, { withFileTypes: true }).flatMap(entry => filesOf(join(directory, entry.name), entry, feed, since)).sort();
-}
-
-/** A real, existing, non-denied feed directory: a missing directory is empty and a symlink is never followed. */
-function isReadableDirectory(directory: string): boolean {
-  return !pathDenied(directory) && existsSync(directory) && !lstatSync(directory).isSymbolicLink();
-}
-
-function filesOf(path: string, entry: Dirent, feed: Scope, since: number): string[] {
-  if (pathDenied(path) || entry.isSymbolicLink()) return [];
-  if (entry.isDirectory()) return feed.recursive === false ? [] : discoverFiles(path, feed, since);
-  return entry.isFile() && wanted(path, feed, since) ? [path] : [];
-}
-
-function wanted(path: string, feed: Scope, since: number): boolean {
-  if (!path.endsWith(feed.extension) || feed.name?.test(basename(path)) === false) return false;
-  return inWindow(path, feed.window ?? 'mtime', since);
-}
-
-function inWindow(path: string, window: NonNullable<Feed['window']>, since: number): boolean {
-  if (window === 'none') return true;
-  if (window === 'mtime') return statSync(path).mtimeMs >= since;
-  const named = Date.parse(basename(path).slice(0, 10));
-  return Number.isNaN(named) || named >= Math.floor(since / day) * day - day;
 }

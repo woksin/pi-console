@@ -1,6 +1,7 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
+import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { authenticate, HttpError, loadToken } from './security.ts';
 import { createStore, type Store } from './store.ts';
 import { intervene, query, type MockInfo } from './routes.ts';
@@ -41,18 +42,20 @@ function handler(store: Store, token: string, info: MockInfo) {
 }
 export async function startDaemon(options: { port?: number; speed?: number; rate?: number; dataDirectory?: string; replayWindow?: number } = {}) {
   const token = loadToken(options.dataDirectory ?? resolve('.pi-console-dev'));
-  const info: MockInfo = { port: 0, startedAt: new Date().toISOString(), replayWindow: options.replayWindow ?? 10000 };
+  const eventLoop = monitorEventLoopDelay({ resolution: 5 });
+  const info: MockInfo = { port: 0, startedAt: new Date().toISOString(), replayWindow: options.replayWindow ?? 10000, eventLoop };
   const store = createStore(options.speed ?? 1, options.rate, info.replayWindow);
   const server = createServer(handler(store, token, info));
   server.requestTimeout = 10000;
   server.headersTimeout = 10000;
-  server.on('close', () => store.close());
+  server.on('close', () => { store.close(); eventLoop.disable(); });
   try {
     await new Promise<void>((resolveListen, reject) => {
       server.once('error', reject);
       server.listen(options.port ?? 4777, '127.0.0.1', () => { server.removeListener('error', reject); resolveListen(); });
     });
-  } catch (error) { store.close(); throw error; }
+  } catch (error) { store.close(); eventLoop.disable(); throw error; }
+  eventLoop.enable();
   const address = server.address() as { port: number; address: string };
   info.port = address.port;
   return {
