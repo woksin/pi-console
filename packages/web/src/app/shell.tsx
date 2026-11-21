@@ -31,14 +31,18 @@ export function Sidebar({ active, settings, attention, questions, collapsed, onC
 
 const connectionTone: Record<ConsoleState['connection'], string> = { live: 'green', connecting: 'amber', reconnecting: 'amber', offline: 'red', unauthorized: 'red' };
 
-interface TopBarProps { title: string; hint: string; state: ConsoleState; onPalette: () => void; onHelp: () => void }
+export const staleData = (state: ConsoleState, wall: number): boolean =>
+  state.snapshotLoaded && (state.connection !== 'live' || (state.lastFrameAt > 0 && wall - state.lastFrameAt > 20_000));
 
-export function TopBar({ title, hint, state, onPalette, onHelp }: TopBarProps) {
+interface TopBarProps { title: string; hint: string; state: ConsoleState; wall: number; onPalette: () => void; onHelp: () => void }
+
+export function TopBar({ title, hint, state, wall, onPalette, onHelp }: TopBarProps) {
   return (
     <header className="topbar">
       <h1 className="crumb">{title}</h1>
       {hint && <span className="muted">{hint}</span>}
       <span className="grow" />
+      {staleData(state, wall) && <time className="stale-asof muted" dateTime={new Date(state.lastFrameAt).toISOString()}>As of {new Date(state.lastFrameAt).toLocaleTimeString()}</time>}
       <span className={`conn tone-${connectionTone[state.connection]}`} role="status" data-connection={state.connection}><span className="dot" />{state.connection}</span>
       <button type="button" className="btn ghost" onClick={onPalette}>Palette <Kbd>:</Kbd></button>
       <button type="button" className="btn ghost" onClick={onHelp}>Help <Kbd>?</Kbd></button>

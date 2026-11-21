@@ -124,13 +124,19 @@ describe('web console e2e', () => {
       await page.waitForFunction(() => document.querySelector('.conn')?.getAttribute('data-connection') !== 'live', undefined, { timeout: 15_000 });
       assert.ok(await page.locator('tr[data-session]').count() > 0, 'stale data stays on screen instead of blanking');
       await page.getByTestId('banner').waitFor();
-        await rig.startDaemon();
+      await page.locator('#content[data-stale="true"]').waitFor();
+      assert.equal(await page.locator('#content').evaluate(el => getComputedStyle(el).opacity), '0.75');
+      await page.locator('.stale-asof').waitFor();
+      assert.equal(await page.locator('.sidebar').evaluate(el => getComputedStyle(el).opacity), '1');
+      await rig.startDaemon();
       down = false;
     } finally {
       if (down) await rig.startDaemon();
     }
     await page.locator('.conn[data-connection="live"]').waitFor({ timeout: 30_000 });
     assert.equal(await connection(page), 'live');
+    await page.locator('#content[data-stale="false"]').waitFor();
+    assert.equal(await page.locator('.stale-asof').count(), 0);
     await page.context().close();
   });
 
