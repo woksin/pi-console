@@ -61,9 +61,12 @@ dropped at the mapper, so only origin, size and a withheld flag are kept. The ha
 an absolute `.ai-work/handoffs/<name>.md` path that passes the denylist, is a regular non-symlink file of at most 256 KiB, and returns
 integers only; it logs nothing and returns no path.
 
-Configured source-root aliases are trusted as captured at configuration time, including dangling aliases. Their
-pre-existing link targets and existing canonical prefix are pinned; missing target components must later appear as
-real directories, not new symlinks. Retargeting the configured alias does not grant access to a new target.
+Configured source-root paths are trusted configuration, including every symlink in those paths. A root stays
+pending until `realpath` succeeds; lookup errors fail closed and are retried on every poll. Missing roots and dangling
+aliases that later resolve are treated like a fresh daemon start, even if their components appear as symlinks.
+Containment starts at the resolved canonical target, pinned for discovery and file reads in that poll. Configured
+paths are re-resolved on the next poll: a changed alias is re-pinned, while a failed lookup skips the root rather than
+using a stale pin. Symlinked files and directories beneath that canonical trust root remain rejected.
 
 Ingestion and handoff figures open the candidate with nonblocking, no-follow descriptor flags where available,
 validate the descriptor as a regular file, check the canonical parent against the pinned trust root, and recheck

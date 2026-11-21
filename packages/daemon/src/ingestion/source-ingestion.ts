@@ -36,6 +36,12 @@ async function filesFor(feed: Feed, since: number): Promise<string[]> {
   return files;
 }
 
+function availableFeed(feed: Feed): Feed | undefined {
+  if (!feed.resolveScope) return feed;
+  const scope = feed.resolveScope();
+  return scope === undefined ? undefined : { ...feed, ...scope };
+}
+
 interface Seen { mtimeMs: number; size: number }
 
 const timeOfRow = (key: string) => (line: string): number => Date.parse(String((JSON.parse(line) as Record<string, unknown>)[key]));
@@ -71,7 +77,7 @@ export class SourceIngestion implements AdapterWorker {
     const now = (this.#options.now ?? (() => new Date()))();
     const since = now.getTime() - this.#options.backfillWindowDays * 86_400_000;
     const totals = { files: 0, lagBytes: 0, errors: 0 };
-    for (const feed of this.#options.feeds) {
+    for (const feed of this.#options.feeds.map(availableFeed).filter((feed): feed is Feed => feed !== undefined)) {
       const files = await filesFor(feed, since);
       totals.files += files.length;
       for (const file of files) {

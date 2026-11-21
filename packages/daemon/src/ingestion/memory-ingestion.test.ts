@@ -58,7 +58,7 @@ const poll = async (root: string, log = new Log()) => {
 const types = (log: Log) => log.events.map(event => event.type);
 
 for (const id of ['intent-memory', 'lane-messages']) for (const created of ['directory', 'symlink']) {
-  test(`${id} picks up a missing configured root beneath an alias only when created as a ${created}`, async t => {
+  test(`${id} resolves a missing configured root beneath an alias created as a ${created} like a fresh start`, async t => {
     const { root } = store(t);
     const alias = join(root, 'configured');
     symlinkSync(root, alias);
@@ -77,12 +77,12 @@ for (const id of ['intent-memory', 'lane-messages']) for (const created of ['dir
     if (id === 'intent-memory') put(join(missing, 'memory/events.jsonl'), add('late', 'synthetic order'));
     else put(join(missing, 'L192.status'), 'working since 2026-11-20T09:00:00Z\n');
     await worker.poll();
-    assert.deepEqual(types(log), created === 'symlink' ? [] : [id === 'intent-memory' ? 'MemoryItemRecorded' : 'LaneStatusChanged']);
+    assert.deepEqual(types(log), [id === 'intent-memory' ? 'MemoryItemRecorded' : 'LaneStatusChanged']);
   });
 }
 
 for (const id of ['intent-memory', 'lane-messages']) for (const created of ['directory', 'symlink']) {
-  test(`${id} resumes a configured dangling root alias only when its target appears as a ${created}`, async t => {
+  test(`${id} resolves a configured dangling root alias whose target appears as a ${created} like a fresh start`, async t => {
     const { root } = store(t);
     const alias = join(root, 'configured');
     const target = join(root, 'late');
@@ -100,8 +100,34 @@ for (const id of ['intent-memory', 'lane-messages']) for (const created of ['dir
     if (id === 'intent-memory') put(join(alias, 'memory/events.jsonl'), add('late-alias', 'synthetic order'));
     else put(join(alias, 'L192.status'), 'working since 2026-11-20T09:00:00Z\n');
     await worker.poll();
-    assert.deepEqual(types(log), created === 'symlink' ? [] : [id === 'intent-memory' ? 'MemoryItemRecorded' : 'LaneStatusChanged']);
-    if (created === 'symlink') assert.equal(log.saved.size, 0);
+    assert.deepEqual(types(log), [id === 'intent-memory' ? 'MemoryItemRecorded' : 'LaneStatusChanged']);
+  });
+}
+
+for (const id of ['intent-memory', 'lane-messages']) for (const late of [false, true]) {
+  test(`${id} resolves nested relative configured links against canonical parents (${late ? 'pending' : 'startup'})`, async t => {
+    const { root } = store(t);
+    mkdirSync(join(root, 'store/config'), { recursive: true });
+    symlinkSync('store/config', join(root, 'parent'));
+    symlinkSync('../latest', join(root, 'store/config/root'));
+    const configured = join(root, 'parent/root');
+    const create = () => {
+      mkdirSync(join(root, 'store/latest'));
+      if (id === 'intent-memory') put(join(configured, 'memory/events.jsonl'), add('nested', 'synthetic order'));
+      else put(join(configured, 'L192.status'), 'working since 2026-11-20T09:00:00Z\n');
+    };
+    if (!late) create();
+    const spec = sourceTable({ agentRoot: configured, orchRoot: join(root, 'orch'), laneStatusDir: configured }).find(item => item.id === id)!;
+    const log = new Log();
+    const worker = new SourceIngestion(log, { id: spec.id, feeds: spec.feeds, backfillWindowDays: 14, now: () => now });
+    t.after(() => worker.close());
+    if (late) {
+      await worker.poll();
+      assert.equal(log.events.length, 0);
+      create();
+    }
+    await worker.poll();
+    assert.deepEqual(types(log), [id === 'intent-memory' ? 'MemoryItemRecorded' : 'LaneStatusChanged']);
   });
 }
 

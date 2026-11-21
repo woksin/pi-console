@@ -62,14 +62,13 @@ for (const created of ['directory', 'root-symlink', 'ancestor-symlink']) {
     writeFileSync(join(sessions, 's.jsonl'), header('late') + message('late', 1, 'hello'));
     await worker.poll();
     const found = await events(log);
-    assert.equal(found.some(event => event.type === 'SessionStarted'), created === 'directory');
-    if (created !== 'directory') assert.equal(found.length, 0);
+    assert.equal(found.some(event => event.type === 'SessionStarted'), true);
   });
 }
 
 for (const layout of ['leaf', 'ancestor', 'relative-chain']) for (const created of ['directory', 'target-symlink', 'suffix-symlink']) {
   if (layout === 'leaf' && created === 'suffix-symlink') continue;
-  test(`a configured dangling session ${layout} alias accepts a late ${created} only without new symlinks`, async t => {
+  test(`a configured dangling session ${layout} alias resolves a late ${created} like a fresh start`, async t => {
     const { root, log } = fixture(t);
     const alias = join(root, 'configured');
     const target = join(root, 'late');
@@ -89,21 +88,16 @@ for (const layout of ['leaf', 'ancestor', 'relative-chain']) for (const created 
     writeFileSync(join(sessions, 's.jsonl'), header('late-alias') + message('late-alias', 1, 'hello'));
     await worker.poll();
     const found = await events(log);
-    assert.equal(found.some(event => event.type === 'SessionStarted'), created === 'directory');
-    if (created !== 'directory') assert.equal(found.length, 0);
+    assert.equal(found.some(event => event.type === 'SessionStarted'), true);
   });
 }
 
-for (const layout of ['cycle', 'expanding', 'over-limit']) {
+for (const layout of ['cycle', 'expanding']) {
   test(`a configured ${layout} session alias fails closed`, async t => {
     const { root, log } = fixture(t);
     const alias = join(root, 'configured');
     const target = layout === 'cycle' ? 'configured' : 'configured/child';
-    if (layout !== 'over-limit') symlinkSync(target, alias);
-    else {
-      symlinkSync('alias-0', alias);
-      for (let index = 0; index < 64; index++) symlinkSync(index === 63 ? 'late' : `alias-${index + 1}`, join(root, `alias-${index}`));
-    }
+    symlinkSync(target, alias);
     const worker = ingestion(log, alias);
     await worker.poll();
     mkdirSync(join(root, 'late'));
@@ -112,6 +106,43 @@ for (const layout of ['cycle', 'expanding', 'over-limit']) {
     assert.equal((await events(log)).length, 0);
   });
 }
+
+for (const late of [false, true]) {
+  test(`nested relative configured session links resolve against canonical parents (${late ? 'pending' : 'startup'})`, async t => {
+    const { root, log } = fixture(t);
+    mkdirSync(join(root, 'store/config'), { recursive: true });
+    symlinkSync('store/config', join(root, 'parent'));
+    symlinkSync('../latest', join(root, 'store/config/root'));
+    const sessions = join(root, 'store/latest');
+    const create = () => {
+      mkdirSync(sessions);
+      writeFileSync(join(sessions, 's.jsonl'), header('nested') + message('nested', 1, 'hello'));
+    };
+    if (!late) create();
+    const worker = ingestion(log, join(root, 'parent/root'));
+    if (late) {
+      await worker.poll();
+      assert.equal((await events(log)).length, 0);
+      create();
+    }
+    await worker.poll();
+    const started = (await events(log)).filter(event => event.type === 'SessionStarted');
+    assert.deepEqual(started.map(event => (event.payload as Record<string, unknown>).sessionId), ['nested']);
+  });
+}
+
+test('symlinked session directories and files beneath the pinned root are rejected', async t => {
+  const { root, log } = fixture(t);
+  const sessions = join(root, 'sessions');
+  const outside = join(root, 'outside');
+  mkdirSync(sessions);
+  mkdirSync(outside);
+  writeFileSync(join(outside, 's.jsonl'), header('outside') + message('outside', 1, 'hello'));
+  symlinkSync(outside, join(sessions, 'linked-directory'));
+  symlinkSync(join(outside, 's.jsonl'), join(sessions, 'linked-file.jsonl'));
+  await ingestion(log, sessions).poll();
+  assert.equal((await events(log)).length, 0);
+});
 
 test('a poll over many files yields to the event loop between files', async t => {
   const { root, log } = fixture(t);
