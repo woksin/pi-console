@@ -86,7 +86,7 @@ test('requests filter is live, counts matches and distinguishes no match', async
   await harness.ui.waitFor(frame => !frame.includes('No request matches'));
   await harness.ui.press('/');
   await harness.ui.type('Check');
-  await harness.ui.waitFor('text “Check”');
+  await harness.ui.waitFor('“Check”');
   await harness.ui.press('RETURN');
   await harness.ui.press('ESCAPE');
 });
