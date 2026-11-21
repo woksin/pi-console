@@ -1,29 +1,46 @@
-import { overviewViewModel, pressureHistogram, wrap, type AttentionCard, type OverviewViewModel, type PressureHistogram } from '@pi-console/viewmodels';
+import { newSince, overviewViewModel, pressureHistogram, wrap, type AttentionCard, type NewSince, type OverviewViewModel, type PressureHistogram } from '@pi-console/viewmodels';
 import { Lines, Panel, Row, h, type Line } from '../view/renderer.ts';
 import { bar, blank, fit, heading, selectable, split, statusParts, t, windowOf } from '../view/parts.ts';
 import type { Env, SectionView } from './common.ts';
 
 const CARD_HEIGHT = 3;
 
-function cardLines(card: AttentionCard, width: number, selected: boolean, env: Env): Line[] {
+interface CardMarks { selected: boolean; isNew: boolean; flash: boolean }
+
+function cardLines(card: AttentionCard, width: number, marks: CardMarks, env: Env): Line[] {
   const head: Line = split(
-    [...statusParts(card.status, env.phase, false), t(' '), t(card.reasonLabel, card.status.color, { bold: true }), t('  '), t(card.title, 'text')],
+    [...statusParts(card.status, env.phase, false), t(' '), t(card.reasonLabel, card.status.color, { bold: true }), t('  '), t(card.title, 'text'), ...(marks.isNew ? [t(' new', 'cyan', { bold: true })] : [])],
     [t(card.age, 'faint')], width - 1);
   const text = wrap(card.text, width - 3, 1)[0] ?? '';
-  return [selectable(head, width, selected), selectable([t('  '), t(text, 'muted')], width, selected), [t('')]];
+  return [selectable(head, width, marks.selected, marks.flash), selectable([t('  '), t(text, 'muted')], width, marks.selected, marks.flash), [t('')]];
 }
+
+/** What changed since the user last looked: new cards and status flashes (only with motion on). Nothing before the data loads. */
+function changesOf(model: OverviewViewModel, env: Env): { fresh: NewSince; flashing: (id: string) => boolean } {
+  const changes = env.changes;
+  if (!changes || !env.data.loaded) return { fresh: newSince(null, []), flashing: () => false };
+  const fresh = changes.look.look(model.cards.map(card => card.id));
+  changes.flash.observe(model.cards.map(card => ({ id: card.id, status: card.status.status })), env.now);
+  return { fresh, flashing: id => changes.motion && changes.flash.isFlashing(id, env.now) };
+}
+
+/** The "N new since you looked" divider, cyan like the web one. */
+const newSinceLine = (label: string, width: number): Line => [t('── ', 'cyan'), t(label, 'cyan', { bold: true }), t(` ${'─'.repeat(Math.max(0, width - label.length - 4))}`, 'cyan')];
 
 function attentionPanel(model: OverviewViewModel, env: Env, width: number, height: number): ReturnType<typeof h> {
   const inner = width - 4;
-  const visible = Math.max(1, Math.floor((height - 4) / CARD_HEIGHT));
+  const { fresh, flashing } = changesOf(model, env);
+  const divider: Line[] = fresh.label ? [newSinceLine(fresh.label, inner)] : [];
+  const visible = Math.max(1, Math.floor((height - 4 - divider.length) / CARD_HEIGHT));
   const cursor = env.ui.cursor.overview;
   const { start, end } = windowOf(model.cards.length, cursor, visible);
   const lines: Line[] = model.cards.length === 0
     ? [blank, [t('  ✓ ', 'green', { bold: true }), t('Nothing is waiting on you.', 'text')], [t('    Sessions are working, idle or done.', 'muted')]]
-    : model.cards.slice(start, end).flatMap((card, offset) => cardLines(card, inner, start + offset === cursor, env));
+    : [...divider, ...model.cards.slice(start, end).flatMap((card, offset) =>
+      cardLines(card, inner, { selected: start + offset === cursor, isNew: fresh.ids.has(card.id), flash: flashing(card.id) }, env))];
   const more = model.cards.length > end ? `↓ ${String(model.cards.length - end)} more` : model.cards.length > 0 ? `${String(cursor + 1)}/${String(model.cards.length)}` : '';
   return h(Panel, { title: model.headline, right: more, focused: true, accent: model.cards.length > 0 ? 'amber' : 'green', grow: 1 },
-    h(Lines, { lines, grow: 1, onLineClick: index => { env.click(start + Math.floor(index / CARD_HEIGHT)); } }));
+    h(Lines, { lines, grow: 1, onLineClick: index => { if (index >= divider.length) env.click(start + Math.floor((index - divider.length) / CARD_HEIGHT)); } }));
 }
 
 const eighths = ' ▁▂▃▄▅▆▇█';

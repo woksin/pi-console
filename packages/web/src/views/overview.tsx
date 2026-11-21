@@ -6,12 +6,14 @@ import { sessionHref } from '../app/routes.ts';
 import { EmptyState, SkeletonRows, Sparkline, StatusBadge } from '../ui/primitives.tsx';
 import { useScrollIntoView } from '../ui/hooks.ts';
 import { groupAttentionCards } from './overview-sections.ts';
+import { useNewSince, useStatusFlash } from './overview-changes.ts';
 
 export function OverviewView({ state, now }: ViewProps) {
   const view = useMemo(() => overviewViewModel({ needsYou: state.needsYou, sessions: state.sessions, repositories: state.repositories.length, now }), [state.needsYou, state.sessions, state.repositories.length, now]);
   const histogram = useMemo(() => pressureHistogram(state.sessions), [state.sessions]);
   const byId = new Map(view.cards.map(card => [card.id, card]));
   const sections = groupAttentionCards(view.cards);
+  const fresh = useNewSince(view.cards.map(card => card.id), state.snapshotLoaded);
   const nav = useListNav(sections.flatMap(section => section.cards.map(card => card.id)), { onOpen: id => { const card = byId.get(id); if (card?.sessionId) navigate(sessionHref(card.sessionId, card.pointer?.entryId)); } });
   if (!state.snapshotLoaded) return <div className="page"><SkeletonRows label="overview" /></div>;
   return (
@@ -26,9 +28,10 @@ export function OverviewView({ state, now }: ViewProps) {
         <PressureHistogramFigure histogram={histogram} />
       </div>
       <div className="attention-sections" aria-label="Needs you">
+        {fresh.label && <p className="new-since" role="status"><span>{fresh.label}</span></p>}
         {sections.map(section => <section key={section.reason} aria-label={section.label}>
           <h3 className="attention-heading">{section.label} <span className="faint">{section.cards.length}</span></h3>
-          <ol className="cards">{section.cards.map(card => <AttentionCard key={card.id} card={card} selected={nav.selected === card.id} onSelect={() => { nav.select(card.id); }} />)}</ol>
+          <ol className="cards">{section.cards.map(card => <AttentionCard key={card.id} card={card} isNew={fresh.ids.has(card.id)} selected={nav.selected === card.id} onSelect={() => { nav.select(card.id); }} />)}</ol>
         </section>)}
         {view.cards.length === 0 && <EmptyState title="Nothing needs you" mark="✓">Open requests, blocking questions and stale sessions appear here the moment they exist.</EmptyState>}
       </div>
@@ -51,11 +54,15 @@ function PressureHistogramFigure({ histogram }: { histogram: PressureHistogram }
   );
 }
 
-function AttentionCard({ card, selected, onSelect }: { card: ReturnType<typeof overviewViewModel>['cards'][number]; selected: boolean; onSelect: () => void }) {
+interface CardProps { card: ReturnType<typeof overviewViewModel>['cards'][number]; isNew: boolean; selected: boolean; onSelect: () => void }
+
+function AttentionCard({ card, isNew, selected, onSelect }: CardProps) {
   const ref = useScrollIntoView<HTMLLIElement>(selected);
+  const flash = useStatusFlash(card.id, card.status.status);
+  const classes = ['card', `tone-${card.status.color}`, selected && 'selected', isNew && 'is-new', flash && 'flash'].filter(Boolean).join(' ');
   return (
-    <li ref={ref} className={`card tone-${card.status.color}${selected ? ' selected' : ''}`} data-reason={card.reason} aria-current={selected || undefined} onClick={onSelect}>
-      <div className="card-head"><StatusBadge cell={card.status} /><strong className="truncate" title={card.title}>{card.title}</strong><span className="grow" /><span className="faint tnum">{card.age}</span></div>
+    <li ref={ref} className={classes} data-reason={card.reason} aria-current={selected || undefined} onClick={onSelect}>
+      <div className="card-head"><StatusBadge cell={card.status} /><strong className="truncate" title={card.title}>{card.title}</strong>{isNew && <span className="new-tag">new</span>}<span className="grow" /><span className="faint tnum">{card.age}</span></div>
       <div className="attention-body"><p className="card-text" title={card.text}>{card.text}</p>
         {card.sessionId && <a href={sessionHref(card.sessionId, card.pointer?.entryId)}>Open in session →</a>}
       </div>

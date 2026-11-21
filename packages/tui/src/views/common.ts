@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import type { TimeWindow, WindowedCollection } from '@pi-console/viewmodels';
+import type { FlashTracker, LookTracker, TimeWindow, WindowedCollection } from '@pi-console/viewmodels';
 import type { Data } from '../store/store.ts';
 import type { UiState } from '../state/ui.ts';
 import type { TranscriptAnchor, TranscriptLayout } from '../state/transcript-window.ts';
@@ -13,6 +13,8 @@ export interface Env {
   phase: number;
   /** Row activation by mouse: moves the cursor and opens. */
   click: (index: number) => void;
+  /** What changed on the Overview since the user last looked; flashes only when `motion` is on. Absent in isolated view specs. */
+  changes?: { look: LookTracker; flash: FlashTracker; motion: boolean };
 }
 
 export interface SectionView {

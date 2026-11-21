@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactElement } from 'react';
-import { paletteItems, pulseViewModel, rememberPick, type Action, type PaletteInput, type WindowedCollection } from '@pi-console/viewmodels';
+import { FlashTracker, LookTracker, paletteItems, pulseViewModel, rememberPick, type Action, type PaletteInput, type WindowedCollection } from '@pi-console/viewmodels';
 import { Column, Screen, Text, h, useClipboard, useKeys, useSize, useTerminalTitle, useTick } from './view/renderer.ts';
 import type { Store } from './store/store.ts';
 import { commit, handleKey, initial, reduce, typing, type Bounds, type Section, type UiState } from './state/ui.ts';
@@ -72,8 +72,11 @@ export function App(props: AppProps): ReactElement {
   const showPulse = size.height >= 24 && data.sessions.length > 0;
   const pulse = useMemo(() => pulseViewModel({ sessions: data.sessions, needsYou: data.needsYou.length }), [data.sessions, data.needsYou.length]);
   const bodyHeight = Math.max(4, size.height - 2 - (showBanner ? 1 : 0) - (showPulse ? 1 : 0));
+  const [trackers] = useState(() => ({ look: new LookTracker(), flash: new FlashTracker() }));
+  const onOverview = ui.section === 'overview' && !ui.sessionId;
+  useEffect(() => { if (!onOverview) trackers.look.leave(); }, [onOverview, trackers]);
   const env: Env = {
-    data, ui, now: clock.now, width: size.width - 2, height: bodyHeight, phase: clock.phase,
+    data, ui, now: clock.now, width: size.width - 2, height: bodyHeight, phase: clock.phase, changes: { ...trackers, motion: props.animate },
     click: index => { apply(openAt(uiRef.current, index, boundsOf(viewRef.current, bodyHeight))); },
   };
   const view = (ui.sessionId ? sessionView : sectionViews[ui.section])(env);

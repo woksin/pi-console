@@ -16,6 +16,12 @@
 .pressure-hist .hot { color: var(--red); font-weight: 650; }
 .pressure-hist .warm { color: var(--amber); font-weight: 650; }
 .attention-sections { display: grid; gap: 12px; }
+/* What changed (P4.6): a divider counting new arrivals, a tag on each, and a 600 ms flash on a status change (none under reduced motion). */
+.new-since { display: flex; align-items: center; gap: var(--space-3); margin: 0; color: var(--cyan); font-size: var(--type-caption); font-weight: 600; }
+.new-since::before, .new-since::after { content: ''; flex: 1; height: 1px; background: color-mix(in oklab, var(--cyan) 45%, transparent); }
+.new-since::before { flex: 0 0 24px; }
+.new-tag { padding: 0 6px; border-radius: 999px; border: 1px solid color-mix(in oklab, var(--cyan) 55%, transparent); color: var(--cyan); font-size: 11px; font-weight: 600; line-height: 16px; }
+.attention-sections .card.flash { animation: flash 0.6s ease-out; }
 .attention-heading { margin: 0 0 6px; color: var(--muted); font-size: var(--type-caption); font-weight: 500; white-space: nowrap; }
 @media (min-width: 1180px) {
   .attention-sections { gap: 4px; }
