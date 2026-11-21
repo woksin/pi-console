@@ -7,7 +7,7 @@ import { Screen, h, mountHeadless } from '../view/renderer.ts';
 test('two-column help at 120×40 displays every binding, group and the read-only footer', async () => {
   const ui = await mountHeadless(h(Screen, {}, h(Help, { width: 120, height: 40 })), { width: 120, height: 40 });
   try {
-    const frame = await ui.waitFor('Keyboard map');
+    const frame = await ui.waitFor('KEYBOARD MAP (SHARED WITH THE WEB CONSOLE)');
     for (const group of keymapGroups('tui')) {
       assert.match(frame, new RegExp(group.title.toUpperCase()));
       for (const binding of group.bindings) {
