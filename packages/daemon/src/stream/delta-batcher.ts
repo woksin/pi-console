@@ -60,7 +60,8 @@ export class DeltaBatcher {
   readonly #clock: () => number;
   readonly #discard: (() => boolean) | undefined;
   #pending: EventEnvelope[] = [];
-  #derived: Map<string, string>;
+  /** Derived session state as the observing clients last saw it; `undefined` after unobserved batches until `rebase`. */
+  #derived: Map<string, string> | undefined;
   #nextFlushAt = 0;
   #timer: NodeJS.Timeout | undefined;
 
@@ -77,6 +78,14 @@ export class DeltaBatcher {
     return this.#pending.length;
   }
 
+  /**
+   * Call when a client takes a snapshot: after unobserved batches the snapshot, not the last published delta, is what
+   * clients have seen, so later batches compare derived state against it.
+   */
+  rebase(): void {
+    this.#derived ??= derivedSessions(new BatchQueries(this.#models, this.#now));
+  }
+
   add(event: EventEnvelope): void {
     if (this.#pending.length === 0) this.#schedule();
     this.#pending.push(event);
@@ -89,7 +98,7 @@ export class DeltaBatcher {
     if (events.length === 0) return;
     this.#pending = [];
     const started = this.#clock();
-    if (this.#discard?.()) this.#derived.clear();
+    if (this.#discard?.()) this.#derived = undefined;
     else this.#flushEvents(events);
     const ended = this.#clock();
     this.#nextFlushAt = ended + Math.min(maxFlushDelayMs, (ended - started) * (1 / maxDutyShare - 1));
@@ -115,8 +124,9 @@ export class DeltaBatcher {
 
   #addDerivedSessions(queries: ConsoleQueries, deltas: Map<string, Delta>): void {
     const derived = derivedSessions(queries);
+    const before = this.#derived ?? derived;
     for (const session of queries.sessions()) {
-      if (this.#derived.get(session.id) === derived.get(session.id)) continue;
+      if (before.get(session.id) === derived.get(session.id)) continue;
       const delta = { type: 'session.updated', payload: session };
       deltas.set(keyOf(delta), delta);
     }

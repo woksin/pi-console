@@ -39,6 +39,23 @@ async function waitForDisconnect(daemon: Awaited<ReturnType<typeof specDaemon>>[
   assert.equal(daemon.stream.clients, 0);
 }
 
+test('after an unobserved gap, the first observed batch updates only the sessions it changed', async t => {
+  const spec = await specDaemon([]);
+  t.after(() => spec.close());
+  await spec.daemon.log.append([sessionStarted(1, 's1'), sessionStarted(2, 's2')]);
+  await publishedAfter(spec.daemon, spec.daemon.stream.seq);
+  const stream = await openStream(spec.daemon.port, { Authorization: `Bearer ${spec.token}` });
+  t.after(() => stream.close());
+  const snapshot = await stream.next();
+  assert.deepEqual(snapshot.data.payload.sessions.map((session: { id: string }) => session.id).sort(), ['s1', 's2']);
+  await spec.daemon.log.append([request(3)]);
+  const frames = [await stream.next(), await stream.next()];
+  // A later, unrelated delta marks the end of the first batch's frames.
+  await spec.daemon.log.append([sessionStarted(4, 's3')]);
+  for (let frame = await stream.next(); frame.data.payload.id !== 's3'; frame = await stream.next()) frames.push(frame);
+  assert.deepEqual(frames.map(frame => `${frame.event}:${frame.data.payload.id}`), ['request.observed:r1', 'session.updated:s1']);
+});
+
 test('reconnect across unobserved updates snapshots current state; observed frames remain replayable', async t => {
   const spec = await specDaemon([sessionStarted(1, 's1')]);
   t.after(() => spec.close());
