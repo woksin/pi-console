@@ -1,9 +1,10 @@
+import { statusToken } from '@pi-console/contract';
 import type { ReactNode } from 'react';
 import type { Pressure, StatusCell } from '@pi-console/viewmodels';
 
 export function StatusBadge({ cell, compact = false }: { cell: StatusCell; compact?: boolean }) {
   return (
-    <span className={`badge tone-${cell.color}`} data-status={cell.status} title={cell.label}>
+    <span className={`badge tone-${cell.color}`} data-status={cell.status} title={cell.label} style={{ background: statusToken(cell.status).tint }}>
       <span className="badge-glyph" aria-hidden="true">{cell.glyph}</span>
       <span className={compact ? 'badge-label sr-only' : 'badge-label'}>{cell.label}</span>
     </span>
@@ -15,7 +16,7 @@ export function PressureBar({ percent, pressure }: { percent: number; pressure: 
   return (
     <span className={`pressure level-${pressure}`} role="img" aria-label={`Context ${String(percent)}%, ${pressure}`}>
       <span className="pressure-track">
-        <span className="pressure-fill" style={{ width: `${String(percent)}%` }} />
+        <span className="pressure-fill" style={{ width: '100%', backgroundImage: 'var(--pressure-gradient)', clipPath: `inset(0 ${String(100 - Math.max(0, Math.min(100, percent)))}% 0 0)` }} />
         <span className="pressure-tick" style={{ left: '60%' }} />
         <span className="pressure-tick" style={{ left: '80%' }} />
       </span>

@@ -2,8 +2,29 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { requestsViewModel } from '@pi-console/viewmodels';
+import { pressureColor, pressureGradient, requestsViewModel } from '@pi-console/viewmodels';
+import { themeColors } from '@pi-console/contract';
+import { palette, quantize } from './view/theme.ts';
+import { pressureBar } from './view/parts.ts';
 import { startHarness, type Harness } from './testing/harness.ts';
+
+test('web gradient and true-colour terminal use the same ramp at 51%, with threshold ticks and band fallbacks', () => {
+  for (const highContrast of [false, true]) {
+    const colors = themeColors(highContrast);
+    palette.configure('truecolor', highContrast);
+    assert.equal(palette.resolve('pressure:51'), pressureColor(51, colors));
+    assert.ok(pressureGradient(colors).includes(`${palette.resolve('pressure:51')} 51%`));
+    for (const depth of ['256', '16'] as const) {
+      palette.configure(depth, highContrast);
+      assert.ok([colors.green, colors.amber, colors.red].map(color => quantize(color, depth)).includes(palette.resolve('pressure:51')));
+    }
+  }
+  palette.configure('truecolor', false);
+  const bar = pressureBar(100, 101);
+  assert.equal(bar[51].color, 'pressure:51');
+  assert.equal(bar[60].text, '│');
+  assert.equal(bar[80].text, '│');
+});
 
 /** The goldens are the view-model contract shared with the web UI; the TUI must show what they say, in its own layout. */
 const golden = (view: string): unknown => JSON.parse(readFileSync(fileURLToPath(new URL(`../../viewmodels/src/${view}/golden.json`, import.meta.url)), 'utf8'));

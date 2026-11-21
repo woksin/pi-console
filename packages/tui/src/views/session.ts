@@ -1,7 +1,7 @@
 import { clip, sessionViewModel, wrap, type SessionViewModel, type TranscriptLine } from '@pi-console/viewmodels';
 import { Column, Lines, Panel, Row, h, type Line, type Part } from '../view/renderer.ts';
 import type { Color } from '../view/theme.ts';
-import { bar, blank, fit, pressureTone, rule, split, statusParts, t } from '../view/parts.ts';
+import { pressureBar, blank, fit, pressureTone, rule, split, statusParts, t } from '../view/parts.ts';
 import { sidePanes, type SidePane, type UiState } from '../state/ui.ts';
 import { transcriptViewport, transcriptWindow, type TranscriptAnchor, type TranscriptLayout } from '../state/transcript-window.ts';
 import type { Env, SectionView } from './common.ts';
@@ -74,7 +74,7 @@ function transcriptLines(env: Env, model: SessionViewModel, key: unknown, width:
 function header(model: SessionViewModel, width: number, phase: number): Line[] {
   return [
     split([...statusParts(model.status, phase), t('  '), t(model.title, 'text', { bold: true })], [t(`updated ${model.age} ago`, 'faint')], width),
-    fit([t(`${model.role} · `, 'muted'), t(model.branch, 'violet'), t(` · ${model.model} · `, 'muted'), t(model.cost, 'text'), t('  ctx ', 'muted'), ...bar(model.context.percent, 14, pressureTone(model.context.pressure)), t(` ${String(model.context.percent)}% `, pressureTone(model.context.pressure)), t(model.context.spark.slice(-16), 'faint')], width),
+    fit([t(`${model.role} · `, 'muted'), t(model.branch, 'violet'), t(` · ${model.model} · `, 'muted'), t(model.cost, 'text'), t('  ctx ', 'muted'), ...pressureBar(model.context.percent, 14), t(` ${String(model.context.percent)}% `, pressureTone(model.context.pressure)), t(model.context.spark.slice(-16), 'faint')], width),
   ];
 }
 

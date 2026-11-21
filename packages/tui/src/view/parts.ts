@@ -1,4 +1,4 @@
-import { cells, clip, sanitize, type Pressure } from '@pi-console/viewmodels';
+import { cells, clip, sanitize } from '@pi-console/viewmodels';
 import type { StatusCell } from '@pi-console/viewmodels';
 import type { Color } from './theme.ts';
 import type { Line, Part } from './renderer.ts';
@@ -21,8 +21,7 @@ const needsCleaning = (text: string): boolean => {
 export const t = (text: string, color?: Color, extra: Partial<Part> = {}): Part => ({ text: needsCleaning(text) ? sanitize(text) : text, color, ...extra });
 export const gap = (width = 1): Part => ({ text: ' '.repeat(width) });
 
-const pressureColor: Record<Pressure, Color> = { calm: 'green', warm: 'amber', hot: 'red' };
-export const pressureTone = (pressure: Pressure): Color => pressureColor[pressure];
+export { pressureTone } from '@pi-console/viewmodels';
 
 const spinner = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
@@ -38,6 +37,16 @@ export function statusParts(status: StatusCell, phase = 0, withLabel = true): Pa
 export function bar(percent: number, width: number, color: Color): Part[] {
   const filled = Math.round(Math.max(0, Math.min(100, percent)) / 100 * width);
   return [t('█'.repeat(filled), color), t('░'.repeat(width - filled), 'border')];
+}
+
+/** The cell position, not the current fill width, determines its shared ramp colour. */
+export function pressureBar(percent: number, width: number): Line {
+  const filled = Math.round(Math.max(0, Math.min(100, percent)) / 100 * width);
+  const ticks = [Math.round(0.6 * (width - 1)), Math.round(0.8 * (width - 1))];
+  return Array.from({ length: width }, (_, index) => {
+    const position = index / Math.max(1, width - 1) * 100;
+    return t(ticks.includes(index) ? '│' : index < filled ? '█' : '░', index < filled ? `pressure:${position}` : 'border');
+  });
 }
 
 const total = (line: readonly Part[]) => line.reduce((sum, part) => sum + cells(part.text).length, 0);

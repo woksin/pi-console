@@ -1,4 +1,5 @@
 export * from './format/format.ts';
+export * from './format/pressure.ts';
 export * from './format/status-cell.ts';
 export * from './keymap/keymap.ts';
 export * from './overview/overview.ts';

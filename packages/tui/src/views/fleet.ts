@@ -1,6 +1,6 @@
 import { fleetViewModel, pad, padStart, type FleetRow, type SessionRow } from '@pi-console/viewmodels';
 import { Lines, Panel, Row, h, type Line } from '../view/renderer.ts';
-import { bar, blank, heading, pressureTone, selectable, statusParts, t, windowOf } from '../view/parts.ts';
+import { pressureBar, blank, heading, pressureTone, selectable, statusParts, t, windowOf } from '../view/parts.ts';
 import type { Env, SectionView } from './common.ts';
 
 function groupLine(row: Extract<FleetRow, { kind: 'group' }>, width: number, selected: boolean) {
@@ -16,7 +16,7 @@ function sessionLine(row: SessionRow, width: number, selected: boolean, env: Env
   return selectable([
     t('  ' + '  '.repeat(row.depth) + (row.depth > 0 ? '└ ' : '')), ...status, t(' '), t(pad(row.status.label, 10), row.status.color), t(' '),
     t(pad(row.name, name), row.role === 'subagent' ? 'muted' : 'text'), t(' '),
-    ...bar(row.contextPercent, 10, pressureTone(row.pressure)), t(padStart(`${String(row.contextPercent)}%`, 5), pressureTone(row.pressure)),
+    ...pressureBar(row.contextPercent, 10), t(padStart(`${String(row.contextPercent)}%`, 5), pressureTone(row.pressure)),
     ...(showSpark ? [t(' '), t(row.spark.padEnd(12), 'faint')] : []),
     t(padStart(row.age, 5), 'muted'), t(padStart(row.cost, 7), 'faint'),
   ], width, selected, fresh);
@@ -26,7 +26,7 @@ function preview(row: SessionRow | undefined, width: number): ReturnType<typeof 
   const lines: Line[] = row ? [
     [t(row.name, 'text', { bold: true })], [...statusParts(row.status, 0, true)], blank,
     heading('Lane'), [t(row.lane, 'text')], heading('Branch'), [t(row.branch, 'muted')], heading('Model'), [t(row.model, 'muted')], blank,
-    heading('Context'), [...bar(row.contextPercent, 20, pressureTone(row.pressure)), t(` ${String(row.contextPercent)}%`, pressureTone(row.pressure))], [t(row.spark, 'cyan')], blank,
+    heading('Context'), [...pressureBar(row.contextPercent, 20), t(` ${String(row.contextPercent)}%`, pressureTone(row.pressure))], [t(row.spark, 'cyan')], blank,
     [t('cost ', 'muted'), t(row.cost, 'text'), t('   updated ', 'muted'), t(`${row.age} ago`, 'text')], blank, [t('⏎ ', 'cyan'), t('open transcript', 'muted')],
   ] : [[t('Select a session', 'faint')]];
   return h(Panel, { title: 'Selected', width }, h(Lines, { lines }));

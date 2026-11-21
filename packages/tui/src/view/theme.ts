@@ -1,6 +1,8 @@
 import { themeColors, type ThemeToken } from '@pi-console/contract';
 
-export type Color = ThemeToken;
+import { pressureColor } from '@pi-console/viewmodels';
+
+export type Color = ThemeToken | `pressure:${number}`;
 export type ColorDepth = '16' | '256' | 'truecolor';
 
 const ansi16 = ['#000000', '#800000', '#008000', '#808000', '#000080', '#800080', '#008080', '#c0c0c0', '#808080', '#ff0000', '#00ff00', '#ffff00', '#0000ff', '#ff00ff', '#00ffff', '#ffffff'];
@@ -27,9 +29,20 @@ export function detectDepth(env: NodeJS.ProcessEnv = process.env): ColorDepth {
 /** Module-level on purpose: set once at start-up, read by the renderer. */
 class Palette {
   private colors: Record<ThemeToken, string> = themeColors(false);
+  private source: Record<ThemeToken, string> = themeColors(false);
+  private depth: ColorDepth = 'truecolor';
   configure(depth: ColorDepth, highContrast: boolean): void {
+    this.source = themeColors(highContrast);
+    this.depth = depth;
     this.colors = Object.fromEntries(Object.entries(themeColors(highContrast)).map(([token, hex]) => [token, quantize(hex, depth)])) as Record<ThemeToken, string>;
   }
-  resolve(token: ThemeToken): string { return this.colors[token]; }
+  resolve(token: Color): string {
+    if (!token.startsWith('pressure:')) return this.colors[token as ThemeToken];
+    const color = pressureColor(Number(token.slice(9)), this.source);
+    if (this.depth === 'truecolor') return color;
+    const distance = (candidate: string) => channels(candidate).reduce((sum, value, index) => sum + (value - channels(color)[index]) ** 2, 0);
+    const band = [this.source.green, this.source.amber, this.source.red].reduce((best, candidate) => distance(candidate) < distance(best) ? candidate : best);
+    return quantize(band, this.depth);
+  }
 }
 export const palette = new Palette();

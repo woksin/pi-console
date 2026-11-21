@@ -10,8 +10,7 @@
 .pressure { display: inline-flex; align-items: center; gap: 8px; min-width: 120px; }
 .pressure-track { position: relative; flex: 1; height: 7px; border-radius: 4px; background: var(--raised); overflow: hidden; min-width: 60px; }
 .pressure.wide .pressure-track { height: 10px; }
-.pressure-fill { position: absolute; inset: 0 auto 0 0; border-radius: 4px; background: linear-gradient(90deg, var(--green), var(--amber) 70%, var(--red) 100%); background-size: 100vw 100%; background-size: var(--w, 220px) 100%; }
-.pressure-fill { background-size: 220px 100%; }
+.pressure-fill { position: absolute; inset: 0 auto 0 0; border-radius: 4px; background: var(--pressure-gradient); }
 .pressure-tick { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--text); opacity: 0.55; }
 .pressure-label { width: 34px; text-align: right; color: var(--muted); font-size: 11.5px; }
 .pressure.level-hot .pressure-label { color: var(--red); font-weight: 700; } .pressure.level-warm .pressure-label { color: var(--amber); }
