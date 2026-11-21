@@ -6,17 +6,7 @@ import { navigate } from '../app/hooks.ts';
 import { sessionHref } from '../app/routes.ts';
 import { Panel } from '../ui/primitives.tsx';
 import { EmptyFor } from '../ui/empty.tsx';
-
-const size = 360;
-const radius = 130;
-
-function place(group: GraphGroup): Map<string, { x: number; y: number }> {
-  const centre = size / 2;
-  return new Map(group.nodes.map((node, index) => {
-    const angle = (index / Math.max(1, group.nodes.length)) * Math.PI * 2 - Math.PI / 2;
-    return [node.sessionId, { x: centre + Math.cos(angle) * radius, y: centre + Math.sin(angle) * radius }];
-  }));
-}
+import { graphSize as size, placeLabel, placeNodes as place } from './graph-layout.ts';
 
 /** Communication graph per repository, drawn from the shared graph model; a time scrubber replays who talked to whom up to a moment. */
 export function GraphView({ state }: { state: ConsoleState }) {
@@ -61,10 +51,12 @@ function GroupGraph({ group }: { group: GraphGroup }) {
         })}
         {group.nodes.map(node => {
           const at = positions.get(node.sessionId);
-          return at && (
-            <g key={node.sessionId} className={`node tone-${node.status.color}`} transform={`translate(${String(at.x)} ${String(at.y)})`} tabIndex={0} role="link" aria-label={`${laneLabel(group.repositoryId, node.label)}, ${node.status.label}`}
+          const name = laneLabel(group.repositoryId, node.label);
+          const label = at && placeLabel(name, at);
+          return at && label && (
+            <g key={node.sessionId} className={`node tone-${node.status.color}`} transform={`translate(${String(at.x)} ${String(at.y)})`} tabIndex={0} role="link" aria-label={`${name}, ${node.status.label}`}
               onClick={() => { navigate(sessionHref(node.sessionId)); }} onKeyDown={event => { if (event.key === 'Enter') navigate(sessionHref(node.sessionId)); }}>
-              <circle r="15" /><text className="glyph" textAnchor="middle" dy="5">{node.status.glyph}</text><text className="label" textAnchor="middle" dy="32">{laneLabel(group.repositoryId, node.label)}</text>
+              <title>{name}</title><circle r="15" /><text className="glyph" textAnchor="middle" dy="5">{node.status.glyph}</text><text className="label" textAnchor={label.anchor} dx={label.dx} dy="32">{label.text}</text>
             </g>);
         })}
       </svg>
