@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { activeBindings, bindings, bindingsFor, hints, listContexts, resolve } from './keymap.ts';
+import { activeBindings, bindings, bindingsFor, hints, keyLabel, keymapGroups, listContexts, resolve } from './keymap.ts';
 
 test('no key is bound twice within one context', () => {
   const seen = new Map<string, string>();
@@ -36,6 +36,16 @@ test('view-only actions and client-only keys never leak to unrelated hints or we
   assert.ok(!bindingsFor('web').some(binding => binding.action === 'quit'));
   assert.ok(bindingsFor('tui').some(binding => binding.action === 'quit'));
   assert.equal(resolve('fleet', 'q', 'web'), undefined);
+});
+
+test('help groups cover each shipped client binding once and render arrows as glyphs', () => {
+  const groups = keymapGroups('tui');
+  assert.deepEqual(groups.map(group => group.title), ['Navigate', 'Lists', 'Transcript', 'Timeline', 'Global']);
+  const grouped = groups.flatMap(group => group.bindings);
+  assert.equal(new Set(grouped).size, activeBindings.length);
+  assert.equal(grouped.length, activeBindings.length);
+  assert.ok(!keymapGroups('web').flatMap(group => group.bindings).some(binding => binding.action === 'quit'));
+  assert.deepEqual(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].map(keyLabel), ['↑', '↓', '←', '→']);
 });
 
 test('hints are context-specific and de-duplicated', () => {

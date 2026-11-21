@@ -1,5 +1,5 @@
-import { activeBindings, paletteItems, settingsViewModel, type SettingsInput, type SettingsRow, type Tone } from '@pi-console/viewmodels';
-import { Lines, Overlay, Panel, h, type Line } from '../view/renderer.ts';
+import { keyLabel, keymapGroups, pad, paletteItems, settingsViewModel, wrap, type KeymapGroup, type SettingsInput, type SettingsRow, type Tone } from '@pi-console/viewmodels';
+import { Column, Lines, Overlay, Panel, Row, h, type Line } from '../view/renderer.ts';
 import { blank, fit, heading, selectable, t } from '../view/parts.ts';
 import type { Data } from '../store/store.ts';
 import type { UiState } from '../state/ui.ts';
@@ -21,11 +21,24 @@ export function Palette(props: { ui: UiState; data: Data; width: number; height:
   return h(Overlay, box, h(Panel, { title: 'Command palette', right: '↑↓ choose · ⏎ run · esc close', focused: true, grow: 1, background: 'raised' }, h(Lines, { lines: [prompt, blank, ...rows], grow: 1 })));
 }
 
+function helpLines(groups: KeymapGroup[], width: number): Line[] {
+  return groups.flatMap(group => [heading(group.title), ...group.bindings.flatMap(binding => {
+    const keys = binding.keys.map(keyLabel).join(' ');
+    return wrap(binding.label, Math.max(1, width - 15)).map((label, index): Line => [t(pad(index === 0 ? keys : '', 15), 'cyan'), t(label, 'text')]);
+  }), blank]);
+}
+
 export function Help(props: { width: number; height: number }) {
-  const box = frame(props.width, props.height, { width: 76, height: Math.min(props.height - 2, activeBindings.length + 8) });
-  const lines: Line[] = [heading('Keyboard map (shared with the web console)'), blank,
-    ...activeBindings.map((binding): Line => [t(binding.keys.join(' ').padEnd(20), 'cyan'), t(binding.label, 'text')]), blank, [t('Read-only: nothing here can change a session.', 'faint')]];
-  return h(Overlay, box, h(Panel, { title: 'Help', right: '? or esc closes', focused: true, grow: 1, background: 'raised' }, h(Lines, { lines, grow: 1 })));
+  const width = Math.min(116, props.width - 2);
+  const column = Math.floor((width - 6) / 2);
+  const groups = keymapGroups('tui');
+  const left = helpLines(groups.slice(0, 2), column);
+  const right = helpLines(groups.slice(2), column);
+  const box = frame(props.width, props.height, { width, height: Math.max(left.length, right.length) + 5 });
+  return h(Overlay, box, h(Panel, { title: 'Help', right: '? or esc closes', focused: true, grow: 1, background: 'raised' },
+    h(Lines, { lines: [heading('Keyboard map (shared with the web console)'), blank], height: 2 }),
+    h(Row, { grow: 1, gap: 2 }, h(Column, { width: column }, h(Lines, { lines: left, grow: 1 })), h(Column, { width: column }, h(Lines, { lines: right, grow: 1 }))),
+    h(Lines, { lines: [[t('Read-only: nothing here can change a session.', 'faint')]], height: 1 })));
 }
 
 const tone: Record<Tone, Color> = { good: 'green', warn: 'amber', bad: 'red', plain: 'text' };
