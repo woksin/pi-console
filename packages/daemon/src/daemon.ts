@@ -67,7 +67,7 @@ type Handler = (req: IncomingMessage, res: ServerResponse) => Promise<void>;
 
 interface HandlerParts { port: () => number; credentials: Credentials; api: ApiContext; stream: StreamHub; webDist: string | undefined }
 
-function api(parts: HandlerParts, req: IncomingMessage, res: ServerResponse, url: URL): void {
+async function api(parts: HandlerParts, req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
   authenticate(req, url, parts.credentials);
   if (req.method === 'GET' && url.pathname === streamPath) {
     const lastEventId = req.headers['last-event-id'];
@@ -75,7 +75,7 @@ function api(parts: HandlerParts, req: IncomingMessage, res: ServerResponse, url
     return;
   }
   if (req.method !== 'GET') throw new HttpError(405, 'Method not allowed');
-  sendJson(res, 200, apiQuery(parts.api, url));
+  sendJson(res, 200, await apiQuery(parts.api, url));
 }
 
 function handler(parts: HandlerParts): Handler {
@@ -85,7 +85,7 @@ function handler(parts: HandlerParts): Handler {
       const url = new URL(req.url ?? '/', 'http://127.0.0.1');
       checkSource(req, parts.port());
       if (url.searchParams.has('token')) exchangeToken(req, res, url, parts.credentials);
-      else if (url.pathname === apiPrefix || url.pathname.startsWith(`${apiPrefix}/`)) api(parts, req, res, url);
+      else if (url.pathname === apiPrefix || url.pathname.startsWith(`${apiPrefix}/`)) await api(parts, req, res, url);
       else if (url.pathname.startsWith('/api/')) throw new HttpError(404, 'Not found');
       else await serveStatic(parts.webDist, req, res, url);
     } catch (error) {

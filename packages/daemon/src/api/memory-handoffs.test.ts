@@ -1,4 +1,5 @@
 import { test, type TestContext } from 'node:test';
+import { spawnSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -28,7 +29,7 @@ test('parseHandoff reads only the integer fields and treats every section as opt
   assert.equal(parseHandoff(handoff('items=x messages=1')).memoryIndex, null);
 });
 
-test('the reader accepts only .ai-work/handoffs markdown files, regular and unlinked, and never returns text', t => {
+test('the reader accepts only .ai-work/handoffs markdown files, regular and unlinked, and never returns text', async t => {
   const root = directory(t);
   const good = join(root, '.ai-work/handoffs/sess-1-1.md');
   writeFileSync(good, handoff());
@@ -41,7 +42,7 @@ test('the reader accepts only .ai-work/handoffs markdown files, regular and unli
   const reader = new FileMemoryHandoffs();
   const resets = ['sess-1-1.md', 'link.md', 'big.md'].map((name, index) => ({ id: join(root, '.ai-work/handoffs', name), at: `2026-11-20T08:0${index}:00.000Z` }))
     .concat([{ id: elsewhere, at: 'a' }, { id: join(root, 'other/handoffs/x.md'), at: 'b' }, { id: 'relative/.ai-work/handoffs/r.md', at: 'c' }, { id: join(root, '.ai-work/handoffs/missing.md'), at: '2026-11-20T07:00:00.000Z' }]);
-  const found = reader.read(resets, 5);
+  const found = await reader.read(resets, 5);
   assert.deepEqual(found.map(item => item.handoffId), ['big.md', 'link.md', 'sess-1-1.md', 'missing.md']);
   const byName = Object.fromEntries(found.map(item => [item.handoffId, item]));
   assert.equal(byName['sess-1-1.md'].memoryIndex?.items, 4);
@@ -53,15 +54,65 @@ test('the reader accepts only .ai-work/handoffs markdown files, regular and unli
   assert.ok(!JSON.stringify(found).includes(root), 'no path in the reply');
 });
 
-test('the reader returns the newest handoffs first, limited, and re-reads a changed file', t => {
+test('the reader returns the newest handoffs first, limited, and re-reads a changed file', async t => {
   const root = directory(t);
   const resets = [1, 2, 3].map(n => ({ id: join(root, `.ai-work/handoffs/s-${n}.md`), at: `2026-11-20T08:0${n}:00.000Z` }));
   for (const reset of resets) writeFileSync(reset.id, handoff());
   const reader = new FileMemoryHandoffs();
-  assert.deepEqual(reader.read(resets, 2).map(item => item.handoffId), ['s-3.md', 's-2.md']);
+  assert.deepEqual((await reader.read(resets, 2)).map(item => item.handoffId), ['s-3.md', 's-2.md']);
   writeFileSync(resets[2].id, handoff('items=9 messages=9 unresolved=7 withheld=0 proposed=0 rejected=0'));
-  assert.equal(reader.read(resets, 1)[0].memoryIndex?.unresolved, 7);
+  assert.equal((await reader.read(resets, 1))[0].memoryIndex?.unresolved, 7);
 });
+
+// A subprocess bounds even a regressed synchronous FIFO open: a test timeout alone cannot interrupt one.
+const raceScript = `
+  import fs from 'node:fs';
+  import { open } from 'node:fs/promises';
+  import promises from 'node:fs/promises';
+  import { syncBuiltinESMExports } from 'node:module';
+  import { spawnSync } from 'node:child_process';
+  import { FileMemoryHandoffs } from './packages/daemon/src/api/memory-handoffs.ts';
+  const [path, replacement, outside] = process.argv.slice(1);
+  const canonicalPath = fs.realpathSync(path);
+  let replaced = false;
+  const replacements = {
+    fifo: () => { if (spawnSync('mkfifo', [path]).status !== 0) throw new Error('mkfifo failed'); },
+    symlink: () => fs.symlinkSync(outside, path),
+    directory: () => fs.mkdirSync(path),
+    oversize: () => fs.writeFileSync(path, 'x'.repeat(300 * 1024)),
+  };
+  function replace(candidate) {
+    if (replaced) return;
+    if (candidate !== path && candidate !== canonicalPath) return;
+    replaced = true;
+    if (replacement === 'normal') return;
+    fs.rmSync(path);
+    replacements[replacement]();
+  }
+  const original = fs.openSync;
+  fs.openSync = (candidate, ...args) => { replace(candidate); return original(candidate, ...args); };
+  promises.open = (candidate, ...args) => { replace(candidate); return openFile(candidate, ...args); };
+  const openFile = open;
+  syncBuiltinESMExports();
+  const rows = await new FileMemoryHandoffs().read([{ id: path, at: '2026-11-20T08:00:00Z' }], 1);
+  process.stdout.write(JSON.stringify({ replaced, items: rows[0].memoryIndex?.items ?? null }));
+`;
+
+for (const replacement of ['fifo', 'symlink', 'directory', 'oversize', 'normal']) {
+  test(`handoff replaced at open with ${replacement} is bounded and validated on its descriptor`, { timeout: 5000 }, t => {
+    const root = directory(t);
+    const path = join(root, '.ai-work/handoffs/race.md');
+    const outside = join(directory(t), 'outside.md');
+    writeFileSync(path, handoff());
+    writeFileSync(outside, handoff());
+    const child = spawnSync(process.execPath, ['--input-type=module', '-e', raceScript, path, replacement, outside], {
+      cwd: new URL('../../../..', import.meta.url), encoding: 'utf8', timeout: 2000,
+    });
+    assert.equal(child.error, undefined, child.error?.message);
+    assert.equal(child.status, 0, child.stderr);
+    assert.deepEqual(JSON.parse(child.stdout), { replaced: true, items: replacement === 'normal' ? 4 : null });
+  });
+}
 
 test('GET /sessions/:id/memory and /memory-items serve the projection and the handoff figures', async t => {
   const root = directory(t);
