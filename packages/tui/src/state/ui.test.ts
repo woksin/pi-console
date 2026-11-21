@@ -8,6 +8,14 @@ import { neutralKey, typedCharacter } from './keys.ts';
 const layoutOfHeights = (heights: number[], first = 1): TranscriptLayout => { let end = 0; return { keys: heights.map((_, index) => first + index), ends: heights.map(height => (end += height)) }; };
 const bounds: Bounds = { length: 5, page: 3, fit: { start: 0, span: 1000 }, width: 80, rowAt: index => ({ sessionId: `s${String(index)}`, groupId: index === 0 ? 'g' : null }), transcript: layoutOfHeights(Array.from({ length: 50 }, () => 1)), viewport: 10 };
 
+test('terminal list contexts follow the section and graph/overlays take precedence', () => {
+  for (const section of ['overview', 'fleet', 'requests', 'questions', 'messages', 'work', 'timeline'] as const) {
+    assert.equal(contextOf({ ...initial, section }), section);
+    assert.equal(contextOf({ ...initial, section, overlay: 'help' }), 'help');
+  }
+  assert.equal(contextOf({ ...initial, section: 'messages', messagesGraph: true }), 'graph');
+});
+
 test('number keys switch sections and the cursor stays within the list', () => {
   const fleet = handleKey(initial, '2', bounds);
   assert.equal(fleet.section, 'fleet');

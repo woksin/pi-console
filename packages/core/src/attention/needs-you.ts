@@ -2,9 +2,10 @@ import type { SourceRef } from '@pi-console/contract';
 import { compareText } from '../projector/canonical.ts';
 import type { ReadModels } from '../projections/index.ts';
 import type { RequestModel } from '../projections/requests.ts';
+import { proposedMemoryAttention } from '../queries/memory.ts';
 import type { SessionModel } from '../projections/sessions.ts';
 
-export type AttentionReason = 'open-request' | 'answer-possibly-unseen' | 'blocking-question' | 'lane-waiting-on-user' | 'stale-session';
+export type AttentionReason = 'open-request' | 'answer-possibly-unseen' | 'blocking-question' | 'lane-waiting-on-user' | 'stale-session' | 'proposed-memory';
 
 export interface AttentionPointer { sessionId: string; entryId: string; fileOffset: number }
 
@@ -87,6 +88,6 @@ function staleSessions(models: ReadModels, options: AttentionOptions): Attention
  * `/needs-you`; they never compute their own. Ordered oldest first, then by id.
  */
 export function needsYou(models: ReadModels, options: AttentionOptions): AttentionItem[] {
-  const items = [...openRequests(models), ...blockingQuestions(models), ...lanesWaitingOnUser(models), ...staleSessions(models, options)];
+  const items = [...openRequests(models), ...blockingQuestions(models), ...lanesWaitingOnUser(models), ...staleSessions(models, options), ...proposedMemoryAttention(models)];
   return items.sort((a, b) => compareText(a.since, b.since) || compareText(a.id, b.id));
 }

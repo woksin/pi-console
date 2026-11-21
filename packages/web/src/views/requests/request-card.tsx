@@ -7,7 +7,7 @@ import { useScrollIntoView } from '../../ui/hooks.ts';
 export function RequestCard({ row, selected, onSelect }: { row: RequestsRow; selected: boolean; onSelect: () => void }) {
   const ref = useScrollIntoView<HTMLLIElement>(selected);
   return (
-    <li ref={ref} className={`card tone-${row.status.color}${selected ? ' selected' : ''}`} onClick={onSelect} data-request={row.id} aria-current={selected || undefined}>
+    <li ref={ref} className={`card request-card tone-${row.status.color}${row.origin === 'human' ? ' human-request' : ''}${selected ? ' selected' : ''}`} onClick={onSelect} data-request={row.id} aria-current={selected || undefined}>
       <div className="card-head">
         <StatusBadge cell={row.status} />
         <span className="chip" data-origin={row.origin}>{row.originLabel}</span>
@@ -15,7 +15,7 @@ export function RequestCard({ row, selected, onSelect }: { row: RequestsRow; sel
         {row.possiblyUnseen && <StatusBadge cell={row.possiblyUnseen} />}
         <a href={sessionHref(row.sessionId)}>{row.session}</a><span className="grow" /><span className="faint tnum">{row.age}</span>
       </div>
-      <p className={`card-text${row.withheld ? ' withheld' : ''}`}>{row.text}</p>
+      <p className={`card-text${row.withheld ? ' withheld' : ''}`} title={row.text}>{row.text}</p>
       {row.answer && <blockquote className="answer"><span className="faint small">Answer · {row.answer.age} ago</span><p className={row.answer.withheld ? 'withheld' : undefined}>{row.answer.text}</p></blockquote>}
     </li>
   );

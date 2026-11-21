@@ -34,6 +34,11 @@ export type PhaseFinishedPayload = { phaseId: string; label: string; exitCode?: 
 export type SubagentStartedPayload = { sessionId: string; parentSessionId: string; name?: string | null };
 export type SubagentFinishedPayload = { sessionId: string; parentSessionId: string; outcome?: string };
 export type ReviewRecordedPayload = { reviewId: string; headSha: string; verdict: string };
+export type MemoryItemRecordedPayload = { itemId: string; kind: 'directive' | 'order' | 'decision'; scopeKind: 'global' | 'repo' | 'lane' | 'session' | 'task'; scopeKey: string; sourceType: 'user_message' | 'coordinator_order' | 'agent_decision' | 'question_item'; sourceMessageId: string | null; authorityMode: 'auto' | 'command' | 'none' | null; supersedes: string[]; excerpt: string; withheld: boolean; gloss?: string };
+export type MemoryItemConfirmedPayload = { itemId: string; actorKind: string };
+export type MemoryItemRetiredPayload = { itemId: string; status: 'done' | 'superseded' | 'withdrawn' | 'rejected'; actorKind: string; reasonExcerpt: string };
+export type MemoryMessageRecordedPayload = { messageId: string; sessionId: string; origin: 'human' | 'unattended' | 'launch' | 'injected'; injectedKind: string | null; withheld: boolean; textBytes: number };
+export type MemoryMessageClassifiedPayload = { messageId: string; whole: 'none' | null; spanCount: number };
 export type SourceCheckpointAdvancedPayload = { source: string; identity: string; generation: number; offset: number };
 export type SourceUnavailablePayload = { source: string; reason: string };
 export type SourceSchemaUnknownPayload = { source: string; identity: string; detail: string };
@@ -74,6 +79,11 @@ export interface EventPayloads {
   SubagentStarted: SubagentStartedPayload;
   SubagentFinished: SubagentFinishedPayload;
   ReviewRecorded: ReviewRecordedPayload;
+  MemoryItemRecorded: MemoryItemRecordedPayload;
+  MemoryItemConfirmed: MemoryItemConfirmedPayload;
+  MemoryItemRetired: MemoryItemRetiredPayload;
+  MemoryMessageRecorded: MemoryMessageRecordedPayload;
+  MemoryMessageClassified: MemoryMessageClassifiedPayload;
   SourceCheckpointAdvanced: SourceCheckpointAdvancedPayload;
   SourceUnavailable: SourceUnavailablePayload;
   SourceSchemaUnknown: SourceSchemaUnknownPayload;

@@ -2,9 +2,11 @@ import { statSync } from 'node:fs';
 import type { EventLog } from '@pi-console/contract';
 import { FileTailer, pollSnapshot, type AdapterWorker, type TailerOptions } from '@pi-console/adapters';
 import { CheckpointCache } from './checkpoint-cache.ts';
-import { discoverFiles, type Feed } from './source-table.ts';
+import { discoverFilesSliced } from './discover-files.ts';
+import type { Feed } from './source-table.ts';
 import type { SourceId } from './source-ids.ts';
 import { seekStart, windowed } from './window.ts';
+import { yieldToLoop } from './yield-to-loop.ts';
 
 export interface SourceStatus {
   source: string;
@@ -27,7 +29,18 @@ const batchBytes = 64 * 1024;
 /** A record longer than the batch grows it, doubling up to the tailer default; a larger record is counted as a file error. */
 const maxBatchBytes = 1024 * 1024;
 const oversizeRecord = (error: unknown): boolean => error instanceof Error && error.message.startsWith('Source record exceeds batch limit');
-const yieldToLoop = (): Promise<void> => new Promise(resolve => { setImmediate(resolve); });
+
+async function filesFor(feed: Feed, since: number): Promise<string[]> {
+  const files: string[] = [];
+  for (const directory of feed.directories) files.push(...await discoverFilesSliced(directory, feed, since));
+  return files;
+}
+
+function availableFeed(feed: Feed): Feed | undefined {
+  if (!feed.resolveScope) return feed;
+  const scope = feed.resolveScope();
+  return scope === undefined ? undefined : { ...feed, ...scope };
+}
 
 interface Seen { mtimeMs: number; size: number }
 
@@ -64,8 +77,8 @@ export class SourceIngestion implements AdapterWorker {
     const now = (this.#options.now ?? (() => new Date()))();
     const since = now.getTime() - this.#options.backfillWindowDays * 86_400_000;
     const totals = { files: 0, lagBytes: 0, errors: 0 };
-    for (const feed of this.#options.feeds) {
-      const files = feed.directories.flatMap(directory => discoverFiles(directory, feed, since));
+    for (const feed of this.#options.feeds.map(availableFeed).filter((feed): feed is Feed => feed !== undefined)) {
+      const files = await filesFor(feed, since);
       totals.files += files.length;
       for (const file of files) {
         if (this.#aborted) return;
@@ -91,7 +104,7 @@ export class SourceIngestion implements AdapterWorker {
   }
 
   async #snapshot(feed: Feed, file: string): Promise<number> {
-    await pollSnapshot(this.#log, this.#options.id, file, feed.mapper, { roots: feed.directories, decode: feed.decode });
+    await pollSnapshot(this.#log, this.#options.id, file, feed.mapper, { roots: feed.directories, resolvedRoots: feed.trustRoot ? [feed.trustRoot] : undefined, decode: feed.decode });
     return 0;
   }
 
@@ -119,7 +132,7 @@ export class SourceIngestion implements AdapterWorker {
       }
       return lag;
     } finally {
-      tailer.close();
+      await tailer.close();
     }
   }
 
@@ -136,6 +149,7 @@ export class SourceIngestion implements AdapterWorker {
 function tailerOptions(feed: Feed, since: number, size: number): TailerOptions {
   const { seekBy, lineFilter } = feed;
   return {
+    roots: feed.trustRoot ? [feed.trustRoot] : undefined,
     batchBytes: size,
     startOffset: seekBy ? (fd, size) => seekStart(fd, size, since, timeOfRow(seekBy)) : undefined,
     lineFilter: lineFilter ? line => line.includes(lineFilter) : undefined,

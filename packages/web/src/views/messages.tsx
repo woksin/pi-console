@@ -1,10 +1,10 @@
-import { messagesViewModel, type MessageRow } from '@pi-console/viewmodels';
+import { laneLabel, messagesViewModel, type MessageRow } from '@pi-console/viewmodels';
 import { useMemo } from 'react';
 import type { ViewProps } from '../app/view.tsx';
 import { navigate, useListNav } from '../app/hooks.ts';
 import { useActions } from '../app/commands.ts';
 import { hrefFor, sessionHref } from '../app/routes.ts';
-import { EmptyState } from '../ui/primitives.tsx';
+import { EmptyFor } from '../ui/empty.tsx';
 import { useScrollIntoView } from '../ui/hooks.ts';
 import { GraphView } from './graph.tsx';
 import { LoadOlder } from './load-older.tsx';
@@ -12,7 +12,11 @@ import { LoadOlder } from './load-older.tsx';
 type Mode = 'list' | 'graph';
 
 export function MessagesView({ state, now, mode }: ViewProps & { mode: Mode }) {
-  const view = useMemo(() => messagesViewModel({ messages: state.messages, sessions: state.sessions, now }), [state.messages, state.sessions, now]);
+  const view = useMemo(() => {
+    const model = messagesViewModel({ messages: state.messages, sessions: state.sessions, now });
+    const names = new Map(state.sessions.map(session => [session.id, laneLabel(session.repositoryId, session.laneId)]));
+    return { rows: model.rows.map(row => ({ ...row, from: names.get(row.fromSessionId) ?? row.from, to: names.get(row.toSessionId) ?? row.to })) };
+  }, [state.messages, state.sessions, now]);
   const go = (next: Mode): void => { navigate(hrefFor('messages', null, next === 'graph' ? { view: 'graph' } : {})); };
   useActions(action => { if (action !== 'view.toggle') return false; go(mode === 'graph' ? 'list' : 'graph'); return true; });
   const rows = new Map(view.rows.map(row => [row.id, row]));
@@ -25,7 +29,7 @@ export function MessagesView({ state, now, mode }: ViewProps & { mode: Mode }) {
       </div>
       {mode === 'list' && <LoadOlder state={state} collection="messages" shown={view.rows.length} noun="messages" />}
       {mode === 'graph' ? <GraphView state={state} /> : view.rows.length === 0
-        ? <EmptyState title="No messages yet" mark="⌬">Messages sent between agents appear here, with whether they were delivered and read.</EmptyState>
+        ? <EmptyFor view="messages" />
         : <ol className="stack" aria-label="Messages">{view.rows.map(row => <MessageCard key={row.id} row={row} selected={nav.selected === row.id} onSelect={() => { nav.select(row.id); }} />)}</ol>}
     </div>
   );

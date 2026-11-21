@@ -1,4 +1,39 @@
 /* Signature views: communication graph and timeline. Edges animate along their direction; reduced motion stops it (base.css). */
+.overview .hero { padding: 0; background: none; border: 0; gap: 4px; }
+.overview .hero p { margin: 0; font-size: var(--type-caption); }
+.summary-strip { display: flex; align-items: center; gap: 16px; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); color: var(--muted); font-size: var(--type-caption); flex-wrap: wrap; row-gap: 8px; }
+.summary-counts { display: flex; justify-content: space-between; gap: 14px; flex: 1; }
+.summary-counts > span { white-space: nowrap; }
+.summary-counts .badge { font-size: inherit; }
+.summary-strip > svg { flex-shrink: 0; }
+/* Context-pressure histogram (P4.5): ten equal bins; each bar shows its own slice of the shared ramp, ticks sit on the 60 and 80 % bin edges. */
+.pressure-hist { display: flex; align-items: center; gap: var(--space-2); margin: 0 0 0 auto; flex-shrink: 0; }
+.pressure-hist-bars { position: relative; display: grid; grid-template-columns: repeat(10, 9px); align-items: end; height: 24px; border-bottom: 1px solid var(--border); }
+.pressure-hist-bars i { display: block; border-right: 2px solid transparent; background-clip: padding-box; background-image: var(--pressure-gradient); background-size: 1000% 100%; border-radius: 2px 2px 0 0; }
+.pressure-hist-bars i.zero { background: var(--border); background-clip: padding-box; }
+.pressure-hist-tick { position: absolute; top: -2px; bottom: -3px; width: 1px; margin-left: -1px; background: var(--muted); }
+.pressure-hist figcaption { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pressure-hist .hot { color: var(--red); font-weight: 650; }
+.pressure-hist .warm { color: var(--amber); font-weight: 650; }
+.attention-sections { display: grid; gap: 12px; }
+/* What changed (P4.6): a divider counting new arrivals, a tag on each, and a 600 ms flash on a status change (none under reduced motion). */
+.new-since { display: flex; align-items: center; gap: var(--space-3); margin: 0; color: var(--cyan); font-size: var(--type-caption); font-weight: 600; }
+.new-since::before, .new-since::after { content: ''; flex: 1; height: 1px; background: color-mix(in oklab, var(--cyan) 45%, transparent); }
+.new-since::before { flex: 0 0 24px; }
+.new-tag { padding: 0 6px; border-radius: 999px; border: 1px solid color-mix(in oklab, var(--cyan) 55%, transparent); color: var(--cyan); font-size: 11px; font-weight: 600; line-height: 16px; }
+.attention-sections .card.flash { animation: flash 0.6s ease-out; }
+.attention-heading { margin: 0 0 6px; color: var(--muted); font-size: var(--type-caption); font-weight: 500; white-space: nowrap; }
+@media (min-width: 1180px) {
+  .attention-sections { gap: 4px; }
+  .attention-sections > section:not(.first-run) { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 12px; }
+  .attention-heading { margin: 0; padding-top: 6px; }
+}
+.attention-sections .cards { gap: 4px; }
+.attention-sections .card { padding: 4px 12px; gap: 0; }
+.attention-sections .card-head { flex-wrap: nowrap; gap: 8px; }
+.attention-body { display: flex; align-items: baseline; gap: 12px; padding-top: 2px; }
+.attention-body .card-text { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; min-width: 0; }
+.attention-body a { flex-shrink: 0; font-size: var(--type-caption); }
 .graph-page { display: flex; flex-direction: column; gap: 14px; }
 .graph-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; }
 .graph { width: 100%; height: auto; max-height: 520px; background: radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--cyan) 7%, transparent), transparent 70%); }
@@ -11,15 +46,45 @@
 .node:hover circle, .node:focus-visible circle { r: 18; filter: drop-shadow(0 0 8px var(--tone, var(--cyan))); }
 .node:focus-visible { outline: none; }
 .node .glyph { fill: var(--tone, var(--text)); font-size: 14px; pointer-events: none; }
-.node .label { fill: var(--text); font-size: 11px; paint-order: stroke; stroke: var(--panel); stroke-width: 3px; pointer-events: none; }
+.node .label { fill: var(--text); font-size: 11px; font-weight: 500; paint-order: stroke; stroke: var(--panel); stroke-width: 5px; stroke-linejoin: round; pointer-events: none; }
+.graph-legend { padding: 0 18px; }
+.graph-legend li { display: flex; align-items: center; gap: 6px; }
+.graph-legend svg { width: 32px; height: 12px; }
+.graph-legend .edge { stroke-width: 2; animation: none; }
+.tl .repository-bg { fill: var(--raised); }
+.tl .repository-label { fill: var(--text); font-size: 12px; font-weight: 650; }
 .scrubber { flex: 1; max-width: 420px; accent-color: var(--cyan); }
 .tl { width: 100%; height: auto; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); }
 .tl .tick { stroke: var(--border); stroke-dasharray: 2 4; opacity: 0.7; }
 .tl .axis { fill: var(--muted); font-size: 10px; }
 .lane-bg { fill: color-mix(in oklab, var(--raised) 45%, transparent); }
 .lane:hover .lane-bg { fill: var(--raised); }
+.lane.selected .lane-bg { fill: var(--select); stroke: var(--cyan); stroke-width: 1; }
+.lane { cursor: pointer; }
+.now-line { pointer-events: none; }
+.now-line line { stroke: var(--cyan); stroke-width: 1; stroke-dasharray: 3 3; }
+.now-line text { fill: var(--cyan); font-size: var(--type-caption); }
 .lane-label { fill: var(--text); font-size: 12px; } .lane-glyph { fill: var(--tone, var(--muted)); }
 .lane-line { stroke: var(--border); }
 .mark { fill: var(--tone, var(--text)); font-size: 13px; cursor: default; }
 .legend { list-style: none; margin: 0; padding: 0; display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); }
 .legend li { display: inline-flex; gap: 5px; align-items: center; } .legend-glyph { color: var(--tone, var(--text)); }
+
+/* First-run checklist (IA §8): three steps, glyph + word so state never relies on colour alone. */
+.first-run { max-width: 520px; margin: 16px auto 0; padding: 16px 20px; border: 1px solid var(--border); border-radius: 12px; background: var(--panel); }
+.first-run h3 { margin: 0 0 10px; font-size: var(--type-section); color: var(--text); }
+.first-run ol { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.first-run li { display: grid; grid-template-columns: 20px 1fr; gap: 8px; align-items: start; color: var(--text); }
+.first-run-glyph { color: var(--tone, var(--muted)); font-weight: 700; text-align: center; }
+
+/* Theme preview cards in Settings: each card sets its own tokens, so it shows the theme it would apply. */
+.theme-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.theme-card { display: grid; gap: 6px; text-align: left; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--panel); color: var(--text); font: inherit; cursor: pointer; }
+.theme-card[aria-pressed="true"] { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.theme-card:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+.theme-card-name { font-weight: 600; }
+.theme-card-statuses, .theme-card-text { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: var(--type-caption); align-items: center; }
+/* Statuses in aligned columns rather than a ragged wrap. */
+.theme-card-statuses { display: grid; grid-template-columns: repeat(auto-fill, minmax(78px, 1fr)); white-space: nowrap; }
+.theme-card-statuses > span { color: var(--tone); } .theme-card .text { color: var(--text); }
+.theme-card-ramp { display: inline-block; width: 72px; height: 8px; border-radius: 4px; background: var(--pressure-gradient); }

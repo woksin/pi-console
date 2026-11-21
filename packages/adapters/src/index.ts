@@ -1,5 +1,6 @@
 export { FileTailer, type TailerOptions, type PollResult } from './tailing/tailer.ts';
 export { discover, sourcePath, pathDenied } from './tailing/paths.ts';
+export { openSource } from './tailing/open-source.ts';
 export { redact, scanPatterns, type Scanner, type RedactedText } from './tailing/redact.ts';
 export type { Fact, Mapper } from './tailing/events.ts';
 export { sessionTailer } from './session/session.ts';
@@ -10,6 +11,7 @@ export { contextMapper } from './sources/context.ts';
 export { laneMapper, laneStatusMapper, rosterMapper, laneMessageMapper } from './sources/lanes.ts';
 export { orchMapper } from './sources/orch.ts';
 export { questionMapper } from './sources/questions.ts';
+export { memoryEventMapper, memoryJournalMapper, crc32 } from './sources/memory.ts';
 export { issueMapper } from './sources/issues.ts';
 export { phaseMapper } from './sources/phases.ts';
 export { opaqueLogMapper } from './sources/gaps.ts';

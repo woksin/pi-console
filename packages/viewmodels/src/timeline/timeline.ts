@@ -25,23 +25,25 @@ export const pan = (window: TimeWindow, direction: number): TimeWindow => ({ ...
 
 const time = (iso: string) => Date.parse(iso);
 
+import { glyphs, markerLegend } from '../format/glyphs.ts';
+
 function requestMarkers(requests: readonly Request[]): Marker[] {
   return requests.flatMap(request => {
     const interrupted = request.status === 'interrupted';
     const base = { sessionId: request.sessionId, rank: interrupted ? 5 : 4 };
     return [
-      { ...base, id: request.id, at: time(request.createdAt), glyph: interrupted ? '╳' : '◆', kind: `${request.originLabel} · ${request.status}`, text: request.text, color: interrupted ? 'pink' : 'blue' } satisfies Marker,
-      ...(request.answer ? [{ ...base, rank: 3, id: `${request.id}:answer`, at: time(request.answer.at), glyph: '●', kind: 'Final answer', text: request.answer.text, color: 'green' } satisfies Marker] : []),
-      ...request.interimAnswers.map((answer, index) => ({ ...base, rank: 2, id: `${request.id}:partial:${String(index)}`, at: time(answer.at), glyph: '◐', kind: 'Partial answer · not final', text: answer.text, color: 'amber' } satisfies Marker)),
+      { ...base, id: request.id, at: time(request.createdAt), glyph: interrupted ? glyphs.interrupted : glyphs.request, kind: `${request.originLabel} · ${request.status}`, text: request.text, color: interrupted ? 'pink' : 'blue' } satisfies Marker,
+      ...(request.answer ? [{ ...base, rank: 3, id: `${request.id}:answer`, at: time(request.answer.at), glyph: glyphs.answer, kind: 'Final answer', text: request.answer.text, color: 'green' } satisfies Marker] : []),
+      ...request.interimAnswers.map((answer, index) => ({ ...base, rank: 2, id: `${request.id}:partial:${String(index)}`, at: time(answer.at), glyph: glyphs.partial, kind: 'Partial answer · not final', text: answer.text, color: 'amber' } satisfies Marker)),
     ];
   });
 }
 
 /** Everything that happened, as markers on a lane. Exact state intervals are not in the API, so none are drawn. */
 export function markers(input: Omit<TimelineInput, 'window' | 'width'>): Marker[] {
-  const resets = input.resets.map(reset => ({ id: reset.id, sessionId: reset.sessionId, at: time(reset.at), glyph: '┃', kind: `Reset · ${reset.kind}`, text: `carried ${reset.carriedRequestIds.join(', ') || 'none'} · interrupted ${reset.interruptedRequestIds.join(', ') || 'none'}`, color: 'pink', rank: 6 }) satisfies Marker);
-  const questions = input.questions.map(question => ({ id: question.id, sessionId: question.sessionId, at: time(question.createdAt), glyph: '?', kind: `Question · ${question.status}`, text: question.text, color: 'amber', rank: 1 }) satisfies Marker);
-  const messages = input.messages.map(message => ({ id: message.id, sessionId: message.fromSessionId, at: time(message.sentAt), glyph: '›', kind: `Message · ${message.status}`, text: message.text, color: 'cyan', rank: 0 }) satisfies Marker);
+  const resets = input.resets.map(reset => ({ id: reset.id, sessionId: reset.sessionId, at: time(reset.at), glyph: glyphs.reset, kind: `Reset · ${reset.kind}`, text: `carried ${reset.carriedRequestIds.join(', ') || 'none'} · interrupted ${reset.interruptedRequestIds.join(', ') || 'none'}`, color: 'pink', rank: 6 }) satisfies Marker);
+  const questions = input.questions.map(question => ({ id: question.id, sessionId: question.sessionId, at: time(question.createdAt), glyph: glyphs.question, kind: `Question · ${question.status}`, text: question.text, color: 'amber', rank: 1 }) satisfies Marker);
+  const messages = input.messages.map(message => ({ id: message.id, sessionId: message.fromSessionId, at: time(message.sentAt), glyph: glyphs.message, kind: `Message · ${message.status}`, text: message.text, color: 'cyan', rank: 0 }) satisfies Marker);
   return [...requestMarkers(input.requests), ...resets, ...questions, ...messages].map(marker => ({ ...marker, text: sanitize(marker.text) })).sort((a, b) => a.at - b.at);
 }
 
@@ -52,11 +54,6 @@ export function fitWindow(all: readonly Marker[]): TimeWindow {
 }
 
 export const columnOf = (at: number, window: TimeWindow, width: number): number => Math.round((at - window.start) / window.span * (width - 1));
-
-const legend = [
-  { glyph: '◆', color: 'blue', label: 'request' }, { glyph: '╳', color: 'pink', label: 'interrupted' }, { glyph: '●', color: 'green', label: 'final answer' },
-  { glyph: '◐', color: 'amber', label: 'partial' }, { glyph: '┃', color: 'pink', label: 'reset' }, { glyph: '?', color: 'amber', label: 'question' }, { glyph: '›', color: 'cyan', label: 'message' },
-] as const;
 
 export function timelineViewModel(input: TimelineInput): TimelineViewModel {
   const all = markers(input);
@@ -77,5 +74,5 @@ export function timelineViewModel(input: TimelineInput): TimelineViewModel {
     const at = window.start + window.span * index / (ticks - 1);
     return { column: columnOf(at, window, input.width), label: clock(new Date(at).toISOString()) };
   });
-  return { window, lanes, axis, markers: all, legend: [...legend] };
+  return { window, lanes, axis, markers: all, legend: [...markerLegend] };
 }

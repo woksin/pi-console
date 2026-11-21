@@ -1,8 +1,11 @@
 :root {
   /* Fallbacks only; applyTheme() writes the shared tokens from the contract before first paint of the app. */
-  --bg: #0b1019; --panel: #101925; --raised: #172434; --border: #2b3b50; --text: #d8e2ef; --muted: #8b9eb5; --faint: #627992;
+  --bg: #0b1019; --panel: #101925; --raised: #172434; --border: #2b3b50; --text: #d8e2ef; --muted: #8b9eb5; --faint: #7a8fa8;
+  --border-strong: #667d96; --hot-text: #1c1300;
   --cyan: #66d9ef; --blue: #819cff; --amber: #f5bf65; --green: #85d9a0; --red: #fa7989; --orange: #f49b6c; --violet: #b49afa; --pink: #e996d0;
   --select: #203c50; --flash: #32413b;
+  --type-caption: 12px; --type-body: 14px; --type-section: 16px; --type-title: 20px;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-6: 24px;
   --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
   --radius: 8px;
@@ -12,20 +15,22 @@
 :root[data-theme='dawn'] { color-scheme: light; }
 *, *::before, *::after { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
-body { background: var(--bg); color: var(--text); font: 13px/1.45 var(--sans); font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; }
+body { background: var(--bg); color: var(--text); font: var(--type-body)/1.5 var(--sans); font-variant-numeric: tabular-nums; -webkit-font-smoothing: antialiased; }
 h1, h2, h3, p { margin: 0; }
-h1 { font-size: 20px; font-weight: 650; letter-spacing: -0.01em; }
-h2 { font-size: 15px; font-weight: 600; }
-h3 { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
+h1 { font-size: var(--type-title); font-weight: 650; letter-spacing: -0.01em; }
+h2 { font-size: var(--type-section); font-weight: 600; }
+h3 { font-size: var(--type-caption); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); }
 a { color: var(--cyan); text-decoration: none; }
 a:hover { text-decoration: underline; }
 button, input { font: inherit; color: inherit; }
 button { cursor: pointer; }
+/* Input containers and focusable outlines use the AA boundary token, not decorative borders. */
+input, select, textarea, .search, .btn, .seg { --border: var(--border-strong); }
 button:disabled { cursor: not-allowed; opacity: 0.5; }
 :focus-visible { outline: none; box-shadow: var(--focus); border-radius: 4px; }
 code, .mono, pre { font-family: var(--mono); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-.muted { color: var(--muted); } .faint { color: var(--faint); } .small { font-size: 11.5px; }
+.muted { color: var(--muted); } .faint { color: var(--faint); } .small { font-size: var(--type-caption); }
 .tnum { font-variant-numeric: tabular-nums; } .grow { flex: 1 1 auto; } .end { text-align: right; }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .num { text-align: right; }

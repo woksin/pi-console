@@ -8,26 +8,32 @@ export interface StatusToken {
   /** Single-cell glyph; never the only carrier of meaning (label always rendered next to it in the web UI). */
   glyph: string;
   color: ThemeToken;
+  tint: string;
   label: string;
 }
 
+const token = (glyph: string, color: ThemeToken, label: string): StatusToken => ({
+  glyph, color, label, tint: `color-mix(in srgb, var(--${color}) 14%, transparent)`,
+});
+
 /** Every status word used by any view (sessions, requests, jobs). One table, shared by web and TUI. */
 export const statusTaxonomy: Record<string, StatusToken> = {
-  'needs-you': { glyph: '!', color: 'amber', label: 'Needs you' },
-  working: { glyph: '*', color: 'cyan', label: 'Working' },
-  running: { glyph: '*', color: 'cyan', label: 'Running' },
-  blocked: { glyph: '×', color: 'orange', label: 'Blocked' },
-  failed: { glyph: '×', color: 'red', label: 'Failed' },
-  waiting: { glyph: '~', color: 'violet', label: 'Waiting' },
-  interrupted: { glyph: '/', color: 'pink', label: 'Interrupted' },
-  done: { glyph: '✓', color: 'green', label: 'Done' },
-  answered: { glyph: '✓', color: 'green', label: 'Answered' },
-  unanswered: { glyph: '!', color: 'amber', label: 'Unanswered' },
-  open: { glyph: '!', color: 'amber', label: 'Open' },
-  'answer-possibly-unseen': { glyph: '?', color: 'orange', label: 'Answer possibly unseen' },
-  idle: { glyph: '–', color: 'faint', label: 'Idle' },
+  'needs-you': token('!', 'amber', 'Needs you'),
+  working: token('*', 'cyan', 'Working'),
+  running: token('*', 'cyan', 'Running'),
+  blocked: token('×', 'orange', 'Blocked'),
+  failed: token('×', 'red', 'Failed'),
+  waiting: token('~', 'violet', 'Waiting'),
+  interrupted: token('/', 'pink', 'Interrupted'),
+  done: token('✓', 'green', 'Done'),
+  answered: token('✓', 'green', 'Answered'),
+  unanswered: token('!', 'amber', 'Unanswered'),
+  open: token('!', 'amber', 'Open'),
+  'answer-possibly-unseen': token('?', 'orange', 'Answer possibly unseen'),
+  idle: token('–', 'faint', 'Idle'),
+  stale: token('?', 'muted', 'Stale'),
 };
 
-const unknownStatus: StatusToken = { glyph: '·', color: 'muted', label: 'Unknown' };
+const unknownStatus: StatusToken = token('·', 'muted', 'Unknown');
 
 export const statusToken = (value: string): StatusToken => statusTaxonomy[value] ?? unknownStatus;

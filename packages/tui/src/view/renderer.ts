@@ -3,7 +3,7 @@
  * Column, Lines, Clickable) and talks to the terminal through `useKeys`, `useSize`, `useTick`, `launch` and
  * `mountHeadless`. Swapping the renderer (the Bubble Tea fallback in ADR-0003) means re-implementing this file.
  */
-import { act, createElement, type ReactElement, type ReactNode } from 'react';
+import { act, createElement, useEffect, type ReactElement, type ReactNode } from 'react';
 import { createCliRenderer, TextAttributes, type CliRenderer } from '@opentui/core';
 import { createRoot, useKeyboard, useTerminalDimensions, useAnimationTick, useRenderer } from '@opentui/react';
 import { testRender } from '@opentui/react/test-utils';
@@ -17,7 +17,7 @@ export interface Part { text: string; color?: Color; background?: Color; bold?: 
 export type Line = readonly Part[];
 
 const attributes = (part: Part): number =>
-  (part.bold ? TextAttributes.BOLD : 0) | (part.dim ? TextAttributes.DIM : 0) | (part.italic ? TextAttributes.ITALIC : 0) | (part.underline ? TextAttributes.UNDERLINE : 0);
+  (part.bold || (part.color !== undefined && palette.emphasised(part.color)) ? TextAttributes.BOLD : 0) | (part.dim ? TextAttributes.DIM : 0) | (part.italic ? TextAttributes.ITALIC : 0) | (part.underline ? TextAttributes.UNDERLINE : 0);
 
 function renderLine(line: Line, key: string | number, extra: object = {}): ReactElement {
   return element('text', { key, wrapMode: 'none', ...extra }, ...line.map((part, index) => element('span', {
@@ -80,6 +80,17 @@ export const useClipboard = (): ((text: string) => boolean) => {
   return (text: string) => renderer.copyToClipboardOSC52(text);
 };
 
+/** The title is cosmetic: a renderer that cannot write it (headless, not yet started) is left as it is. */
+function setTitle(renderer: CliRenderer, title: string): void {
+  try { renderer.setTerminalTitle(title); } catch { /* no terminal session to title */ }
+}
+
+/** Sets the terminal window title (OSC 2). The caller passes text already stripped of control characters (`consoleTitle`). */
+export const useTerminalTitle = (title: string): void => {
+  const renderer = useRenderer();
+  useEffect(() => { setTitle(renderer, title); }, [renderer, title]);
+};
+
 export interface Handle { renderer: CliRenderer; destroy: () => void }
 
 /** Starts the interactive renderer on the real terminal. */
@@ -88,7 +99,7 @@ export async function launch(node: ReactNode, options: { fps: number; onDestroy:
     targetFps: options.fps, maxFps: 30, useMouse: true, exitOnCtrlC: false, backgroundColor: palette.resolve('bg'), onDestroy: options.onDestroy,
   });
   createRoot(renderer).render(node);
-  return { renderer, destroy: () => { renderer.destroy(); } };
+  return { renderer, destroy: () => { setTitle(renderer, ''); renderer.destroy(); } };
 }
 
 export interface Headless {

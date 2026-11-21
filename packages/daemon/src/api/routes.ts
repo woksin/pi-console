@@ -1,11 +1,14 @@
 import type { Health, Settings } from '@pi-console/contract';
 import { InvalidCursorError, requestFilters, type ConsoleQueries, type PageCollection, type PageQuery, type RequestFilter } from '@pi-console/core';
 import { apiPrefix, HttpError } from '../security/guard.ts';
+import type { MemoryHandoffReader } from './memory-handoffs.ts';
+import { memoryStatus, sessionMemory } from './memory-routes.ts';
 import type { TranscriptReader } from './transcripts.ts';
 
 export interface ApiContext {
   queries: () => ConsoleQueries;
   transcripts: TranscriptReader;
+  memoryHandoffs: MemoryHandoffReader;
   health: () => Health;
   settings: () => Settings;
 }
@@ -28,17 +31,26 @@ function requestFilter(url: URL): RequestFilter {
   return known;
 }
 
+function pageLimit(url: URL): number {
+  const limit = queryInteger(url, 'limit', 0, 1000);
+  if (limit === 0) throw new HttpError(400, 'Invalid limit');
+  return limit;
+}
+
+function pageOrder(url: URL): 'asc' | 'desc' {
+  const order = url.searchParams.get('order') ?? 'asc';
+  if (order !== 'asc' && order !== 'desc') throw new HttpError(400, 'Invalid order');
+  return order;
+}
+
 /** Paging parameters, present only when the client sends `limit` (1..1000); otherwise the list stays complete. */
 function pageQuery(url: URL, collection: PageCollection): PageQuery | undefined {
   if (url.searchParams.get('limit') === null) return undefined;
-  const limit = queryInteger(url, 'limit', 0, 1000);
-  if (limit === 0) throw new HttpError(400, 'Invalid limit');
-  const order = url.searchParams.get('order') ?? 'asc';
-  if (order !== 'asc' && order !== 'desc') throw new HttpError(400, 'Invalid order');
-  const query: PageQuery = { limit, order, after: url.searchParams.get('after') ?? undefined };
+  const query: PageQuery = { limit: pageLimit(url), order: pageOrder(url), after: url.searchParams.get('after') ?? undefined };
   const sessionId = url.searchParams.get('sessionId');
   if (sessionId !== null && collection !== 'sessions') query.sessionId = sessionId;
   if (collection === 'requests') query.filter = requestFilter(url);
+  if (collection === 'memoryItems') query.status = memoryStatus(url);
   return query;
 }
 
@@ -74,14 +86,22 @@ function decoded(segment: string): string {
   }
 }
 
-/** `/sessions/:id` and `/sessions/:id/transcript`. */
+type SessionRoute = (context: ApiContext, sessionId: string, url: URL) => unknown;
+
+const sessionRoutes = new Map<string, SessionRoute>([
+  ['transcript', transcript],
+  ['memory', (context, sessionId) => sessionMemory(context.queries(), context.memoryHandoffs, sessionId)],
+]);
+
+/** `/sessions/:id`, `/sessions/:id/transcript` and `/sessions/:id/memory`. */
 function session(context: ApiContext, url: URL, parts: string[]): unknown {
   const sessionId = decoded(parts[0]);
   const detail = context.queries().session(sessionId);
   if (!detail) throw new HttpError(404, 'Session not found');
   if (parts.length === 1) return detail;
-  if (parts.length === 2 && parts[1] === 'transcript') return transcript(context, sessionId, url);
-  throw new HttpError(404, 'Not found');
+  const route = parts.length === 2 ? sessionRoutes.get(parts[1]) : undefined;
+  if (!route) throw new HttpError(404, 'Not found');
+  return route(context, sessionId, url);
 }
 
 const routes = new Map<string, Route>(Object.entries({
@@ -92,6 +112,7 @@ const routes = new Map<string, Route>(Object.entries({
   messages: listRoute('messages', context => context.queries().messages()),
   jobs: listRoute('jobs', context => context.queries().jobs()),
   resets: listRoute('resets', context => context.queries().resets()),
+  'memory-items': listRoute('memoryItems', (context, url) => context.queries().memoryItems(memoryStatus(url))),
   'needs-you': context => ({ items: context.queries().needsYou() }),
   graph: context => context.queries().graph(),
   health: context => context.health(),

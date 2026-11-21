@@ -2,8 +2,40 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { requestsViewModel } from '@pi-console/viewmodels';
+import { glyphs, markerLegend, transcriptLines, pressureColor, pressureGradient, requestsViewModel } from '@pi-console/viewmodels';
+import { themeColors } from '@pi-console/contract';
+import { palette, quantize } from './view/theme.ts';
+import { renderEntry } from './views/session.ts';
+import { pressureBar } from './view/parts.ts';
 import { startHarness, type Harness } from './testing/harness.ts';
+
+test('web gradient and true-colour terminal use the same ramp at 51%, with threshold ticks and band fallbacks', () => {
+  for (const highContrast of [false, true]) {
+    const colors = themeColors(highContrast);
+    palette.configure('truecolor', highContrast ? 'contrast' : 'midnight');
+    assert.equal(palette.resolve('pressure:51'), pressureColor(51, colors));
+    assert.ok(pressureGradient(colors).includes(`${palette.resolve('pressure:51')} 51%`));
+    for (const depth of ['256', '16'] as const) {
+      palette.configure(depth, highContrast ? 'contrast' : 'midnight');
+      assert.ok([colors.green, colors.amber, colors.red].map(color => quantize(color, depth)).includes(palette.resolve('pressure:51')));
+    }
+  }
+  palette.configure('truecolor', 'midnight');
+  const bar = pressureBar(100, 101);
+  assert.equal(bar[51].color, 'pressure:51');
+  assert.equal(bar[60].text, '│');
+  assert.equal(bar[80].text, '│');
+});
+
+test('transcript glyphs match the shared table rendered by web, including resets; marker legend uses the same reset', () => {
+  const kinds = ['user', 'thinking', 'assistant', 'tool.call', 'tool.result', 'diff', 'reset'] as const;
+  for (const [index, kind] of kinds.entries()) {
+    const [line] = transcriptLines([{ id: String(index), sessionId: 's', cursor: index, at: '2026-01-01T00:00:00Z', kind, text: 'body', toolCallId: null, resetId: null, requestId: null, toolResult: null }]);
+    assert.equal(line.glyph, glyphs[line.kind]);
+    assert.ok(renderEntry(line, 100).flat().some(part => part.text.includes(glyphs[line.kind])));
+  }
+  assert.equal(markerLegend.find(item => item.label === 'reset')?.glyph, glyphs.reset);
+});
 
 /** The goldens are the view-model contract shared with the web UI; the TUI must show what they say, in its own layout. */
 const golden = (view: string): unknown => JSON.parse(readFileSync(fileURLToPath(new URL(`../../viewmodels/src/${view}/golden.json`, import.meta.url)), 'utf8'));
@@ -64,7 +96,13 @@ test('requests show uncertain and possibly-unseen labels, filter with the shared
   await harness.ui.press('ESCAPE');
 });
 
-/** Each flagged row carries its flag on its own line at ordinary widths, however long the request text; the summary counts must match the rows. */
+const requestFlags = (frame: string) => frame.split('\n').flatMap(line => {
+  // Origin then two fixed flag columns; the legend and provenance panel are not request rows.
+  const flags = / [●◆?] ([≈ ])([◌ ]) /.exec(line);
+  return flags ? [{ line, uncertain: flags[1] === '≈', possiblyUnseen: flags[2] === '◌' }] : [];
+});
+
+/** Glyph-only columns preserve the web's per-request semantics; the legend is not evidence of a row's flags. */
 for (const width of [80, 132]) {
   test(`requests rows keep their uncertain and unseen flags on the row at ${String(width)} columns`, async () => {
     const narrow = await startHarness({ width, height: 90 });
@@ -73,9 +111,25 @@ for (const width of [80, 132]) {
       const frame = await narrow.ui.waitFor('Requests');
       const { requests, sessions } = narrow.runtime.store.getSnapshot();
       const model = requestsViewModel({ requests, sessions, now: Date.now(), filter: { state: 'all', origin: 'all', sessionId: null, query: '' } });
-      const marked = (flag: string) => frame.split('\n').filter(line => line.includes(flag) && /\b\d+[smhd]\b/.test(line)).length;
-      assert.equal(marked('≈ uncertain'), model.uncertain, 'uncertain rows flagged on their own line');
-      assert.equal(marked('◌ unseen?'), model.possiblyUnseen, 'possibly unseen rows flagged on their own line');
+      const displayed = requestFlags(frame);
+      assert.equal(displayed.length, model.rows.length, 'every request has its own origin and flag columns');
+      for (const [index, row] of model.rows.entries()) {
+        assert.ok(displayed[index].line.includes(row.text.slice(0, 12)), `flags belong to request ${row.id}`);
+        assert.equal(displayed[index].uncertain, Boolean(row.uncertain), `uncertain flag for ${row.id}`);
+        assert.equal(displayed[index].possiblyUnseen, Boolean(row.possiblyUnseen), `possibly unseen flag for ${row.id}`);
+      }
+      assert.equal(displayed.filter(row => row.uncertain).length, model.uncertain, 'uncertain rows flagged on their own line');
+      assert.equal(displayed.filter(row => row.possiblyUnseen).length, model.possiblyUnseen, 'possibly unseen rows flagged on their own line');
     } finally { await narrow.stop(); }
   });
 }
+
+test('a reset divider names its kind and counts, then lists what it carried over and interrupted', () => {
+  const [line] = transcriptLines([{ id: 'x', sessionId: 's', cursor: 1, at: '2026-11-20T09:00:18Z', kind: 'reset', text: 'Handoff', toolCallId: null, resetId: 'reset1', requestId: null, toolResult: null }]);
+  const reset = { kind: 'handoff' as const, summary: 'handoff · 2 carried · 1 interrupted', carried: [{ id: 'r1', text: 'Compare' }, { id: 'r2', text: 'Write' }], interrupted: [{ id: 'r1', text: 'Compare' }] };
+  const text = renderEntry({ ...line, reset }, 100).map(parts => parts.map(part => part.text).join(''));
+  assert.match(text[0], /09:00:18 .*⟲ handoff · 2 carried · 1 interrupted/);
+  assert.match(text[1], /carried\s+r1 Compare/);
+  assert.match(text[2], /^\s+┊\s+r2 Write/);
+  assert.match(text[3], /interrupted\s+r1 Compare/);
+});

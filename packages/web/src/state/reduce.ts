@@ -62,7 +62,7 @@ function fromSnapshot(state: ConsoleState, snapshot: SnapshotPayload): ConsoleSt
   const lists = Object.fromEntries(windowed.map(name => [name, bounded.includes(name) ? mergeSnapshot(name, state[name] as { id: string }[], snapshot[name] as { id: string }[]) : snapshot[name]])) as Pick<ConsoleState, WindowedCollection>;
   return {
     ...state, ...lists,
-    repositories: snapshot.repositories, interventions: snapshot.interventions,
+    repositories: snapshot.repositories, interventions: snapshot.interventions, snapshotLoaded: true,
     totals: snapshot.totals ?? null, bounded,
     // A resnapshot drops rows that stopped being active, so exhausted paging progress is void: history is reloadable again.
     history: {},

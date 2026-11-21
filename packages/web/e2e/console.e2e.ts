@@ -18,6 +18,72 @@ function watchErrors(page: Page): string[] {
 const connection = (page: Page): Promise<string | null> => page.locator('.conn').getAttribute('data-connection');
 
 describe('web console e2e', () => {
+  test('session topbar includes repository, lane, name and status', async () => {
+    const page = await rig.open('/session/s2');
+    await page.locator('.conn[data-connection="live"]').waitFor();
+    assert.match(await page.locator('.topbar h1').innerText(), /.+ \/ L\d+ \/ .+/);
+    await page.locator('.topbar .badge').waitFor();
+    await page.locator('.session-head').waitFor();
+    assert.equal(await page.locator('.session-head h2, .session-head .badge').count(), 0, 'identity and status appear only in the topbar');
+    assert.equal(await page.locator('.rail .badge').filter({ hasText: 'Unknown' }).count(), 0);
+    await page.context().close();
+  });
+
+  test('initial stream hold shows skeletons, not empty states', async () => {
+    const page = await rig.open('/fleet', { token: null });
+    await page.route('**/api/v1/stream*', route => route.abort());
+    await page.getByLabel('Access token').fill(rig.daemon.token);
+    await page.getByRole('button', { name: 'Connect' }).click();
+    for (const [view, label] of [['fleet', 'sessions'], ['requests', 'requests'], ['work', 'work'], ['overview', 'overview']]) {
+      await page.evaluate(view => { window.location.hash = `#/${view}`; }, view);
+      await page.getByRole('status', { name: `Loading ${label}` }).waitFor();
+      assert.equal(await page.locator('.empty').count(), 0);
+      assert.ok(!(await page.locator('#content').innerText()).includes('No pi sessions found yet'));
+    }
+    await page.context().close();
+  });
+
+  test('Settings renders nested daemon health with human labels', async () => {
+    const page = await rig.open('/settings', { token: null });
+    await page.route('**/api/v1/health', route => route.fulfill({ json: {
+      status: 'ok', eventLog: { lastSeq: 42, dbBytes: 1048576 },
+      projection: { position: 42, queueDepth: 0, skipped: 0 },
+      stream: { seq: 42, clients: 1, retained: 42 },
+      backfill: { complete: true, windowDays: 7 }, memory: { rssBytes: 2097152, heapUsedBytes: 1048576 },
+    } }));
+    await page.getByLabel('Access token').fill(rig.daemon.token);
+    await page.getByRole('button', { name: 'Connect' }).click();
+    await page.getByText('Event log · Last sequence', { exact: true }).waitFor();
+    assert.ok(!(await page.locator('.settings').innerText()).includes('[object'));
+    await page.getByText('2.0 MB', { exact: true }).waitFor();
+    await page.context().close();
+  });
+  test('P1 type scale stays readable and contained at desktop and narrow desktop widths', async () => {
+    for (const width of [1280, 1100]) {
+      for (const view of ['overview', 'requests', 'fleet']) {
+        const page = await rig.open(`/${view}`, { width, height: 800 });
+        try {
+          await page.locator('.conn[data-connection="live"]').waitFor();
+          await page.locator('h1').first().waitFor();
+          const layout = await page.evaluate(() => {
+            const title = document.querySelector('h1');
+            const hero = document.querySelector('.hero-title');
+            return {
+              body: getComputedStyle(document.body).fontSize,
+              title: title ? getComputedStyle(title).fontSize : null,
+              hero: hero ? getComputedStyle(hero).fontSize : null,
+              overflow: document.documentElement.scrollWidth > window.innerWidth,
+            };
+          });
+          assert.equal(layout.body, '14px');
+          assert.ok(layout.title === '14px' || layout.title === '20px', 'breadcrumb or page title uses the shared scale');
+          if (layout.hero) assert.equal(layout.hero, '20px');
+          assert.equal(layout.overflow, false, `${view} at ${String(width)}px`);
+        } finally { await page.context().close(); }
+      }
+    }
+  });
+
   test('loads with the launch-link token, shows the fleet live, and scrubs the token from the URL', async () => {
     const page = await rig.open('/fleet');
     const errors = watchErrors(page);
@@ -69,13 +135,43 @@ describe('web console e2e', () => {
       await page.waitForFunction(() => document.querySelector('.conn')?.getAttribute('data-connection') !== 'live', undefined, { timeout: 15_000 });
       assert.ok(await page.locator('tr[data-session]').count() > 0, 'stale data stays on screen instead of blanking');
       await page.getByTestId('banner').waitFor();
-        await rig.startDaemon();
+      await page.locator('#content[data-stale="true"]').waitFor();
+      assert.equal(await page.locator('#content').evaluate(el => getComputedStyle(el).opacity), '1');
+      assert.equal(await page.locator('.app').getAttribute('data-stale'), 'true');
+      assert.equal(await page.locator('.app').evaluate(el => {
+        const css = getComputedStyle(el);
+        return css.getPropertyValue('--cyan').trim() === css.getPropertyValue('--muted').trim();
+      }), true, 'offline accents use the readable neutral palette');
+      await page.locator('.stale-asof').waitFor();
+      assert.match(await page.locator('.stale-asof').innerText(), /^As of \d{2}:\d{2}:\d{2}$/);
+      assert.equal(await page.locator('.sidebar').evaluate(el => getComputedStyle(el).opacity), '1');
+      await rig.startDaemon();
       down = false;
     } finally {
       if (down) await rig.startDaemon();
     }
     await page.locator('.conn[data-connection="live"]').waitFor({ timeout: 30_000 });
     assert.equal(await connection(page), 'live');
+    await page.locator('#content[data-stale="false"]').waitFor();
+    assert.equal(await page.locator('.app').getAttribute('data-stale'), 'false');
+    assert.equal(await page.locator('.stale-asof').count(), 0);
+    await page.context().close();
+  });
+
+  test('title and favicon carry the needs-you count; the palette groups, highlights and ranks prefix matches first', async () => {
+    const page = await rig.open('/overview');
+    await page.locator('.conn[data-connection="live"]').waitFor();
+    await page.waitForFunction(() => /^\(\d+\) Overview · pi console$/.test(document.title));
+    assert.match(await page.locator("link[rel='icon']").getAttribute('href') ?? '', /circle/, 'the favicon shows the needs-you dot');
+    await page.keyboard.press('Control+p');
+    const palette = page.getByRole('dialog', { name: 'Command palette' });
+    await palette.getByRole('combobox').fill('aur');
+    const first = palette.getByRole('option').first();
+    assert.equal(await first.locator('mark').first().innerText(), 'aur');
+    assert.ok((await palette.getByRole('group').count()) >= 1, 'results are grouped');
+    await palette.getByRole('combobox').fill('>sett');
+    assert.equal(await palette.getByRole('option').first().locator('.pal-label').innerText(), 'Open settings');
+    await page.keyboard.press('Escape');
     await page.context().close();
   });
 

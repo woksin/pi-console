@@ -5,8 +5,8 @@ import { pauseTranscript, resumeTranscript, scrollTranscript, type TranscriptAnc
 export type Section = 'overview' | 'fleet' | 'requests' | 'questions' | 'messages' | 'timeline' | 'work';
 export const sections: readonly Section[] = ['overview', 'fleet', 'requests', 'questions', 'messages', 'timeline', 'work'];
 export type Overlay = 'none' | 'palette' | 'filter' | 'help' | 'settings' | 'search';
-export type SidePane = 'requests' | 'questions' | 'jobs' | 'resets';
-export const sidePanes: readonly SidePane[] = ['requests', 'questions', 'jobs', 'resets'];
+export type SidePane = 'requests' | 'questions' | 'jobs' | 'resets' | 'memory';
+export const sidePanes: readonly SidePane[] = ['requests', 'questions', 'jobs', 'resets', 'memory'];
 
 export interface UiState {
   section: Section;
@@ -16,6 +16,8 @@ export interface UiState {
   /** The text being typed in the palette, filter or transcript search. */
   input: string;
   paletteIndex: number;
+  /** Palette item ids picked before, newest first. */
+  recents: readonly string[];
   filter: string;
   cursor: Record<Section, number>;
   collapsed: readonly string[];
@@ -38,7 +40,7 @@ export interface UiState {
 }
 
 export const initial: UiState = {
-  section: 'overview', sessionId: null, overlay: 'none', input: '', paletteIndex: 0, filter: '',
+  section: 'overview', sessionId: null, overlay: 'none', input: '', paletteIndex: 0, recents: [], filter: '',
   cursor: { overview: 0, fleet: 0, requests: 0, questions: 0, messages: 0, timeline: 0, work: 0 },
   collapsed: [], follow: true, anchor: null, requestFilter: { state: 'all', origin: 'all', sessionId: null }, focusEntry: null, search: '', pane: 'requests', messagesGraph: false, window: null, scrub: false, scrubColumn: 0, quit: false, notice: '',
 };
@@ -56,7 +58,7 @@ const contextRules: readonly (readonly [(state: UiState) => boolean, KeyContext]
 ];
 
 export function contextOf(state: UiState): KeyContext {
-  return contextRules.find(([applies]) => applies(state))?.[1] ?? 'list';
+  return contextRules.find(([applies]) => applies(state))?.[1] ?? state.section;
 }
 
 const clamp = (value: number, length: number) => Math.max(0, Math.min(Math.max(0, length - 1), value));
@@ -177,11 +179,15 @@ export function handleKey(state: UiState, key: string, bounds: Bounds): UiState 
   return action ? reduce(state, action, bounds) : state;
 }
 
-/** Text entry for the palette, filter and transcript search. `commit` is true when Enter should apply the field. */
+/** Preview the draft without changing the committed filter; Escape discards the draft. */
+export const listFilter = (state: UiState): string => state.overlay === 'filter' ? state.input : state.filter;
+
+/** Text entry for the palette, filter and transcript search. */
 export function typing(state: UiState, key: string, character: string | undefined): UiState {
-  if (key === 'Backspace') return { ...state, input: [...state.input].slice(0, -1).join(''), paletteIndex: 0 };
-  if (character) return { ...state, input: state.input + character, paletteIndex: 0 };
-  return state;
+  if (key !== 'Backspace' && !character) return state;
+  const input = key === 'Backspace' ? [...state.input].slice(0, -1).join('') : state.input + (character ?? '');
+  const cursor = state.overlay === 'filter' ? { ...state.cursor, [state.section]: 0 } : state.cursor;
+  return { ...state, input, cursor, paletteIndex: 0 };
 }
 
 /** Enter in a text field for filter and search (the palette is handled by the app, it executes a target). */

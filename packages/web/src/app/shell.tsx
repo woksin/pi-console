@@ -1,5 +1,8 @@
+import type { Session } from '@pi-console/contract';
+import { clock, sanitize, statusCell } from '@pi-console/viewmodels';
 import type { ConsoleState } from '../state/state.ts';
-import { Kbd } from '../ui/primitives.tsx';
+import { Kbd, StatusBadge } from '../ui/primitives.tsx';
+import { FleetPulse } from './pulse.tsx';
 import { hrefFor, sectionIds, sectionMeta, type SectionId } from './routes.ts';
 
 interface SidebarProps { active: SectionId | null; settings: boolean; attention: number; questions: number; collapsed: boolean; onCollapse: () => void }
@@ -12,7 +15,7 @@ export function Sidebar({ active, settings, attention, questions, collapsed, onC
       <ul>
         {sectionIds.map((id, index) => (
           <li key={id}>
-            <a href={hrefFor(id)} aria-current={active === id ? 'page' : undefined} title={sectionMeta[id].hint}>
+            <a href={hrefFor(id)} aria-label={sectionMeta[id].label} aria-current={active === id ? 'page' : undefined} title={sectionMeta[id].hint}>
               <span className="nav-icon" aria-hidden="true">{sectionMeta[id].icon}</span>
               <span className="nav-label">{sectionMeta[id].label}</span>
               {badge(id) > 0 && <span className={`nav-badge${id === 'overview' ? ' hot' : ''}`} aria-label={`${String(badge(id))} waiting`}>{badge(id)}</span>}
@@ -22,7 +25,7 @@ export function Sidebar({ active, settings, attention, questions, collapsed, onC
         ))}
       </ul>
       <div className="sidebar-foot">
-        <a className="navlink" href={hrefFor('settings')} aria-current={settings ? 'page' : undefined}><span className="nav-icon" aria-hidden="true">⚙</span><span className="nav-label">Settings</span><Kbd>,</Kbd></a>
+        <a className="navlink" aria-label="Settings" href={hrefFor('settings')} aria-current={settings ? 'page' : undefined}><span className="nav-icon" aria-hidden="true">⚙</span><span className="nav-label">Settings</span><Kbd>,</Kbd></a>
         <button type="button" className="collapse" onClick={onCollapse} aria-pressed={collapsed}>{collapsed ? '»' : '« Collapse'}</button>
       </div>
     </nav>
@@ -31,14 +34,20 @@ export function Sidebar({ active, settings, attention, questions, collapsed, onC
 
 const connectionTone: Record<ConsoleState['connection'], string> = { live: 'green', connecting: 'amber', reconnecting: 'amber', offline: 'red', unauthorized: 'red' };
 
-interface TopBarProps { title: string; hint: string; state: ConsoleState; onPalette: () => void; onHelp: () => void }
+export const staleData = (state: ConsoleState, wall: number): boolean =>
+  state.snapshotLoaded && (state.connection !== 'live' || (state.lastFrameAt > 0 && wall - state.lastFrameAt > 20_000));
 
-export function TopBar({ title, hint, state, onPalette, onHelp }: TopBarProps) {
+interface TopBarProps { title: string; hint: string; state: ConsoleState; wall: number; session?: Session; onPalette: () => void; onHelp: () => void }
+
+export function TopBar({ title, hint, state, wall, session, onPalette, onHelp }: TopBarProps) {
   return (
     <header className="topbar">
-      <h1 className="crumb">{title}</h1>
+      <h1 className="crumb truncate" title={session ? `${session.repositoryId} / ${session.laneId} / ${session.name}` : title}>{session ? `${sanitize(session.repositoryId)} / ${sanitize(session.laneId)} / ${sanitize(session.name)}` : title}</h1>
+      {session && <StatusBadge cell={statusCell(session.status)} />}
       {hint && <span className="muted">{hint}</span>}
       <span className="grow" />
+      <FleetPulse sessions={state.sessions} needsYou={state.needsYou.length} />
+      {staleData(state, wall) && <time className="stale-asof muted" dateTime={new Date(state.lastFrameAt).toISOString()}>As of {clock(new Date(state.lastFrameAt).toISOString())}</time>}
       <span className={`conn tone-${connectionTone[state.connection]}`} role="status" data-connection={state.connection}><span className="dot" />{state.connection}</span>
       <button type="button" className="btn ghost" onClick={onPalette}>Palette <Kbd>:</Kbd></button>
       <button type="button" className="btn ghost" onClick={onHelp}>Help <Kbd>?</Kbd></button>

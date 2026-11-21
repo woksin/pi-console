@@ -24,5 +24,5 @@ export function contextFor({ route, palette, help }: ContextInput): KeyContext {
   if (route.view === 'session') return 'detail';
   if (route.view === 'timeline') return 'timeline';
   if (route.view === 'messages' && route.params.view === 'graph') return 'graph';
-  return 'list';
+  return route.view === 'settings' ? 'global' : route.view;
 }

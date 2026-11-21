@@ -9,10 +9,11 @@ import { publishedAfter, sessionStarted, specDaemon } from '../testing/harness.t
 
 test('shutdown drains pending multi-update frames before closing their durable sequence store', async () => {
   const spec = await specDaemon([sessionStarted(1, 's1')]);
+  const stream = await openStream(spec.daemon.port, { Authorization: `Bearer ${spec.token}` });
   const seq = spec.daemon.stream.seq;
   try {
     await spec.daemon.log.append([testEvent(2, 'RequestObserved', { requestId: 'r1', sessionId: 's1', origin: 'launch', originEvidence: 'spec' })]);
-  } finally { await spec.close(); }
+  } finally { await spec.close(); stream.close(); }
   assert.equal(spec.daemon.stream.seq, seq + 2);
   await new Promise<void>(resolve => { setImmediate(resolve); });
 });

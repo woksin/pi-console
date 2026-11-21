@@ -32,6 +32,14 @@ function project(fixture: Fixture, type: string, payload: unknown) {
   const items = collections[type as keyof typeof collections];
   if (items) upsert(items as { id: string }[], payload as { id: string });
 }
+/**
+ * A live transcript entry replayed from the fixture. The fixture already holds lap 0, so replay lap `n` is shifted `n + 1` fixture
+ * spans later: timestamps keep rising with the cursor instead of jumping back to 09:00:00 after the fixture's last entry.
+ */
+function replayed(template: Fixture['transcript'][number], cursor: number, shift: number): Fixture['transcript'][number] {
+  return { ...template, cursor, id: `live-entry${String(cursor)}`, at: new Date(Date.parse(template.at) + shift).toISOString() };
+}
+
 export function createStore(speed: number, rate?: number, replayWindow = 10000) {
   const fixture: Fixture = JSON.parse(readFileSync(new URL('../fixture/data/fixture.json', import.meta.url), 'utf8'));
   const timeline: TimelineEntry[] = readFileSync(new URL('../fixture/data/stream.jsonl', import.meta.url), 'utf8').trim().split('\n').map(line => JSON.parse(line));
@@ -51,6 +59,9 @@ export function createStore(speed: number, rate?: number, replayWindow = 10000) 
   const started = performance.now();
   const duration = timeline.at(-1)!.t + 1000;
   const templates = structuredClone(fixture.transcript);
+  /** One lap spans the whole fixture transcript plus a second, so a replay lap never overlaps the one before it. */
+  const span = Date.parse(templates.at(-1)!.at) - Date.parse(templates[0].at) + 1000;
+  let lap = 0;
 
   function publish(type: string, original: unknown) {
     let event: StreamEvent | undefined;
@@ -61,7 +72,7 @@ export function createStore(speed: number, rate?: number, replayWindow = 10000) 
   function publishEntity(type: string, original: unknown) {
     let payload = structuredClone(original);
     if (type === 'transcript.appended') {
-      const entry = { ...(payload as Fixture['transcript'][number]), cursor: ++cursor, id: `live-entry${cursor}` };
+      const entry = replayed(payload as Fixture['transcript'][number], ++cursor, (lap + 1) * span);
       fixture.transcript.push(entry);
       if (fixture.transcript.length > 5000) fixture.transcript.shift();
       payload = entry;
@@ -76,6 +87,7 @@ export function createStore(speed: number, rate?: number, replayWindow = 10000) 
     const elapsed = (performance.now() - started) * speed;
     let budget = 500;
     while (budget-- > 0 && elapsed >= cycle * duration + entries[position].t) {
+      lap = cycle;
       publish(entries[position].type, entries[position].payload);
       position++;
       if (position === entries.length) { position = 0; cycle++; }
@@ -86,6 +98,7 @@ export function createStore(speed: number, rate?: number, replayWindow = 10000) 
     const target = Math.floor(seconds * linesPerSecond);
     const count = Math.min(target - stressSent, 1000);
     for (let i = 0; i < count; i++) {
+      lap = Math.floor(stressPosition / templates.length);
       publish('transcript.appended', templates[stressPosition++ % templates.length]);
       stressSent++;
     }

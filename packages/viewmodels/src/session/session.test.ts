@@ -1,7 +1,7 @@
 import type { TranscriptEntry } from '@pi-console/contract';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { sessionViewModel, transcriptLines } from './session.ts';
+import { resetMarks, sessionViewModel, transcriptLines } from './session.ts';
 import { fixture, golden, now } from '../test-support.ts';
 
 const session = fixture.sessions.find(item => item.id === 's2')!;
@@ -82,4 +82,28 @@ test('hostile transcript text and withheld results are neutralised', () => {
 test('search keeps matching lines and reset markers', () => {
   const model = sessionViewModel({ detail, transcript, now, search: 'queue' });
   assert.ok(model.transcript.every(line => line.kind === 'reset' || line.text.toLowerCase().includes('queue')));
+});
+
+test('a reset at 09:00:18 shows a divider naming what it carried and interrupted', () => {
+  const model = sessionViewModel({ detail, transcript: fixture.transcript.filter(entry => entry.sessionId === 's2').slice(0, 120), now });
+  const divider = model.transcript.find(line => line.kind === 'reset');
+  assert.ok(divider?.reset, 'the reset line carries its divider');
+  assert.equal(divider.time, '09:00:18');
+  assert.equal(divider.reset.summary, 'handoff · 2 carried · 1 interrupted');
+  assert.deepEqual(divider.reset.carried.map(request => request.id), ['r1', 'r2']);
+  assert.deepEqual(divider.reset.interrupted, [{ id: 'r1', text: 'Compare the queue strategies and explain the trade-offs.' }]);
+  assert.ok(model.transcript.filter(line => line.kind !== 'reset').every(line => line.reset === null));
+});
+
+test('a reset the detail does not list keeps a plain divider', () => {
+  const model = sessionViewModel({ detail: { ...detail, resets: [] }, transcript: fixture.transcript.filter(entry => entry.sessionId === 's2').slice(0, 120), now });
+  assert.equal(model.transcript.find(line => line.kind === 'reset')?.reset, null);
+});
+
+test('resets tick the context sparkline at the sample before them', () => {
+  assert.deepEqual(sessionViewModel({ detail, transcript, now }).context.resetMarks, [0]);
+  const samples = ['09:00', '09:01', '09:02'].map(time => ({ at: `2026-11-20T${time}:00.000Z` }));
+  const reset = (at: string) => ({ ...detail.resets[0], at: `2026-11-20T${at}.000Z` });
+  assert.deepEqual(resetMarks(samples, [reset('09:01:30'), reset('09:01:59'), reset('08:59:00'), reset('09:05:00')]), [1]);
+  assert.deepEqual(resetMarks([], [reset('09:01:00')]), []);
 });

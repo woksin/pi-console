@@ -5,7 +5,8 @@ import { navigate, useListNav, useSearchFocus } from '../app/hooks.ts';
 import { useActions } from '../app/commands.ts';
 import { sessionHref } from '../app/routes.ts';
 import { LoadOlder } from './load-older.tsx';
-import { EmptyState, PressureBar, SearchBox, Sparkline, StatusBadge } from '../ui/primitives.tsx';
+import { EmptyFor, FirstRun } from '../ui/empty.tsx';
+import { EmptyState, SkeletonRows, PressureBar, SearchBox, Sparkline, StatusBadge } from '../ui/primitives.tsx';
 import { useChangeFlash, useScrollIntoView } from '../ui/hooks.ts';
 
 const rowKey = (row: FleetRow): string => (row.kind === 'group' ? `group:${row.id}` : row.id);
@@ -18,8 +19,9 @@ const toggled = (set: ReadonlySet<string>, key: string): ReadonlySet<string> => 
   return next;
 };
 
-function FleetEmpty({ none }: { none: boolean }) {
-  return <EmptyState title={none ? 'No sessions yet' : 'No sessions match'}>{none ? 'Sessions appear as soon as the daemon sees agent activity.' : 'Clear the filter to see the whole fleet.'}</EmptyState>;
+function FleetEmpty({ none, connected }: { none: boolean; connected: boolean }) {
+  if (none) return <><EmptyFor view="fleet" /><FirstRun connected={connected} sessions={0} /></>;
+  return <EmptyState title="No sessions match">Clear the filter to see the whole fleet.</EmptyState>;
 }
 
 export function FleetView({ state, now }: ViewProps) {
@@ -38,10 +40,11 @@ export function FleetView({ state, now }: ViewProps) {
     toggle(selectedGroup);
     return true;
   });
+  if (!state.snapshotLoaded) return <div className="page"><SkeletonRows label="sessions" columns={7} /></div>;
   return (
     <div className="page">
       <div className="toolbar"><SearchBox value={query} onChange={setQuery} placeholder="Filter sessions, lanes, branches…" inputRef={search} /><span className="muted">{view.matched} of {view.sessionCount} sessions</span></div>
-      {view.rows.length === 0 ? <FleetEmpty none={view.sessionCount === 0} /> : (
+      {view.rows.length === 0 ? <FleetEmpty none={view.sessionCount === 0} connected={state.connection === 'live'} /> : (
         <table className="grid" aria-label="Fleet">
           <thead><tr><th>Session</th><th>Status</th><th>Context</th><th>Trend</th><th>Model</th><th className="num">Cost</th><th className="num">Age</th></tr></thead>
           <tbody>{view.rows.map(row => row.kind === 'group'

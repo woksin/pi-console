@@ -12,7 +12,7 @@ npm start -w @pi-console/tui                # the TUI, in another terminal
 node packages/cli/bin/pi-console.mjs tui    # the same through the CLI (adds --experimental-ffi in a child process)
 ```
 
-Needs Node 26 (the engine floor) because OpenTUI loads its native core through `node:ffi`. Connection settings, in order: `PI_CONSOLE_URL` (loopback HTTP only, default `http://127.0.0.1:4777`), `PI_CONSOLE_TOKEN`, `PI_CONSOLE_TOKEN_FILE`, `<PI_CONSOLE_DATA_DIR or ~/.pi-console>/token`. A token file readable by anyone but its owner is refused. `PI_CONSOLE_REDUCED_MOTION=1` turns spinners and pulses off; `PI_CONSOLE_HIGH_CONTRAST=1` uses the high-contrast tokens; colour depth follows `COLORTERM`/`TERM`.
+Needs Node 26 (the engine floor) because OpenTUI loads its native core through `node:ffi`. Connection settings, in order: `PI_CONSOLE_URL` (loopback HTTP only, default `http://127.0.0.1:4777`), `PI_CONSOLE_TOKEN`, `PI_CONSOLE_TOKEN_FILE`, `<PI_CONSOLE_DATA_DIR or ~/.pi-console>/token`. A token file readable by anyone but its owner is refused. `PI_CONSOLE_REDUCED_MOTION=1` turns spinners and pulses off; `PI_CONSOLE_THEME=midnight|contrast|mono` picks the theme (`PI_CONSOLE_HIGH_CONTRAST=1` still means contrast, and `NO_COLOR` means mono: greys only, with meaning carried by glyphs and bold; Settings shows a preview); colour depth follows `COLORTERM`/`TERM`.
 
 ## Views
 
@@ -33,18 +33,14 @@ Number keys jump, clicks work on tabs and rows. Everything is read-only; `q` onl
 
 Header: brand, tabs, a "N need you" pill and the live/offline link. Footer: the keymap's hints for the current context (so a new binding appears here without TUI changes). While the stream is down a banner shows the error and the sequence number it will resume from; the client reconnects with capped backoff and resumes through `Last-Event-ID`. Below 112 columns the tab labels collapse to numbers and side panels drop; transcript text is sanitised, so terminal escapes in a session cannot reach the screen.
 
-Screenshots and a recording, all captured from the real TUI on a pty against the mock daemon (`npm run media -w @pi-console/tui` regenerates them; `.svg` has colour, `.txt` is the plain screen):
+Screenshots and a tour, captured from the real TUI on a pty against the mock daemon's synthetic fixture by `npm run media` ([docs/media/README.md](media/README.md)). `npm run media -w @pi-console/tui` still writes a full per-view SVG and plain-text capture into `docs/media/tui/` as scratch output (not committed).
 
-| | | |
-|---|---|---|
-| [Overview](media/tui/overview.svg) | [Fleet](media/tui/fleet.svg) | [Session](media/tui/session.svg) |
-| [Requests](media/tui/requests.svg) | [Questions](media/tui/questions.svg) | [Messages](media/tui/messages.svg) |
-| [Graph](media/tui/graph.svg) | [Timeline](media/tui/timeline.svg) | [Work](media/tui/work.svg) |
-| [Palette](media/tui/palette.svg) | [Help](media/tui/help.svg) | [Settings](media/tui/settings.svg) |
-| [Reconnect banner](media/tui/reconnecting.svg) | [Tour (asciicast, `asciinema play`)](media/tui/tour.cast) | [Tour in colour (asciicast, `asciinema play`)](media/tui/tour-colour.cast) |
+![Overview](media/tui-overview.webp)
+![Command palette](media/tui-palette.webp)
+![Session filtered to a reset divider](media/tui-session-resets.webp)
+![Mono theme](media/tui-mono.webp)
 
-![Overview](media/tui/overview.svg)
-![Session](media/tui/session.svg)
+Animated tour: [tui-tour.gif](media/tui-tour.gif).
 
 ## Structure
 
@@ -76,3 +72,7 @@ The Go Bubble Tea implementation from the bake-off ([round 2](spikes/tui-bubblet
 
 - Help lists the whole keymap and is cut off on terminals shorter than about 45 rows.
 - No visual regression of the colour output; specs assert text, and the SVGs are for review.
+
+## Session memory pane
+
+The session view's side pane cycles through `memory` as its fifth tab (same keys as the other panes). It renders the same panel as the web: counts, unresolved bound, items, the exact `/memory confirm <id>` text for proposed items and the handoff figures. No key writes anything.

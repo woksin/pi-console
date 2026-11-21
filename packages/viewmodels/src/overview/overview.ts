@@ -1,6 +1,7 @@
 import type { AttentionItem, AttentionReason, Session, SourcePointer } from '@pi-console/contract';
 import { age, clip, compactNumber, money, sanitize, sparkline } from '../format/format.ts';
 import { statusCell, type StatusCell } from '../format/status-cell.ts';
+import { emptyStates } from '../empty/empty.ts';
 
 export interface OverviewInput { needsYou: readonly AttentionItem[]; sessions: readonly Session[]; repositories: number; now: number }
 export interface AttentionCard {
@@ -15,12 +16,25 @@ export interface OverviewViewModel {
   fleet: { sessions: number; repositories: number; working: number; tokens: string; cost: string; contextSeries: number[]; contextSpark: string };
 }
 
+/** Group adjacent reasons only: the daemon's attention ranking remains authoritative. */
+export function attentionSections<T extends Pick<AttentionCard, 'reasonLabel'>>(cards: readonly T[]): { label: string; cards: T[] }[] {
+  const sections: { label: string; cards: T[] }[] = [];
+  for (const card of cards) {
+    const label = card.reasonLabel;
+    const previous = sections.at(-1);
+    if (previous?.label === label) previous.cards.push(card);
+    else sections.push({ label, cards: [card] });
+  }
+  return sections;
+}
+
 const reasons: Record<AttentionReason, { label: string; status: string }> = {
   'open-request': { label: 'Open request', status: 'open' },
   'answer-possibly-unseen': { label: 'Answer possibly unseen', status: 'unanswered' },
   'blocking-question': { label: 'Blocking question', status: 'needs-you' },
   'lane-waiting-on-user': { label: 'Lane waiting on you', status: 'waiting' },
   'stale-session': { label: 'Stale session', status: 'idle' },
+  'proposed-memory': { label: 'Proposed memory', status: 'needs-you' },
 };
 const order = ['needs-you', 'blocked', 'failed', 'working', 'waiting', 'idle', 'done'] as const;
 
@@ -51,6 +65,7 @@ export function overviewViewModel(input: OverviewInput): OverviewViewModel {
     title: title(item, byId), text: clip(sanitize(item.text), 160), age: age(item.since, input.now), sessionId: item.sessionId, pointer: item.pointer,
   }));
   const counts = order.map(status => ({ status: statusCell(status), count: input.sessions.filter(session => session.status === status).length }));
-  const headline = cards.length === 0 ? 'All clear: nothing needs you' : `${String(cards.length)} ${cards.length === 1 ? 'thing needs' : 'things need'} you`;
+  const calmHeadline = input.sessions.length === 0 ? emptyStates.fleet.title : 'All clear: nothing needs you';
+  const headline = cards.length === 0 ? calmHeadline : `${String(cards.length)} ${cards.length === 1 ? 'thing needs' : 'things need'} you`;
   return { headline, cards, counts, fleet: fleetSummary(input.sessions, input.repositories) };
 }

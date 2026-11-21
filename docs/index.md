@@ -11,6 +11,7 @@ Design documents for pi-console (status: design, name provisional). Read in this
 7. [Research summary](research-summary.md): evidence behind the decisions.
 8. [TUI](ui-tui.md): the OpenTUI client, keys, tests, pinned versions, fallback.
 9. [Web UI](ui-web.md): running the web console, its security model, keyboard map and screenshots.
+10. [Media](media/README.md): the shot list and how the README pictures and animations are generated.
 
 Requests and answers (pairing, origin, uncertainty): [requests](requests.md).
 

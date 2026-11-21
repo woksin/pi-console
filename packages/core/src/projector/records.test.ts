@@ -34,6 +34,8 @@ async function hostileId(id: string): Promise<void> {
       testEvent(6, 'JobFinished', { jobId: id, status: 'done' }),
       testEvent(7, 'LaneClosed', { laneId: id }),
       testEvent(8, 'ReviewRecorded', { reviewId: id, headSha: 'abc', verdict: 'approved' }),
+      testEvent(11, 'MemoryItemRecorded', { itemId: id, kind: 'order', scopeKind: 'global', scopeKey: 'all', sourceType: 'coordinator_order', sourceMessageId: null, authorityMode: null, supersedes: [], excerpt: 'safe', withheld: false }, { subject: 'source:memory-item:safe' }),
+      testEvent(12, 'MemoryMessageRecorded', { messageId: id, sessionId: id, origin: 'human', injectedKind: null, withheld: false, textBytes: 1 }, { subject: 'session:safe' }),
     ]);
     const projector = new Projector(log, consoleProjections(), store);
     await projector.catchUp(); projector.flush();

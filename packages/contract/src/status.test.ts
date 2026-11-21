@@ -12,11 +12,17 @@ test('every v0 session status and request/job status word has a glyph, label and
     assert.notEqual(token.label, 'Unknown', word);
     assert.equal(token.glyph.length, 1, word);
     assert.ok(token.color in themeTokens, word);
+    assert.ok(token.tint.includes(`var(--${token.color})`), word);
   }
 });
 
+test('stale carries an explicit neutral question mark', () => {
+  assert.equal(statusToken('stale').glyph, '?');
+  assert.equal(statusToken('stale').color, 'muted');
+});
+
 test('unknown status words fall back to a muted neutral token', () => {
-  assert.deepEqual(statusToken('nonsense'), { glyph: '·', color: 'muted', label: 'Unknown' });
+  assert.deepEqual(statusToken('nonsense'), { glyph: '·', color: 'muted', label: 'Unknown', tint: 'color-mix(in srgb, var(--muted) 14%, transparent)' });
   assert.ok(Object.values(statusTaxonomy).every(token => token.glyph.length === 1));
 });
 

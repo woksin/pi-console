@@ -4,7 +4,8 @@ import type { ViewProps } from '../../app/view.tsx';
 import { useActions } from '../../app/commands.ts';
 import { navigate, useListNav, useSearchFocus } from '../../app/hooks.ts';
 import { sessionHref } from '../../app/routes.ts';
-import { EmptyState, SearchBox, Tabs } from '../../ui/primitives.tsx';
+import { EmptyState, SkeletonRows, SearchBox, Tabs } from '../../ui/primitives.tsx';
+import { EmptyFor } from '../../ui/empty.tsx';
 import { LoadOlder } from '../load-older.tsx';
 import { RequestCard } from './request-card.tsx';
 import { RequestDetailPane } from './request-detail.tsx';
@@ -13,6 +14,17 @@ const defaultFilter: Required<RequestsFilter> = { state: 'all', origin: 'all', s
 const stateTabs = requestStateFilters.map(id => ({ id, label: id === 'possibly-unseen' ? 'Possibly unseen' : id[0].toUpperCase() + id.slice(1) }));
 
 /** Requests and answers: the list with filters, and the detail of the selected row. Read-only; text is rendered as text. */
+function RequestSummary({ view }: { view: ReturnType<typeof requestsViewModel> }) {
+  const session = view.sessions.find(item => item.id === view.filter.sessionId);
+  return <div className="toolbar" data-testid="request-summary" aria-label={describeRequestFilter(view)}>
+    <span className="chip">state {view.filter.state}</span><span className="chip">origin {view.filter.origin}</span>
+    <span className="chip">session {view.filter.sessionId === null ? 'all' : session?.name ?? view.filter.sessionId}</span>
+    {view.filter.query.trim() && <span className="chip">“{view.filter.query.trim()}”</span>}
+    <span className="chip">{view.rows.length} shown</span><span className="chip">{view.open} open or unanswered</span>
+    <span className="chip">{view.uncertain} uncertain</span><span className="chip">{view.possiblyUnseen} possibly unseen</span>
+  </div>;
+}
+
 export function RequestsView({ state, now }: ViewProps) {
   const [filter, setFilter] = useState(defaultFilter);
   const search = useRef<HTMLInputElement>(null);
@@ -32,6 +44,7 @@ export function RequestsView({ state, now }: ViewProps) {
   const nav = useListNav(view.rows.map(row => row.id), { onOpen: jump });
   const selected = state.requests.find(request => request.id === nav.selected);
   const detail = useMemo(() => (selected ? requestDetail({ request: selected, sessions: state.sessions, now }) : null), [selected, state.sessions, now]);
+  if (!state.snapshotLoaded) return <div className="page"><SkeletonRows label="requests" /></div>;
   return (
     <div className="page requests">
       <div className="toolbar">
@@ -50,8 +63,8 @@ export function RequestsView({ state, now }: ViewProps) {
         <SearchBox inputRef={search} value={filter.query} onChange={query => { setFilter({ ...view.filter, query }); }} placeholder="Filter requests" />
       </div>
       <LoadOlder state={state} collection="requests" shown={state.requests.length} noun="requests" />
-      <p className="muted small" data-testid="request-summary">{describeRequestFilter(view)} · {view.rows.length} shown · {view.open} open or unanswered · {view.uncertain} uncertain · {view.possiblyUnseen} possibly unseen · <kbd className="kbd">[</kbd><kbd className="kbd">]</kbd> state <kbd className="kbd">o</kbd> origin <kbd className="kbd">S</kbd> session <kbd className="kbd">⏎</kbd> open in transcript</p>
-      {view.rows.length === 0 ? <EmptyState title="No requests here" mark="⇄">Requests the daemon observes appear with their answers, labelled by how sure it is who asked.</EmptyState> : (
+      <RequestSummary view={view} />
+      {view.rows.length === 0 ? (state.requests.length === 0 ? <EmptyFor view="requests" /> : <EmptyState title="No requests here" mark="⇄">No request matches this tab or filter.</EmptyState>) : (
         <div className="requests-split">
           <ol className="stack" aria-label="Requests">{view.rows.map(row => <RequestCard key={row.id} row={row} selected={nav.selected === row.id} onSelect={() => { nav.select(row.id); }} />)}</ol>
           {detail && <RequestDetailPane detail={detail} />}

@@ -53,7 +53,7 @@ Groups, with the source each event comes from ([research summary](research-summa
 | `RequestMarkedUnanswered` | Derived by projection, not emitted by adapters |
 | `RequestSeen` | Console-only display state ("seen"); never changes the source |
 | `RequestClosed` | From the intent-memory store: `request_close` (answered or abandoned, answer id, closer) |
-| `DirectiveRecorded`, `DirectiveRetired`, `DirectiveClassified` | From the intent-memory store (S3) when present; verbatim human directives and their lifecycle |
+| `MemoryItemRecorded`, `MemoryItemConfirmed`, `MemoryItemRetired`, `MemoryMessageRecorded`, `MemoryMessageClassified` | From the intent-memory store (S3), read-only: items (directive, order, decision) with a redacted excerpt, their confirm and retire lifecycle, and journal message metadata (origin, size, withheld) without text. Replaces the planned `Directive*` names: items are not only directives |
 | `BoundaryRecorded` | From the intent-memory store: boundary kind, open-request idSet (with `unresolved(count)` when a blob is missing), last answer id |
 
 **Questions**
@@ -110,7 +110,7 @@ Every source in the data-source inventory (S1 to S17, [research summary](researc
 |---|---|---|---|---|
 | S1 | Session JSONL | Tail by offset and inode; directory watch; backfill window | `SessionStarted`, `ModelChanged`, `TurnStarted`, `TurnEnded`, `RequestObserved`, `AnswerObserved`, `ResetOccurred`, `JobStarted`/`JobFinished` (from job messages), `SubagentStarted`/`SubagentFinished` (from notifications) | MVP |
 | S2 | context-budget status, events, turns, handoff files | Tail with rotation handling; watch status and handoff globs | `ContextPressureSampled`, `ResetOccurred` | MVP |
-| S3 | Intent-memory store (planned, absent today) | Feature-detect; tail `journal/`, `answers/`, `events.jsonl`, `blobs/` | `RequestObserved`, `AnswerObserved`, `RequestClosed`, `BoundaryRecorded`, `DirectiveRecorded`, `DirectiveRetired`, `DirectiveClassified` | Deferred to M4 (Phase A derivation in M1) |
+| S3 | Intent-memory store | Read-only subset (MVP): `events.jsonl` from byte 0 and `journal/*.jsonl` metadata. `boundary`, `request_close`, `answers/` and `blobs/` stay with the request derivation (Phase B, deferred) and are never opened | `MemoryItemRecorded`, `MemoryItemConfirmed`, `MemoryItemRetired`, `MemoryMessageRecorded`, `MemoryMessageClassified` (later: `RequestObserved`, `AnswerObserved`, `RequestClosed`, `BoundaryRecorded`) | Records carry a CRC-32; a bad checksum or an unknown schema/type is a body-free `SourceSchemaUnknown` |
 | S4 | Lanes registry, lane messages, lane-status, inbox markers | Directory watch; poll atomic-rename files; parse filename grammar | `LaneRegistered`, `LaneStatusChanged`, `LaneClosed`, `MessageSent`, `MessageRead`, `BroadcastSent` | MVP |
 | S5 | pi-orch heartbeats, sessions, inbox, receipts | Poll 2 to 5 s; watch inbox and receipts | `SessionHeartbeat`, `MessageDelivered`, `MessageRead` | MVP |
 | S6 | Session watchdog board | Poll 30 to 60 s | `SessionHeartbeat` (cross-check for stuck or waiting) | Deferred to M2 |

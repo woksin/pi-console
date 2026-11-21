@@ -22,12 +22,13 @@ export interface Harness {
 export async function startHarness(size = { width: 140, height: 42 }, options: { rate?: number } = {}): Promise<Harness> {
   const directory = mkdtempSync(join(tmpdir(), 'pi-console-tui-'));
   const daemon = await startDaemon({ port: await freePort(), dataDirectory: directory, rate: options.rate });
-  palette.configure('truecolor', false);
+  palette.configure('truecolor', 'midnight');
   const runtime = connect({ baseUrl: `http://127.0.0.1:${String(daemon.port)}`, token: daemon.token, tokenSource: 'test' });
   const quit = { requested: false };
   const ui = await mountHeadless(h(App, {
     store: runtime.store, endpoint: `http://127.0.0.1:${String(daemon.port)}`, tokenSource: 'test', animate: false,
     loadTranscript: id => { void runtime.client.transcript(id).then(entries => { runtime.store.mergeTranscript(id, entries); }); },
+    loadMemory: id => { void Promise.all([runtime.client.sessionMemory(id), runtime.client.memoryItems(id)]).then(([memory, items]) => { runtime.store.mergeMemory(id, memory, items); }, () => undefined); },
     onQuit: () => { quit.requested = true; },
   }), size);
   const live = () => runtime.store.getSnapshot().needsYou.length > 0 && runtime.store.getSnapshot().connection.connected;

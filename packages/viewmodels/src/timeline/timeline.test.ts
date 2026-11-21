@@ -10,7 +10,7 @@ test('timeline builds one lane per session with markers, within the window', () 
   assert.ok(model.lanes.length > 0);
   for (const lane of model.lanes) for (const cell of lane.cells) assert.ok(cell.column >= 0 && cell.column < 80);
   assert.ok(model.markers.some(marker => marker.glyph === '╳'), 'interrupted request marker');
-  assert.ok(model.markers.some(marker => marker.glyph === '┃'), 'reset marker');
+  assert.ok(model.markers.some(marker => marker.glyph === '⟲'), 'reset marker');
   golden('timeline', { ...model, markers: model.markers.length });
 });
 

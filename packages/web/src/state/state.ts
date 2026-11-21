@@ -1,5 +1,5 @@
 import type {
-  AttentionItem, Event as ApiEvent, Graph, Intervention, Job, Message, Overview, Question, Request, Reset, Session, Snapshot, TranscriptEntry,
+  AttentionItem, Event as ApiEvent, Graph, Intervention, Job, MemoryItem, Message, Overview, Question, Request, Reset, Session, SessionMemory, Snapshot, TranscriptEntry,
 } from '@pi-console/contract';
 import type { Totals, WindowedCollection } from '@pi-console/viewmodels';
 
@@ -22,13 +22,21 @@ export interface ConsoleState {
   interventions: Intervention[];
   /** Retained transcript tail per session id, ascending by cursor. */
   transcripts: Partial<Record<string, TranscriptEntry[]>>;
+  /** Intent-memory summary per session id, fetched on demand (never part of the snapshot). */
+  memory: Partial<Record<string, SessionMemory>>;
+  /** The newest memory items per session id. */
+  memoryItems: Partial<Record<string, MemoryItem[]>>;
   /** The daemon's single attention list; clients never compute their own. */
   needsYou: AttentionItem[];
+  /** True once the attention list has arrived; it is fetched after the snapshot, so `snapshotLoaded` alone is too early. */
+  needsYouLoaded: boolean;
   graph: Graph | null;
   health: HealthRecord | null;
   overview: Overview | null;
   /** Latest event time seen (epoch ms). Ages are measured against it so views are deterministic and replayable. */
   liveAt: number;
+  /** True after even an empty first snapshot; connection attempts are not empty data. */
+  snapshotLoaded: boolean;
   seq: number;
   connection: Connection;
   /** Epoch ms of the last frame received; lets clients flag a silent stream as stale. */
@@ -54,7 +62,7 @@ export const retentionFor = (state: Pick<ConsoleState, 'deepHistory'>, sessionId
 export function emptyState(): ConsoleState {
   return {
     repositories: [], sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], interventions: [],
-    transcripts: {}, needsYou: [], graph: null, health: null, overview: null, liveAt: 0, seq: 0,
+    transcripts: {}, memory: {}, memoryItems: {}, needsYou: [], needsYouLoaded: false, graph: null, health: null, overview: null, liveAt: 0, snapshotLoaded: false, seq: 0,
     connection: 'connecting', lastFrameAt: 0, gapCount: 0, received: 0, deepHistory: [], totals: null, bounded: [], history: {},
   };
 }
