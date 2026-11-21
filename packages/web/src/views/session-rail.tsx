@@ -1,4 +1,4 @@
-import type { SessionViewModel } from '@pi-console/viewmodels';
+import { glyphs, type SessionViewModel } from '@pi-console/viewmodels';
 import { PressureBar, Panel, Sparkline, StatusBadge } from '../ui/primitives.tsx';
 import { sessionHref } from '../app/routes.ts';
 import { SessionMemory } from './session-memory.tsx';
@@ -31,7 +31,7 @@ export function SessionRail({ view }: { view: SessionViewModel }) {
         {view.jobs.length === 0 && <span className="faint">None</span>}
       </Panel>
       <Panel title="Resets" aside={view.resets.length}>
-        <ul className="mini-list">{view.resets.map(reset => <li key={reset.id}><span>┃ {reset.kind}</span><span className="faint small">{reset.time} · {reset.carried} carried · {reset.interrupted} interrupted</span></li>)}</ul>
+        <ul className="mini-list">{view.resets.map(reset => <li key={reset.id}><span className="reset-kind">{glyphs.reset} {reset.kind}</span><span className="faint small">{reset.time} · {reset.carried} carried · {reset.interrupted} interrupted</span></li>)}</ul>
         {view.resets.length === 0 && <span className="faint">None</span>}
       </Panel>
       <SessionMemory id={view.id} />

@@ -135,6 +135,7 @@
 .reset-rule::after { content: ""; flex: 1; order: 1; border-top: 1px dashed color-mix(in oklab, var(--pink) 55%, transparent); }
 .reset-rule time { order: 2; color: var(--muted); font-variant-numeric: tabular-nums; }
 .reset-title { font-weight: 650; letter-spacing: 0.01em; }
+.reset-kind { color: var(--pink); font-weight: 600; white-space: nowrap; }
 .reset-note { margin: var(--space-1) 0 0; color: var(--muted); }
 .reset-lists { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 2px var(--space-3); margin: var(--space-2) 0 0; font-size: var(--type-caption); }
 .reset-list { display: contents; }
