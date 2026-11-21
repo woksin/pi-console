@@ -1,6 +1,6 @@
 import { existsSync, lstatSync, readdirSync, statSync, type Dirent } from 'node:fs';
 import { basename, join } from 'node:path';
-import { contextMapper, issueMapper, laneMapper, laneStatusMapper, orchMapper, pathDenied, phaseMapper, questionMapper, rosterMapper, type Mapper } from '@pi-console/adapters';
+import { contextMapper, issueMapper, laneMapper, laneStatusMapper, memoryEventMapper, memoryJournalMapper, orchMapper, pathDenied, phaseMapper, questionMapper, rosterMapper, type Mapper } from '@pi-console/adapters';
 import { laneStatusJson } from './lane-status.ts';
 import type { SourceId } from './source-ids.ts';
 
@@ -51,6 +51,8 @@ export interface SourceRoots {
  * status files are one prose line each: a snapshot feed with a decoder (adapters README S4). The lanes root feeds the
  * roster first (a true start time), then `lanes.json`. Context
  * `status/` and `turns*.jsonl` feed no fact and are never read; issue-work reads only `registry.jsonl`.
+ * Intent memory reads only `events.jsonl` (state: never windowed, read from byte 0) and `journal/*.jsonl` (metadata only);
+ * `answers/`, `blobs/` and the prune cursor are never opened.
  */
 export function sourceTable({ agentRoot, orchRoot, lanesRoot, laneStatusDir }: SourceRoots): SourceSpec[] {
   const snapshot = (mapper: Mapper, recursive: boolean, ...directory: string[]): Feed => ({ mapper, kind: 'snapshot', extension: '.json', directories: [join(...directory)], recursive, window: 'none' });
@@ -63,6 +65,10 @@ export function sourceTable({ agentRoot, orchRoot, lanesRoot, laneStatusDir }: S
     { id: 'lane-heartbeats', feeds: [snapshot(orchMapper, false, orchRoot, 'heartbeats')] },
     { id: 'context-budget', feeds: [tail(contextMapper, /^events(-[0-9TZ]+)?\.jsonl$/, { seekBy: 'at', lineFilter: '"handoff_committed"' }, agentRoot, 'context-budget')] },
     { id: 'issue-work', feeds: [tail(issueMapper, /^registry\.jsonl$/, { seekBy: 'ts' }, agentRoot, 'issue-work')] },
+    { id: 'intent-memory', feeds: [
+      tail(memoryEventMapper, /^events\.jsonl$/, { window: 'none' }, agentRoot, 'memory'),
+      tail(memoryJournalMapper, /^[A-Za-z0-9_-]{1,200}\.jsonl$/, {}, agentRoot, 'memory', 'journal'),
+    ] },
     { id: 'phase-ledger', feeds: [tail(phaseMapper, /^\d{4}-\d{2}-\d{2}\.jsonl$/, { window: 'name-date', filterBy: 'queuedAt' }, agentRoot, 'pi-phase', 'state', 'ledger')] },
   ];
 }

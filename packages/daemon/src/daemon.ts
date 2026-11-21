@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { ConsoleQueries, consoleProjections, Projector, readModels, SqliteEventLog, SqliteProjectionStore } from '@pi-console/core';
 import type { DaemonConfig } from './config.ts';
 import { apiQuery, type ApiContext } from './api/routes.ts';
+import { FileMemoryHandoffs, type MemoryHandoffReader } from './api/memory-handoffs.ts';
 import { noTranscripts, type TranscriptReader } from './api/transcripts.ts';
 import { healthOf, settingsOf } from './api/health.ts';
 import { apiPrefix, authenticate, checkSource, exchangeToken, HttpError, streamPath } from './security/guard.ts';
@@ -20,6 +21,8 @@ export interface DaemonOptions extends DaemonConfig {
   /** Start polling session files. Specs that append to the log directly turn this off. */
   ingest?: boolean;
   transcripts?: TranscriptReader;
+  /** Reads memory figures from handoff files on demand; the default reads the real files under the safety rules. */
+  memoryHandoffs?: MemoryHandoffReader;
   /** Unsent SSE bytes per client before it is disconnected (default 1 MiB). */
   maxBufferedBytes?: number;
   now?: () => Date;
@@ -119,7 +122,7 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
   const sources = sourceSetFor(log, options, now);
   let port = options.port;
   const apiContext: ApiContext = {
-    queries, transcripts: options.transcripts ?? noTranscripts,
+    queries, transcripts: options.transcripts ?? noTranscripts, memoryHandoffs: options.memoryHandoffs ?? new FileMemoryHandoffs(),
     health: () => healthOf({ startedAt, dataDir: options.dataDir, log, projector, stream, ingestion, sources, batcher, backfillWindowDays: options.backfillWindowDays }),
     settings: () => settingsOf(options, port),
   };

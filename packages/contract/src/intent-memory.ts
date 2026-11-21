@@ -82,3 +82,47 @@ export interface RequestClose {
   reason?: string;
   source?: string;
 }
+
+/** Item scope and source, as recorded by `add` events (`memory.event/2`). */
+export interface MemoryItemRecord {
+  id: string;
+  kind: 'directive' | 'order' | 'decision';
+  scope: { kind: 'global' | 'repo' | 'lane' | 'session' | 'task'; key: string };
+  text: string;
+  gloss?: string;
+  source: { type: 'user_message' | 'coordinator_order' | 'agent_decision' | 'question_item'; ref?: string; span?: { start: number; end: number } };
+  rationale?: string;
+  authority?: { mode: 'auto' | 'command' | 'none'; ruleVersion: string; commandRef?: string };
+  supersedes: string[];
+}
+
+interface MemoryEventBase { schema: 'memory.event/2'; id: string; at: string; actor: { kind: string; id: string; harness: string }; crc: string }
+
+/** A line of the store's `events.jsonl`. `boundary` and `request_close` belong to the request derivation (ADR-0008). */
+export type MemoryEventRecord =
+  | (MemoryEventBase & { type: 'add'; item: MemoryItemRecord })
+  | (MemoryEventBase & { type: 'confirm'; itemId: string; via: 'ui' })
+  | (MemoryEventBase & { type: 'retire'; itemId: string; status: 'done' | 'superseded' | 'withdrawn' | 'rejected'; reason: string; source?: string })
+  | (MemoryEventBase & { type: 'classify'; messageId: string; spans: { start: number; end: number; result: 'directive' | 'decision' | 'none'; itemIds: string[] }[]; whole: 'none' | null; reason?: string });
+
+/** A line of `journal/<sessionId>.jsonl`. The console reads the metadata only and never keeps `text`. */
+export interface MemoryJournalRecord {
+  schema: 'memory.journal/2';
+  id: string;
+  at: string;
+  cwd: string;
+  repo?: string;
+  lane?: string;
+  session: MemorySessionRef;
+  origin: JournalOrigin;
+  originEvidence: string[];
+  injectedKind?: string;
+  injectedFrom?: string;
+  text: string | null;
+  withheld: 'redactor_failed' | 'too_large' | null;
+  redactions: unknown[];
+  textBytes: number;
+  sha256: string;
+  blob?: string;
+  crc: string;
+}

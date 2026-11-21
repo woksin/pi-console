@@ -1,11 +1,14 @@
 import type { Health, Settings } from '@pi-console/contract';
 import { InvalidCursorError, requestFilters, type ConsoleQueries, type PageCollection, type PageQuery, type RequestFilter } from '@pi-console/core';
 import { apiPrefix, HttpError } from '../security/guard.ts';
+import type { MemoryHandoffReader } from './memory-handoffs.ts';
+import { memoryStatus, sessionMemory } from './memory-routes.ts';
 import type { TranscriptReader } from './transcripts.ts';
 
 export interface ApiContext {
   queries: () => ConsoleQueries;
   transcripts: TranscriptReader;
+  memoryHandoffs: MemoryHandoffReader;
   health: () => Health;
   settings: () => Settings;
 }
@@ -39,6 +42,7 @@ function pageQuery(url: URL, collection: PageCollection): PageQuery | undefined 
   const sessionId = url.searchParams.get('sessionId');
   if (sessionId !== null && collection !== 'sessions') query.sessionId = sessionId;
   if (collection === 'requests') query.filter = requestFilter(url);
+  if (collection === 'memoryItems') query.status = memoryStatus(url);
   return query;
 }
 
@@ -74,13 +78,14 @@ function decoded(segment: string): string {
   }
 }
 
-/** `/sessions/:id` and `/sessions/:id/transcript`. */
+/** `/sessions/:id`, `/sessions/:id/transcript` and `/sessions/:id/memory`. */
 function session(context: ApiContext, url: URL, parts: string[]): unknown {
   const sessionId = decoded(parts[0]);
   const detail = context.queries().session(sessionId);
   if (!detail) throw new HttpError(404, 'Session not found');
   if (parts.length === 1) return detail;
   if (parts.length === 2 && parts[1] === 'transcript') return transcript(context, sessionId, url);
+  if (parts.length === 2 && parts[1] === 'memory') return sessionMemory(context.queries(), context.memoryHandoffs, sessionId);
   throw new HttpError(404, 'Not found');
 }
 
@@ -92,6 +97,7 @@ const routes = new Map<string, Route>(Object.entries({
   messages: listRoute('messages', context => context.queries().messages()),
   jobs: listRoute('jobs', context => context.queries().jobs()),
   resets: listRoute('resets', context => context.queries().resets()),
+  'memory-items': listRoute('memoryItems', (context, url) => context.queries().memoryItems(memoryStatus(url))),
   'needs-you': context => ({ items: context.queries().needsYou() }),
   graph: context => context.queries().graph(),
   health: context => context.health(),

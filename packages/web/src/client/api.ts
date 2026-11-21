@@ -1,4 +1,4 @@
-import type { Event as ApiEvent, AttentionItem, Job, Message, NeedsYou, Question, Request, Reset, Session, SessionDetail, Transcript, TranscriptEntry } from '@pi-console/contract';
+import type { Event as ApiEvent, AttentionItem, Job, MemoryItem, Message, NeedsYou, Question, Request, Reset, Session, SessionDetail, SessionMemory, Transcript, TranscriptEntry } from '@pi-console/contract';
 import type { WindowedCollection } from '@pi-console/viewmodels';
 import type { HealthRecord } from '../state/state.ts';
 import { SseParser } from './sse.ts';
@@ -18,6 +18,10 @@ export interface Api {
   page<C extends WindowedCollection>(collection: C, params: PageParams): Promise<ListPage<C> | null>;
   /** Complete per-session detail (its jobs, requests, questions, resets, subagents). */
   session(id: string): Promise<SessionDetail | null>;
+  /** The session's memory summary; `null` against a daemon without the route or for an unknown session. */
+  sessionMemory(id: string): Promise<SessionMemory | null>;
+  /** The newest memory items of one session (read-only; the console never writes memory). */
+  memoryItems(sessionId: string, limit: number): Promise<MemoryItem[] | null>;
   /** Opens the event stream; resolves when the stream ends or throws on failure. */
   stream(lastEventId: number, signal: AbortSignal, onFrame: (event: ApiEvent | 'heartbeat') => void): Promise<void>;
 }
@@ -46,6 +50,11 @@ export function createApi(token: string, base = '', fetcher: typeof fetch = (...
       return await get(`/${collection}?${query.toString()}`);
     },
     async session(id) { return await get<SessionDetail>(`/sessions/${encodeURIComponent(id)}`); },
+    async sessionMemory(id) { return await get<SessionMemory>(`/sessions/${encodeURIComponent(id)}/memory`); },
+    async memoryItems(sessionId, limit) {
+      const page = await get<{ items: MemoryItem[] }>(`/memory-items?limit=${String(limit)}&order=desc&sessionId=${encodeURIComponent(sessionId)}`);
+      return page?.items ?? null;
+    },
     async stream(lastEventId, signal, onFrame) {
       const extra: Record<string, string> = { Accept: 'text/event-stream' };
       if (lastEventId > 0) extra['Last-Event-ID'] = String(lastEventId);

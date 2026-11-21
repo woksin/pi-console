@@ -17,7 +17,7 @@ const toolResult = strict({
 /** Where a signal lives in the source transcript; `null` on items whose source has no transcript position. */
 const sourcePointer = strict({ sessionId: id, entryId: id, fileOffset: int });
 
-const attentionReason = oneOf('open-request', 'answer-possibly-unseen', 'blocking-question', 'lane-waiting-on-user', 'stale-session');
+const attentionReason = oneOf('open-request', 'answer-possibly-unseen', 'blocking-question', 'lane-waiting-on-user', 'stale-session', 'proposed-memory');
 
 const attentionItem = strict({
   id, reason: ref('attentionReason'), sessionId: nullable(id), laneId: nullable(id), text: str,
@@ -43,6 +43,30 @@ const request = strict({
   evidence: array(ref('requestEvidence')), derivedFrom: oneOf('session-jsonl', 'intent-memory'),
   pointer: nullable(ref('sourcePointer')),
 }, v0Request.required);
+
+const memoryStatus = oneOf('active', 'proposed', 'done', 'superseded', 'withdrawn', 'rejected');
+
+/** One intent-memory item as recorded (docs/api/v1.md). `command` is text for a human to run in pi; the console never runs it. */
+const memoryItem = strict({
+  id, kind: oneOf('directive', 'order', 'decision'), scope: strict({ kind: oneOf('global', 'repo', 'lane', 'session', 'task'), key: str }),
+  sessionId: nullable(id), status: ref('memoryStatus'), statusBasis: oneOf('recorded', 'assumed'), text: excerpt, withheld: bool,
+  sourceType: oneOf('user_message', 'coordinator_order', 'agent_decision', 'question_item'), sourceMessageId: nullable(id), at: time, command: nullable(str),
+});
+
+/** Integers parsed from a handoff file's memory sections; every field is optional in the producer, so each group may be null. */
+const memoryHandoff = strict({
+  handoffId: id, at: time, degraded: bool,
+  memoryIndex: nullable(strict({ items: int, messages: int, unresolved: int, withheld: int, proposed: int, rejected: int })),
+  resumeCheck: nullable(strict({ activeDirectives: int, unresolvedMessages: int, proposedItems: int })),
+});
+
+const sessionMemory = strict({
+  sessionId: id, storeDetected: bool,
+  counts: strict({ active: int, proposed: int, done: int, superseded: int, withdrawn: int, rejected: int }),
+  proposedConfirmable: int,
+  unresolved: strict({ lowerBound: int, atLastHandoff: nullable(strict({ count: int, at: time })) }),
+  wider: int, handoffs: array(ref('memoryHandoff')),
+});
 
 const graphNode = strict({ laneId: id, label: str, repositoryId: nullable(id) });
 const graphEdge = strict({ fromLane: id, toLane: id, kind: oneOf('message', 'spawn', 'waiting-on', 'barred-by'), lastAt: time, count: int });
@@ -85,8 +109,8 @@ const pageOf = (item: string) => strict({ items: array(ref(item)), nextCursor: n
 
 const v1Defs: Record<string, Schema> = {
   snapshot, sessionPage: pageOf('session'), requestPage: pageOf('request'), questionPage: pageOf('question'),
-  messagePage: pageOf('message'), jobPage: pageOf('job'), resetPage: pageOf('reset'), resets: strict({ items: array(ref('reset')) }),
-  toolResult, sourcePointer, attentionReason, attentionItem, graphNode, graphEdge, requestEvidence, requestUncertainty, request,
+  messagePage: pageOf('message'), jobPage: pageOf('job'), memoryItemPage: pageOf('memoryItem'), memoryItems: strict({ items: array(ref('memoryItem')) }), resetPage: pageOf('reset'), resets: strict({ items: array(ref('reset')) }),
+  memoryStatus, memoryItem, memoryHandoff, sessionMemory, toolResult, sourcePointer, attentionReason, attentionItem, graphNode, graphEdge, requestEvidence, requestUncertainty, request,
   transcriptEntry: strict({
     id, cursor: int, sessionId: id, at: time,
     kind: oneOf('user', 'thinking', 'assistant.delta', 'assistant', 'tool.call', 'tool.result', 'diff', 'reset'),

@@ -46,3 +46,10 @@ Option 2. The console never invents a parallel intent store.
 - Switching to the store improves precision (explicit boundary events and open-request sets) without changing the UI.
 - Two derivations must be tested against the same fixtures so the switch does not change meaning.
 - The console must handle a store that appears mid-life: from first detection it ingests from the beginning of the store and reconciles with Phase A results by session and message id.
+
+## Follow-up note: read-only items (MVP)
+
+The console now ingests items and journal metadata read-only (see `docs/event-model.md`, S3). Two approximations are deliberate:
+an item's `active` status is `assumed` where only the producer's rule engine could decide it, and the unresolved-message count is a
+lower bound because the console never keeps message text. The planned `Directive*` event names became `MemoryItem*` and
+`MemoryMessage*`, since items are not only directives. Confirming remains a human action in a pi session.

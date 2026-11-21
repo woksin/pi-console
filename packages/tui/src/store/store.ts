@@ -1,5 +1,5 @@
 import { mergeHistory, mergeSnapshot, type Totals, type WindowedCollection } from '@pi-console/viewmodels';
-import type { AttentionItem, Event, Job, Message, Question, Request, Reset, Session, SessionDetail, TranscriptEntry } from '@pi-console/contract';
+import type { AttentionItem, Event, Job, MemoryItem, Message, Question, Request, Reset, Session, SessionDetail, SessionMemory, TranscriptEntry } from '@pi-console/contract';
 
 export const TRANSCRIPT_LIMIT = 2500;
 const upsert = <T extends { id: string }>(items: T[], item: T): T[] => {
@@ -16,6 +16,8 @@ export interface Data {
   /** Paging progress per windowed collection once its history has been requested. */
   history: Partial<Record<WindowedCollection, { cursor: string | null; more: boolean }>>;
   needsYou: AttentionItem[]; transcripts: ReadonlyMap<string, TranscriptEntry[]>;
+  /** Read-only intent memory per session id, fetched when its session is opened. */
+  memory: ReadonlyMap<string, SessionMemory>; memoryItems: ReadonlyMap<string, MemoryItem[]>;
   /** Ids of entities touched since the last render, used for the brief "just changed" highlight. */
   fresh: ReadonlyMap<string, number>;
 }
@@ -27,7 +29,7 @@ export interface Data {
 export class Store {
   private data: Data = {
     loaded: false, connection: { connected: false, error: 'Connecting…', lastSeq: undefined, lastEventAt: undefined, eventsReceived: 0 }, repositories: 0,
-    sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], totals: null, bounded: [], history: {}, needsYou: [], transcripts: new Map(), fresh: new Map(),
+    sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], totals: null, bounded: [], history: {}, needsYou: [], transcripts: new Map(), memory: new Map(), memoryItems: new Map(), fresh: new Map(),
   };
   private readonly listeners = new Set<() => void>();
   private timer: ReturnType<typeof setTimeout> | undefined;
@@ -97,6 +99,12 @@ export class Store {
       ...this.data, sessions: mergeHistory(this.data.sessions, [detail.session, ...detail.subagents]), requests: mergeHistory(this.data.requests, detail.requests),
       questions: mergeHistory(this.data.questions, detail.questions), jobs: mergeHistory(this.data.jobs, detail.jobs), resets: mergeHistory(this.data.resets, detail.resets),
     };
+    this.schedule();
+  }
+
+  /** Replaces one session's memory summary and items. */
+  mergeMemory(sessionId: string, memory: SessionMemory, items: readonly MemoryItem[]): void {
+    this.data = { ...this.data, memory: new Map(this.data.memory).set(sessionId, memory), memoryItems: new Map(this.data.memoryItems).set(sessionId, [...items]) };
     this.schedule();
   }
 
