@@ -94,7 +94,7 @@
         },
         {
           "column": 12,
-          "glyph": "┃",
+          "glyph": "⟲",
           "color": "pink",
           "markerId": "reset1"
         }
@@ -602,7 +602,7 @@
       "label": "partial"
     },
     {
-      "glyph": "┃",
+      "glyph": "⟲",
       "color": "pink",
       "label": "reset"
     },

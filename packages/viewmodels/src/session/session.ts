@@ -4,6 +4,8 @@ import { age, clock, money, pressure, sanitize, sparkline, type Pressure } from 
 import { statusCell, type StatusCell } from '../format/status-cell.ts';
 import { requestListViewModel, type RequestRow } from '../request-list/request-list.ts';
 
+import { glyphs } from '../format/glyphs.ts';
+
 export type LineKind = 'user' | 'thinking' | 'assistant' | 'tool' | 'result' | 'diff' | 'reset';
 export interface TranscriptLine {
   id: string; cursor: number;
@@ -23,14 +25,14 @@ export interface SessionViewModel {
 }
 
 const style: Record<TranscriptEntry['kind'], { kind: LineKind; glyph: string; label: string; color: ThemeToken }> = {
-  user: { kind: 'user', glyph: '▍', label: 'you', color: 'blue' },
-  thinking: { kind: 'thinking', glyph: '◌', label: 'thinking', color: 'faint' },
-  'assistant.delta': { kind: 'assistant', glyph: '●', label: 'assistant', color: 'text' },
-  assistant: { kind: 'assistant', glyph: '●', label: 'assistant', color: 'text' },
-  'tool.call': { kind: 'tool', glyph: '⚙', label: 'tool', color: 'cyan' },
-  'tool.result': { kind: 'result', glyph: '↳', label: 'result', color: 'muted' },
-  diff: { kind: 'diff', glyph: '±', label: 'diff', color: 'green' },
-  reset: { kind: 'reset', glyph: '┃', label: 'reset', color: 'pink' },
+  user: { kind: 'user', glyph: glyphs.user, label: 'you', color: 'blue' },
+  thinking: { kind: 'thinking', glyph: glyphs.thinking, label: 'thinking', color: 'faint' },
+  'assistant.delta': { kind: 'assistant', glyph: glyphs.assistant, label: 'assistant', color: 'text' },
+  assistant: { kind: 'assistant', glyph: glyphs.assistant, label: 'assistant', color: 'text' },
+  'tool.call': { kind: 'tool', glyph: glyphs.tool, label: 'tool', color: 'cyan' },
+  'tool.result': { kind: 'result', glyph: glyphs.result, label: 'result', color: 'muted' },
+  diff: { kind: 'diff', glyph: glyphs.diff, label: 'diff', color: 'green' },
+  reset: { kind: 'reset', glyph: glyphs.reset, label: 'reset', color: 'pink' },
 };
 
 function line(entry: TranscriptEntry, streaming = false): TranscriptLine {

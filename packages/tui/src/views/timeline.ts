@@ -1,4 +1,4 @@
-import { timelineViewModel, fitWindow, markers, clock, clip, pad, wrap, type Marker, type TimelineLane } from '@pi-console/viewmodels';
+import { markerLegend, timelineViewModel, fitWindow, markers, clock, clip, pad, wrap, type Marker, type TimelineLane } from '@pi-console/viewmodels';
 import { Column, Lines, Panel, h, type Line } from '../view/renderer.ts';
 import { blank, statusParts, t, windowOf } from '../view/parts.ts';
 import type { Env, SectionView } from './common.ts';
@@ -55,7 +55,7 @@ export function timelineView(env: Env): SectionView {
   const focus = scrub === undefined ? inWindow(all, lane?.sessionId, model.window) : nearby(all, lane?.sessionId, scrubAt, model.window.span / width * 3);
   const label = lane?.label ?? '';
   const heading = scrub === undefined ? `${label} · last markers in view` : `scrub ${clock(new Date(scrubAt).toISOString())} · ${label} · nearest markers`;
-  const legend: Line = [t(' ', 'faint'), ...model.legend.flatMap(entry => [t(entry.glyph, entry.color, { bold: true }), t(` ${entry.label}  `, 'muted')])];
+  const legend: Line = [t(' ', 'faint'), ...markerLegend.flatMap(entry => [t(entry.glyph, entry.color, { bold: true }), t(` ${entry.label}  `, 'muted')])];
   const detail = detailLines(heading, focus, env.width - 4);
   const spanSeconds = Math.round(model.window.span / 1000);
   return {

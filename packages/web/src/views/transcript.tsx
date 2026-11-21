@@ -1,4 +1,4 @@
-import type { TranscriptLine } from '@pi-console/viewmodels';
+import { glyphs, type TranscriptLine } from '@pi-console/viewmodels';
 import { useListNav } from '../app/hooks.ts';
 import { focusKey } from './transcript-jump.ts';
 import { useTranscriptScroll } from './transcript-scroll.ts';
@@ -32,10 +32,10 @@ function LineMeta({ line }: { line: TranscriptLine }) {
 }
 
 function Line({ line, selected, focused, onSelect }: { line: TranscriptLine; selected: boolean; focused: boolean; onSelect: () => void }) {
-  if (line.kind === 'reset') return <div id={`line-${line.key}`} className="reset-marker" role="separator"><span>┃ {line.text || 'context reset'}</span><time>{line.time}</time></div>;
+  if (line.kind === 'reset') return <div id={`line-${line.key}`} className="reset-marker" role="separator"><span>{glyphs.reset} {line.text || 'context reset'}</span><time>{line.time}</time></div>;
   return (
     <div id={`line-${line.key}`} className={`tline kind-${line.kind} tone-${line.color}${selected ? ' selected' : ''}${focused ? ' target' : ''}${line.streaming ? ' streaming' : ''}`} onClick={onSelect} data-kind={line.kind}>
-      <span className="tglyph" aria-hidden="true">{line.glyph}</span>
+      <span className="tglyph" aria-hidden="true">{glyphs[line.kind]}</span>
       <div className="tbody">
         <LineMeta line={line} />
         {line.tool?.args && <pre className="targs">{line.tool.args}</pre>}

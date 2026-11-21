@@ -1,4 +1,4 @@
-import { clip, sessionViewModel, wrap, type SessionViewModel, type TranscriptLine } from '@pi-console/viewmodels';
+import { glyphs, clip, sessionViewModel, wrap, type SessionViewModel, type TranscriptLine } from '@pi-console/viewmodels';
 import { Column, Lines, Panel, Row, h, type Line, type Part } from '../view/renderer.ts';
 import type { Color } from '../view/theme.ts';
 import { pressureBar, blank, fit, pressureTone, rule, split, statusParts, t } from '../view/parts.ts';
@@ -29,14 +29,14 @@ function entryRows(entry: TranscriptLine, body: number): string[] {
 }
 
 function toolLine(entry: TranscriptLine & { tool: NonNullable<TranscriptLine['tool']> }, stamp: Part, body: number): Line {
-  return [stamp, t('⚙ ', 'cyan'), t(entry.tool.name, 'cyan', { bold: true }), t(' ' + clip(entry.tool.args, Math.max(4, body - entry.tool.name.length - 1)), 'muted')];
+  return [stamp, t(`${glyphs.tool} `, 'cyan'), t(entry.tool.name, 'cyan', { bold: true }), t(' ' + clip(entry.tool.args, Math.max(4, body - entry.tool.name.length - 1)), 'muted')];
 }
 
 /** Turns one transcript entry into display lines for a column `width` cells wide. */
 export function renderEntry(entry: TranscriptLine, width: number): Line[] {
   const stamp = t(`${entry.time} `, 'faint');
   const body = width - 12;
-  if (entry.kind === 'reset') return [[stamp, ...rule(width - 9, `reset · ${entry.text}`, 'pink').map(part => ({ ...part, bold: true }))]];
+  if (entry.kind === 'reset') return [[stamp, ...rule(width - 9, `${glyphs.reset} reset · ${entry.text}`, 'pink').map(part => ({ ...part, bold: true }))]];
   if (entry.kind === 'tool' && entry.tool) return [toolLine({ ...entry, tool: entry.tool }, stamp, body)];
   const lines = bodyLines(entry, stamp, body);
   if (entry.streaming && lines.length > 0) lines[lines.length - 1] = [...lines[lines.length - 1], t(' ▍', 'cyan')];
@@ -44,7 +44,7 @@ export function renderEntry(entry: TranscriptLine, width: number): Line[] {
   return lines;
 }
 
-const gutterOf = (entry: TranscriptLine, stamp: Part, first: boolean): Part[] => (first ? [stamp, t(`${entry.glyph} `, entry.color, { bold: true })] : [t(' '.repeat(10)), t('  ')]);
+const gutterOf = (entry: TranscriptLine, stamp: Part, first: boolean): Part[] => (first ? [stamp, t(`${glyphs[entry.kind]} `, entry.color, { bold: true })] : [t(' '.repeat(10)), t('  ')]);
 
 function bodyLines(entry: TranscriptLine, stamp: Part, body: number): Line[] {
   const style = entryStyle(entry);

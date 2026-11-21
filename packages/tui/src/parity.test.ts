@@ -2,9 +2,10 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { pressureColor, pressureGradient, requestsViewModel } from '@pi-console/viewmodels';
+import { glyphs, markerLegend, transcriptLines, pressureColor, pressureGradient, requestsViewModel } from '@pi-console/viewmodels';
 import { themeColors } from '@pi-console/contract';
 import { palette, quantize } from './view/theme.ts';
+import { renderEntry } from './views/session.ts';
 import { pressureBar } from './view/parts.ts';
 import { startHarness, type Harness } from './testing/harness.ts';
 
@@ -24,6 +25,16 @@ test('web gradient and true-colour terminal use the same ramp at 51%, with thres
   assert.equal(bar[51].color, 'pressure:51');
   assert.equal(bar[60].text, '│');
   assert.equal(bar[80].text, '│');
+});
+
+test('transcript glyphs match the shared table rendered by web, including resets; marker legend uses the same reset', () => {
+  const kinds = ['user', 'thinking', 'assistant', 'tool.call', 'tool.result', 'diff', 'reset'] as const;
+  for (const [index, kind] of kinds.entries()) {
+    const [line] = transcriptLines([{ id: String(index), sessionId: 's', cursor: index, at: '2026-01-01T00:00:00Z', kind, text: 'body', toolCallId: null, resetId: null, requestId: null, toolResult: null }]);
+    assert.equal(line.glyph, glyphs[line.kind]);
+    assert.ok(renderEntry(line, 100).flat().some(part => part.text.includes(glyphs[line.kind])));
+  }
+  assert.equal(markerLegend.find(item => item.label === 'reset')?.glyph, glyphs.reset);
 });
 
 /** The goldens are the view-model contract shared with the web UI; the TUI must show what they say, in its own layout. */
