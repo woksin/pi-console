@@ -7,7 +7,7 @@ export type EmptyView = 'fleet' | 'requests' | 'questions' | 'messages' | 'graph
 
 /** What each view says when the daemon has nothing for it yet (not when a filter hides everything). */
 export const emptyStates: Readonly<Record<EmptyView, EmptyStateModel>> = {
-  fleet: { title: 'No pi sessions found yet.', mark: '◌', body: 'The daemon reads pi session logs under ~/.pi/agent. Start pi in any repository and its sessions appear here.' },
+  fleet: { title: 'No pi sessions found yet.', mark: '◌', body: 'The daemon reads pi session logs under ~/.pi/agent.' },
   requests: { title: 'No requests recorded yet.', mark: '⇄', body: 'Every prompt sent to an agent is tracked with its answer, labelled by how sure the daemon is who asked.' },
   questions: { title: 'No open questions.', mark: '?', body: 'Agents ask here when they need you.' },
   messages: { title: 'No messages yet.', mark: '⌬', body: 'Messages sent between agents appear here, with whether they were delivered and read.' },

@@ -11,6 +11,12 @@ test('empty states use the information architecture wording', () => {
   assert.ok(Object.values(emptyStates).every(state => state.body.endsWith('.') && state.mark.length > 0));
 });
 
+test('fleet first run gives the start-pi instruction only once across the empty state and checklist', () => {
+  const checklist = firstRunChecklist({ connected: true, sessions: 0 });
+  const copy = [emptyStates.fleet.body, ...checklist.steps.map(item => item.detail)].join(' ');
+  assert.equal(copy.match(/Start pi in any repository/g)?.length, 1);
+});
+
 test('the calm Overview promotes the working count', () => {
   assert.deepEqual(overviewEmpty(11), { title: 'Nothing needs you.', mark: '✓', body: '11 sessions are working.' });
   assert.equal(overviewEmpty(1).body, '1 session is working.');
