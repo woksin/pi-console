@@ -1,7 +1,7 @@
-import { newSince, overviewViewModel, pressureHistogram, wrap, type AttentionCard, type NewSince, type OverviewViewModel, type PressureHistogram } from '@pi-console/viewmodels';
+import { newSince, overviewEmpty, overviewViewModel, pressureHistogram, wrap, type AttentionCard, type NewSince, type OverviewViewModel, type PressureHistogram } from '@pi-console/viewmodels';
 import { Lines, Panel, Row, h, type Line } from '../view/renderer.ts';
 import { bar, blank, fit, heading, selectable, split, statusParts, t, windowOf } from '../view/parts.ts';
-import type { Env, SectionView } from './common.ts';
+import { checklistLines, emptyLines, type Env, type SectionView } from './common.ts';
 
 const CARD_HEIGHT = 3;
 
@@ -35,7 +35,9 @@ function attentionPanel(model: OverviewViewModel, env: Env, width: number, heigh
   const cursor = env.ui.cursor.overview;
   const { start, end } = windowOf(model.cards.length, cursor, visible);
   const lines: Line[] = model.cards.length === 0
-    ? [blank, [t('  ✓ ', 'green', { bold: true }), t('Nothing is waiting on you.', 'text')], [t('    Sessions are working, idle or done.', 'muted')]]
+    ? (env.data.sessions.length === 0
+      ? checklistLines({ connected: env.data.connection.connected, sessions: 0 }, inner)
+      : emptyLines(overviewEmpty(model.fleet.working), inner))
     : [...divider, ...model.cards.slice(start, end).flatMap((card, offset) =>
       cardLines(card, inner, { selected: start + offset === cursor, isNew: fresh.ids.has(card.id), flash: flashing(card.id) }, env))];
   const more = model.cards.length > end ? `↓ ${String(model.cards.length - end)} more` : model.cards.length > 0 ? `${String(cursor + 1)}/${String(model.cards.length)}` : '';

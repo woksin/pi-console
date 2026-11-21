@@ -3,7 +3,8 @@ import { useMemo } from 'react';
 import type { ViewProps } from '../app/view.tsx';
 import { navigate, useListNav } from '../app/hooks.ts';
 import { sessionHref } from '../app/routes.ts';
-import { EmptyState, SkeletonRows, StatusBadge } from '../ui/primitives.tsx';
+import { SkeletonRows, StatusBadge } from '../ui/primitives.tsx';
+import { EmptyFor } from '../ui/empty.tsx';
 import { LoadOlder } from './load-older.tsx';
 
 export function WorkView({ state, now }: ViewProps) {
@@ -14,7 +15,7 @@ export function WorkView({ state, now }: ViewProps) {
   return (
     <div className="page">
       <div className="toolbar"><span className="muted">{view.running} running · {view.failed} failed</span></div>
-      {view.rows.length === 0 ? <EmptyState title="No work in flight" mark="⚙">Jobs, phases and CI runs show up here with their exit codes.</EmptyState> : (
+      {view.rows.length === 0 ? <EmptyFor view="work" /> : (
         <table className="grid" aria-label="Work">
           <thead><tr><th>Name</th><th>Kind</th><th>Status</th><th>Session</th><th>Exit</th><th className="num">Started</th></tr></thead>
           <tbody>{view.rows.map(row => (

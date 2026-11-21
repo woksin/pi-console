@@ -4,7 +4,7 @@ import type { ViewProps } from '../app/view.tsx';
 import { useActions } from '../app/commands.ts';
 import { useListNav } from '../app/hooks.ts';
 import { LoadOlder } from './load-older.tsx';
-import { EmptyState } from '../ui/primitives.tsx';
+import { EmptyFor } from '../ui/empty.tsx';
 import { groupHeight, laneHeight, timelineGroups } from './timeline-groups.ts';
 
 const columns = 120;
@@ -31,7 +31,7 @@ export function TimelineView({ state, now }: ViewProps) {
   const nowColumn = columnOf(now, view.window, columns);
   const names = new Map(state.sessions.map(session => [session.id, laneLabel(session.repositoryId, session.laneId)]));
   const history = <LoadOlder state={state} collection="resets" shown={state.resets.length} noun="resets" />;
-  if (view.lanes.length === 0) return <><EmptyState title="Nothing on the timeline yet" mark="▭">Requests, answers, resets, questions and messages are placed on one time axis as they happen.</EmptyState>{history}</>;
+  if (view.lanes.length === 0) return <><EmptyFor view="timeline" />{history}</>;
   const height = view.lanes.length * laneHeight + groups.length * groupHeight + 44;
   return (
     <div className="page timeline">

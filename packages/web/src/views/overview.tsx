@@ -1,9 +1,10 @@
-import { overviewViewModel, pressureHistogram, type PressureHistogram } from '@pi-console/viewmodels';
+import { overviewEmpty, overviewViewModel, pressureHistogram, type PressureHistogram } from '@pi-console/viewmodels';
 import { useMemo } from 'react';
 import type { ViewProps } from '../app/view.tsx';
 import { navigate, useListNav } from '../app/hooks.ts';
 import { sessionHref } from '../app/routes.ts';
-import { EmptyState, SkeletonRows, Sparkline, StatusBadge } from '../ui/primitives.tsx';
+import { SkeletonRows, Sparkline, StatusBadge } from '../ui/primitives.tsx';
+import { EmptyFor, FirstRun } from '../ui/empty.tsx';
 import { useScrollIntoView } from '../ui/hooks.ts';
 import { groupAttentionCards } from './overview-sections.ts';
 import { useNewSince, useStatusFlash } from './overview-changes.ts';
@@ -33,7 +34,9 @@ export function OverviewView({ state, now }: ViewProps) {
           <h3 className="attention-heading">{section.label} <span className="faint">{section.cards.length}</span></h3>
           <ol className="cards">{section.cards.map(card => <AttentionCard key={card.id} card={card} isNew={fresh.ids.has(card.id)} selected={nav.selected === card.id} onSelect={() => { nav.select(card.id); }} />)}</ol>
         </section>)}
-        {view.cards.length === 0 && <EmptyState title="Nothing needs you" mark="✓">Open requests, blocking questions and stale sessions appear here the moment they exist.</EmptyState>}
+        {view.cards.length === 0 && (state.sessions.length === 0
+          ? <FirstRun connected={state.connection === 'live'} sessions={0} />
+          : <EmptyFor model={overviewEmpty(view.fleet.working)} />)}
       </div>
     </div>
   );

@@ -38,7 +38,7 @@ describe('web console e2e', () => {
       await page.evaluate(view => { window.location.hash = `#/${view}`; }, view);
       await page.getByRole('status', { name: `Loading ${label}` }).waitFor();
       assert.equal(await page.locator('.empty').count(), 0);
-      assert.ok(!(await page.locator('#content').innerText()).includes('No sessions yet'));
+      assert.ok(!(await page.locator('#content').innerText()).includes('No pi sessions found yet'));
     }
     await page.context().close();
   });

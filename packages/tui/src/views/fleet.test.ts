@@ -31,3 +31,17 @@ for (const width of [80, 120, 139, 140, 160]) {
     } finally { ui.destroy(); store.dispose(); }
   });
 }
+
+test('an empty fleet shows the shared empty state and the first-run checklist', async () => {
+  const store = new Store();
+  const view = fleetView({ data: { ...store.getSnapshot(), sessions: [] }, ui: { ...initial, section: 'fleet' }, width: 100, height: 30, now: Date.parse(base.updatedAt), phase: 0, click: () => undefined });
+  const ui = await mountHeadless(h(Screen, {}, view.render()), { width: 100, height: 30 });
+  try {
+    await ui.settle();
+    const frame = ui.frame();
+    assert.match(frame, /No pi sessions found yet\./);
+    assert.match(frame, /Getting started/);
+    assert.match(frame, /○ Daemon running \(not yet\)/);
+    assert.match(frame, /◇ Extension installed \(optional\)/);
+  } finally { ui.destroy(); store.dispose(); }
+});

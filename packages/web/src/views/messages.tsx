@@ -4,7 +4,7 @@ import type { ViewProps } from '../app/view.tsx';
 import { navigate, useListNav } from '../app/hooks.ts';
 import { useActions } from '../app/commands.ts';
 import { hrefFor, sessionHref } from '../app/routes.ts';
-import { EmptyState } from '../ui/primitives.tsx';
+import { EmptyFor } from '../ui/empty.tsx';
 import { useScrollIntoView } from '../ui/hooks.ts';
 import { GraphView } from './graph.tsx';
 import { LoadOlder } from './load-older.tsx';
@@ -29,7 +29,7 @@ export function MessagesView({ state, now, mode }: ViewProps & { mode: Mode }) {
       </div>
       {mode === 'list' && <LoadOlder state={state} collection="messages" shown={view.rows.length} noun="messages" />}
       {mode === 'graph' ? <GraphView state={state} /> : view.rows.length === 0
-        ? <EmptyState title="No messages yet" mark="⌬">Messages sent between agents appear here, with whether they were delivered and read.</EmptyState>
+        ? <EmptyFor view="messages" />
         : <ol className="stack" aria-label="Messages">{view.rows.map(row => <MessageCard key={row.id} row={row} selected={nav.selected === row.id} onSelect={() => { nav.select(row.id); }} />)}</ol>}
     </div>
   );

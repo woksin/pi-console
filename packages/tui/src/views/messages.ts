@@ -1,8 +1,8 @@
-import { graphViewModel, messagesViewModel, pad, wrap, age, type GraphEdgeView, type GraphViewModel, type MessageRow } from '@pi-console/viewmodels';
+import { emptyStates, graphViewModel, messagesViewModel, pad, wrap, age, type GraphEdgeView, type GraphViewModel, type MessageRow } from '@pi-console/viewmodels';
 import { Lines, Panel, Row, h, type Line } from '../view/renderer.ts';
 import { blank, fit, heading, selectable, split, t, windowOf } from '../view/parts.ts';
 import type { Color } from '../view/theme.ts';
-import { shownOf, type Env, type SectionView } from './common.ts';
+import { emptyLines, shownOf, type Env, type SectionView } from './common.ts';
 
 const deliveryColor: Record<MessageRow['delivery'], Color> = { sent: 'faint', delivered: 'amber', read: 'green' };
 
@@ -20,7 +20,7 @@ function listView(env: Env): SectionView {
     rowAt: index => ({ sessionId: rows[index]?.fromSessionId ?? null, groupId: null }),
     idAt: index => rows[index]?.id ?? null,
     render: () => h(Panel, { title: `Messages · ${String(rows.length)}${shownOf(env.data, 'messages', rows.length)} · v for graph`, focused: true, grow: 1 },
-      h(Lines, { lines: lines.length ? lines : [[t(' No messages.', 'muted')]], grow: 1, onLineClick: index => { env.click(start + index); } })),
+      h(Lines, { lines: lines.length ? lines : emptyLines(emptyStates.messages, env.width - 4), grow: 1, onLineClick: index => { env.click(start + index); } })),
   };
 }
 
@@ -71,7 +71,9 @@ function graphView(env: Env): SectionView {
   const wide = env.width >= 110;
   const width = (wide ? env.width - 48 : env.width) - 4;
   const cursor = Math.min(env.ui.cursor.messages, Math.max(0, flat.length - 1));
-  const { lines, edgeLine } = graphLines(model, cursor, env, width);
+  const graph = graphLines(model, cursor, env, width);
+  const { edgeLine } = graph;
+  const lines = graph.lines.length ? graph.lines : emptyLines(emptyStates.graph, width);
   const visible = Math.max(1, env.height - 4);
   const focusLine = edgeLine[cursor] ?? 0;
   const { start, end } = windowOf(lines.length, focusLine, visible);

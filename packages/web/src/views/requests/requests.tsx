@@ -5,6 +5,7 @@ import { useActions } from '../../app/commands.ts';
 import { navigate, useListNav, useSearchFocus } from '../../app/hooks.ts';
 import { sessionHref } from '../../app/routes.ts';
 import { EmptyState, SkeletonRows, SearchBox, Tabs } from '../../ui/primitives.tsx';
+import { EmptyFor } from '../../ui/empty.tsx';
 import { LoadOlder } from '../load-older.tsx';
 import { RequestCard } from './request-card.tsx';
 import { RequestDetailPane } from './request-detail.tsx';
@@ -63,7 +64,7 @@ export function RequestsView({ state, now }: ViewProps) {
       </div>
       <LoadOlder state={state} collection="requests" shown={state.requests.length} noun="requests" />
       <RequestSummary view={view} />
-      {view.rows.length === 0 ? <EmptyState title="No requests here" mark="⇄">Requests the daemon observes appear with their answers, labelled by how sure it is who asked.</EmptyState> : (
+      {view.rows.length === 0 ? (state.requests.length === 0 ? <EmptyFor view="requests" /> : <EmptyState title="No requests here" mark="⇄">No request matches this tab or filter.</EmptyState>) : (
         <div className="requests-split">
           <ol className="stack" aria-label="Requests">{view.rows.map(row => <RequestCard key={row.id} row={row} selected={nav.selected === row.id} onSelect={() => { nav.select(row.id); }} />)}</ol>
           {detail && <RequestDetailPane detail={detail} />}

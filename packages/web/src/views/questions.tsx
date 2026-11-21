@@ -3,7 +3,8 @@ import { useMemo } from 'react';
 import type { ViewProps } from '../app/view.tsx';
 import { navigate, useListNav } from '../app/hooks.ts';
 import { sessionHref } from '../app/routes.ts';
-import { EmptyState, StatusBadge } from '../ui/primitives.tsx';
+import { StatusBadge } from '../ui/primitives.tsx';
+import { EmptyFor } from '../ui/empty.tsx';
 import { useScrollIntoView } from '../ui/hooks.ts';
 import { LoadOlder } from './load-older.tsx';
 
@@ -14,7 +15,7 @@ export function QuestionsView({ state, now }: ViewProps) {
   return (
     <div className="page questions">
       <div className="toolbar"><span className="muted">{view.open} open · {view.blocking} blocking</span><span className="note">Read-only in this version: answer in the session itself.</span></div>
-      {view.rows.length === 0 ? <EmptyState title="No questions" mark="?">Agents raise questions and decisions here when they need you.</EmptyState> : (
+      {view.rows.length === 0 ? <EmptyFor view="questions" /> : (
         <ol className="stack" aria-label="Questions">{view.rows.map(row => <QuestionCard key={row.id} row={row} selected={nav.selected === row.id} onSelect={() => { nav.select(row.id); }} />)}</ol>)}
       <LoadOlder state={state} collection="questions" shown={view.rows.length} noun="questions" />
     </div>

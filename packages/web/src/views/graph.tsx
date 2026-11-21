@@ -4,7 +4,8 @@ import type { ConsoleState } from '../state/state.ts';
 import { useActions } from '../app/commands.ts';
 import { navigate } from '../app/hooks.ts';
 import { sessionHref } from '../app/routes.ts';
-import { EmptyState, Panel } from '../ui/primitives.tsx';
+import { Panel } from '../ui/primitives.tsx';
+import { EmptyFor } from '../ui/empty.tsx';
 
 const size = 360;
 const radius = 130;
@@ -38,7 +39,7 @@ export function GraphView({ state }: { state: ConsoleState }) {
         <li><svg viewBox="0 0 32 12" aria-hidden="true"><path className="edge spawn" d="M1 6 H30" /></svg>Spawn →</li>
         <li>Thicker edges = more messages</li><li>Nodes show session status</li>
       </ul>
-      {view.groups.length === 0 ? <EmptyState title="No communication yet" mark="⌬">Edges appear when sessions message each other or spawn subagents.</EmptyState>
+      {view.groups.length === 0 ? <EmptyFor view="graph" />
         : <div className="graph-grid">{view.groups.map(group => <GroupGraph key={group.repositoryId} group={group} />)}</div>}
     </div>
   );
