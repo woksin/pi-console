@@ -33,6 +33,11 @@
 .tl .axis { fill: var(--muted); font-size: 10px; }
 .lane-bg { fill: color-mix(in oklab, var(--raised) 45%, transparent); }
 .lane:hover .lane-bg { fill: var(--raised); }
+.lane.selected .lane-bg { fill: var(--select); stroke: var(--cyan); stroke-width: 1; }
+.lane { cursor: pointer; }
+.now-line { pointer-events: none; }
+.now-line line { stroke: var(--cyan); stroke-width: 1; stroke-dasharray: 3 3; }
+.now-line text { fill: var(--cyan); font-size: var(--type-caption); }
 .lane-label { fill: var(--text); font-size: 12px; } .lane-glyph { fill: var(--tone, var(--muted)); }
 .lane-line { stroke: var(--border); }
 .mark { fill: var(--tone, var(--text)); font-size: 13px; cursor: default; }
