@@ -32,6 +32,7 @@ export class ReviewReceipts {
   count(): number { return Number(this.#db.prepare('SELECT count(*) AS total FROM review_receipts').get()?.total); }
   prune(): void {
     const now = Date.now();
+    this.#db.prepare(`UPDATE review_receipts SET value=json_set(value,'$.state','expired','$.reason','expired','$.updatedAt',json_extract(value,'$.expiresAt')) WHERE ${pendingStates} AND json_extract(value,'$.expiresAt') <= ?`).run(now);
     if (now < this.#nextPrune) return;
     this.#db.prepare(`DELETE FROM review_receipts WHERE ${terminalStates} AND json_extract(value,'$.updatedAt') < ?`).run(now - reviewReceiptRetentionMs);
     this.#nextPrune = now + 60_000;

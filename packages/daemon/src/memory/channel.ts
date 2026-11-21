@@ -78,9 +78,10 @@ export class ReviewChannel {
   }
   #authenticate(socket: WebSocket, frame: ChannelFrame, challenge: Challenge): ReviewPeer {
     if (frame.type !== 'hello' || !equal(frame.proof, mac(this.#secret, 'client', challenge, frame))) throw new Error('Authentication refused');
+    const previous = this.peers.get(frame.binding.sessionId);
+    if (!previous && this.peers.size >= 32) throw new Error('Review peer limit reached');
     this.#pending.delete(socket);
     const peer: ReviewPeer = { socket, binding: frame.binding, connectionGeneration: challenge.generation };
-    const previous = this.peers.get(frame.binding.sessionId);
     if (previous) { this.#hooks.gone(previous); previous.socket.terminate(); }
     this.peers.set(frame.binding.sessionId, peer);
     socket.send(JSON.stringify({ type: 'welcome', proof: mac(this.#secret, 'server', challenge, frame) }));

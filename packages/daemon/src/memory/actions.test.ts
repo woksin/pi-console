@@ -40,11 +40,8 @@ async function setup(t: { after(fn: () => unknown): void }, enabled = true) {
     sockets.push(ws);
     const [bytes] = await once(ws, 'message');
     const challenge = JSON.parse(String(bytes));
-    const binding = { sessionId, pid: process.pid, cwd: '/repo' };
-    const nonce = 'b'.repeat(64);
-    const proof = createHmac('sha256', secret).update(JSON.stringify(['client', challenge.nonce, challenge.generation, nonce, sessionId, binding.pid, binding.cwd])).digest('hex');
     const welcome = once(ws, secret === token ? 'message' : 'close');
-    ws.send(JSON.stringify({ type: 'hello', nonce, binding, proof }));
+    ws.send(JSON.stringify(helloFrame(challenge, sessionId, secret)));
     await welcome;
     if (secret !== token) return ws;
     ws.send(JSON.stringify({ type: 'readiness', value: { version: 1, available: true, storeId: store, sessionId, generation: 'g1', ...readiness } }));
@@ -52,6 +49,12 @@ async function setup(t: { after(fn: () => unknown): void }, enabled = true) {
     return ws;
   };
   return { call, connect, token, readToken, config, get daemon() { return daemon; }, async restart() { await daemon.close(); daemon = await startDaemon(config); }, source: join(realpathSync(agentRoot), 'memory/events.jsonl') };
+}
+function helloFrame(challenge: { nonce: string; generation: string }, sessionId: string, secret: string) {
+  const binding = { sessionId, pid: process.pid, cwd: '/repo' };
+  const nonce = 'b'.repeat(64);
+  const proof = createHmac('sha256', secret).update(JSON.stringify(['client', challenge.nonce, challenge.generation, nonce, sessionId, binding.pid, binding.cwd])).digest('hex');
+  return { type: 'hello', nonce, binding, proof };
 }
 function actionPath(path: string, target: { method: string; sessionId: string }): string {
   return path === '/availability' || target.method === 'POST' ? `/sessions/${target.sessionId}/memory-actions${path === '/availability' ? '' : path}` : `/memory-actions${path}`;
@@ -157,6 +160,52 @@ test('decline, provider generation loss and expiry never claim a write; late res
   assert.equal(spec.daemon.log.lastSeq(), 3);
 });
 
+test('unobserved approval and unknown delivery expire at the deadline instead of retaining capacity forever', { timeout: 5000 }, async t => {
+  const spec = await setup(t);
+  const ws = await spec.connect();
+  const delivery = once(ws, 'message');
+  await spec.call('', 'POST', { requestId: 'approval', itemId: 'i1', action: 'confirm' });
+  const request = JSON.parse(String((await delivery)[0])).value;
+  applied(ws, request, 'unobserved-event');
+  await wait(async () => await receiptState(spec.call, 'approval') === 'awaiting-ingestion');
+  const lost = once(ws, 'message');
+  await spec.call('', 'POST', { requestId: 'lost', itemId: 'i2', action: 'reject' });
+  await lost;
+  ws.terminate();
+  await wait(async () => await receiptState(spec.call, 'lost') === 'unknown');
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+  t.mock.timers.tick(memoryReviewTtlMs + 1);
+  await spec.call('', 'POST', { requestId: 'expire-pending', itemId: 'missing', action: 'confirm' });
+  assert.equal(await receiptState(spec.call, 'approval'), 'expired');
+  assert.equal(await receiptState(spec.call, 'lost'), 'expired');
+  assert.equal(spec.daemon.log.lastSeq(), 3, 'expiry never manufactures producer events');
+});
+
+test('daemon primary-session advice rejects unknown, child, wrong-cwd and ended sessions even with ready providers', { timeout: 5000 }, async t => {
+  const spec = await setup(t);
+  const ws = await spec.connect();
+  let delivered = 0;
+  ws.on('message', () => { delivered++; });
+  const body = { requestId: 'primary', itemId: 'i1', action: 'confirm' };
+  assert.equal((await (await spec.call('/availability')).json()).available, true);
+  await spec.connect({ sessionId: 'unknown' });
+  assert.equal((await (await spec.call('/availability', 'GET', undefined, spec.token, {}, 'unknown')).json()).reason, 'not-ready');
+  for (const [index, change] of [{ role: 'subagent' }, { role: 'main', parentSessionId: 'parent' }, { parentSessionId: null, cwd: '/other' }].entries()) {
+    const start = sessionStarted(20 + index, 's1');
+    start.payload = { ...(start.payload as object), cwd: '/repo', ...change };
+    await spec.daemon.log.append([start]);
+    assert.equal((await (await spec.call('/availability')).json()).reason, 'not-ready');
+    assert.equal((await spec.call('', 'POST', body)).status, 503);
+  }
+  const restored = sessionStarted(25, 's1', '/repo');
+  await spec.daemon.log.append([restored]);
+  assert.equal((await (await spec.call('/availability')).json()).available, true);
+  await spec.daemon.log.append([testEvent(26, 'SessionEnded', { sessionId: 's1', reason: 'done' })]);
+  assert.equal((await (await spec.call('/availability')).json()).reason, 'not-ready');
+  assert.equal((await spec.call('', 'POST', body)).status, 503);
+  assert.equal(delivered, 0);
+});
+
 test('availability is exact-session and exact-credential, with bounded provider reasons rather than transcript guesses', { timeout: 5000 }, async t => {
   const spec = await setup(t);
   const available = async (sessionId = 's1', token = spec.token) => (await spec.call('/availability', 'GET', undefined, token, {}, sessionId)).json();
@@ -216,6 +265,39 @@ test('route-bound proposals never borrow another session, disclose withheld mate
   assert.equal(native.status, 202);
   await wait(() => delivered === 1);
   assert.equal((await spec.call('', 'POST', body, spec.token, {}, 's2')).status, 409);
+});
+
+test('concurrent authenticated handshakes cannot exceed the peer cap, but same-session replacement keeps its slot', { timeout: 10_000 }, async t => {
+  const spec = await setup(t);
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+  const established: WebSocket[] = [];
+  for (let index = 0; index < 31; index++) {
+    if (index % 8 === 0) t.mock.timers.tick(1001);
+    established.push(await spec.connect({ sessionId: `peer-${String(index)}` }));
+  }
+  t.mock.timers.tick(1001);
+  const sockets: WebSocket[] = [];
+  t.after(() => { for (const ws of sockets) ws.terminate(); });
+  const pending = await Promise.all(Array.from({ length: 8 }, async (_, index) => {
+    const ws = new WebSocket(`ws://127.0.0.1:${spec.daemon.port}/api/v1/extensions/memory-review`);
+    sockets.push(ws);
+    const [bytes] = await once(ws, 'message');
+    const sessionId = index === 7 ? 'peer-0' : `extra-${String(index)}`;
+    return { ws, frame: helloFrame(JSON.parse(String(bytes)), sessionId, spec.token) };
+  }));
+  const results = pending.map(({ ws, frame }) => {
+    const outcome = new Promise<string>(resolve => {
+      ws.once('message', () => { resolve('welcome'); });
+      ws.once('close', () => { resolve('closed'); });
+    });
+    ws.send(JSON.stringify(frame));
+    return outcome;
+  });
+  const outcomes = await Promise.all(results);
+  assert.equal(outcomes.filter(value => value === 'welcome').length, 2, 'one new slot plus one replacement, not eight new peers');
+  assert.equal(outcomes[7], 'welcome', 'authenticated replacement can reuse an existing slot');
+  await wait(() => established[0].readyState === WebSocket.CLOSED);
+  assert.ok(established.slice(1).every(ws => ws.readyState === WebSocket.OPEN));
 });
 
 test('unauthenticated upgrade pressure has a separate small budget and cannot occupy established review slots', { timeout: 10_000 }, async t => {

@@ -1,7 +1,7 @@
 import type { IncomingMessage, Server } from 'node:http';
 import { join } from 'node:path';
 import { identifier, memoryReviewTtlMs, memoryActionRequestSchema, reviewValue, type EventEnvelope, type MemoryActionAvailability, type MemoryActionReceipt, type MemoryActionRequest, type ReviewResult } from '@pi-console/contract';
-import type { ConsoleQueries, SqliteEventLog } from '@pi-console/core';
+import type { ConsoleQueries, ReadModels, SqliteEventLog } from '@pi-console/core';
 import type { DaemonConfig } from '../config.ts';
 import { HttpError } from '../security/guard.ts';
 import { ReviewChannel, type ReviewPeer } from './channel.ts';
@@ -11,7 +11,7 @@ import { providerAvailability, reviewableItem } from './availability.ts';
 import { ReviewSource } from './source.ts';
 
 export const memoryActionsPath = '/api/v1/memory-actions';
-interface Options { config: DaemonConfig; server: Server; secret: string; queries(): ConsoleQueries; log: SqliteEventLog }
+interface Options { config: DaemonConfig; server: Server; secret: string; queries(): ConsoleQueries; models(): ReadModels; log: SqliteEventLog }
 type Receipt = MemoryActionReceipt;
 const resultStates: Partial<Record<ReviewResult['reason'], Receipt['state']>> = { cancelled: 'declined', refused: 'declined', conflict: 'conflict', stale: 'conflict', not_proposed: 'conflict', expired: 'expired' };
 const sameIntent = (receipt: Receipt, request: Pick<ReviewResult, 'itemId' | 'action'>): boolean => receipt.itemId === request.itemId && receipt.action === request.action;
@@ -41,7 +41,17 @@ export class MemoryActions {
   }
   port(port: number): void { this.#channel.port(port); }
   availability(sessionId: string): MemoryActionAvailability {
-    return providerAvailability(this.#channel.peers.get(sessionId), this.#source.store()?.id);
+    const peer = this.#channel.peers.get(sessionId);
+    const value = providerAvailability(peer, this.#source.store()?.id);
+    if (!value.available || !peer) return value;
+    return this.#primary(peer) ? value : { ...value, available: false, reason: 'not-ready' };
+  }
+  #primary(peer: ReviewPeer): boolean {
+    const sessions = this.#options.models().sessions.sessions;
+    if (!Object.hasOwn(sessions, peer.binding.sessionId)) return false;
+    const session = sessions[peer.binding.sessionId];
+    if (session.stamps.role === undefined || session.role !== 'main') return false;
+    return session.parentSessionId === null && session.cwd === peer.binding.cwd && session.endedAt === null;
   }
   receipt(id: string, tokenId: string): Receipt {
     const receipt = identifier(id) ? this.#receipts.get(id) : undefined;
@@ -107,13 +117,13 @@ export class MemoryActions {
     }
   }
   #expire(): void {
-    this.#receipts.prune();
     for (const receipt of this.#receipts.pending()) this.#expireReceipt(receipt);
+    this.#receipts.prune();
   }
   #expireReceipt(receipt: Receipt): void {
-    if (receipt.state === 'awaiting-ingestion' && receipt.expiresAt + 30_000 <= Date.now()) this.#update(receipt, 'unknown');
-    if (receipt.state !== 'awaiting-human' || receipt.expiresAt > Date.now()) return;
+    if (receipt.expiresAt > Date.now()) return;
     this.#update(receipt, 'expired', 'expired');
+    if (receipt.state !== 'awaiting-human') return;
     const peer = this.#channel.peers.get(receipt.sessionId);
     if (peer?.connectionGeneration === receipt.connectionGeneration) this.#channel.cancel(peer, receipt.requestId);
   }
