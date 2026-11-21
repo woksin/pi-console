@@ -6,7 +6,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { EventEnvelope } from '@pi-console/contract';
+import type { EventEnvelope, Health } from '@pi-console/contract';
 import { buildLargeTree, call } from '@pi-console/testkit';
 import { loadConfig } from '../config.ts';
 import { startDaemon, type RunningDaemon } from '../daemon.ts';
@@ -35,21 +35,28 @@ test('a large tree backfills in the background: /health stays fast, memory flat,
   let firstOk: number | undefined;
   let worst = 0;
   let complete = false;
+  let loop = { p50: 0, p99: 0, max: 0 };
   while (!complete && performance.now() - started < 540_000) {
     const sent = performance.now();
     const reply = await call(daemon.port, '/api/v1/health', { headers });
     const elapsed = performance.now() - sent;
     if (reply.status === 200) firstOk ??= performance.now() - started;
     worst = Math.max(worst, elapsed);
-    const health = reply.body as { backfill: { complete: boolean }; projection: { queueDepth: number }; sources: { lagBytes: number }[] };
+    const health = reply.body as Health;
+    loop = health.eventLoop;
     complete = health.backfill.complete && health.projection.queueDepth === 0 && health.sources.every(source => source.lagBytes === 0);
     await wait(50);
   }
   const grown = process.memoryUsage().rss - baseline;
   console.log(`volume: first 200 ${firstOk?.toFixed(0)} ms, worst /health ${worst.toFixed(0)} ms, backfill ${((performance.now() - started) / 1000).toFixed(1)} s, rss growth ${(grown / mebibyte).toFixed(0)} MiB`);
+  console.log(`event loop: p50 ${loop.p50.toFixed(1)} ms, p99 ${loop.p99.toFixed(1)} ms, max ${loop.max.toFixed(1)} ms`);
   assert.ok(complete, 'backfill finished');
   assert.ok((firstOk ?? Infinity) < 3_000, `first 200 after ${firstOk} ms`);
-  assert.ok(worst < 200, `worst /health ${worst} ms`);
+  // HTTP wall time also includes client work and host scheduling; the histogram is the tighter bound.
+  assert.ok(worst < 1_000, `worst /health ${worst} ms`);
+  // 5 ms sampling exposes long synchronous tasks even when the HTTP polls happen to miss them.
+  assert.ok(loop.p99 < 100, `event-loop p99 ${loop.p99} ms`);
+  assert.ok(loop.max < 250, `event-loop max ${loop.max} ms`);
   assert.ok(grown < 150 * mebibyte, `rss grew ${grown / mebibyte} MiB`);
   const events = await allEvents(daemon);
   assert.equal(events.filter(event => event.type === 'SessionStarted').length, 100, 'every synthetic session was ingested');
