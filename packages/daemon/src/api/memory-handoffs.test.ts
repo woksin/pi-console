@@ -67,7 +67,6 @@ test('the reader returns the newest handoffs first, limited, and re-reads a chan
 // A subprocess bounds even a regressed synchronous FIFO open: a test timeout alone cannot interrupt one.
 const raceScript = `
   import fs from 'node:fs';
-  import { open } from 'node:fs/promises';
   import promises from 'node:fs/promises';
   import { syncBuiltinESMExports } from 'node:module';
   import { spawnSync } from 'node:child_process';
@@ -75,6 +74,8 @@ const raceScript = `
   const [path, replacement, outside] = process.argv.slice(1);
   const canonicalPath = fs.realpathSync(path);
   let replaced = false;
+  let opened = 0;
+  let closed = 0;
   const replacements = {
     fifo: () => { if (spawnSync('mkfifo', [path]).status !== 0) throw new Error('mkfifo failed'); },
     symlink: () => fs.symlinkSync(outside, path),
@@ -91,15 +92,22 @@ const raceScript = `
   }
   const original = fs.openSync;
   fs.openSync = (candidate, ...args) => { replace(candidate); return original(candidate, ...args); };
-  promises.open = (candidate, ...args) => { replace(candidate); return openFile(candidate, ...args); };
-  const openFile = open;
+  const openFile = promises.open;
+  promises.open = async (candidate, ...args) => {
+    replace(candidate);
+    const handle = await openFile(candidate, ...args);
+    opened++;
+    const close = handle.close.bind(handle);
+    handle.close = async () => { await close(); closed++; };
+    return handle;
+  };
   syncBuiltinESMExports();
   const rows = await new FileMemoryHandoffs().read([{ id: path, at: '2026-11-20T08:00:00Z' }], 1);
-  process.stdout.write(JSON.stringify({ replaced, items: rows[0].memoryIndex?.items ?? null }));
+  process.stdout.write(JSON.stringify({ replaced, items: rows[0].memoryIndex?.items ?? null, unclosed: opened - closed }));
 `;
 
 for (const replacement of ['fifo', 'symlink', 'directory', 'oversize', 'normal']) {
-  test(`handoff replaced at open with ${replacement} is bounded and validated on its descriptor`, { timeout: 5000 }, t => {
+  test(`handoff replaced at open with ${replacement} is bounded and validated on its descriptor`, { timeout: 5000, skip: process.platform === 'win32' }, t => {
     const root = directory(t);
     const path = join(root, '.ai-work/handoffs/race.md');
     const outside = join(directory(t), 'outside.md');
@@ -110,7 +118,7 @@ for (const replacement of ['fifo', 'symlink', 'directory', 'oversize', 'normal']
     });
     assert.equal(child.error, undefined, child.error);
     assert.equal(child.status, 0, child.stderr);
-    assert.deepEqual(JSON.parse(child.stdout), { replaced: true, items: replacement === 'normal' ? 4 : null });
+    assert.deepEqual(JSON.parse(child.stdout), { replaced: true, items: replacement === 'normal' ? 4 : null, unclosed: 0 });
   });
 }
 
