@@ -15,10 +15,10 @@ export function memoryStatus(url: URL): MemoryItemStatus | undefined {
 }
 
 /** The session's summary plus the figures from its newest handoff files; the exact unresolved count is the producer's, as of the last handoff. */
-export function sessionMemory(queries: ConsoleQueries, handoffs: MemoryHandoffReader, sessionId: string): SessionMemory {
+export async function sessionMemory(queries: ConsoleQueries, handoffs: MemoryHandoffReader, sessionId: string): Promise<SessionMemory> {
   const summary = queries.sessionMemory(sessionId);
   if (!summary) throw new HttpError(404, 'Session not found');
-  const read = handoffs.read(queries.resets().filter(reset => reset.sessionId === sessionId), handoffLimit);
+  const read = await handoffs.read(queries.resets().filter(reset => reset.sessionId === sessionId), handoffLimit);
   const last = read.find(handoff => (handoff.memoryIndex ?? handoff.resumeCheck) !== null);
   const count = last?.memoryIndex?.unresolved ?? last?.resumeCheck?.unresolvedMessages;
   const atLastHandoff = last && count !== undefined ? { count, at: last.at } : null;

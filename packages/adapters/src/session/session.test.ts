@@ -32,7 +32,7 @@ test('v3 emits raw observations without pairing or leaking transcript bodies', a
   assert.equal(answer.refs?.entryId, 'answer-1');
   assert.equal(JSON.stringify(log.rows).includes('Synthetic summary'), false);
   assert.equal(statSync(file).mtimeMs, before);
-  tailer.close();
+  await tailer.close();
   const replay = sessionTailer(log, file, { replay: true });
   t.after(() => replay.close());
   assert.equal((await replay.poll([file])).appended, 0);

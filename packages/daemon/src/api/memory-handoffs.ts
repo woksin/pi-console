@@ -1,7 +1,8 @@
-import { type Stats, closeSync, lstatSync, openSync, readSync, realpathSync } from 'node:fs';
-import { basename, dirname, isAbsolute } from 'node:path';
+import { realpathSync } from 'node:fs';
+import type { FileHandle } from 'node:fs/promises';
+import { basename, dirname, isAbsolute, join } from 'node:path';
 import type { MemoryHandoff } from '@pi-console/contract';
-import { pathDenied } from '@pi-console/adapters';
+import { openSource, pathDenied } from '@pi-console/adapters';
 
 /** A session's handoff reset, as the projection knows it: `id` is the handoff file path the producer committed. */
 export interface HandoffReset { id: string; at: string }
@@ -12,7 +13,7 @@ export interface HandoffReset { id: string; at: string }
  */
 export interface MemoryHandoffReader {
   /** The newest handoffs first, at most `limit`; resets whose file cannot be read safely yield null figures. */
-  read(resets: readonly HandoffReset[], limit: number): MemoryHandoff[];
+  read(resets: readonly HandoffReset[], limit: number): MemoryHandoff[] | Promise<MemoryHandoff[]>;
 }
 
 export const noMemoryHandoffs: MemoryHandoffReader = { read: () => [] };
@@ -33,28 +34,12 @@ function acceptable(path: string): boolean {
   return inHandoffs && fileName.test(basename(path));
 }
 
-/** A regular, small, non-symlink file whose real path is still an acceptable handoff path. */
-function safeFile(path: string, stat: Stats): boolean {
-  if (!stat.isFile() || stat.size > maxBytes) return false;
-  return acceptable(realpathSync(path));
-}
-
-/** The first `maxBytes` of a regular, non-symlink file; undefined for anything else or on any failure. */
-function readPrefix(path: string): string | undefined {
-  try {
-    const stat = lstatSync(path);
-    if (!safeFile(path, stat)) return undefined;
-    const descriptor = openSync(path, 'r');
-    try {
-      const buffer = Buffer.alloc(Math.min(stat.size, maxBytes));
-      const read = readSync(descriptor, buffer, 0, buffer.length, 0);
-      return buffer.subarray(0, read).toString('utf8');
-    } finally {
-      closeSync(descriptor);
-    }
-  } catch {
-    return undefined;
-  }
+/** Bounded bytes from the validated handle, including a sentinel byte for growth past the cap. */
+async function readPrefix(handle: FileHandle, size: number): Promise<string | undefined> {
+  if (size > maxBytes) return undefined;
+  const buffer = Buffer.alloc(maxBytes + 1);
+  const { bytesRead } = await handle.read(buffer, 0, buffer.length, 0);
+  return bytesRead > maxBytes ? undefined : buffer.subarray(0, bytesRead).toString('utf8');
 }
 
 const numbers = (match: RegExpExecArray | null): number[] | null => match ? match.slice(1).map(Number) : null;
@@ -78,23 +63,34 @@ const empty = { degraded: false, memoryIndex: null, resumeCheck: null } as const
 export class FileMemoryHandoffs implements MemoryHandoffReader {
   readonly #cache = new Map<string, Cached>();
 
-  read(resets: readonly HandoffReset[], limit: number): MemoryHandoff[] {
-    return resets.filter(reset => acceptable(reset.id)).sort((a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id)).slice(0, limit)
-      .map(reset => ({ handoffId: basename(reset.id), at: reset.at, ...this.#figures(reset.id) }));
+  async read(resets: readonly HandoffReset[], limit: number): Promise<MemoryHandoff[]> {
+    const newest = resets.filter(reset => acceptable(reset.id)).sort((a, b) => b.at.localeCompare(a.at) || b.id.localeCompare(a.id)).slice(0, limit);
+    return Promise.all(newest.map(async reset => ({ handoffId: basename(reset.id), at: reset.at, ...await this.#figures(reset.id) })));
   }
 
-  #figures(path: string): ReturnType<typeof parseHandoff> {
+  async #figures(path: string): Promise<ReturnType<typeof parseHandoff>> {
     try {
-      const stat = lstatSync(path);
-      const cached = this.#cache.get(path);
-      if (cached?.mtimeMs === stat.mtimeMs && cached.size === stat.size) return cached.figures;
-      const text = readPrefix(path);
-      if (text === undefined) return empty;
-      const figures = parseHandoff(text);
-      this.#cache.set(path, { mtimeMs: stat.mtimeMs, size: stat.size, figures });
-      return figures;
+      const root = realpathSync(dirname(dirname(dirname(path))));
+      const { handle } = await openSource(join(root, '.ai-work/handoffs', basename(path)), [root]);
+      try {
+        return await this.#openedFigures(path, handle);
+      } finally {
+        await handle.close();
+      }
     } catch {
       return empty;
     }
+  }
+
+  async #openedFigures(path: string, handle: FileHandle): Promise<ReturnType<typeof parseHandoff>> {
+    const stat = await handle.stat();
+    if (stat.size > maxBytes) return empty;
+    const cached = this.#cache.get(path);
+    if (cached?.mtimeMs === stat.mtimeMs && cached.size === stat.size) return cached.figures;
+    const text = await readPrefix(handle, stat.size);
+    if (text === undefined) return empty;
+    const figures = parseHandoff(text);
+    this.#cache.set(path, { mtimeMs: stat.mtimeMs, size: stat.size, figures });
+    return figures;
   }
 }

@@ -1,12 +1,16 @@
-import { closeSync, constants, fstatSync, openSync, readSync } from 'node:fs';
+import { fstatSync, readSync } from 'node:fs';
 import { createHash } from 'node:crypto';
+import { dirname } from 'node:path';
 import type { EventLog, NewEvent, SourceCheckpoint } from '@pi-console/contract';
 import { mapLine, warning, type Mapper } from './events.ts';
 import { sourcePath } from './paths.ts';
+import { openSource, resolveSourceScope, type OpenedSource } from './open-source.ts';
 import type { Scanner } from './redact.ts';
 
-interface Handle { fd: number; path: string; identity: string; replayed: boolean }
+interface Handle extends OpenedSource { fd: number; identity: string; replayed: boolean }
 export interface TailerOptions {
+  /** Canonical trust roots pinned before discovery; standalone tailers default to the candidate's parent. */
+  roots?: readonly string[];
   scanner?: Scanner;
   replay?: boolean;
   batchBytes?: number;
@@ -49,44 +53,57 @@ export class FileTailer {
   private readonly handles = new Map<string, Handle>();
   private readonly log: EventLog;
   private readonly source: string;
-  private readonly mapper: Mapper;
+  private mapper: Mapper;
+  private loadMapper: (() => Promise<Mapper>) | undefined;
   private readonly options: TailerOptions;
   private polling = false;
 
-  constructor(log: EventLog, source: string, mapper: Mapper, options: TailerOptions = {}) {
+  constructor(log: EventLog, source: string, mapper: Mapper | { load: () => Promise<Mapper> }, options: TailerOptions = {}) {
     this.log = log;
     this.source = source;
-    this.mapper = mapper;
+    this.mapper = typeof mapper === 'function' ? mapper : () => [];
+    this.loadMapper = typeof mapper === 'function' ? undefined : mapper.load;
     this.options = options;
     validateBatchSize(options.batchBytes ?? 1024 * 1024);
   }
 
-  private track(path: string): void {
-    let fd: number | undefined;
+  private async track(path: string): Promise<void> {
     try {
-      const canonical = sourcePath(path);
-      fd = openSync(canonical, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
-      const stat = fstatSync(fd);
-      if (!stat.isFile()) throw new Error('Source is not a regular file');
-      const identity = `${stat.dev}:${stat.ino}:${stat.birthtimeMs}`;
-      const existing = this.handles.get(identity);
-      if (existing) {
-        existing.path = canonical;
-        closeSync(fd);
-      } else {
-        this.handles.set(identity, { fd, path: canonical, identity, replayed: false });
+      sourcePath(path); // Preserve path/extension validation, but never open its pre-resolved target.
+      const scope = this.options.roots ? { path, roots: this.options.roots } : resolveSourceScope(path, [dirname(path)]);
+      const opened = await openSource(scope.path, scope.roots);
+      let retained = false;
+      try {
+        retained = this.retain(opened);
+      } finally {
+        if (!retained) await opened.handle.close();
       }
     } catch (error) {
-      if (fd !== undefined) closeSync(fd);
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
     }
+  }
+
+  private retain(opened: OpenedSource): boolean {
+    const { stat, path, handle } = opened;
+    const identity = `${stat.dev}:${stat.ino}:${stat.birthtimeMs}`;
+    const existing = this.handles.get(identity);
+    if (existing) {
+      existing.path = path;
+      return false;
+    }
+    this.handles.set(identity, { ...opened, fd: handle.fd, identity, replayed: false });
+    return true;
   }
 
   async poll(paths: readonly string[]): Promise<PollResult> {
     if (this.polling) throw new Error('Concurrent poll is not allowed');
     this.polling = true;
     try {
-      for (const path of paths) this.track(path);
+      if (this.loadMapper) {
+        this.mapper = await this.loadMapper();
+        this.loadMapper = undefined;
+      }
+      for (const path of paths) await this.track(path);
       const saved = new Map((await this.log.checkpoints(this.source)).map(checkpoint => [checkpoint.identity, checkpoint]));
       const result: PollResult = { entries: 0, appended: 0, lagBytes: 0, partialFiles: 0 };
       for (const handle of this.handles.values()) await this.read(handle, saved.get(handle.identity), result);
@@ -153,9 +170,10 @@ export class FileTailer {
     return events;
   }
 
-  close(): void {
+  close(): Promise<void> {
     if (this.polling) throw new Error('Cannot close during a poll');
-    for (const handle of this.handles.values()) closeSync(handle.fd);
+    const handles = [...this.handles.values()];
     this.handles.clear();
+    return Promise.all(handles.map(opened => opened.handle.close())).then(() => undefined);
   }
 }

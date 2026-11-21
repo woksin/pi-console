@@ -27,7 +27,7 @@ test('complete UTF-8 lines only, read-only source and restart from atomic checkp
   const before = statSync(file).mtimeMs;
   assert.equal((await tailer.poll([file])).appended, 0);
   assert.equal(log.positions[0].offset, 0);
-  tailer.close();
+  await tailer.close();
   const restarted = new FileTailer(log, 'session-jsonl', map);
   t.after(() => restarted.close());
   appendFileSync(file, bytes.subarray(bytes.length - 3));
@@ -51,7 +51,7 @@ test('retained descriptor drains rename, discovers replacement and replays no ro
   writeFileSync(file, line('replacement'));
   await tailer.poll([file, archive]);
   assert.equal(log.rows.length, 3);
-  tailer.close();
+  await tailer.close();
   const replay = new FileTailer(log, 'session-jsonl', map, { replay: true });
   t.after(() => replay.close());
   assert.equal((await replay.poll([archive, file])).appended, 0);

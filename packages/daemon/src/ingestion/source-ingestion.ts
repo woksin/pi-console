@@ -36,6 +36,12 @@ async function filesFor(feed: Feed, since: number): Promise<string[]> {
   return files;
 }
 
+function availableFeed(feed: Feed): Feed | undefined {
+  if (!feed.resolveScope) return feed;
+  const scope = feed.resolveScope();
+  return scope === undefined ? undefined : { ...feed, ...scope };
+}
+
 interface Seen { mtimeMs: number; size: number }
 
 const timeOfRow = (key: string) => (line: string): number => Date.parse(String((JSON.parse(line) as Record<string, unknown>)[key]));
@@ -71,7 +77,7 @@ export class SourceIngestion implements AdapterWorker {
     const now = (this.#options.now ?? (() => new Date()))();
     const since = now.getTime() - this.#options.backfillWindowDays * 86_400_000;
     const totals = { files: 0, lagBytes: 0, errors: 0 };
-    for (const feed of this.#options.feeds) {
+    for (const feed of this.#options.feeds.map(availableFeed).filter((feed): feed is Feed => feed !== undefined)) {
       const files = await filesFor(feed, since);
       totals.files += files.length;
       for (const file of files) {
@@ -98,7 +104,7 @@ export class SourceIngestion implements AdapterWorker {
   }
 
   async #snapshot(feed: Feed, file: string): Promise<number> {
-    await pollSnapshot(this.#log, this.#options.id, file, feed.mapper, { roots: feed.directories, decode: feed.decode });
+    await pollSnapshot(this.#log, this.#options.id, file, feed.mapper, { roots: feed.directories, resolvedRoots: feed.trustRoot ? [feed.trustRoot] : undefined, decode: feed.decode });
     return 0;
   }
 
@@ -126,7 +132,7 @@ export class SourceIngestion implements AdapterWorker {
       }
       return lag;
     } finally {
-      tailer.close();
+      await tailer.close();
     }
   }
 
@@ -143,6 +149,7 @@ export class SourceIngestion implements AdapterWorker {
 function tailerOptions(feed: Feed, since: number, size: number): TailerOptions {
   const { seekBy, lineFilter } = feed;
   return {
+    roots: feed.trustRoot ? [feed.trustRoot] : undefined,
     batchBytes: size,
     startOffset: seekBy ? (fd, size) => seekStart(fd, size, since, timeOfRow(seekBy)) : undefined,
     lineFilter: lineFilter ? line => line.includes(lineFilter) : undefined,
