@@ -1,5 +1,5 @@
 // API v1 routes the M0 mock did not have: /graph, /health, /settings and transcript `around` windows.
-import type { IntervalHistogram } from 'node:perf_hooks';
+import type { ELDHistogram } from 'node:perf_hooks';
 import { HttpError } from './security.ts';
 import type { Store } from './store.ts';
 
@@ -23,7 +23,7 @@ export function graph(fixture: Fixture) {
   return { nodes, edges: [...edges.values()] };
 }
 
-export function health(store: Store, startedAt: string, replayWindow: number, histogram: IntervalHistogram) {
+export function health(store: Store, startedAt: string, replayWindow: number, histogram: ELDHistogram) {
   const memory = process.memoryUsage();
   return {
     status: 'ok', startedAt, eventLog: { lastSeq: store.seq(), dbBytes: 0 },
@@ -51,7 +51,7 @@ export function transcriptAround(store: Store, sessionId: string, entryId: strin
   return { items, nextCursor: items.at(-1)?.cursor ?? 0, hasMore: start + limit < entries.length };
 }
 
-export interface MockInfo { port: number; startedAt: string; replayWindow: number; eventLoop: IntervalHistogram }
+export interface MockInfo { port: number; startedAt: string; replayWindow: number; eventLoop: ELDHistogram }
 
 /** Exact-path v1 routes added after M0. */
 export const v1Routes = new Map<string, (store: Store, info: MockInfo) => unknown>([
