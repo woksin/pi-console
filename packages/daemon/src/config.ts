@@ -30,6 +30,8 @@ export interface DaemonConfig {
   replayWindow: number;
   heartbeatMs: number;
   pollMs: number;
+  /** Opt-in native memory review requests; never human authority. */
+  memoryActions: boolean;
 }
 
 export const defaultDataDir = (): string => join(homedir(), '.pi-console');
@@ -37,14 +39,14 @@ export const defaultDataDir = (): string => join(homedir(), '.pi-console');
 export function defaultConfig(dataDir = defaultDataDir()): DaemonConfig {
   const agentRoot = join(homedir(), '.pi', 'agent');
   return {
-    dataDir, port: 4777, webDist: undefined, agentRoot, orchRoot: join(homedir(), '.pi', 'orch'),
+    dataDir, memoryActions: false, port: 4777, webDist: undefined, agentRoot, orchRoot: join(homedir(), '.pi', 'orch'),
     lanesRoot: undefined, laneStatusDir: join(agentRoot, 'lane-status'),
     sessionRoots: [join(agentRoot, 'sessions')], sources: Object.fromEntries(sourceIds.map(id => [id, true])) as Record<SourceId, boolean>,
     backfillWindowDays: 14, replayWindow: 10_000, heartbeatMs: 15_000, pollMs: 1_000, sourcePollMs: 2_000,
   };
 }
 
-type FileConfig = Partial<Pick<DaemonConfig, 'port' | 'webDist' | 'agentRoot' | 'orchRoot' | 'lanesRoot' | 'laneStatusDir' | 'sessionRoots' | 'sources' | 'backfillWindowDays' | 'sourcePollMs'>>;
+type FileConfig = Partial<Pick<DaemonConfig, 'memoryActions' | 'port' | 'webDist' | 'agentRoot' | 'orchRoot' | 'lanesRoot' | 'laneStatusDir' | 'sessionRoots' | 'sources' | 'backfillWindowDays' | 'sourcePollMs'>>;
 
 const isObject = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
 
@@ -64,6 +66,7 @@ const pathList = (value: unknown): value is string[] => Array.isArray(value) && 
 interface Field { valid: (value: unknown) => boolean; expected: string; read: (value: never, dataDir: string) => unknown }
 
 const fields: Record<keyof FileConfig, Field> = {
+  memoryActions: { valid: value => typeof value === 'boolean', expected: 'a boolean', read: (value: boolean) => value },
   port: { valid: value => boundedInteger(value, 65_535), expected: 'an integer 0-65535', read: (value: number) => value },
   backfillWindowDays: { valid: value => boundedInteger(value, 365), expected: 'an integer 0-365', read: (value: number) => value },
   webDist: { valid: value => typeof value === 'string', expected: 'a path', read: (value: string, dataDir) => pathIn(dataDir, value) },

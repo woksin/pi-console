@@ -6,10 +6,12 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "devDependencies": { "@types/ws": "8.18.2" },
   "scripts": {
     "test": "node --test \"src/**/*.test.ts\""
   },
   "dependencies": {
+    "ws": "8.23.0",
     "@pi-console/contract": "*",
     "@pi-console/core": "*",
     "@pi-console/adapters": "*"

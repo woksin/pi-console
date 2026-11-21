@@ -1,5 +1,31 @@
 # Security
 
+## Optional native memory review scope
+
+`config.json` may opt in with `"memoryActions": true` (default false). This creates a separate 0600
+`memory-control-token` in the daemon's 0700 data directory. The existing `token` remains read-only.
+The control credential authorises a review request, never a claim of human presence. Control mutations require
+same-Origin and `x-pi-console-csrf: 1` even with a bearer. Never place either token in URLs or logs.
+
+Load `packages/extension/src/index.ts` with pi's extension loader (or the package's `pi.extensions` manifest),
+set `PI_CONSOLE_MEMORY_REVIEW=1`, and optionally set `PI_CONSOLE_URL` (default `http://127.0.0.1:4777`) and
+`PI_CONSOLE_DATA_DIR` (default `~/.pi-console`). The extension reads only its separate credential file, refuses
+symlink/non-private/foreign-owned credentials, and connects outbound only to a loopback daemon.
+A fresh HMAC challenge authenticates **both** peers and binds session/pid/cwd plus connection generation;
+raw credentials never cross the WebSocket. Host/Origin policy also applies to upgrades. A read token cannot
+answer that challenge. Neither a successful handshake nor a browser click is human provenance.
+
+The provider must implement `context-budget:memory-review/v1:*` (pi-context-budget f0033fe); absence,
+unknown versions, non-native UI, handoff, wrong store, unknown/child roles and ambiguous targets fail closed.
+The provider alone reloads canonical item/source content, presents native pi confirmation and performs any write.
+The extension forwards fixed-shape intent/result/cancel messages only; it cannot send commands or UI responders.
+Receipt metadata is stored separately in `memory-actions.db`, without source text, prompts or credentials.
+Source result claims remain unverified until ingestion observes the matching human event from the configured store.
+Disconnection/restart never queues or retries delivery. Receipt state `unknown` does not imply success or failure.
+Same-user malicious code remains outside the threat boundary; it can already read local credentials and source files.
+
+
+
 Decisions are in [ADR-0006](adr/0006-security-model.md). This page lists assets, threats and controls, and the specs that prove them.
 
 ## Assets

@@ -9,6 +9,8 @@ import { noTranscripts, type TranscriptReader } from './api/transcripts.ts';
 import { healthOf, settingsOf } from './api/health.ts';
 import { apiPrefix, authenticate, checkSource, exchangeToken, HttpError, streamPath } from './security/guard.ts';
 import { Credentials, loadToken } from './security/token.ts';
+import { MemoryActions } from './memory/actions.ts';
+import { isMemoryApiPath, memoryApi } from './memory/api.ts';
 import { baseHeaders, sendError, sendJson } from './http/output.ts';
 import { serveStatic } from './http/static-files.ts';
 import { StreamHub } from './stream/stream-hub.ts';
@@ -65,10 +67,14 @@ function listen(server: Server, port: number): Promise<number> {
 
 type Handler = (req: IncomingMessage, res: ServerResponse) => Promise<void>;
 
-interface HandlerParts { port: () => number; credentials: Credentials; api: ApiContext; stream: StreamHub; webDist: string | undefined }
+interface HandlerParts { port: () => number; credentials: Credentials; api: ApiContext; stream: StreamHub; webDist: string | undefined; actions: () => MemoryActions | undefined }
 
 async function api(parts: HandlerParts, req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
   authenticate(req, url, parts.credentials);
+  if (isMemoryApiPath(url)) {
+    await memoryApi(parts, req, res, url);
+    return;
+  }
   if (req.method === 'GET' && url.pathname === streamPath) {
     const lastEventId = req.headers['last-event-id'];
     parts.stream.connect(res, Array.isArray(lastEventId) ? lastEventId[0] : lastEventId);
@@ -109,7 +115,8 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
   const started = performance.now();
   const startedAt = new Date().toISOString();
   const now = options.now ?? (() => new Date());
-  const credentials = new Credentials(loadToken(options.dataDir));
+  const control = options.memoryActions ? loadToken(options.dataDir, 'memory-control-token') : undefined;
+  const credentials = new Credentials(loadToken(options.dataDir), control);
   const { log, store, projector } = await openCore(options.dataDir);
   const queries = () => new ConsoleQueries(() => readModels(projector), now);
   const stream = new StreamHub({
@@ -134,8 +141,12 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
     health: () => healthOf({ startedAt, dataDir: options.dataDir, log, projector, stream, ingestion, sources, batcher, backfillWindowDays: options.backfillWindowDays, eventLoop: eventLoop.read() }),
     settings: () => settingsOf(options, port),
   };
-  const server = createHttpServer(handler({ port: () => port, credentials, api: apiContext, stream, webDist: options.webDist }));
+  let actions: MemoryActions | undefined;
+  const server = createHttpServer(handler({ port: () => port, credentials, api: apiContext, stream, webDist: options.webDist, actions: () => actions }));
+  if (control !== undefined) actions = new MemoryActions({ config: options, server, secret: control, queries, models: () => readModels(projector), log });
+  else server.on('upgrade', (_req, socket) => { socket.destroy(); });
   port = await listen(server, options.port);
+  actions?.port(port);
   if (options.ingest !== false) {
     ingestion.start();
     sources.start(() => ingestion.backfillComplete);
@@ -146,6 +157,7 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
       await Promise.all([sources.stop(), ingestion.stop()]);
       batcher.flush();
       stream.close();
+      actions?.close();
       server.closeAllConnections();
       await new Promise<void>(resolve => { server.close(() => { resolve(); }); });
       stopDeltas();

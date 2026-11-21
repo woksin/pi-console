@@ -53,3 +53,10 @@ The console now ingests items and journal metadata read-only (see `docs/event-mo
 an item's `active` status is `assumed` where only the producer's rule engine could decide it, and the unresolved-message count is a
 lower bound because the console never keeps message text. The planned `Directive*` event names became `MemoryItem*` and
 `MemoryMessage*`, since items are not only directives. Confirming remains a human action in a pi session.
+
+### Optional native review transport
+
+The console may now request confirm/reject review through the versioned source-authorised native pi provider
+(ADR-0005 addendum). It still never writes the store. Browser intent and durable daemon receipts are not source
+facts or human evidence; the provider obtains explicit native confirmation and normal source ingestion alone
+updates item projections. No request-close, command injection or broader intervention support is implied.

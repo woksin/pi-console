@@ -32,6 +32,20 @@ Option 3, with option 2 as the fallback for sessions without the extension and o
 - Every intervention is a **command that becomes an event** with actor, origin, token id and outcome ([event model](../event-model.md#interventions)).
 - Open questions from research: whether the installed pi exposes the `agent_before_settle` hook used by context-budget is UNVERIFIED; whether a console-typed answer satisfies the question store's verbatim-input check is UNVERIFIED and must be proven in M2.
 
+## Addendum: native memory review transport
+
+The optional `memoryActions` daemon setting enables a narrow outbound WebSocket channel at
+`/api/v1/extensions/memory-review`. Both peers authenticate a fresh, identity-bound HMAC challenge using the separate
+0600 `memory-control-token`; the existing read token cannot request review. Session, pid, cwd and connection generation
+are pinned. This credential authorises requesting a review, **not** human presence.
+
+The extension uses only the versioned `context-budget:memory-review/v1:*` event bus API (pi-context-budget f0033fe).
+Only positive, current readiness for the configured store enables delivery; unknown providers remain unavailable.
+The provider alone reloads canonical content and obtains explicit approval in the owning native pi TUI. The daemon
+never writes memory, injects commands or supplies provenance. Durable receipts precede delivery; disconnect/restart
+never redispatches a request. Claimed writes await matching canonical ingestion before becoming observed-applied.
+No offline queue or generic intervention capability is introduced.
+
 ## Consequences
 
 - Real-time transcript and safe intervention for sessions with the extension; read-only for the rest.

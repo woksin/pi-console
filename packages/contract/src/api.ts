@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { memoryActionRequestSchema, memoryActionReceiptSchema, memoryActionAvailabilitySchema } from './memory-actions.ts';
 import { array, bool, id, int, nullable, oneOf, ref, str, strict, time, excerpt, type Schema } from './schema-dsl.ts';
 
 export interface JsonSchemaDocument { $schema?: string; $id?: string; $defs: Record<string, Schema> }
@@ -109,6 +110,7 @@ const snapshot = strict({
 const pageOf = (item: string) => strict({ items: array(ref(item)), nextCursor: nullable(str), hasMore: bool, total: int });
 
 const v1Defs: Record<string, Schema> = {
+  memoryActionRequest: memoryActionRequestSchema, memoryActionReceipt: memoryActionReceiptSchema, memoryActionAvailability: memoryActionAvailabilitySchema,
   snapshot, sessionPage: pageOf('session'), requestPage: pageOf('request'), questionPage: pageOf('question'),
   messagePage: pageOf('message'), jobPage: pageOf('job'), memoryItemPage: pageOf('memoryItem'), memoryItems: strict({ items: array(ref('memoryItem')) }), resetPage: pageOf('reset'), resets: strict({ items: array(ref('reset')) }),
   memoryStatus, memoryItem, memoryHandoff, sessionMemory, toolResult, sourcePointer, attentionReason, attentionItem, graphNode, graphEdge, requestEvidence, requestUncertainty, request,

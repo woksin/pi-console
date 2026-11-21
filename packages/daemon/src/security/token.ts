@@ -2,8 +2,8 @@ import { chmodSync, lstatSync, mkdirSync, readFileSync, writeFileSync } from 'no
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { join } from 'node:path';
 
-/** M1 grants one scope. Mutating scopes arrive with interventions (M3) and need their own token. */
-export type Scope = 'read';
+/** Read credentials never grant memory-review request scope. */
+export type Scope = 'read' | 'memory-review';
 
 const tokenPattern = /^[a-f0-9]{64}$/;
 
@@ -28,10 +28,10 @@ function createIfMissing(path: string): void {
  * The owner token: 256 random bits in `<directory>/token` (0600) inside an owner-only directory (0700). Created on
  * first start, reused afterwards. Rotation: stop the daemon, delete the file, start again.
  */
-export function loadToken(directory: string): string {
+export function loadToken(directory: string, name = 'token'): string {
   mkdirSync(directory, { recursive: true, mode: 0o700 });
   ownerOnly(directory, 0o700);
-  const path = join(directory, 'token');
+  const path = join(directory, name);
   createIfMissing(path);
   ownerOnly(path, 0o600);
   const token = readFileSync(path, 'utf8').trim();
@@ -44,12 +44,21 @@ export class Credentials {
   readonly #hash: Buffer;
   readonly scope: Scope = 'read';
 
-  constructor(token: string) {
+  readonly #control: Buffer | undefined;
+
+  constructor(token: string, control?: string) {
     this.#hash = digest(token);
+    this.#control = control === undefined ? undefined : digest(control);
   }
 
   verify(candidate: string | undefined): boolean {
     if (candidate === undefined) return false;
-    return timingSafeEqual(digest(candidate), this.#hash);
+    return timingSafeEqual(digest(candidate), this.#hash) || this.controls(candidate);
   }
+
+  controls(candidate: string | undefined): boolean {
+    return candidate !== undefined && this.#control !== undefined && timingSafeEqual(digest(candidate), this.#control);
+  }
+
+  controlId(): string { return this.#control?.toString('hex').slice(0, 16) ?? ''; }
 }
