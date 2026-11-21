@@ -18,6 +18,21 @@ function watchErrors(page: Page): string[] {
 const connection = (page: Page): Promise<string | null> => page.locator('.conn').getAttribute('data-connection');
 
 describe('web console e2e', () => {
+  test('Settings renders nested daemon health with human labels', async () => {
+    const page = await rig.open('/settings', { token: null });
+    await page.route('**/api/v1/health', route => route.fulfill({ json: {
+      status: 'ok', eventLog: { lastSeq: 42, dbBytes: 1048576 },
+      projection: { position: 42, queueDepth: 0, skipped: 0 },
+      stream: { seq: 42, clients: 1, retained: 42 },
+      backfill: { complete: true, windowDays: 7 }, memory: { rssBytes: 2097152, heapUsedBytes: 1048576 },
+    } }));
+    await page.getByLabel('Access token').fill(rig.daemon.token);
+    await page.getByRole('button', { name: 'Connect' }).click();
+    await page.getByText('Event log · Last sequence', { exact: true }).waitFor();
+    assert.ok(!(await page.locator('.settings').innerText()).includes('[object'));
+    await page.getByText('2.0 MB', { exact: true }).waitFor();
+    await page.context().close();
+  });
   test('P1 type scale stays readable and contained at desktop and narrow desktop widths', async () => {
     for (const width of [1280, 1100]) {
       for (const view of ['overview', 'requests', 'fleet']) {

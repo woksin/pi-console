@@ -1,4 +1,4 @@
-import { settingsViewModel, type SettingsRow } from '@pi-console/viewmodels';
+import { daemonHealthRows, settingsViewModel, type SettingsRow } from '@pi-console/viewmodels';
 import type { ViewProps } from '../app/view.tsx';
 import { Panel } from '../ui/primitives.tsx';
 import { setPrefs, usePrefs } from '../app/prefs.ts';
@@ -14,7 +14,7 @@ export function SettingsView({ state, now }: ViewProps) {
     eventsReceived: state.received, now: state.lastFrameAt > 0 ? Math.max(now, state.lastFrameAt) : now,
     counts: { repositories: state.repositories.length, sessions: state.totals?.sessions ?? state.sessions.length, requests: state.totals?.requests ?? state.requests.length, questions: state.totals?.questions ?? state.questions.length, messages: state.totals?.messages ?? state.messages.length, jobs: state.totals?.jobs ?? state.jobs.length },
   });
-  const health = state.health ? Object.entries(state.health).map(([label, value]): SettingsRow => ({ label, value: String(value), tone: 'plain' })) : [];
+  const health = daemonHealthRows(state.health);
   return (
     <div className="page settings">
       <Panel title="Connection">{rows(view.health)}</Panel>
