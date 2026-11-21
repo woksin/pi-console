@@ -1,16 +1,16 @@
 /* Signature views: communication graph and timeline. Edges animate along their direction; reduced motion stops it (base.css). */
 .overview .hero { padding: 0; background: none; border: 0; gap: 4px; }
 .overview .hero p { margin: 0; font-size: var(--type-caption); }
-.summary-strip { display: flex; align-items: center; gap: 16px; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); color: var(--muted); font-size: var(--type-caption); overflow-x: auto; }
+.summary-strip { display: flex; align-items: center; gap: 16px; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); color: var(--muted); font-size: var(--type-caption); flex-wrap: wrap; row-gap: 8px; }
 .summary-counts { display: flex; justify-content: space-between; gap: 14px; flex: 1; }
 .summary-counts > span { white-space: nowrap; }
 .summary-counts .badge { font-size: inherit; }
 .summary-strip > svg { flex-shrink: 0; }
 /* Context-pressure histogram (P4.5): ten equal bins; each bar shows its own slice of the shared ramp, ticks sit on the 60 and 80 % bin edges. */
-.pressure-hist { display: flex; align-items: center; gap: var(--space-2); margin: 0; flex-shrink: 0; }
+.pressure-hist { display: flex; align-items: center; gap: var(--space-2); margin: 0 0 0 auto; flex-shrink: 0; }
 .pressure-hist-bars { position: relative; display: grid; grid-template-columns: repeat(10, 9px); align-items: end; height: 24px; border-bottom: 1px solid var(--border); }
 .pressure-hist-bars i { display: block; border-right: 2px solid transparent; background-clip: padding-box; background-image: var(--pressure-gradient); background-size: 1000% 100%; border-radius: 2px 2px 0 0; }
-.pressure-hist-bars i.empty { background: var(--border); background-clip: padding-box; }
+.pressure-hist-bars i.zero { background: var(--border); background-clip: padding-box; }
 .pressure-hist-tick { position: absolute; top: -2px; bottom: -3px; width: 1px; margin-left: -1px; background: var(--muted); }
 .pressure-hist figcaption { white-space: nowrap; font-variant-numeric: tabular-nums; }
 .pressure-hist .hot { color: var(--red); font-weight: 650; }
@@ -25,7 +25,7 @@
 .attention-heading { margin: 0 0 6px; color: var(--muted); font-size: var(--type-caption); font-weight: 500; white-space: nowrap; }
 @media (min-width: 1180px) {
   .attention-sections { gap: 4px; }
-  .attention-sections > section { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 12px; }
+  .attention-sections > section:not(.first-run) { display: grid; grid-template-columns: 210px minmax(0, 1fr); gap: 12px; }
   .attention-heading { margin: 0; padding-top: 6px; }
 }
 .attention-sections .cards { gap: 4px; }

@@ -23,11 +23,11 @@ export function OverviewView({ state, now }: ViewProps) {
         <h2 id="needs-you" className="hero-title">{view.headline}</h2>
         <p className="muted">{view.fleet.sessions} sessions · {view.fleet.repositories} repositories · {view.fleet.tokens} tokens · {view.fleet.cost}</p>
       </section>
-      <div className="summary-strip" aria-label="Fleet summary">
+      {state.sessions.length > 0 && <div className="summary-strip" aria-label="Fleet summary">
         <div className="summary-counts">{view.counts.map(entry => <span key={entry.status.status}><StatusBadge cell={entry.status} /> {entry.count}</span>)}</div>
         <Sparkline values={view.fleet.contextSeries} width={90} height={20} fill label="Average fleet context pressure" />
         <PressureHistogramFigure histogram={histogram} />
-      </div>
+      </div>}
       <div className="attention-sections" aria-label="Needs you">
         {fresh.label && <p className="new-since" role="status"><span>{fresh.label}</span></p>}
         {sections.map(section => <section key={section.reason} aria-label={section.label}>
@@ -48,7 +48,7 @@ function PressureHistogramFigure({ histogram }: { histogram: PressureHistogram }
   return (
     <figure className="pressure-hist" role="img" aria-label={`Context pressure: ${histogram.summary}`} title={histogram.summary}>
       <span className="pressure-hist-bars" aria-hidden="true">
-        {histogram.bins.map((bin, index) => <i key={bin.from} className={bin.count === 0 ? 'empty' : undefined} title={`${bin.label}: ${String(bin.count)}`}
+        {histogram.bins.map((bin, index) => <i key={bin.from} className={bin.count === 0 ? 'zero' : undefined} title={`${bin.label}: ${String(bin.count)}`}
           style={{ height: `${String(bin.count === 0 ? 2 : 4 + bin.count / histogram.peak * 18)}px`, backgroundPositionX: `${String(index / last * 100)}%` }} />)}
         {histogram.ticks.map(tick => <b key={tick} className="pressure-hist-tick" style={{ left: `${String(tick)}%` }} />)}
       </span>
