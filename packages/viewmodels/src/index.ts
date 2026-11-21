@@ -18,6 +18,7 @@ export * from './graph/graph.ts';
 export * from './palette/palette.ts';
 export * from './title/title.ts';
 export * from './pulse/pulse.ts';
+export * from './overview/pressure-histogram.ts';
 export * from './work/work.ts';
 export * from './requests/requests.ts';
 export * from './window/window.ts';

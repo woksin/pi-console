@@ -1,4 +1,4 @@
-import { overviewViewModel, wrap, type AttentionCard, type OverviewViewModel } from '@pi-console/viewmodels';
+import { overviewViewModel, pressureHistogram, wrap, type AttentionCard, type OverviewViewModel, type PressureHistogram } from '@pi-console/viewmodels';
 import { Lines, Panel, Row, h, type Line } from '../view/renderer.ts';
 import { bar, blank, fit, heading, selectable, split, statusParts, t, windowOf } from '../view/parts.ts';
 import type { Env, SectionView } from './common.ts';
@@ -26,7 +26,33 @@ function attentionPanel(model: OverviewViewModel, env: Env, width: number, heigh
     h(Lines, { lines, grow: 1, onLineClick: index => { env.click(start + Math.floor(index / CARD_HEIGHT)); } }));
 }
 
-function fleetPanel(model: OverviewViewModel, width: number): ReturnType<typeof h> {
+const eighths = ' ▁▂▃▄▅▆▇█';
+const BAR_ROWS = 3;
+
+/** One histogram bar row: two cells per bin and a gap that carries the 60/80 % tick, so a tick sits on the bin edge as on the web. */
+function barRow(histogram: PressureHistogram, row: number): Line {
+  const last = histogram.bins.length - 1;
+  const floor = (BAR_ROWS - 1 - row) * 8;
+  return histogram.bins.flatMap((bin, index) => {
+    const level = bin.count === 0 ? 0 : Math.max(1, Math.round(bin.count / histogram.peak * BAR_ROWS * 8));
+    const fill = Math.max(0, Math.min(8, level - floor));
+    const tick = histogram.ticks.includes(histogram.bins[index + 1]?.from ?? -1);
+    return [t(eighths[fill].repeat(2), `pressure:${index / last * 100}`), t(tick ? '┊' : ' ', 'muted')];
+  });
+}
+
+/** The fleet's context pressure: sessions per 10 % bin, coloured by the shared ramp, with the 60 and 80 % ticks and counts in words. */
+export function pressureLines(histogram: PressureHistogram): Line[] {
+  const axis = histogram.bins.map((bin, index) => (histogram.ticks.includes(histogram.bins[index + 1]?.from ?? -1) ? '──┼' : '───')).join('');
+  return [
+    ...Array.from({ length: BAR_ROWS }, (_, row) => barRow(histogram, row)),
+    [t(axis, 'border')],
+    [t('0', 'faint'), t(' '.repeat(15)), t('60', 'faint'), t(' '.repeat(4)), t('80', 'faint'), t(' '.repeat(3)), t('100', 'faint')],
+    [t(String(histogram.hot), 'red', { bold: true }), t(' above 80 %  ', 'muted'), t(String(histogram.warm), 'amber', { bold: true }), t(' at 60–80 %', 'muted')],
+  ];
+}
+
+function fleetPanel(model: OverviewViewModel, histogram: PressureHistogram, width: number, height: number): ReturnType<typeof h> {
   const inner = width - 4;
   const peak = Math.max(1, ...model.counts.map(entry => entry.count));
   const lines: Line[] = [
@@ -42,6 +68,8 @@ function fleetPanel(model: OverviewViewModel, width: number): ReturnType<typeof 
     blank,
     [t('tokens ', 'muted'), t(model.fleet.tokens, 'text'), t('   cost ', 'muted'), t(model.fleet.cost, 'text')],
   ];
+  const pressure = [blank, heading('Context pressure'), ...pressureLines(histogram)];
+  if (lines.length + pressure.length <= height - 2) lines.push(...pressure);
   return h(Panel, { title: 'Fleet', width }, h(Lines, { lines }));
 }
 
@@ -54,6 +82,6 @@ export function overviewView(env: Env): SectionView {
     idAt: index => model.cards[index]?.sessionId ?? null,
     render: () => h(Row, { grow: 1, gap: 1 },
       attentionPanel(model, env, wide ? env.width - 38 : env.width, env.height),
-      ...(wide ? [fleetPanel(model, 37)] : [])),
+      ...(wide ? [fleetPanel(model, pressureHistogram(env.data.sessions), 37, env.height)] : [])),
   };
 }

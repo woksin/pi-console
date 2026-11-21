@@ -6,6 +6,15 @@
 .summary-counts > span { white-space: nowrap; }
 .summary-counts .badge { font-size: inherit; }
 .summary-strip > svg { flex-shrink: 0; }
+/* Context-pressure histogram (P4.5): ten equal bins; each bar shows its own slice of the shared ramp, ticks sit on the 60 and 80 % bin edges. */
+.pressure-hist { display: flex; align-items: center; gap: var(--space-2); margin: 0; flex-shrink: 0; }
+.pressure-hist-bars { position: relative; display: grid; grid-template-columns: repeat(10, 9px); align-items: end; height: 24px; border-bottom: 1px solid var(--border); }
+.pressure-hist-bars i { display: block; border-right: 2px solid transparent; background-clip: padding-box; background-image: var(--pressure-gradient); background-size: 1000% 100%; border-radius: 2px 2px 0 0; }
+.pressure-hist-bars i.empty { background: var(--border); background-clip: padding-box; }
+.pressure-hist-tick { position: absolute; top: -2px; bottom: -3px; width: 1px; margin-left: -1px; background: var(--muted); }
+.pressure-hist figcaption { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.pressure-hist .hot { color: var(--red); font-weight: 650; }
+.pressure-hist .warm { color: var(--amber); font-weight: 650; }
 .attention-sections { display: grid; gap: 12px; }
 .attention-heading { margin: 0 0 6px; color: var(--muted); font-size: var(--type-caption); font-weight: 500; white-space: nowrap; }
 @media (min-width: 1180px) {

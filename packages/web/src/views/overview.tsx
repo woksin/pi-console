@@ -1,4 +1,4 @@
-import { overviewViewModel } from '@pi-console/viewmodels';
+import { overviewViewModel, pressureHistogram, type PressureHistogram } from '@pi-console/viewmodels';
 import { useMemo } from 'react';
 import type { ViewProps } from '../app/view.tsx';
 import { navigate, useListNav } from '../app/hooks.ts';
@@ -9,6 +9,7 @@ import { groupAttentionCards } from './overview-sections.ts';
 
 export function OverviewView({ state, now }: ViewProps) {
   const view = useMemo(() => overviewViewModel({ needsYou: state.needsYou, sessions: state.sessions, repositories: state.repositories.length, now }), [state.needsYou, state.sessions, state.repositories.length, now]);
+  const histogram = useMemo(() => pressureHistogram(state.sessions), [state.sessions]);
   const byId = new Map(view.cards.map(card => [card.id, card]));
   const sections = groupAttentionCards(view.cards);
   const nav = useListNav(sections.flatMap(section => section.cards.map(card => card.id)), { onOpen: id => { const card = byId.get(id); if (card?.sessionId) navigate(sessionHref(card.sessionId, card.pointer?.entryId)); } });
@@ -22,6 +23,7 @@ export function OverviewView({ state, now }: ViewProps) {
       <div className="summary-strip" aria-label="Fleet summary">
         <div className="summary-counts">{view.counts.map(entry => <span key={entry.status.status}><StatusBadge cell={entry.status} /> {entry.count}</span>)}</div>
         <Sparkline values={view.fleet.contextSeries} width={90} height={20} fill label="Average fleet context pressure" />
+        <PressureHistogramFigure histogram={histogram} />
       </div>
       <div className="attention-sections" aria-label="Needs you">
         {sections.map(section => <section key={section.reason} aria-label={section.label}>
@@ -31,6 +33,21 @@ export function OverviewView({ state, now }: ViewProps) {
         {view.cards.length === 0 && <EmptyState title="Nothing needs you" mark="✓">Open requests, blocking questions and stale sessions appear here the moment they exist.</EmptyState>}
       </div>
     </div>
+  );
+}
+
+/** Sessions per context-pressure bin; each bar takes its colour from its place on the shared pressure ramp, with the 60 and 80 % ticks. */
+function PressureHistogramFigure({ histogram }: { histogram: PressureHistogram }) {
+  const last = histogram.bins.length - 1;
+  return (
+    <figure className="pressure-hist" role="img" aria-label={`Context pressure: ${histogram.summary}`} title={histogram.summary}>
+      <span className="pressure-hist-bars" aria-hidden="true">
+        {histogram.bins.map((bin, index) => <i key={bin.from} className={bin.count === 0 ? 'empty' : undefined} title={`${bin.label}: ${String(bin.count)}`}
+          style={{ height: `${String(bin.count === 0 ? 2 : 4 + bin.count / histogram.peak * 18)}px`, backgroundPositionX: `${String(index / last * 100)}%` }} />)}
+        {histogram.ticks.map(tick => <b key={tick} className="pressure-hist-tick" style={{ left: `${String(tick)}%` }} />)}
+      </span>
+      <figcaption aria-hidden="true"><span className="hot">{histogram.hot}</span> &gt;80 · <span className="warm">{histogram.warm}</span> 60–80</figcaption>
+    </figure>
   );
 }
 
