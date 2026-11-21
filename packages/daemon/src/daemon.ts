@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { join } from 'node:path';
 import { ConsoleQueries, consoleProjections, Projector, readModels, SqliteEventLog, SqliteProjectionStore } from '@pi-console/core';
 import type { DaemonConfig } from './config.ts';
+import { EventLoopHealth } from './event-loop.ts';
 import { apiQuery, type ApiContext } from './api/routes.ts';
 import { noTranscripts, type TranscriptReader } from './api/transcripts.ts';
 import { healthOf, settingsOf } from './api/health.ts';
@@ -120,11 +121,12 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
   let port = options.port;
   const apiContext: ApiContext = {
     queries, transcripts: options.transcripts ?? noTranscripts,
-    health: () => healthOf({ startedAt, dataDir: options.dataDir, log, projector, stream, ingestion, sources, batcher, backfillWindowDays: options.backfillWindowDays }),
+    health: () => healthOf({ startedAt, dataDir: options.dataDir, log, projector, stream, ingestion, sources, batcher, backfillWindowDays: options.backfillWindowDays, eventLoop: eventLoop.read() }),
     settings: () => settingsOf(options, port),
   };
   const server = createHttpServer(handler({ port: () => port, credentials, api: apiContext, stream, webDist: options.webDist }));
   port = await listen(server, options.port);
+  const eventLoop = new EventLoopHealth();
   if (options.ingest !== false) {
     ingestion.start();
     sources.start(() => ingestion.backfillComplete);
@@ -141,6 +143,7 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
       projector.stop();
       store.close();
       log.close();
+      eventLoop.close();
     },
   };
 }

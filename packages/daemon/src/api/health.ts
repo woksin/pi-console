@@ -19,6 +19,7 @@ export interface HealthParts {
   sources: SourceSet;
   batcher: DeltaBatcher;
   backfillWindowDays: number;
+  eventLoop: Health['eventLoop'];
 }
 
 /** Database bytes including the WAL and shared-memory files that belong to it. */
@@ -43,6 +44,7 @@ export function healthOf(parts: HealthParts): Health {
     status: backfillComplete ? 'ok' : 'starting', startedAt: parts.startedAt,
     eventLog: { lastSeq, dbBytes: databaseBytes(parts.dataDir) },
     projection: { position: projector.position, queueDepth, skipped },
+    eventLoop: parts.eventLoop,
     stream: { seq: stream.seq, clients: stream.clients, retained: stream.retained },
     sources: [{ ...ingestion.status, errors: 0 }, ...sources.statuses()],
     backfill: { complete: backfillComplete, windowDays: parts.backfillWindowDays },

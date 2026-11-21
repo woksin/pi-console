@@ -1,4 +1,5 @@
 // API v1 routes the M0 mock did not have: /graph, /health, /settings and transcript `around` windows.
+import type { IntervalHistogram } from 'node:perf_hooks';
 import { HttpError } from './security.ts';
 import type { Store } from './store.ts';
 
@@ -22,11 +23,14 @@ export function graph(fixture: Fixture) {
   return { nodes, edges: [...edges.values()] };
 }
 
-export function health(store: Store, startedAt: string, replayWindow: number) {
+export function health(store: Store, startedAt: string, replayWindow: number, histogram: IntervalHistogram) {
   const memory = process.memoryUsage();
   return {
     status: 'ok', startedAt, eventLog: { lastSeq: store.seq(), dbBytes: 0 },
     projection: { position: store.seq(), queueDepth: 0, skipped: 0 },
+    eventLoop: histogram.count === 0 ? { p50: 0, p99: 0, max: 0 } : {
+      p50: histogram.percentile(50) / 1e6, p99: histogram.percentile(99) / 1e6, max: histogram.max / 1e6,
+    },
     stream: { seq: store.seq(), clients: store.clients(), retained: Math.min(store.seq(), replayWindow) },
     sources: [], backfill: { complete: true, windowDays: 14 },
     memory: { rssBytes: memory.rss, heapUsedBytes: memory.heapUsed },
@@ -47,11 +51,11 @@ export function transcriptAround(store: Store, sessionId: string, entryId: strin
   return { items, nextCursor: items.at(-1)?.cursor ?? 0, hasMore: start + limit < entries.length };
 }
 
-export interface MockInfo { port: number; startedAt: string; replayWindow: number }
+export interface MockInfo { port: number; startedAt: string; replayWindow: number; eventLoop: IntervalHistogram }
 
 /** Exact-path v1 routes added after M0. */
 export const v1Routes = new Map<string, (store: Store, info: MockInfo) => unknown>([
   ['/api/v1/graph', store => graph(store.fixture)],
-  ['/api/v1/health', (store, info) => health(store, info.startedAt, info.replayWindow)],
+  ['/api/v1/health', (store, info) => health(store, info.startedAt, info.replayWindow, info.eventLoop)],
   ['/api/v1/settings', (_store, info) => settings(info.port, info.replayWindow)],
 ]);

@@ -52,6 +52,7 @@ const health = strict({
   status: oneOf('ok', 'starting', 'degraded'), startedAt: time,
   eventLog: strict({ lastSeq: int, dbBytes: int }),
   projection: strict({ position: int, queueDepth: int, skipped: int }),
+  eventLoop: strict({ p50: { type: 'number', minimum: 0 }, p99: { type: 'number', minimum: 0 }, max: { type: 'number', minimum: 0 } }),
   stream: strict({ seq: int, clients: int, retained: int }),
   sources: array(strict({ source: id, files: int, lagBytes: int, lastPollAt: nullable(time), errors: int })),
   backfill: strict({ complete: bool, windowDays: int }),
