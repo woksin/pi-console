@@ -1,4 +1,4 @@
-import { createReadStream } from 'node:fs';
+import { createReadStream, statSync } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { createServer, request as httpRequest, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
@@ -59,6 +59,25 @@ function proxy(options: StaticServerOptions, req: IncomingMessage, res: ServerRe
   req.pipe(upstream);
 }
 
+/** Fail before listening when there is no built SPA shell to serve. */
+function validateBundle(root: string): void {
+  const shell = join(root, 'index.html');
+  try { if (statSync(shell).isFile()) return; } catch { /* Report an unavailable bundle with build instructions below. */ }
+  throw new Error(`Static web bundle unavailable at ${shell}. Run "npm run build -w @pi-console/web" before starting the server.`);
+}
+
+function serveFile(file: string, req: IncomingMessage, res: ServerResponse): void {
+  const cache = file.endsWith('index.html') ? 'no-store' : 'public, max-age=31536000, immutable';
+  const headers = { 'Content-Type': types[extname(file)] ?? 'application/octet-stream', 'Cache-Control': cache, ...securityHeaders };
+  if (req.method === 'HEAD') { res.writeHead(200, headers).end(); return; }
+  const stream = createReadStream(file);
+  stream.once('open', () => { res.writeHead(200, headers); });
+  stream.on('error', () => {
+    if (res.headersSent) res.destroy(); else res.writeHead(500, securityHeaders).end();
+  });
+  stream.pipe(res);
+}
+
 /** The request target, or null when it is not a parseable URL (e.g. `//[`). */
 function parseTarget(target: string | undefined): URL | null {
   try { return new URL(target ?? '/', 'http://localhost'); } catch { return null; }
@@ -67,15 +86,12 @@ function parseTarget(target: string | undefined): URL | null {
 /** Serves the built bundle with the strict CSP and forwards `/api` (including the SSE stream) to the daemon. */
 export function createStaticServer(options: StaticServerOptions): Server {
   const root = resolve(options.root);
+  validateBundle(root);
   return createServer((req, res) => {
     const url = parseTarget(req.url);
     if (!url) { res.writeHead(400, securityHeaders).end(); return; }
     if (url.pathname.startsWith('/api/')) { proxy(options, req, res); return; }
     if (req.method !== 'GET' && req.method !== 'HEAD') { res.writeHead(405, securityHeaders).end(); return; }
-    void fileFor(root, url.pathname).then(file => {
-      const cache = file.endsWith('index.html') ? 'no-store' : 'public, max-age=31536000, immutable';
-      res.writeHead(200, { 'Content-Type': types[extname(file)] ?? 'application/octet-stream', 'Cache-Control': cache, ...securityHeaders });
-      if (req.method === 'HEAD') res.end(); else createReadStream(file).pipe(res);
-    }, () => { res.writeHead(400, securityHeaders).end(); });
+    void fileFor(root, url.pathname).then(file => { serveFile(file, req, res); }, () => { res.writeHead(400, securityHeaders).end(); });
   });
 }
