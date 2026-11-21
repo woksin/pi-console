@@ -61,6 +61,13 @@ dropped at the mapper, so only origin, size and a withheld flag are kept. The ha
 an absolute `.ai-work/handoffs/<name>.md` path that passes the denylist, is a regular non-symlink file of at most 256 KiB, and returns
 integers only; it logs nothing and returns no path.
 
+Ingestion and handoff figures open the candidate with nonblocking, no-follow descriptor flags where available,
+validate the descriptor as a regular file, check the canonical parent against the pinned trust root, and recheck
+path/descriptor identity before reading bounded bytes. Ordinary leaf replacements and observed symlinked ancestors
+are rejected. These portable Node checks are snapshots, not an atomic directory walk: without descriptor-relative
+`openat`/`openat2` traversal, a concurrent local process renaming parent directories can still race them. Do not treat
+an arbitrarily mutable source tree as a filesystem sandbox; the console remains single-user (T10).
+
 ## Specs required
 
 Every milestone includes hostile-case specs: wrong or missing token, wrong Host, foreign Origin (also on SSE and WebSocket), no Origin with cookie only, missing CSRF header, read-only token attempting a command, forged extension connect, oversized and malformed frames, a transcript containing terminal escape sequences and script tags, a fixture with known secret shapes, a scan failure (must withhold), and a replayed intervention (must not run twice).

@@ -38,7 +38,9 @@ class SourceBoundary {
     try {
       const stat = await handle.stat();
       this.#checkFile(stat);
-      return { handle, path: this.#canonicalPath(), stat };
+      const path = this.#canonicalPath();
+      this.#checkFile(stat);
+      return { handle, path, stat };
     } catch (error) {
       await handle.close();
       throw error;

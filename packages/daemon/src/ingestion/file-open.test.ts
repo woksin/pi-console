@@ -47,6 +47,7 @@ const raceScript = `
   let opened = 0;
   let closed = 0;
   let unsafeReads = 0;
+  let restored = false;
   const replacements = {
     fifo: () => { if (spawnSync('mkfifo', [path]).status !== 0) throw new Error('mkfifo failed'); },
     symlink: () => fs.symlinkSync(outside, path),
@@ -59,9 +60,10 @@ const raceScript = `
     if (candidate !== path && candidate !== canonical) return;
     replaced = true;
     if (replacement === 'normal') return;
-    if (replacement === 'ancestor') {
+    if (replacement === 'ancestor' || replacement === 'swap-back') {
       fs.renameSync(dirname(path), dirname(path) + '-moved');
-      fs.symlinkSync(dirname(path) + '-moved', dirname(path));
+      const target = replacement === 'ancestor' ? dirname(path) + '-moved' : dirname(outside);
+      fs.symlinkSync(target, dirname(path));
       return;
     }
     fs.rmSync(path);
@@ -69,6 +71,16 @@ const raceScript = `
   }
   if (replacement === 'symlink-before') replace(path);
   const unsafe = () => replaced && !['normal', 'oversize'].includes(replacement);
+  const originalStat = fs.lstatSync;
+  fs.lstatSync = (candidate, ...args) => {
+    const stat = originalStat(candidate, ...args);
+    if (replacement !== 'swap-back' || !replaced) return stat;
+    if (restored || candidate !== path) return stat;
+    fs.rmSync(dirname(path));
+    fs.renameSync(dirname(path) + '-moved', dirname(path));
+    restored = true;
+    return stat;
+  };
   const originalRead = fs.readSync;
   fs.readSync = (...args) => { if (unsafe()) unsafeReads++; return originalRead(...args); };
   const originalSync = fs.openSync;
@@ -101,11 +113,12 @@ const raceScript = `
     }
   } catch { /* Ingestion skips a rejected file without persisting any bytes or checkpoint. */ }
   finally { await tailer?.close(); }
+  if (replacement === 'swap-back' && !restored) throw new Error('Swap-back seam did not execute');
   process.stdout.write(JSON.stringify({ replaced, appended, checkpoints: log.positions.length, unclosed: opened - closed, unsafeReads }));
 `;
 
 for (const mode of ['tail', 'snapshot', 'session']) {
-  for (const replacement of ['fifo', 'symlink', 'symlink-before', 'directory', 'ancestor', 'oversize', 'normal']) {
+  for (const replacement of ['fifo', 'symlink', 'symlink-before', 'directory', 'ancestor', 'swap-back', 'oversize', 'normal']) {
     test(`${mode} feed validates ${replacement} replacement between discovery and open`, { timeout: 5000, skip: process.platform === 'win32' }, t => {
       const root = realpathSync(mkdtempSync(join(tmpdir(), 'pi-file-open-')));
       const outside = mkdtempSync(join(tmpdir(), 'pi-file-outside-'));
