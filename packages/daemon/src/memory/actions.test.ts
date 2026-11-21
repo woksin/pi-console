@@ -8,6 +8,7 @@ import { once } from 'node:events';
 import { WebSocket } from 'ws';
 import { memoryReviewTtlMs, type ReviewReadiness, type MemoryItem } from '@pi-console/contract';
 import { reviewableItem } from './availability.ts';
+import { reviewIngestionGraceMs } from './receipts.ts';
 import { testEvent } from '@pi-console/core/testing';
 import { defaultConfig } from '../config.ts';
 import { startDaemon } from '../daemon.ts';
@@ -160,25 +161,31 @@ test('decline, provider generation loss and expiry never claim a write; late res
   assert.equal(spec.daemon.log.lastSeq(), 3);
 });
 
-test('unobserved approval and unknown delivery expire at the deadline instead of retaining capacity forever', { timeout: 5000 }, async t => {
+test('reported writes reconcile after the human deadline and after ingestion grace without being misreported expired', { timeout: 5000 }, async t => {
   const spec = await setup(t);
   const ws = await spec.connect();
-  const delivery = once(ws, 'message');
-  await spec.call('', 'POST', { requestId: 'approval', itemId: 'i1', action: 'confirm' });
-  const request = JSON.parse(String((await delivery)[0])).value;
-  applied(ws, request, 'unobserved-event');
-  await wait(async () => await receiptState(spec.call, 'approval') === 'awaiting-ingestion');
-  const lost = once(ws, 'message');
-  await spec.call('', 'POST', { requestId: 'lost', itemId: 'i2', action: 'reject' });
-  await lost;
-  ws.terminate();
-  await wait(async () => await receiptState(spec.call, 'lost') === 'unknown');
+  for (const itemId of ['i1', 'i2']) {
+    const delivery = once(ws, 'message');
+    await spec.call('', 'POST', { requestId: itemId, itemId, action: 'confirm' });
+    applied(ws, JSON.parse(String((await delivery)[0])).value, `${itemId}-event`);
+    await wait(async () => await receiptState(spec.call, itemId) === 'awaiting-ingestion');
+  }
   t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
   t.mock.timers.tick(memoryReviewTtlMs + 1);
   await spec.call('', 'POST', { requestId: 'expire-pending', itemId: 'missing', action: 'confirm' });
-  assert.equal(await receiptState(spec.call, 'approval'), 'expired');
-  assert.equal(await receiptState(spec.call, 'lost'), 'expired');
+  assert.equal(await receiptState(spec.call, 'i1'), 'awaiting-ingestion');
+  assert.equal(await receiptState(spec.call, 'i2'), 'awaiting-ingestion');
   assert.equal(spec.daemon.log.lastSeq(), 3, 'expiry never manufactures producer events');
+  await spec.daemon.log.append([testEvent(4, 'MemoryItemConfirmed', { itemId: 'i1', actorKind: 'human' }, { source: 'intent-memory', refs: { file: spec.source, offset: 0, entryId: 'i1-event' } })]);
+  await wait(async () => await receiptState(spec.call, 'i1') === 'observed-applied');
+  t.mock.timers.tick(reviewIngestionGraceMs);
+  await spec.call('', 'POST', { requestId: 'expire-pending', itemId: 'missing', action: 'confirm' });
+  const unverified = await (await spec.call('/i2')).json();
+  assert.equal(unverified.state, 'unknown');
+  assert.equal(unverified.reason, 'applied');
+  assert.equal(unverified.eventId, 'i2-event');
+  await spec.daemon.log.append([testEvent(5, 'MemoryItemConfirmed', { itemId: 'i2', actorKind: 'human' }, { source: 'intent-memory', refs: { file: spec.source, offset: 0, entryId: 'i2-event' } })]);
+  await wait(async () => await receiptState(spec.call, 'i2') === 'observed-applied');
 });
 
 test('daemon primary-session advice rejects unknown, child, wrong-cwd and ended sessions even with ready providers', { timeout: 5000 }, async t => {

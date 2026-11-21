@@ -127,8 +127,10 @@ const proposedItem: MemoryItem = {
 test('session memory loads summary and bounded items together, sharing requests and throttling per session', async () => {
   let now = 0;
   const summaries: string[] = [];
+  const availabilityCalls: string[] = [];
   const itemCalls: unknown[] = [];
   const api = {
+    memoryActionAvailability: (sessionId: string) => { availabilityCalls.push(sessionId); return Promise.resolve(null); },
     sessionMemory: (sessionId: string) => { summaries.push(sessionId); return Promise.resolve(memorySummary(sessionId)); },
     memoryItems: (sessionId: string, limit: number) => { itemCalls.push([sessionId, limit]); return Promise.resolve([proposedItem]); },
   } as unknown as Api;
@@ -146,7 +148,50 @@ test('session memory loads summary and bounded items together, sharing requests 
   await store.loadSessionMemory('s1');
   assert.deepEqual(summaries, ['s1', 's2', 's1']);
   assert.deepEqual(itemCalls, [['s1', 100], ['s2', 100], ['s1', 100]]);
+  assert.deepEqual(availabilityCalls, ['s1', 's2', 's1'], 'availability shares the memory throttle, not render frequency');
   assert.deepEqual(store.getState().memory.s2, memorySummary('s2'));
+});
+
+function lifecycleStream() {
+  const emitters: ((frame: unknown) => void)[] = [];
+  const signals: AbortSignal[] = [];
+  const stream: Api['stream'] = (_seq, signal, onFrame) => {
+    emitters.push(frame => { onFrame(frame as Parameters<typeof onFrame>[0]); });
+    signals.push(signal);
+    return new Promise<void>(resolve => { signal.addEventListener('abort', () => { resolve(); }, { once: true }); });
+  };
+  return { stream, emitters, signals };
+}
+
+test('StrictMode start-stop-start recreates review tracking without replaying a POST or accepting stale frames', async () => {
+  const { stream, emitters, signals } = lifecycleStream();
+  let availabilityCalls = 0;
+  let posts = 0;
+  const api = {
+    stream,
+    memoryActionAvailability: () => { availabilityCalls++; return Promise.resolve({ version: 1, available: true, providerVersion: 1, generation: 'g1', reason: 'available' }); },
+    sessionMemory: () => Promise.resolve(memorySummary('s1')),
+    memoryItems: () => Promise.resolve([proposedItem]),
+    requestMemoryAction: (_id: unknown, request: object) => { posts++; return Promise.resolve({ ...request, state: 'declined', reason: 'cancelled', eventId: null }); },
+  } as unknown as Api;
+  const store = new ConsoleStore(api, clock);
+  store.start(); store.stop(); store.start();
+  await store.loadSessionMemory('s1');
+  await new Promise<void>(resolve => { setImmediate(resolve); });
+  assert.equal(availabilityCalls, 1);
+  assert.equal(store.getState().memoryReviews.get('s1')?.availability?.available, true);
+  assert.equal(posts, 0);
+  assert.equal(signals[0].aborted, true);
+  assert.equal(signals[1].aborted, false);
+  const current = store.getState();
+  emitters[0]({ ...windowedSnapshot([], 0), seq: 99 });
+  assert.equal(store.getState(), current, 'the disposed stream cannot overwrite the restarted store');
+  await store.requestMemoryAction('s1', proposedItem.id, 'confirm');
+  assert.equal(posts, 1, 'review remains actionable after StrictMode restart');
+  store.stop(); store.start();
+  await store.loadSessionMemory('s1');
+  assert.equal(posts, 1, 'restart only reloads availability, never redispatches review');
+  store.stop();
 });
 
 test('a resnapshot clears the session memory throttle even before its refresh interval expires', async () => {

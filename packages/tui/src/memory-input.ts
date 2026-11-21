@@ -1,4 +1,5 @@
 import { memoryPanelViewModel, resolve, type Action } from '@pi-console/viewmodels';
+import { sessionSideWidth, terminalContentWidth } from './state/session-layout.ts';
 import type { UiState } from './state/ui.ts';
 import type { Data } from './store/store.ts';
 
@@ -28,7 +29,7 @@ function requestSelected(context: MemoryContext, index: number, action: Action):
 }
 function memoryVisible(ui: UiState, width: number): boolean {
   if (ui.overlay !== 'none') return false;
-  return ui.pane === 'memory' && width >= 110;
+  return ui.pane === 'memory' && sessionSideWidth(terminalContentWidth(width)) > 0;
 }
 function memoryPanel({ sessionId, data }: MemoryContext): ReturnType<typeof memoryPanelViewModel> {
   return memoryPanelViewModel({ memory: data.memory.get(sessionId) ?? null, items: data.memoryItems.get(sessionId) ?? [], now: 0, review: data.memoryReviews.get(sessionId) });

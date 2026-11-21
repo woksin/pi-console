@@ -6,6 +6,7 @@ export interface MemoryReviewSession {
   availability: MemoryActionAvailability | null;
   items: ReadonlyMap<string, MemoryReviewProgress>;
 }
+export const memoryReviewIngestionGraceMs = 30_000;
 export const emptyMemoryReview = (): MemoryReviewSession => ({ availability: null, items: new Map() });
 const fallback: Record<MemoryActionAvailability['reason'], string> = {
   available: 'Approve in pi: each request needs a human response in the owning interactive pi session.',
@@ -31,7 +32,12 @@ const labels: Record<MemoryReviewProgress['state'], string> = {
 };
 export const memoryReviewPending = (state: MemoryReviewProgress['state']): boolean =>
   state === 'requesting' || state === 'awaiting-human' || state === 'awaiting-ingestion';
+export function memoryReviewRetryable(progress: MemoryReviewProgress | undefined): boolean {
+  if (!progress) return true;
+  return !memoryReviewPending(progress.state) && progress.state !== 'observed-applied';
+}
 export function memoryReviewProgress(receipt: MemoryActionReceipt): MemoryReviewProgress {
+  if (receipt.state === 'unknown' && receipt.eventId !== null) return { state: 'unknown', message: 'Pi reported approval; producer ingestion remains unverified. Check pi before retrying.' };
   return { state: receipt.state, message: `${labels[receipt.state]}${receipt.reason ? ` (${sanitize(receipt.reason)})` : ''}` };
 }
 export const requestingMemoryReview = (): MemoryReviewProgress => ({ state: 'requesting', message: labels.requesting });

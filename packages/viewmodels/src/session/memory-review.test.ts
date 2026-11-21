@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { MemoryActionAvailability, MemoryActionReceipt, MemoryActionRequest, MemoryItem, SessionMemory } from '@pi-console/contract';
 import { MemoryReviewController, type MemoryReviewApi, type ReviewScheduler } from './memory-review-controller.ts';
-import { emptyMemoryReview, memoryReviewHint, memoryReviewProgress, type MemoryReviewSession } from './memory-review.ts';
+import { emptyMemoryReview, memoryReviewHint, memoryReviewIngestionGraceMs, memoryReviewProgress, type MemoryReviewSession } from './memory-review.ts';
 import { memoryPanelViewModel } from './memory.ts';
 
 const available: MemoryActionAvailability = { version: 1, available: true, reason: 'available', providerVersion: 1, generation: 'g1' };
@@ -25,14 +25,16 @@ function rig(states: MemoryActionReceipt['state'][] = ['awaiting-human', 'awaiti
   const posts: { sessionId: string; request: MemoryActionRequest }[] = [];
   const views = new Map<string, MemoryReviewSession>();
   const reloads: string[] = [];
-  const timers: ReviewScheduler = { set: callback => { pending = callback; return callback; }, clear: () => { pending = null; } };
+  const delays: number[] = [];
+  const expiresAt = Date.now() + 30_000;
+  const timers: ReviewScheduler = { set: (callback, delayMs = 0) => { delays.push(delayMs); pending = callback; return callback; }, clear: () => { pending = null; } };
   const api: MemoryReviewApi = {
     memoryActionAvailability: () => Promise.resolve(available),
-    requestMemoryAction: (sessionId, input) => { request = input; posts.push({ sessionId, request }); return Promise.resolve(receipt(states.shift() ?? 'unknown', request)); },
-    memoryActionReceipt: () => Promise.resolve(receipt(states.shift() ?? 'unknown', request)),
+    requestMemoryAction: (sessionId, input) => { request = input; posts.push({ sessionId, request }); return Promise.resolve({ ...receipt(states.shift() ?? 'unknown', request), expiresAt }); },
+    memoryActionReceipt: () => Promise.resolve({ ...receipt(states.shift() ?? 'unknown', request), expiresAt }),
   };
   const controller = new MemoryReviewController(api, (id, value) => { views.set(id, value); }, id => { reloads.push(id); return Promise.resolve(); }, timers);
-  return { api, controller, views, posts, reloads, tick: async () => { const next = pending; pending = null; next?.(); await flush(); }, hasTimer: () => pending !== null };
+  return { api, controller, views, posts, reloads, delays, expiresAt, tick: async () => { const next = pending; pending = null; next?.(); await flush(); }, hasTimer: () => pending !== null };
 }
 
 test('every availability reason has a bounded actionable fallback, including old daemon', () => {
@@ -57,7 +59,7 @@ test('only recorded, non-withheld proposed items are requestable, with no optimi
     const progress = memoryReviewProgress(receipt(state, { requestId: 'r1', itemId: item.id, action: 'confirm' }));
     const pending = memoryPanelViewModel({ memory, items: [item], now: 0, review: { availability: available, items: new Map([[item.id, progress]]) } });
     assert.equal(pending.items[0].statusLabel, 'proposed');
-    assert.equal(pending.items[0].canRequest, false);
+    assert.equal(pending.items[0].canRequest, !['awaiting-human', 'awaiting-ingestion', 'observed-applied'].includes(state));
     assert.ok(pending.items[0].review?.message);
   }
   assert.match(memoryReviewProgress(receipt('awaiting-human', { requestId: 'r', itemId: item.id, action: 'confirm' })).message, /Awaiting confirmation in pi/);
@@ -96,6 +98,10 @@ test('terminal outcomes stop polling, including explicit reject, without synthes
     assert.equal(r.views.get('s1')?.items.get(item.id)?.state, state);
     assert.equal(r.hasTimer(), false);
     assert.deepEqual(r.reloads, ['s1']);
+    const previousId = r.posts[0].request.requestId;
+    await r.controller.request('s1', item.id, 'confirm');
+    assert.equal(r.posts.length, 2, 'only an explicit action retries a non-applied outcome');
+    assert.notEqual(r.posts[1].request.requestId, previousId);
     r.controller.dispose();
   }
 });
@@ -114,7 +120,22 @@ test('session identity survives navigation; disposal cancels polling and late av
   assert.equal(r.posts.length, 1);
 });
 
-test('HTTP errors and missing receipts become unknown; never retry a POST or leak unsafe error text', async () => {
+test('disposing an in-flight receipt GET cannot schedule a late retry or canonical refresh', async () => {
+  const r = rig();
+  await r.controller.load('s1');
+  await r.controller.request('s1', item.id, 'confirm');
+  let fail: (error: Error) => void = () => { throw new Error('Receipt GET did not start'); };
+  r.api.memoryActionReceipt = () => new Promise<MemoryActionReceipt>((_resolve, reject) => { fail = reject; });
+  await r.tick();
+  r.controller.dispose();
+  fail(new Error('aborted'));
+  await flush();
+  assert.equal(r.hasTimer(), false);
+  assert.deepEqual(r.reloads, []);
+  assert.equal(r.posts.length, 1);
+});
+
+test('POST errors become unknown; never auto-retry a POST or leak unsafe error text', async () => {
   const r = rig();
   r.api.requestMemoryAction = () => Promise.reject(new Error('403 read-only\u001b[31m'));
   await r.controller.load('s1');
@@ -122,14 +143,61 @@ test('HTTP errors and missing receipts become unknown; never retry a POST or lea
   assert.match(r.views.get('s1')?.items.get(item.id)?.message ?? '', /403 read-only/);
   assert.equal(r.views.get('s1')?.items.get(item.id)?.message.includes(String.fromCharCode(27)), false);
   assert.equal(r.hasTimer(), false);
+  assert.deepEqual(r.reloads, ['s1']);
   r.controller.dispose();
-  const p = rig();
-  await p.controller.load('s1');
-  await p.controller.request('s1', item.id, 'confirm');
-  p.api.memoryActionReceipt = () => Promise.reject(new Error('404 receipt not found'));
-  await p.tick();
-  assert.equal(p.views.get('s1')?.items.get(item.id)?.state, 'unknown');
-  assert.equal(p.hasTimer(), false);
-  assert.equal(p.posts.length, 1);
-  p.controller.dispose();
+});
+
+test('a transient receipt GET failure backs off and recovers without another POST', async () => {
+  const r = rig(['awaiting-human', 'observed-applied']);
+  await r.controller.load('s1');
+  await r.controller.request('s1', item.id, 'confirm');
+  const normal = r.api.memoryActionReceipt.bind(r.api);
+  r.api.memoryActionReceipt = () => Promise.reject(new Error('offline'));
+  await r.tick();
+  assert.equal(r.views.get('s1')?.items.get(item.id)?.state, 'awaiting-human');
+  assert.equal(r.hasTimer(), true);
+  assert.equal(r.delays.at(-1), 2000);
+  r.api.memoryActionReceipt = normal;
+  await r.tick();
+  assert.equal(r.views.get('s1')?.items.get(item.id)?.state, 'observed-applied');
+  assert.equal(r.posts.length, 1);
+  assert.deepEqual(r.reloads, ['s1']);
+  r.controller.dispose();
+});
+
+test('poll failures stop at deadline plus grace and refresh canonical memory exactly once', async t => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+  const r = rig();
+  await r.controller.load('s1');
+  await r.controller.request('s1', item.id, 'confirm');
+  r.api.memoryActionReceipt = () => Promise.reject(new Error('404 receipt not found'));
+  await r.tick(); await r.tick(); await r.tick();
+  assert.deepEqual(r.delays.slice(1), [2000, 4000, 5000]);
+  t.mock.timers.tick(30_000 + memoryReviewIngestionGraceMs - 1);
+  await r.tick();
+  assert.equal(r.delays.at(-1), 1);
+  assert.deepEqual(r.reloads, []);
+  t.mock.timers.tick(1);
+  await r.tick();
+  assert.equal(r.views.get('s1')?.items.get(item.id)?.state, 'unknown');
+  assert.equal(r.hasTimer(), false);
+  assert.equal(r.posts.length, 1);
+  assert.deepEqual(r.reloads, ['s1']);
+  r.controller.dispose();
+});
+
+test('approval tracking continues beyond the human deadline, and unverified writes are not labelled expired', async t => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+  const r = rig();
+  await r.controller.load('s1');
+  await r.controller.request('s1', item.id, 'confirm');
+  await r.tick();
+  t.mock.timers.tick(30_001);
+  await r.tick();
+  assert.equal(r.views.get('s1')?.items.get(item.id)?.state, 'observed-applied');
+  assert.deepEqual(r.reloads, ['s1']);
+  assert.match(memoryReviewProgress({ ...receipt('unknown', { requestId: 'r', itemId: item.id, action: 'confirm' }), eventId: 'reported-write', reason: 'applied' }).message, /producer ingestion remains unverified/);
+  await r.controller.request('s1', item.id, 'confirm');
+  assert.equal(r.posts.length, 1, 'an observed-applied receipt cannot be retried against stale canonical data');
+  r.controller.dispose();
 });

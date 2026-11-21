@@ -1,6 +1,6 @@
 import type { MemoryItem, SessionMemory } from '@pi-console/contract';
 import { age, clip, sanitize } from '../format/format.ts';
-import { emptyMemoryReview, memoryReviewHint, memoryReviewPending, type MemoryReviewProgress, type MemoryReviewSession } from './memory-review.ts';
+import { emptyMemoryReview, memoryReviewHint, memoryReviewPending, memoryReviewRetryable, type MemoryReviewProgress, type MemoryReviewSession } from './memory-review.ts';
 
 export interface MemoryPanelInput { memory: SessionMemory | null; items: readonly MemoryItem[]; now: number; review?: MemoryReviewSession }
 export interface MemoryPanelItem {
@@ -42,7 +42,7 @@ function itemOf(item: MemoryItem, review: MemoryReviewSession, busy: boolean): M
     id: item.id, kind: item.kind, scope: `${item.scope.kind}:${sanitize(item.scope.key)}`, status: item.status, statusLabel: statusLabel(item),
     text: item.withheld ? withheldText : sanitize(item.text), command: item.command === null ? null : sanitize(item.command),
     rejectCommand: item.command === null ? null : `/memory reject ${sanitize(item.id)}`, sourceNote: sources[item.sourceType],
-    canRequest: requestable(item, review) && !busy && !review.items.has(item.id), review: review.items.get(item.id) ?? null,
+    canRequest: requestable(item, review) && !busy && memoryReviewRetryable(review.items.get(item.id)), review: review.items.get(item.id) ?? null,
   };
 }
 

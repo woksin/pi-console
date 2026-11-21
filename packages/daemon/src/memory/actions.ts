@@ -5,7 +5,7 @@ import type { ConsoleQueries, ReadModels, SqliteEventLog } from '@pi-console/cor
 import type { DaemonConfig } from '../config.ts';
 import { HttpError } from '../security/guard.ts';
 import { ReviewChannel, type ReviewPeer } from './channel.ts';
-import { ReviewReceipts } from './receipts.ts';
+import { ReviewReceipts, reviewIngestionGraceMs } from './receipts.ts';
 import { ReviewLimits } from './limits.ts';
 import { providerAvailability, reviewableItem } from './availability.ts';
 import { ReviewSource } from './source.ts';
@@ -121,9 +121,12 @@ export class MemoryActions {
     this.#receipts.prune();
   }
   #expireReceipt(receipt: Receipt): void {
-    if (receipt.expiresAt > Date.now()) return;
+    if (receipt.state === 'awaiting-ingestion') {
+      if (receipt.expiresAt + reviewIngestionGraceMs <= Date.now()) this.#update(receipt, 'unknown');
+      return;
+    }
+    if (receipt.state !== 'awaiting-human' || receipt.expiresAt > Date.now()) return;
     this.#update(receipt, 'expired', 'expired');
-    if (receipt.state !== 'awaiting-human') return;
     const peer = this.#channel.peers.get(receipt.sessionId);
     if (peer?.connectionGeneration === receipt.connectionGeneration) this.#channel.cancel(peer, receipt.requestId);
   }

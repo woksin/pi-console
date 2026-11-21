@@ -3,6 +3,7 @@ import { FlashTracker, LookTracker, paletteItems, pulseViewModel, rememberPick, 
 import { Column, Screen, Text, h, useClipboard, useKeys, useSize, useTerminalTitle, useTick } from './view/renderer.ts';
 import type { Store } from './store/store.ts';
 import { commit, handleKey, initial, reduce, typing, type Bounds, type Section, type UiState } from './state/ui.ts';
+import { terminalContentWidth } from './state/session-layout.ts';
 import { emptyLayout, resumeTranscript, transcriptViewport } from './state/transcript-window.ts';
 import { neutralKey, typedCharacter, type KeyInput } from './state/keys.ts';
 import { Header, banner, footerLine, pulseLine, terminalTitle } from './shell/chrome.ts';
@@ -75,7 +76,7 @@ export function App(props: AppProps): ReactElement {
   const onOverview = ui.section === 'overview' && !ui.sessionId;
   useEffect(() => { if (!onOverview) trackers.look.leave(); }, [onOverview, trackers]);
   const env: Env = {
-    data, ui, now: clock.now, width: size.width - 2, height: bodyHeight, phase: clock.phase, changes: { ...trackers, motion: props.animate },
+    data, ui, now: clock.now, width: terminalContentWidth(size.width), height: bodyHeight, phase: clock.phase, changes: { ...trackers, motion: props.animate },
     click: index => { apply(openAt(uiRef.current, index, boundsOf(viewRef.current, bodyHeight))); },
   };
   const view = (ui.sessionId ? sessionView : sectionViews[ui.section])(env);

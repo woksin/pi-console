@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
-import type { AttentionItem } from '@pi-console/contract';
+import type { AttentionItem, MemoryItem } from '@pi-console/contract';
 import type { Page } from 'playwright-core';
 import { startRig, type Rig } from './harness.ts';
 
@@ -65,6 +65,12 @@ test('memory review requests wait for pi and producer ingestion; actions never o
   let phase = 'awaiting-human';
   let posted = { requestId: '', itemId: '', action: '' };
   let posts = 0;
+  const hostile = `<img src=x onerror="globalThis.__memoryReviewXss=true">${String.fromCharCode(27)}[31munsafe`;
+  await page.route('**/api/v1/memory-items?*', async route => {
+    const response = await route.fetch();
+    const body = await response.json() as { items: MemoryItem[] };
+    await route.fulfill({ response, json: { ...body, items: body.items.map(item => item.id === 'item-2' ? { ...item, text: hostile } : item) } });
+  });
   const reply = () => ({
     version: 1, ...posted, sessionId: 's1', generation: 'g1', connectionGeneration: 'c1', tokenId: 'synthetic-control',
     state: phase, reason: null, eventId: null, createdAt: Date.now(), updatedAt: Date.now(), expiresAt: Date.now() + 60_000,
@@ -77,6 +83,11 @@ test('memory review requests wait for pi and producer ingestion; actions never o
   try {
     await page.reload();
     const row = page.locator('[data-memory-item="item-2"]');
+    await row.getByRole('button', { name: 'Confirm…', exact: true }).waitFor();
+    assert.match(await row.innerText(), /<img src=x onerror=/);
+    assert.equal((await row.innerText()).includes(String.fromCharCode(27)), false);
+    assert.equal(await row.locator('img, script').count(), 0);
+    assert.equal(await page.evaluate(() => Object.hasOwn(globalThis, '__memoryReviewXss')), false);
     await row.getByRole('button', { name: 'Confirm…', exact: true }).click();
     await row.getByRole('status').filter({ hasText: 'Awaiting confirmation in pi' }).waitFor();
     assert.equal(await row.getByRole('button', { name: 'Confirm…', exact: true }).isDisabled(), true);
@@ -115,7 +126,7 @@ test('memory reject requests report pi decline and receipt loss as non-applied o
     await page.route('**/api/v1/sessions/*/memory-actions', async route => {
       if (route.request().method() === 'GET') { await route.fulfill({ json: { version: 1, available: true, providerVersion: 1, generation: 'g1', reason: 'available' } }); return; }
       body = route.request().postDataJSON() as Record<string, unknown>;
-      await route.fulfill({ json: { ...body, version: 1, sessionId: 's1', generation: 'g1', connectionGeneration: 'c1', tokenId: 'synthetic', state: 'awaiting-human', reason: null, eventId: null, createdAt: Date.now(), updatedAt: Date.now(), expiresAt: Date.now() + 60_000 } });
+      await route.fulfill({ json: { ...body, version: 1, sessionId: 's1', generation: 'g1', connectionGeneration: 'c1', tokenId: 'synthetic', state: 'awaiting-human', reason: null, eventId: null, createdAt: Date.now() - 60_000, updatedAt: Date.now(), expiresAt: outcome === 'lost' ? Date.now() - 28_500 : Date.now() + 60_000 } });
     });
     await page.route('**/api/v1/memory-actions/*', route => outcome === 'lost'
       ? route.fulfill({ status: 404, json: { error: 'Receipt not found' } })

@@ -3,6 +3,7 @@ import { DatabaseSync } from 'node:sqlite';
 import type { MemoryActionReceipt } from '@pi-console/contract';
 
 export const reviewReceiptRetentionMs = 24 * 60 * 60 * 1000;
+export const reviewIngestionGraceMs = 30_000;
 const pendingStates = "json_extract(value,'$.state') IN ('awaiting-human','awaiting-ingestion','unknown')";
 const terminalStates = "json_extract(value,'$.state') IN ('observed-applied','declined','conflict','unavailable','expired')";
 function safePath(path: string): void {
@@ -20,6 +21,7 @@ export class ReviewReceipts {
     chmodSync(path, 0o600);
     this.#db.exec('PRAGMA journal_mode=DELETE; CREATE TABLE IF NOT EXISTS review_receipts (id TEXT PRIMARY KEY, value TEXT NOT NULL); CREATE TABLE IF NOT EXISTS review_claims (id TEXT PRIMARY KEY); INSERT OR IGNORE INTO review_claims SELECT id FROM review_receipts');
     this.#db.prepare("UPDATE review_receipts SET value=json_set(value,'$.state','unknown','$.updatedAt',?) WHERE json_extract(value,'$.state')='awaiting-human'").run(Date.now());
+    this.#db.prepare("UPDATE review_receipts SET value=json_set(value,'$.state','unknown','$.reason','applied') WHERE json_extract(value,'$.state')='expired' AND json_extract(value,'$.eventId') IS NOT NULL").run();
     this.prune();
   }
   get(id: string): MemoryActionReceipt | undefined {
@@ -32,9 +34,11 @@ export class ReviewReceipts {
   count(): number { return Number(this.#db.prepare('SELECT count(*) AS total FROM review_receipts').get()?.total); }
   prune(): void {
     const now = Date.now();
-    this.#db.prepare(`UPDATE review_receipts SET value=json_set(value,'$.state','expired','$.reason','expired','$.updatedAt',json_extract(value,'$.expiresAt')) WHERE ${pendingStates} AND json_extract(value,'$.expiresAt') <= ?`).run(now);
+    this.#db.prepare("UPDATE review_receipts SET value=json_set(value,'$.state','expired','$.reason','expired','$.updatedAt',json_extract(value,'$.expiresAt')) WHERE json_extract(value,'$.state')='awaiting-human' AND json_extract(value,'$.expiresAt') <= ?").run(now);
+    this.#db.prepare("UPDATE review_receipts SET value=json_set(value,'$.state','unknown','$.updatedAt',json_extract(value,'$.expiresAt')+?) WHERE json_extract(value,'$.state')='awaiting-ingestion' AND json_extract(value,'$.expiresAt') <= ?").run(reviewIngestionGraceMs, now - reviewIngestionGraceMs);
     if (now < this.#nextPrune) return;
     this.#db.prepare(`DELETE FROM review_receipts WHERE ${terminalStates} AND json_extract(value,'$.updatedAt') < ?`).run(now - reviewReceiptRetentionMs);
+    this.#db.prepare("DELETE FROM review_receipts WHERE json_extract(value,'$.state')='unknown' AND json_extract(value,'$.expiresAt') < ?").run(now - reviewReceiptRetentionMs - reviewIngestionGraceMs);
     this.#nextPrune = now + 60_000;
   }
   claim(receipt: MemoryActionReceipt): boolean {

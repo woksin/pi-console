@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { MemoryItem, SessionMemory } from '@pi-console/contract';
+import { sessionSideWidth, terminalContentWidth } from './state/session-layout.ts';
 import { emptyMemoryReview } from '@pi-console/viewmodels';
 import { initial } from './state/ui.ts';
 import { Store } from './store/store.ts';
@@ -45,6 +46,20 @@ test('visible memory selection requests exactly the selected proposed item; othe
   const blocked = { ...data, memoryReviews: new Map([['s1', { ...review, availability: { ...review.availability, available: false, reason: 'read-only' as const } }]]) };
   memoryInput(ui, 'c', blocked, 120, request);
   assert.equal(requests.length, 2, 'read-only credentials retain command-only fallback');
+  const resized: unknown[] = [];
+  const resizeRequest = (...args: unknown[]) => { resized.push(args); };
+  for (const width of [109, 110, 111]) {
+    assert.equal(sessionSideWidth(terminalContentWidth(width)), 0);
+    assert.equal(memoryInput(ui, 'c', data, width, resizeRequest), null);
+    assert.equal(memoryInput(ui, 'x', data, width, resizeRequest), null);
+  }
+  assert.equal(resized.length, 0, 'shrinking below the visible-pane boundary cannot request');
+  assert.equal(sessionSideWidth(terminalContentWidth(112)), 40);
+  memoryInput(ui, 'c', data, 112, resizeRequest);
+  memoryInput(ui, 'x', data, 112, resizeRequest);
+  assert.deepEqual(resized, [['s1', 'item-1', 'confirm'], ['s1', 'item-1', 'reject']]);
+  memoryInput(ui, 'c', data, 111, resizeRequest);
+  assert.equal(resized.length, 2, 'resizing back to a hidden pane stops new requests');
 });
 
 test('counts prefer the daemon totals and fall back to what is loaded, in display order', () => {

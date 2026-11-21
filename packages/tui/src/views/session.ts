@@ -3,6 +3,7 @@ import { Column, Lines, Panel, Row, h, type Line, type Part } from '../view/rend
 import type { Color } from '../view/theme.ts';
 import { pressureBar, blank, fit, pressureTone, rule, split, statusParts, t } from '../view/parts.ts';
 import { sidePanes, type SidePane, type UiState } from '../state/ui.ts';
+import { sessionSideWidth } from '../state/session-layout.ts';
 import { transcriptViewport, transcriptWindow, type TranscriptAnchor, type TranscriptLayout } from '../state/transcript-window.ts';
 import type { Env, SectionView } from './common.ts';
 import { memoryLines } from './session-memory.ts';
@@ -164,7 +165,7 @@ export function sessionView(env: Env): SectionView {
   const detail = ui.sessionId ? buildDetail(env) : undefined;
   if (!detail) return unavailableView;
   const { model, entries } = detail;
-  const side = env.width >= 110 ? 40 : 0;
+  const side = sessionSideWidth(env.width);
   const transcriptWidth = env.width - side - 4;
   const rendered = transcriptLines(env, model, entries, transcriptWidth);
   const { padded, below, paused } = visibleLines(rendered, ui, transcriptViewport(env.height));
