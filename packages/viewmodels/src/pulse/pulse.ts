@@ -4,7 +4,7 @@ import { laneLabel } from '../format/lane-label.ts';
 import { statusCell, type StatusCell } from '../format/status-cell.ts';
 
 /** One session in the fleet pulse strip. */
-export interface PulseCell { id: string; title: string; status: StatusCell }
+export interface PulseCell { id: string; title: string; status: StatusCell; monoGlyph: string }
 export interface PulseViewModel {
   /** One cell per session, most urgent status first, then by lane, so like statuses form one coloured run. */
   cells: PulseCell[];
@@ -52,7 +52,7 @@ export function fleetActivity(sessions: readonly Session[], minutes: number): nu
 export function pulseViewModel(input: { sessions: readonly Session[]; needsYou: number; minutes?: number }): PulseViewModel {
   const cells = [...input.sessions]
     .sort((a, b) => severity(a.status) - severity(b.status) || laneLabel(a.repositoryId, a.laneId).localeCompare(laneLabel(b.repositoryId, b.laneId)) || a.name.localeCompare(b.name))
-    .map(session => ({ id: session.id, title: `${laneLabel(session.repositoryId, session.laneId)} ${session.name}`, status: statusCell(session.status) }));
+    .map(session => ({ id: session.id, title: `${laneLabel(session.repositoryId, session.laneId)} ${session.name}`, status: statusCell(session.status), monoGlyph: session.status === 'failed' ? '#' : statusCell(session.status).glyph }));
   const activity = fleetActivity(input.sessions, input.minutes ?? 24);
   const working = input.sessions.filter(session => session.status === 'working').length;
   const latest = activity.at(-1) ?? 0;

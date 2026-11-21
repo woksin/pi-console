@@ -10,7 +10,7 @@ export function FleetPulse({ sessions, needsYou }: { sessions: readonly Session[
   return (
     <div className="pulse" role="img" aria-label={`Fleet pulse: ${pulse.summary}`} title={pulse.summary}>
       <span className="pulse-cells" aria-hidden="true">
-        {pulse.cells.map(cell => <i key={cell.id} className={`pulse-cell tone-${cell.status.color} st-${cell.status.status}`} title={`${cell.title}: ${cell.status.label}`} />)}
+        {pulse.cells.map(cell => <i key={cell.id} className={`pulse-cell tone-${cell.status.color} st-${cell.status.status}`} title={`${cell.title}: ${cell.status.label}`}><span>{cell.monoGlyph}</span></i>)}
       </span>
       {pulse.needsYou > 0 && <span className="pulse-count" aria-hidden="true">! {pulse.needsYou}</span>}
       <span className="pulse-activity" aria-hidden="true"><Sparkline values={pulse.activity} width={72} height={20} fill label="Fleet activity" /></span>

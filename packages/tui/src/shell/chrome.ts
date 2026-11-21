@@ -1,6 +1,7 @@
 import { connectionBanner, consoleTitle, hints, type PulseCell, type PulseViewModel } from '@pi-console/viewmodels';
 import { Clickable, Row, Spacer, Text, h, type Line, type Part } from '../view/renderer.ts';
 import { fit, split, t } from '../view/parts.ts';
+import { palette } from '../view/theme.ts';
 import { contextOf, sections, type Section, type UiState } from '../state/ui.ts';
 import type { Connection } from '../store/store.ts';
 
@@ -46,7 +47,7 @@ const cellGlyph = (cell: PulseCell): string => (fullCells.has(cell.status.status
 function pulseCells(cells: readonly PulseCell[], room: number): Part[] {
   const shown = cells.length <= room ? cells : cells.slice(0, Math.max(0, room - 4));
   const more = cells.length - shown.length;
-  return [...shown.map(cell => t(cellGlyph(cell), cell.status.color)), ...(more > 0 ? [t(` +${String(more)}`, 'muted')] : [])];
+  return [...shown.map(cell => t(palette.theme === 'mono' ? cell.monoGlyph : cellGlyph(cell), cell.status.color)), ...(more > 0 ? [t(` +${String(more)}`, 'muted')] : [])];
 }
 
 /** The fleet pulse row under the tabs: one coloured cell per session, braille fleet activity when there is room, and the counts in words. */

@@ -5,6 +5,21 @@ import { initial } from '../state/ui.ts';
 import { Screen, h, mountHeadless } from '../view/renderer.ts';
 import type { Connection } from '../store/store.ts';
 import type { Session } from '@pi-console/contract';
+import { palette } from '../view/theme.ts';
+import { pulseViewModel } from '@pi-console/viewmodels';
+
+test('mono pulse uses the shared status glyphs rather than a solid white run', () => {
+  const statuses = ['needs-you', 'blocked', 'failed', 'working', 'waiting', 'idle', 'done'] as const;
+  const sessions = statuses.map((status, id) => ({ id: String(id), status, repositoryId: 'repo', laneId: 'main', name: status, samples: [] }) as unknown as Session);
+  const pulse = pulseViewModel({ sessions, needsYou: 1 });
+  palette.configure('truecolor', 'mono');
+  try {
+    const line = pulseLine(pulse, 160).map(part => part.text).join('');
+    for (const cell of pulse.cells) assert.ok(line.includes(cell.monoGlyph));
+    assert.equal(new Set(pulse.cells.map(cell => cell.monoGlyph)).size, statuses.length);
+    assert.doesNotMatch(line, /[█▄▆]/);
+  } finally { palette.configure('truecolor', 'midnight'); }
+});
 
 const offline: Connection = { connected: false, error: 'terminated', lastSeq: 42, lastEventAt: Date.parse('2026-11-20T12:00:03Z'), eventsReceived: 1 };
 
