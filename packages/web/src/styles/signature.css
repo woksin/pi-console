@@ -31,7 +31,13 @@
 .node:hover circle, .node:focus-visible circle { r: 18; filter: drop-shadow(0 0 8px var(--tone, var(--cyan))); }
 .node:focus-visible { outline: none; }
 .node .glyph { fill: var(--tone, var(--text)); font-size: 14px; pointer-events: none; }
-.node .label { fill: var(--text); font-size: 11px; paint-order: stroke; stroke: var(--panel); stroke-width: 3px; pointer-events: none; }
+.node .label { fill: var(--text); font-size: 11px; font-weight: 500; paint-order: stroke; stroke: var(--panel); stroke-width: 5px; stroke-linejoin: round; pointer-events: none; }
+.graph-legend { padding: 0 18px; }
+.graph-legend li { display: flex; align-items: center; gap: 6px; }
+.graph-legend svg { width: 32px; height: 12px; }
+.graph-legend .edge { stroke-width: 2; animation: none; }
+.tl .repository-bg { fill: var(--raised); }
+.tl .repository-label { fill: var(--text); font-size: 12px; font-weight: 650; }
 .scrubber { flex: 1; max-width: 420px; accent-color: var(--cyan); }
 .tl { width: 100%; height: auto; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); }
 .tl .tick { stroke: var(--border); stroke-dasharray: 2 4; opacity: 0.7; }

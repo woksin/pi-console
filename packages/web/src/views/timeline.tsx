@@ -5,9 +5,9 @@ import { useActions } from '../app/commands.ts';
 import { useListNav } from '../app/hooks.ts';
 import { LoadOlder } from './load-older.tsx';
 import { EmptyState } from '../ui/primitives.tsx';
+import { groupHeight, laneHeight, timelineGroups } from './timeline-groups.ts';
 
 const columns = 120;
-const laneHeight = 34;
 const labelWidth = 170;
 const plotWidth = 960;
 const x = (column: number): number => labelWidth + column / (columns - 1) * plotWidth;
@@ -25,13 +25,14 @@ export function TimelineView({ state, now }: ViewProps) {
     setWindow(apply(window ?? view.window));
     return true;
   });
-  const rows = useListNav(view.lanes.map(lane => lane.sessionId));
+  const groups = timelineGroups(view.lanes, state.sessions);
+  const rows = useListNav(groups.flatMap(group => group.lanes.map(lane => lane.sessionId)));
   const ticks = timelineTicks(view.window, columns);
   const nowColumn = columnOf(now, view.window, columns);
   const names = new Map(state.sessions.map(session => [session.id, laneLabel(session.repositoryId, session.laneId)]));
   const history = <LoadOlder state={state} collection="resets" shown={state.resets.length} noun="resets" />;
   if (view.lanes.length === 0) return <><EmptyState title="Nothing on the timeline yet" mark="▭">Requests, answers, resets, questions and messages are placed on one time axis as they happen.</EmptyState>{history}</>;
-  const height = view.lanes.length * laneHeight + 44;
+  const height = view.lanes.length * laneHeight + groups.length * groupHeight + 44;
   return (
     <div className="page timeline">
       <div className="toolbar">
@@ -44,13 +45,17 @@ export function TimelineView({ state, now }: ViewProps) {
       </div>
       <svg className="tl" viewBox={`0 0 ${String(labelWidth + plotWidth + 20)} ${String(height)}`} role="img" aria-label="Timeline of requests, answers, resets, questions and messages per session">
         {ticks.map(tick => <g key={tick.at}><line className="tick" x1={x(tick.column)} x2={x(tick.column)} y1={22} y2={height} /><text className="axis" x={x(tick.column)} y={14} textAnchor="middle">{tick.label}</text></g>)}
-        {view.lanes.map((lane, index) => (
-          <g key={lane.sessionId} transform={`translate(0 ${String(30 + index * laneHeight)})`} className={`lane tone-${lane.status.color}${rows.selected === lane.sessionId ? ' selected' : ''}`} onClick={() => { rows.select(lane.sessionId); }}>
+        {groups.map(group => <g key={group.repositoryId} className="timeline-group" aria-label={group.repositoryId} transform={`translate(0 ${String(group.top)})`}>
+          <rect className="repository-bg" x={0} y={0} width={labelWidth + plotWidth + 20} height={groupHeight - 4} />
+          <text className="repository-label" x={10} y={17}>{group.repositoryId}<title>{group.repositoryId} · {group.lanes.length} sessions</title></text>
+          {group.lanes.map((lane, index) => (
+          <g key={lane.sessionId} transform={`translate(0 ${String(groupHeight + index * laneHeight)})`} className={`lane tone-${lane.status.color}${rows.selected === lane.sessionId ? ' selected' : ''}`} onClick={() => { rows.select(lane.sessionId); }}>
             <rect className="lane-bg" x={0} y={0} width={labelWidth + plotWidth + 20} height={laneHeight - 4} rx={6} />
             <text className="lane-label" x={10} y={20}><tspan className="lane-glyph">{lane.status.glyph}</tspan> {names.get(lane.sessionId) ?? lane.label}</text>
             <line className="lane-line" x1={labelWidth} x2={labelWidth + plotWidth} y1={15} y2={15} />
             {lane.cells.map(cell => <text key={cell.markerId} className={`mark tone-${cell.color}`} x={x(cell.column)} y={20} textAnchor="middle"><title>{view.markers.find(marker => marker.id === cell.markerId)?.text ?? ''}</title>{cell.glyph}</text>)}
           </g>))}
+        </g>)}
         {nowColumn >= 0 && nowColumn < columns && <g className="now-line" aria-label="Now"><line x1={x(nowColumn)} x2={x(nowColumn)} y1={22} y2={height} /><text x={x(nowColumn)} y={27} textAnchor="end">now</text></g>}
       </svg>
       {history}

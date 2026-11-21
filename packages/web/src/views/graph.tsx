@@ -33,6 +33,11 @@ export function GraphView({ state }: { state: ConsoleState }) {
           <input type="range" className="scrubber" aria-label="Time scrubber" min={times[0]} max={times.at(-1)} step={1000} value={Math.min(upTo, times.at(-1) ?? 0)} onChange={event => { setScrub(Number(event.target.value)); }} />
           <time className="mono muted">{new Date(upTo).toISOString().slice(11, 19)}</time></>}
       </div>
+      <ul className="legend graph-legend" aria-label="Graph legend">
+        <li><svg viewBox="0 0 32 12" aria-hidden="true"><path className="edge message" d="M1 6 H30" /></svg>Message →</li>
+        <li><svg viewBox="0 0 32 12" aria-hidden="true"><path className="edge spawn" d="M1 6 H30" /></svg>Spawn →</li>
+        <li>Thicker edges = more messages</li><li>Nodes show session status</li>
+      </ul>
       {view.groups.length === 0 ? <EmptyState title="No communication yet" mark="⌬">Edges appear when sessions message each other or spawn subagents.</EmptyState>
         : <div className="graph-grid">{view.groups.map(group => <GroupGraph key={group.repositoryId} group={group} />)}</div>}
     </div>
