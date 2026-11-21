@@ -1,4 +1,4 @@
-import { createReadStream, statSync } from 'node:fs';
+import { createReadStream } from 'node:fs';
 import { stat } from 'node:fs/promises';
 import { createServer, request as httpRequest, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { extname, join, normalize, resolve, sep } from 'node:path';
@@ -21,13 +21,15 @@ const securityHeaders = {
 
 export interface StaticServerOptions { root: string; daemon: { host: string; port: number } }
 
-/** Resolves a URL path inside `root`; anything that escapes it (or is not a file) falls back to the SPA shell. */
-async function fileFor(root: string, pathname: string): Promise<string> {
+/** Resolves a URL path inside `root`, falling back to the SPA shell when present, or null if neither file exists. */
+async function fileFor(root: string, pathname: string): Promise<string | null> {
   const relative = normalize(decodeURIComponent(pathname)).replace(/^([/\\])+/, '');
   const candidate = resolve(root, relative);
   const inside = candidate === root || candidate.startsWith(root + sep);
   const found = inside && await stat(candidate).then(info => info.isFile(), () => false);
-  return found ? candidate : join(root, 'index.html');
+  if (found) return candidate;
+  const shell = join(root, 'index.html');
+  return stat(shell).then(info => info.isFile() ? shell : null, () => null);
 }
 
 /** The daemon only accepts its own host and origin (DNS-rebinding and CSRF defence), so the dev proxy presents itself as that origin. */
@@ -59,14 +61,12 @@ function proxy(options: StaticServerOptions, req: IncomingMessage, res: ServerRe
   req.pipe(upstream);
 }
 
-/** Fail before listening when there is no built SPA shell to serve. */
-function validateBundle(root: string): void {
-  const shell = join(root, 'index.html');
-  try { if (statSync(shell).isFile()) return; } catch { /* Report an unavailable bundle with build instructions below. */ }
-  throw new Error(`Static web bundle unavailable at ${shell}. Run "npm run build -w @pi-console/web" before starting the server.`);
-}
-
-function serveFile(file: string, req: IncomingMessage, res: ServerResponse): void {
+function serveFile(file: string | null, req: IncomingMessage, res: ServerResponse): void {
+  if (file === null) {
+    res.writeHead(404, { 'Content-Type': 'text/plain; charset=utf-8', ...securityHeaders });
+    res.end('Web bundle unavailable. Run npm run build -w @pi-console/web.\n');
+    return;
+  }
   const cache = file.endsWith('index.html') ? 'no-store' : 'public, max-age=31536000, immutable';
   const headers = { 'Content-Type': types[extname(file)] ?? 'application/octet-stream', 'Cache-Control': cache, ...securityHeaders };
   if (req.method === 'HEAD') { res.writeHead(200, headers).end(); return; }
@@ -86,7 +86,6 @@ function parseTarget(target: string | undefined): URL | null {
 /** Serves the built bundle with the strict CSP and forwards `/api` (including the SSE stream) to the daemon. */
 export function createStaticServer(options: StaticServerOptions): Server {
   const root = resolve(options.root);
-  validateBundle(root);
   return createServer((req, res) => {
     const url = parseTarget(req.url);
     if (!url) { res.writeHead(400, securityHeaders).end(); return; }

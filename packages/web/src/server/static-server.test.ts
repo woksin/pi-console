@@ -25,17 +25,37 @@ before(async () => {
 });
 after(() => { web.close(); daemon.close(); });
 
-test('a missing bundle fails at startup with build instructions, before a server can listen', () => {
-  const root = mkdtempSync(join(tmpdir(), 'pi-web-missing-'));
-  try {
-    assert.throws(() => createStaticServer({ root, daemon: { host: '127.0.0.1', port: 1 } }), error => {
-      assert.ok(error instanceof Error);
-      assert.ok(error.message.includes(join(root, 'index.html')));
-      assert.match(error.message, /npm run build -w @pi-console\/web/);
-      return true;
+for (const state of ['empty', 'absent', 'removed']) {
+  test(`a missing bundle returns a plain 404 with build instructions and keeps proxying the API (${state})`, async t => {
+    const directory = mkdtempSync(join(tmpdir(), 'pi-web-missing-'));
+    t.after(() => { rmSync(directory, { recursive: true, force: true }); });
+    const root = state === 'absent' ? join(directory, 'dist') : directory;
+    const shell = join(root, 'index.html');
+    if (state === 'removed') writeFileSync(shell, '<div id="root"></div>');
+    const server = createStaticServer({ root, daemon: { host: '127.0.0.1', port: (daemon.address() as AddressInfo).port } });
+    t.after(async () => {
+      server.closeAllConnections();
+      await new Promise<void>(done => { server.close(() => { done(); }); });
     });
-  } finally { rmSync(root, { recursive: true, force: true }); }
-});
+    const url = `http://127.0.0.1:${String(await listen(server))}`;
+    if (state === 'removed') rmSync(shell);
+    for (const path of ['/', '/index.html', '/missing-route', '/app.js']) {
+      const response = await fetch(`${url}${path}`);
+      assert.equal(response.status, 404);
+      assert.equal(response.headers.get('content-type'), 'text/plain; charset=utf-8');
+      assert.equal(response.headers.get('content-security-policy'), contentSecurityPolicy);
+      assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+      assert.equal(response.headers.get('cache-control'), null);
+      assert.match(await response.text(), /npm run build -w @pi-console\/web/);
+    }
+    const head = await fetch(`${url}/`, { method: 'HEAD' });
+    assert.equal(head.status, 404);
+    assert.equal(await head.text(), '');
+    const response = await fetch(`${url}/api/v1/needs-you`, { headers: { Authorization: 'Bearer abc' } });
+    assert.equal(response.status, 200);
+    assert.deepEqual(await response.json(), { path: '/api/v1/needs-you', auth: 'Bearer abc' });
+  });
+}
 
 /** Isolate unhandled stream errors so a regression reports a failed child instead of killing the test runner. */
 function checkStreamFailure(mode: string, path: string): void {
