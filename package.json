@@ -16,7 +16,8 @@
     "typecheck": "tsc -b",
     "lint": "eslint .",
     "gate": "node scripts/gate.mjs",
-    "gate:integration": "node scripts/gate-integration.mjs"
+    "gate:integration": "node scripts/gate-integration.mjs",
+    "media": "node scripts/media/index.mjs"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
