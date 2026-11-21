@@ -52,7 +52,7 @@ function pulseCells(cells: readonly PulseCell[], room: number): Part[] {
 
 /** Bounded status runs under the tabs, braille fleet activity when there is room, and counts in words. */
 export function pulseLine(pulse: PulseViewModel, width: number): Line {
-  const counts: Part[] = [t(`${String(pulse.sessions)} sessions · ${String(pulse.working)} working`, 'muted'), ...(pulse.needsYou > 0 ? [t(` · ${String(pulse.needsYou)} need you`, 'amber', { bold: true })] : []), t(' ')];
+  const counts: Part[] = [t(`${String(pulse.sessions)} sessions · ${String(pulse.working)} working`, 'muted'), t(' ')];
   const activity: Part[] = [t('activity ', 'faint'), t(pulse.braille, 'cyan'), t('  ')];
   const base = width - 10 - cells(counts);
   // The session cells are the point of the row: activity only shows when every cell still fits beside it.

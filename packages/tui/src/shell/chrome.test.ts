@@ -61,8 +61,9 @@ test('the pulse row shows one cell per session, activity and the counts, and col
   assert.equal(Array.from(wide).length, 132);
   assert.equal(Array.from(wide).filter(cell => '█▆▄'.includes(cell)).length, sessions.length);
   assert.match(wide, /activity [\u2800-\u28ff]{12}/);
-  assert.match(wide, /30 sessions · \d+ working · 16 need you $/);
-  const medium = text(100);
+  assert.match(wide, /30 sessions · \d+ working $/);
+  assert.doesNotMatch(wide, /need you/);
+  const medium = text(80);
   assert.equal(Array.from(medium).filter(cell => '█▆▄'.includes(cell)).length, sessions.length, 'activity gives way before any session cell does');
   assert.doesNotMatch(medium, /activity|\+\d+/);
   const narrow = text(60);
