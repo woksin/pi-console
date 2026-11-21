@@ -56,7 +56,7 @@ const contextRules: readonly (readonly [(state: UiState) => boolean, KeyContext]
 ];
 
 export function contextOf(state: UiState): KeyContext {
-  return contextRules.find(([applies]) => applies(state))?.[1] ?? 'list';
+  return contextRules.find(([applies]) => applies(state))?.[1] ?? state.section;
 }
 
 const clamp = (value: number, length: number) => Math.max(0, Math.min(Math.max(0, length - 1), value));

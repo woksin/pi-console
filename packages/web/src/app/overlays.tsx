@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { activeBindings, paletteItems, resolve, type Action, type PaletteItem } from '@pi-console/viewmodels';
+import { bindingsFor, paletteItems, resolve, type Action, type PaletteItem } from '@pi-console/viewmodels';
 import type { Session } from '@pi-console/contract';
 import { neutralKey } from './keys.ts';
 import { Kbd } from '../ui/primitives.tsx';
@@ -72,7 +72,7 @@ export function Help({ onClose }: { onClose: () => void }) {
         <header className="help-head"><h2>Keyboard</h2><button ref={closer} type="button" className="btn ghost" onClick={onClose}>Close <Kbd>Esc</Kbd></button></header>
         <p className="muted">Read-only console: nothing here can change a session. Same keys as the terminal UI.</p>
         <dl className="help-list">
-          {activeBindings.map(binding => (
+          {bindingsFor('web').map(binding => (
             <div key={binding.action}><dt>{binding.keys.map(key => <Kbd key={key}>{key}</Kbd>)}</dt><dd>{binding.label}</dd></div>
           ))}
         </dl>

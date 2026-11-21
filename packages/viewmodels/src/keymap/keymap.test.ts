@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { activeBindings, bindings, hints, resolve } from './keymap.ts';
+import { activeBindings, bindings, bindingsFor, hints, listContexts, resolve } from './keymap.ts';
 
 test('no key is bound twice within one context', () => {
   const seen = new Map<string, string>();
@@ -12,22 +12,34 @@ test('no key is bound twice within one context', () => {
 });
 
 test('resolve falls back to global bindings except while typing', () => {
-  assert.equal(resolve('list', '2'), 'section.2');
-  assert.equal(resolve('list', 'j'), 'move.down');
+  assert.equal(resolve('fleet', '2'), 'section.2');
+  assert.equal(resolve('fleet', 'j'), 'move.down');
   assert.equal(resolve('transcript', 'f'), 'follow.toggle');
   assert.equal(resolve('filter', '2'), undefined);
   assert.equal(resolve('palette', 'Enter'), 'open');
-  assert.equal(resolve('list', 'Ctrl+C'), 'quit');
+  assert.equal(resolve('fleet', 'Ctrl+C'), 'quit');
 });
 
 test('intervention keys are listed but inert until M4; destructive key is uppercase', () => {
-  assert.equal(resolve('list', 'a'), undefined);
+  assert.equal(resolve('fleet', 'a'), undefined);
   assert.equal(resolve('detail', 'A'), undefined);
   assert.equal(bindings.find(binding => binding.action === 'abort')?.keys[0], 'A');
 });
 
+test('view-only actions and client-only keys never leak to unrelated hints or web help', () => {
+  for (const context of listContexts) {
+    assert.equal(hints(context, 'web').includes('v graph'), context === 'messages', context);
+    assert.equal(resolve(context, 'v', 'web'), context === 'messages' ? 'view.toggle' : undefined);
+    assert.equal(resolve(context, 'Space'), context === 'fleet' ? 'group.toggle' : undefined);
+    assert.equal(resolve(context, ']'), context === 'requests' ? 'filter.next' : undefined);
+  }
+  assert.ok(!bindingsFor('web').some(binding => binding.action === 'quit'));
+  assert.ok(bindingsFor('tui').some(binding => binding.action === 'quit'));
+  assert.equal(resolve('fleet', 'q', 'web'), undefined);
+});
+
 test('hints are context-specific and de-duplicated', () => {
-  const list = hints('list');
+  const list = hints('fleet');
   assert.ok(list.includes('j/k move'));
   assert.equal(new Set(list).size, list.length);
   assert.ok(!hints('palette').includes('? help'));

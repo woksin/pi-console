@@ -42,7 +42,7 @@ function useShortcuts(context: KeyContext, overlay: Overlay, setOverlay: (overla
     const onKey = (event: KeyboardEvent): void => {
       const key = neutralKey(event);
       if (key === null || ignoresKey(key, overlay, event.target)) return;
-      const action = resolve(context, key);
+      const action = resolve(context, key, 'web');
       if (action && perform(action, overlay, setOverlay)) event.preventDefault();
     };
     window.addEventListener('keydown', onKey);
@@ -75,7 +75,7 @@ export function App() {
         <TopBar title={route.view === 'session' ? 'Session' : titleFor(route.view)} hint={sectionFor(route.view) ? sectionMeta[sectionFor(route.view) ?? 'overview'].hint : ''} state={state} onPalette={() => { setOverlay('palette'); }} onHelp={() => { setOverlay('help'); }} />
         <Banner state={state} wall={wall} />
         <main className="content" id="content" tabIndex={-1}><View route={route} state={state} now={now} /></main>
-        <Hints items={hints(context)} />
+        <Hints items={hints(context, 'web')} />
       </div>
       {overlay === 'palette' && <Palette sessions={state.sessions} onClose={() => { setOverlay(null); }} onPick={pick} />}
       {overlay === 'help' && <Help onClose={() => { setOverlay(null); }} />}
