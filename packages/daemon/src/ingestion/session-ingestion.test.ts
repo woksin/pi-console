@@ -67,6 +67,52 @@ for (const created of ['directory', 'root-symlink', 'ancestor-symlink']) {
   });
 }
 
+for (const layout of ['leaf', 'ancestor', 'relative-chain']) for (const created of ['directory', 'target-symlink', 'suffix-symlink']) {
+  if (layout === 'leaf' && created === 'suffix-symlink') continue;
+  test(`a configured dangling session ${layout} alias accepts a late ${created} only without new symlinks`, async t => {
+    const { root, log } = fixture(t);
+    const alias = join(root, 'configured');
+    const target = join(root, 'late');
+    const suffix = layout === 'leaf' ? [] : ['sessions'];
+    symlinkSync(layout === 'relative-chain' ? 'intermediate' : 'late', alias);
+    if (layout === 'relative-chain') symlinkSync('late', join(root, 'intermediate'));
+    const worker = ingestion(log, join(alias, ...suffix));
+    await worker.poll();
+    assert.equal((await events(log)).length, 0);
+    const elsewhere = join(root, 'elsewhere');
+    mkdirSync(elsewhere);
+    if (created === 'target-symlink') symlinkSync(elsewhere, target);
+    else mkdirSync(target);
+    const sessions = join(target, ...suffix);
+    if (created === 'suffix-symlink') symlinkSync(elsewhere, sessions);
+    else mkdirSync(sessions, { recursive: true });
+    writeFileSync(join(sessions, 's.jsonl'), header('late-alias') + message('late-alias', 1, 'hello'));
+    await worker.poll();
+    const found = await events(log);
+    assert.equal(found.some(event => event.type === 'SessionStarted'), created === 'directory');
+    if (created !== 'directory') assert.equal(found.length, 0);
+  });
+}
+
+for (const layout of ['cycle', 'expanding', 'over-limit']) {
+  test(`a configured ${layout} session alias fails closed`, async t => {
+    const { root, log } = fixture(t);
+    const alias = join(root, 'configured');
+    const target = layout === 'cycle' ? 'configured' : 'configured/child';
+    if (layout !== 'over-limit') symlinkSync(target, alias);
+    else {
+      symlinkSync('alias-0', alias);
+      for (let index = 0; index < 64; index++) symlinkSync(index === 63 ? 'late' : `alias-${index + 1}`, join(root, `alias-${index}`));
+    }
+    const worker = ingestion(log, alias);
+    await worker.poll();
+    mkdirSync(join(root, 'late'));
+    writeFileSync(join(root, 'late', 's.jsonl'), header('untrusted') + message('untrusted', 1, 'hello'));
+    await worker.poll();
+    assert.equal((await events(log)).length, 0);
+  });
+}
+
 test('a poll over many files yields to the event loop between files', async t => {
   const { root, log } = fixture(t);
   for (let i = 0; i < 200; i++) writeFileSync(join(root, `s-${i}.jsonl`), header(`s-${i}`) + message(`s-${i}`, 1, 'hello'));

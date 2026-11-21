@@ -81,6 +81,30 @@ for (const id of ['intent-memory', 'lane-messages']) for (const created of ['dir
   });
 }
 
+for (const id of ['intent-memory', 'lane-messages']) for (const created of ['directory', 'symlink']) {
+  test(`${id} resumes a configured dangling root alias only when its target appears as a ${created}`, async t => {
+    const { root } = store(t);
+    const alias = join(root, 'configured');
+    const target = join(root, 'late');
+    symlinkSync('late', alias);
+    const spec = sourceTable({ agentRoot: alias, orchRoot: join(root, 'orch'), laneStatusDir: alias }).find(item => item.id === id)!;
+    const log = new Log();
+    const worker = new SourceIngestion(log, { id: spec.id, feeds: spec.feeds, backfillWindowDays: 14, now: () => now });
+    t.after(() => worker.close());
+    await worker.poll();
+    assert.equal(log.events.length, 0);
+    if (created === 'symlink') {
+      mkdirSync(join(root, 'elsewhere'));
+      symlinkSync('elsewhere', target);
+    } else mkdirSync(target);
+    if (id === 'intent-memory') put(join(alias, 'memory/events.jsonl'), add('late-alias', 'synthetic order'));
+    else put(join(alias, 'L192.status'), 'working since 2026-11-20T09:00:00Z\n');
+    await worker.poll();
+    assert.deepEqual(types(log), created === 'symlink' ? [] : [id === 'intent-memory' ? 'MemoryItemRecorded' : 'LaneStatusChanged']);
+    if (created === 'symlink') assert.equal(log.saved.size, 0);
+  });
+}
+
 test('events.jsonl is read from byte 0 whatever its age; a journal file outside the window is skipped', async t => {
   const { root, memory } = store(t);
   put(join(memory, 'events.jsonl'), add('item-1', 'synthetic order A'), 400);

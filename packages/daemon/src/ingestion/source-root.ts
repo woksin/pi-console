@@ -1,24 +1,40 @@
-import { existsSync, lstatSync, realpathSync } from 'node:fs';
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { existsSync, lstatSync, readlinkSync, realpathSync } from 'node:fs';
+import { basename, dirname, isAbsolute, join, parse, relative, resolve, sep } from 'node:path';
 
 interface RootState { path: string; ancestor: string; pending: boolean }
+interface RootPrefix { path: string; suffix: string[]; alias: boolean }
 
-/** Pin the existing prefix, not a lexical alias that may never match the eventual canonical path. */
-function initialRoot(candidate: string): RootState {
-  const path = resolve(candidate);
-  let ancestor = path;
+/** lstat sees a configured dangling alias even when realpath cannot yet follow it. */
+function existingPrefix(candidate: string): RootPrefix {
+  let path = candidate;
   const suffix: string[] = [];
   for (;;) {
     try {
-      const canonical = realpathSync(ancestor);
-      return { path: join(canonical, ...suffix), ancestor: canonical, pending: suffix.length > 0 };
-    } catch {
-      const parent = dirname(ancestor);
-      if (parent === ancestor) return { path, ancestor, pending: true };
-      suffix.unshift(basename(ancestor));
-      ancestor = parent;
+      return { path, suffix, alias: lstatSync(path).isSymbolicLink() };
+    } catch (error) {
+      const parent = dirname(path);
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT' || parent === path) throw error;
+      suffix.unshift(basename(path));
+      path = parent;
     }
   }
+}
+
+/** Snapshot trusted alias targets now, then pin their existing canonical prefix and missing suffix. */
+function initialRoot(candidate: string): RootState {
+  const path = resolve(candidate);
+  let expanded = path;
+  try {
+    for (let aliases = 0; aliases < 40; aliases++) {
+      const prefix = existingPrefix(expanded);
+      if (!prefix.alias) {
+        const canonical = realpathSync(prefix.path);
+        return { path: join(canonical, ...prefix.suffix), ancestor: canonical, pending: prefix.suffix.length > 0 };
+      }
+      expanded = resolve(dirname(prefix.path), readlinkSync(prefix.path), ...prefix.suffix);
+    }
+  } catch { /* Lookup errors, like cycles and excessive expansion, must not approve an unresolved alias. */ }
+  return { path, ancestor: parse(path).root, pending: true };
 }
 
 function unlinked(scope: { path: string; ancestor: string }): boolean {
