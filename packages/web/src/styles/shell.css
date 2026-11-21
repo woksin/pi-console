@@ -41,6 +41,13 @@
 .token label { display: flex; flex-direction: column; gap: 6px; color: var(--muted); }
 .token input { padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; }
 .token input[aria-invalid='true'] { border-color: var(--red); }
+@media (min-width: 761px) and (max-width: 1179px) {
+  .sidebar, .sidebar.collapsed { width: 60px; }
+  .sidebar .brand-name, .sidebar .nav-label, .sidebar .kbd { display: none; }
+  .sidebar a { justify-content: center; position: relative; padding: 8px 6px; }
+  .sidebar .nav-badge { position: absolute; top: 0; right: 0; min-width: 18px; padding: 0 3px; font-size: var(--type-caption); }
+  .sidebar .collapse { display: none; }
+}
 @media (max-width: 760px) {
   .app { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
   .sidebar { order: 2; width: auto; flex-direction: row; padding: 4px; border-right: 0; border-top: 1px solid var(--border); overflow-x: auto; }

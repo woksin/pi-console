@@ -15,10 +15,12 @@ export function Transcript({ lines, focusEntry, searching }: TranscriptProps) {
   });
   if (lines.length === 0) return <EmptyState title={searching ? 'No lines match' : 'No transcript yet'} mark="…">{searching ? 'Clear the search to see the whole transcript.' : 'Lines stream in here as the agent works.'}</EmptyState>;
   return (
-    <div ref={scroll.pane} onScroll={scroll.onScroll} className="transcript" role="log" aria-live="off" aria-label="Transcript lines">
-      <button type="button" className="btn follow" aria-pressed={scroll.follow} onClick={scroll.toggleFollow}>{scroll.follow ? '● Following' : '○ Follow tail'} <kbd className="kbd">f</kbd></button>
+    <div className="transcript-shell">
+      <div className="transcript-controls"><button type="button" className="btn follow" aria-pressed={scroll.follow} onClick={scroll.toggleFollow}>{scroll.follow ? '● Following' : '○ Follow tail'} <kbd className="kbd">f</kbd></button></div>
+      <div ref={scroll.pane} onScroll={scroll.onScroll} className="transcript" role="log" aria-live="off" aria-label="Transcript lines">
       {lines.map(line => <Line key={line.key} line={line} selected={nav.selected === String(line.key)} focused={line.id === focusEntry} onSelect={() => { nav.select(String(line.key)); scroll.pause(); }} />)}
       <div ref={scroll.end} />
+      </div>
     </div>
   );
 }

@@ -12,7 +12,7 @@ export function Sidebar({ active, settings, attention, questions, collapsed, onC
       <ul>
         {sectionIds.map((id, index) => (
           <li key={id}>
-            <a href={hrefFor(id)} aria-current={active === id ? 'page' : undefined} title={sectionMeta[id].hint}>
+            <a href={hrefFor(id)} aria-label={sectionMeta[id].label} aria-current={active === id ? 'page' : undefined} title={sectionMeta[id].hint}>
               <span className="nav-icon" aria-hidden="true">{sectionMeta[id].icon}</span>
               <span className="nav-label">{sectionMeta[id].label}</span>
               {badge(id) > 0 && <span className={`nav-badge${id === 'overview' ? ' hot' : ''}`} aria-label={`${String(badge(id))} waiting`}>{badge(id)}</span>}
@@ -22,7 +22,7 @@ export function Sidebar({ active, settings, attention, questions, collapsed, onC
         ))}
       </ul>
       <div className="sidebar-foot">
-        <a className="navlink" href={hrefFor('settings')} aria-current={settings ? 'page' : undefined}><span className="nav-icon" aria-hidden="true">⚙</span><span className="nav-label">Settings</span><Kbd>,</Kbd></a>
+        <a className="navlink" aria-label="Settings" href={hrefFor('settings')} aria-current={settings ? 'page' : undefined}><span className="nav-icon" aria-hidden="true">⚙</span><span className="nav-label">Settings</span><Kbd>,</Kbd></a>
         <button type="button" className="collapse" onClick={onCollapse} aria-pressed={collapsed}>{collapsed ? '»' : '« Collapse'}</button>
       </div>
     </nav>
