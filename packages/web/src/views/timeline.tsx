@@ -1,4 +1,4 @@
-import { markerLegend, pan, timelineViewModel, zoom, type TimeWindow } from '@pi-console/viewmodels';
+import { laneLabel, markerLegend, pan, timelineViewModel, zoom, type TimeWindow } from '@pi-console/viewmodels';
 import { useMemo, useState } from 'react';
 import type { ViewProps } from '../app/view.tsx';
 import { useActions } from '../app/commands.ts';
@@ -24,6 +24,7 @@ export function TimelineView({ state }: ViewProps) {
     setWindow(apply(window ?? view.window));
     return true;
   });
+  const names = new Map(state.sessions.map(session => [session.id, laneLabel(session.repositoryId, session.laneId)]));
   const history = <LoadOlder state={state} collection="resets" shown={state.resets.length} noun="resets" />;
   if (view.lanes.length === 0) return <><EmptyState title="Nothing on the timeline yet" mark="▭">Requests, answers, resets, questions and messages are placed on one time axis as they happen.</EmptyState>{history}</>;
   const height = view.lanes.length * laneHeight + 44;
@@ -42,7 +43,7 @@ export function TimelineView({ state }: ViewProps) {
         {view.lanes.map((lane, index) => (
           <g key={lane.sessionId} transform={`translate(0 ${String(30 + index * laneHeight)})`} className={`lane tone-${lane.status.color}`}>
             <rect className="lane-bg" x={0} y={0} width={labelWidth + plotWidth + 20} height={laneHeight - 4} rx={6} />
-            <text className="lane-label" x={10} y={20}><tspan className="lane-glyph">{lane.status.glyph}</tspan> {lane.label}</text>
+            <text className="lane-label" x={10} y={20}><tspan className="lane-glyph">{lane.status.glyph}</tspan> {names.get(lane.sessionId) ?? lane.label}</text>
             <line className="lane-line" x1={labelWidth} x2={labelWidth + plotWidth} y1={15} y2={15} />
             {lane.cells.map(cell => <text key={cell.markerId} className={`mark tone-${cell.color}`} x={x(cell.column)} y={20} textAnchor="middle"><title>{view.markers.find(marker => marker.id === cell.markerId)?.text ?? ''}</title>{cell.glyph}</text>)}
           </g>))}

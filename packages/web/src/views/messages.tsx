@@ -1,4 +1,4 @@
-import { messagesViewModel, type MessageRow } from '@pi-console/viewmodels';
+import { laneLabel, messagesViewModel, type MessageRow } from '@pi-console/viewmodels';
 import { useMemo } from 'react';
 import type { ViewProps } from '../app/view.tsx';
 import { navigate, useListNav } from '../app/hooks.ts';
@@ -12,7 +12,11 @@ import { LoadOlder } from './load-older.tsx';
 type Mode = 'list' | 'graph';
 
 export function MessagesView({ state, now, mode }: ViewProps & { mode: Mode }) {
-  const view = useMemo(() => messagesViewModel({ messages: state.messages, sessions: state.sessions, now }), [state.messages, state.sessions, now]);
+  const view = useMemo(() => {
+    const model = messagesViewModel({ messages: state.messages, sessions: state.sessions, now });
+    const names = new Map(state.sessions.map(session => [session.id, laneLabel(session.repositoryId, session.laneId)]));
+    return { rows: model.rows.map(row => ({ ...row, from: names.get(row.fromSessionId) ?? row.from, to: names.get(row.toSessionId) ?? row.to })) };
+  }, [state.messages, state.sessions, now]);
   const go = (next: Mode): void => { navigate(hrefFor('messages', null, next === 'graph' ? { view: 'graph' } : {})); };
   useActions(action => { if (action !== 'view.toggle') return false; go(mode === 'graph' ? 'list' : 'graph'); return true; });
   const rows = new Map(view.rows.map(row => [row.id, row]));

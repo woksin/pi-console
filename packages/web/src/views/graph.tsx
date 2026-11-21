@@ -1,4 +1,4 @@
-import { graphViewModel, type GraphGroup } from '@pi-console/viewmodels';
+import { laneLabel, graphViewModel, type GraphGroup } from '@pi-console/viewmodels';
 import { useMemo, useState } from 'react';
 import type { ConsoleState } from '../state/state.ts';
 import { useActions } from '../app/commands.ts';
@@ -56,9 +56,9 @@ function GroupGraph({ group }: { group: GraphGroup }) {
         {group.nodes.map(node => {
           const at = positions.get(node.sessionId);
           return at && (
-            <g key={node.sessionId} className={`node tone-${node.status.color}`} transform={`translate(${String(at.x)} ${String(at.y)})`} tabIndex={0} role="link" aria-label={`${node.label}, ${node.status.label}`}
+            <g key={node.sessionId} className={`node tone-${node.status.color}`} transform={`translate(${String(at.x)} ${String(at.y)})`} tabIndex={0} role="link" aria-label={`${laneLabel(group.repositoryId, node.label)}, ${node.status.label}`}
               onClick={() => { navigate(sessionHref(node.sessionId)); }} onKeyDown={event => { if (event.key === 'Enter') navigate(sessionHref(node.sessionId)); }}>
-              <circle r="15" /><text className="glyph" textAnchor="middle" dy="5">{node.status.glyph}</text><text className="label" textAnchor="middle" dy="32">{node.label}</text>
+              <circle r="15" /><text className="glyph" textAnchor="middle" dy="5">{node.status.glyph}</text><text className="label" textAnchor="middle" dy="32">{laneLabel(group.repositoryId, node.label)}</text>
             </g>);
         })}
       </svg>
