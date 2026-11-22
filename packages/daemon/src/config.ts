@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'node:fs';
+import { defaultDaemonPort, defaultDataDir, readDaemonConfigFile } from '@pi-console/contract/daemon-config';
 import { homedir } from 'node:os';
 import { isAbsolute, join, resolve } from 'node:path';
 import { sourceIds, type SourceId } from './ingestion/source-ids.ts';
@@ -34,12 +34,12 @@ export interface DaemonConfig {
   memoryActions: boolean;
 }
 
-export const defaultDataDir = (): string => join(homedir(), '.pi-console');
+export { defaultDataDir };
 
 export function defaultConfig(dataDir = defaultDataDir()): DaemonConfig {
   const agentRoot = join(homedir(), '.pi', 'agent');
   return {
-    dataDir, memoryActions: false, port: 4777, webDist: undefined, agentRoot, orchRoot: join(homedir(), '.pi', 'orch'),
+    dataDir, memoryActions: false, port: defaultDaemonPort, webDist: undefined, agentRoot, orchRoot: join(homedir(), '.pi', 'orch'),
     lanesRoot: undefined, laneStatusDir: join(agentRoot, 'lane-status'),
     sessionRoots: [join(agentRoot, 'sessions')], sources: Object.fromEntries(sourceIds.map(id => [id, true])) as Record<SourceId, boolean>,
     backfillWindowDays: 14, replayWindow: 10_000, heartbeatMs: 15_000, pollMs: 1_000, sourcePollMs: 2_000,
@@ -99,9 +99,7 @@ function checkedOverrides(overrides: ConfigOverrides): void {
 
 /** Defaults, then `<dataDir>/config.json` when present, then explicit overrides (command-line flags). */
 export function loadConfig(dataDir: string, overrides: ConfigOverrides = {}): DaemonConfig {
-  const path = join(dataDir, 'config.json');
-  const parsed: unknown = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : {};
-  if (!isObject(parsed)) throw new Error('config.json must be a JSON object');
+  const parsed = readDaemonConfigFile(dataDir);
   checkedOverrides(overrides);
   const defaults = defaultConfig(dataDir);
   const file = checked(parsed, dataDir) as FileConfig;

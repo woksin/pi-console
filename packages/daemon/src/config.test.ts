@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { defaultConfig, loadConfig } from './config.ts';
+import { defaultConfig, defaultDataDir, loadConfig } from './config.ts';
+import { defaultDataDir as sharedDataDir } from '@pi-console/contract/daemon-config';
 
 const dataDir = (t: { after(fn: () => void): void }, config?: unknown): string => {
   const directory = mkdtempSync(join(tmpdir(), 'pi-console-config-'));
@@ -11,6 +12,17 @@ const dataDir = (t: { after(fn: () => void): void }, config?: unknown): string =
   if (config !== undefined) writeFileSync(join(directory, 'config.json'), JSON.stringify(config));
   return directory;
 };
+
+test('the daemon keeps exporting the shared default data directory resolver', () => {
+  assert.equal(defaultDataDir, sharedDataDir);
+  assert.equal(defaultConfig().dataDir, sharedDataDir());
+});
+
+test('malformed config JSON is still refused by the daemon', t => {
+  const directory = dataDir(t);
+  writeFileSync(join(directory, 'config.json'), '{');
+  assert.throws(() => loadConfig(directory), SyntaxError);
+});
 
 test('defaults apply without a config file; v1 keeps 10,000 deltas for resume', t => {
   const directory = dataDir(t);

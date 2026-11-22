@@ -14,13 +14,13 @@ test('the TUI is launched with the FFI flag in a child process', () => {
 function commandIo() {
   const stdout: string[] = [];
   const stderr: string[] = [];
-  let launches = 0;
+  const environments: NodeJS.ProcessEnv[] = [];
   return {
-    stdout, stderr,
-    get launches() { return launches; },
+    stdout, stderr, environments,
+    get launches() { return environments.length; },
     out: (line: string) => { stdout.push(line); },
     err: (line: string) => { stderr.push(line); },
-    launch: async () => { launches++; return 7; },
+    launch: async (env: NodeJS.ProcessEnv) => { environments.push(env); return 7; },
   };
 }
 
@@ -49,9 +49,31 @@ test('TUI without arguments launches once and preserves the child exit code', as
   const io = commandIo();
   assert.equal(await runTuiCommand([], io), 7);
   assert.equal(io.launches, 1);
+  assert.deepEqual(io.environments, [{ ...process.env }]);
   assert.deepEqual(io.stdout, []);
   assert.deepEqual(io.stderr, []);
 });
+
+test('TUI URL and data-dir flags override the inherited environment without changing it', async t => {
+  const original = process.env;
+  process.env = { ...original, PI_CONSOLE_URL: 'http://127.0.0.1:5888', PI_CONSOLE_DATA_DIR: '/env/data' };
+  t.after(() => { process.env = original; });
+  const io = commandIo();
+  assert.equal(await runTuiCommand(['--url', 'http://localhost:5999', '--data-dir', '/flag/data'], io), 7);
+  assert.deepEqual(io.environments, [{ ...process.env, PI_CONSOLE_URL: 'http://localhost:5999', PI_CONSOLE_DATA_DIR: '/flag/data' }]);
+  assert.equal(process.env.PI_CONSOLE_URL, 'http://127.0.0.1:5888');
+  assert.equal(process.env.PI_CONSOLE_DATA_DIR, '/env/data');
+});
+
+for (const flag of ['--url', '--data-dir']) {
+  test(`TUI ${flag} needs a value and does not launch`, async () => {
+    const io = commandIo();
+    assert.equal(await runTuiCommand([flag], io), 2);
+    assert.equal(io.launches, 0);
+    assert.match(io.stderr.join('\n'), /argument missing/);
+    assert.match(io.stderr.join('\n'), /pi-console tui --help/);
+  });
+}
 
 test('unknown commands print usage and fail', async () => {
   const written: string[] = [];
