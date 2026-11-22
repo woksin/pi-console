@@ -7,7 +7,7 @@ const usage = (): string => `Usage: pi-console daemon [options]
 Starts the read-only console daemon on 127.0.0.1 (never another interface).
 
 Options:
-  --data-dir <dir>      Data directory with token, console.db and config.json (default ~/.pi-console)
+  --data-dir <dir>      Data directory with token, console.db and config.json (flag > PI_CONSOLE_DATA_DIR > ~/.pi-console)
   --port <n>            Port, 0 for any free port (default 4777)
   --web-dist <dir>      Built web bundle to serve at / (default: API only)
   --agent-root <dir>    pi agent directory every agent-side source derives from (default ~/.pi/agent)
@@ -28,7 +28,7 @@ export interface DaemonCommandIo {
   out: (line: string) => void;
   /** Resolves when the process should stop (SIGINT/SIGTERM in production). */
   stopSignal: Promise<void>;
-  /** Environment the lane directories fall back to (default `process.env`). */
+  /** Environment the data and lane directories fall back to (default `process.env`). */
   env?: NodeJS.ProcessEnv;
 }
 
@@ -72,7 +72,7 @@ export function parseDaemonArgs(args: string[], env: NodeJS.ProcessEnv = process
     backfillWindowDays: given('backfill-days', (text: string) => integer('backfill-days', text)),
   };
   const overrides = Object.fromEntries(Object.entries(candidates).filter(([, value]) => value !== undefined)) as ConfigOverrides;
-  return { help: values.help === true, dataDir: resolve(values['data-dir'] ?? defaultDataDir()), overrides };
+  return { help: values.help === true, dataDir: resolve(values['data-dir'] ?? env.PI_CONSOLE_DATA_DIR ?? defaultDataDir()), overrides };
 }
 
 /** Runs the daemon until `stopSignal` resolves. Never prints the token. */
