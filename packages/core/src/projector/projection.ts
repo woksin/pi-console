@@ -40,6 +40,15 @@ export interface ProjectionWrite extends ProjectionRecord {
   resetRows?: boolean;
 }
 
+/** Optional lifecycle collaborator outside the pure reducer and its serializable state. */
+export interface ProjectionRuntime {
+  restore(projection: AnyProjection): ProjectionRecord | undefined;
+  bind(state: unknown, restored: boolean): void;
+  beforeApply(event: EventEnvelope): void;
+  afterCommit(dirty: ReadonlyMap<string, ReadonlySet<string>>): void;
+  readonly querySource: unknown;
+}
+
 /** Where projection snapshots live between restarts. */
 export interface ProjectionStore {
   /** A fresh state the projector then owns, its records (dictionaries included) without prototypes. */

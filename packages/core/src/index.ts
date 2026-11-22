@@ -3,6 +3,7 @@ export { SqliteEventLog, type SqliteEventLogOptions } from './event-log/sqlite-e
 export { canonicalJson, compareText } from './projector/canonical.ts';
 export { MemoryProjectionStore, type AnyProjection, type Projection, type ProjectionRecord, type ProjectionStore } from './projector/projection.ts';
 export { SqliteProjectionStore } from './projector/sqlite-projection-store.ts';
+export { createCompletedWorkRuntime } from './projector/completed-work-runtime.ts';
 export { Projector, type AppliedListener, type SkippedEvents } from './projector/projector.ts';
 export { projection, type Handlers } from './projector/handlers.ts';
 export { consoleProjections, readModels, type ReadModels } from './projections/index.ts';

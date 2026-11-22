@@ -2,12 +2,12 @@ import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactE
 import { FlashTracker, LookTracker, paletteItems, pulseViewModel, rememberPick, type Action, type PaletteInput, type WindowedCollection } from '@pi-console/viewmodels';
 import { Column, Screen, Text, h, useClipboard, useKeys, useSize, useTerminalTitle, useTick } from './view/renderer.ts';
 import type { Store } from './store/store.ts';
-import { commit, handleKey, initial, reduce, typing, type Bounds, type Section, type UiState } from './state/ui.ts';
+import { commit, handleKey, initial, reduce, resizeUi, typing, type Bounds, type Section, type UiState } from './state/ui.ts';
 import { terminalContentWidth } from './state/session-layout.ts';
 import { emptyLayout, resumeTranscript, transcriptViewport } from './state/transcript-window.ts';
 import { neutralKey, typedCharacter, type KeyInput } from './state/keys.ts';
 import { Header, banner, footerLine, pulseLine, terminalTitle } from './shell/chrome.ts';
-import { Help, Palette, Settings } from './shell/overlays.ts';
+import { Help, Palette, Settings, helpViewport } from './shell/overlays.ts';
 import { collectionToLoad, countsOf, memoryInput, type RequestMemoryAction } from './app-input.ts';
 import type { Env, SectionView } from './views/common.ts';
 import { overviewView } from './views/overview.ts';
@@ -29,6 +29,7 @@ export interface AppProps {
   loadTranscript: (sessionId: string) => void;
   /** Fetches the session's read-only memory summary and items. */
   loadMemory: (sessionId: string) => void;
+  watchMemory?: (sessionId: string) => () => void;
   requestMemoryAction?: RequestMemoryAction;
   /** Fetches the next older page of a list the snapshot only windowed; called when the cursor reaches the end of a list. */
   loadMore?: (collection: WindowedCollection) => void;
@@ -41,10 +42,8 @@ export interface AppProps {
 }
 
 const boundsOf = (view: SectionView, height: number): Bounds => ({
-  length: view.length, page: Math.max(1, height - 6), fit: view.time?.fit ?? { start: 0, span: 1 }, width: view.time?.width ?? 0, rowAt: view.rowAt, sessionIds: view.sessionIds, transcript: view.transcript ?? emptyLayout, viewport: transcriptViewport(height),
+  length: view.length, page: Math.max(1, height - 6), fit: view.time?.fit ?? { start: 0, span: 1 }, width: view.time?.width ?? 0, rowAt: view.rowAt, sessionIds: view.sessionIds, transcript: view.transcript ?? emptyLayout, viewport: transcriptViewport(height), detail: view.detail,
 });
-
-const noBounds: Bounds = { length: 0, page: 1, fit: { start: 0, span: 1 }, width: 0, rowAt: () => ({ sessionId: null, groupId: null }), transcript: emptyLayout, viewport: 1 };
 
 const isVerticalArrow = (name: string): boolean => name === 'ArrowDown' || name === 'ArrowUp';
 const movePaletteIndex = (index: number, delta: number, setCount: number): number => Math.max(0, Math.min(Math.max(0, setCount - 1), index + delta));
@@ -52,21 +51,30 @@ const isTextOverlay = (overlay: UiState['overlay']): boolean => overlay === 'pal
 const sectionOrder: readonly Section[] = ['overview', 'fleet', 'requests', 'questions', 'messages', 'timeline', 'work'];
 
 /** Text entry for the palette, filter and search; returns the next state. Keys never reach the keymap while typing. */
-function typeInto(state: UiState, key: KeyInput, setCount: number): UiState {
+function typeInto(state: UiState, key: KeyInput, setCount: number, bounds: Bounds): UiState {
   const name = neutralKey(key);
-  if (name === 'Esc') return reduce(state, 'back', noBounds);
+  if (name === 'Esc') return reduce(state, 'back', bounds);
   if (state.overlay === 'palette' && isVerticalArrow(name)) return { ...state, paletteIndex: movePaletteIndex(state.paletteIndex, name === 'ArrowDown' ? 1 : -1, setCount) };
   return typing(state, name, typedCharacter(key));
+}
+
+/** Render and input share the current durable layout even before the resize effect commits it. */
+function useUiState(width: number, seed: AppProps['initialState']) {
+  const [stored, setStored] = useState<UiState>(() => resizeUi({ ...initial, ...seed }, width));
+  const ui = resizeUi(stored, width);
+  const uiRef = useRef(ui);
+  uiRef.current = ui;
+  const apply = (next: UiState) => { uiRef.current = next; setStored(next); };
+  useEffect(() => { setStored(current => resizeUi(current, width)); }, [width]);
+  return { ui, uiRef, apply };
 }
 
 export function App(props: AppProps): ReactElement {
   const data = useSyncExternalStore(props.store.subscribe, props.store.getSnapshot);
   const size = useSize();
   const copy = useClipboard();
-  const [ui, setUi] = useState<UiState>({ ...initial, ...props.initialState });
+  const { ui, uiRef, apply } = useUiState(size.width, props.initialState);
   const [clock, setClock] = useState({ now: (props.clock ?? Date.now)(), phase: 0 });
-  const uiRef = useRef(ui);
-  const apply = (next: UiState) => { uiRef.current = next; setUi(next); };
 
   useTick(props.animate ? 6 : 1, () => { setClock(previous => ({ now: (props.clock ?? Date.now)(), phase: props.animate ? previous.phase + 1 : 0 })); });
 
@@ -95,7 +103,8 @@ export function App(props: AppProps): ReactElement {
     const memory = memoryInput(uiRef.current, neutralKey(key), dataRef.current, size.width, props.requestMemoryAction);
     if (memory) { apply(memory); return; }
     const current = viewRef.current;
-    apply(nextState(uiRef.current, key, { palette: dataRef.current, view: current, bounds: boundsOf(current, heightRef.current), copy }));
+    const bounds = { ...boundsOf(current, heightRef.current), help: helpViewport(size).bounds };
+    apply(nextState(uiRef.current, key, { palette: dataRef.current, view: current, bounds, copy }));
   });
 
   useTerminalTitle(terminalTitle(ui, data));
@@ -122,7 +131,7 @@ interface Size { width: number; height: number }
 
 function overlays(ui: UiState, data: ReturnType<Store['getSnapshot']>, input: Parameters<typeof Settings>[0]['input'], size: Size): ReactElement[] {
   if (ui.overlay === 'palette') return [h(Palette, { ui, data, width: size.width, height: size.height })];
-  if (ui.overlay === 'help') return [h(Help, { width: size.width, height: size.height })];
+  if (ui.overlay === 'help') return [h(Help, { width: size.width, height: size.height, scroll: ui.helpScroll })];
   if (ui.overlay === 'settings') return [h(Settings, { input, width: size.width, height: size.height })];
   return [];
 }
@@ -139,7 +148,7 @@ function nextState(state: UiState, key: KeyInput, ctx: KeyContext): UiState {
   if (neutralKey(key) === 'Ctrl+C') return reduce(state, 'quit', ctx.bounds);
   if (isTextOverlay(state.overlay)) {
     if (neutralKey(key) === 'Enter') return state.overlay === 'palette' ? runPalette(state, ctx.palette, ctx.bounds) : commit(state);
-    return typeInto(state, key, state.overlay === 'palette' ? paletteItems({ ...ctx.palette, query: state.input, recents: state.recents, client: 'tui' }).length : 0);
+    return typeInto(state, key, state.overlay === 'palette' ? paletteItems({ ...ctx.palette, query: state.input, recents: state.recents, client: 'tui' }).length : 0, ctx.bounds);
   }
   const name = neutralKey(key);
   if (name === 'y') return copyId(state, ctx.view, ctx.copy);
@@ -152,7 +161,7 @@ function runPalette(state: UiState, data: PaletteData, bounds: Bounds): UiState 
   const item = items[Math.min(state.paletteIndex, items.length - 1)];
   const closed: UiState = { ...state, overlay: 'none', input: '', paletteIndex: 0, recents: item ? rememberPick(state.recents, item.id) : state.recents };
   if (!item) return closed;
-  if (item.target.kind === 'session') return { ...closed, sessionId: item.target.sessionId, ...resumeTranscript, search: '', focusEntry: item.target.entryId ?? null };
+  if (item.target.kind === 'session') return { ...closed, sessionId: item.target.sessionId, ...resumeTranscript, search: '', focusEntry: item.target.entryId ?? null, questionDetail: false, detailScroll: 0 };
   return reduce(closed, item.target.action, bounds);
 }
 
@@ -173,7 +182,11 @@ function useFocusJump(ui: UiState, uiRef: { current: UiState }, viewRef: { curre
 
 function useUiEffects(ui: UiState, props: AppProps, uiRef: { current: UiState }, apply: (next: UiState) => void): void {
   useEffect(() => { if (ui.sessionId) props.loadTranscript(ui.sessionId); }, [ui.sessionId]);
-  useEffect(() => { if (ui.sessionId && ui.pane === 'memory') props.loadMemory(ui.sessionId); }, [ui.sessionId, ui.pane]);
+  useEffect(() => {
+    if (!ui.sessionId || ui.pane !== 'memory') return;
+    if (props.watchMemory) return props.watchMemory(ui.sessionId);
+    props.loadMemory(ui.sessionId);
+  }, [ui.sessionId, ui.pane]);
   useEffect(() => { if (ui.quit) props.onQuit(); }, [ui.quit]);
   useEffect(() => {
     if (!ui.notice) return undefined;

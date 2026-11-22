@@ -109,7 +109,17 @@ const snapshot = strict({
 /** Keyset page of one list endpoint; only returned when the request sends `limit`. `nextCursor` is opaque. */
 const pageOf = (item: string) => strict({ items: array(ref(item)), nextCursor: nullable(str), hasMore: bool, total: int });
 
+const v0Session = apiV0Schema.$defs.session as { properties: Record<string, Schema>; required: string[] };
+/** Whole session plus an event-local canonical-memory invalidation; never stored on Session. */
+const sessionUpdate = strict({ ...v0Session.properties, memoryChanged: bool }, v0Session.required);
+const v0Event = apiV0Schema.$defs.event as { oneOf: { properties: Record<string, Schema> }[] };
+const event = {
+  oneOf: v0Event.oneOf.map(branch => (branch.properties.type as { const: string }).const === 'session.updated'
+    ? { ...branch, properties: { ...branch.properties, payload: ref('sessionUpdate') } } : branch),
+};
+
 const v1Defs: Record<string, Schema> = {
+  sessionUpdate, event,
   memoryActionRequest: memoryActionRequestSchema, memoryActionReceipt: memoryActionReceiptSchema, memoryActionAvailability: memoryActionAvailabilitySchema,
   snapshot, sessionPage: pageOf('session'), requestPage: pageOf('request'), questionPage: pageOf('question'),
   messagePage: pageOf('message'), jobPage: pageOf('job'), memoryItemPage: pageOf('memoryItem'), memoryItems: strict({ items: array(ref('memoryItem')) }), resetPage: pageOf('reset'), resets: strict({ items: array(ref('reset')) }),
@@ -133,9 +143,9 @@ export const apiV1Schema: JsonSchemaDocument = {
 
 export const apiVersion = 1;
 
-/** SSE event type to the schema definition of its payload (v0 stream, unchanged in v1). */
+/** Known SSE names with additive v1 payload fields; sessionUpdate's marker is event-local. */
 export const eventPayloads = {
-  snapshot: 'snapshot', 'session.updated': 'session', 'transcript.appended': 'transcriptEntry',
+  snapshot: 'snapshot', 'session.updated': 'sessionUpdate', 'transcript.appended': 'transcriptEntry',
   'request.observed': 'request', 'request.interrupted': 'request', 'question.asked': 'question',
   'message.sent': 'message', 'job.updated': 'job', 'job.finished': 'job',
   'reset.occurred': 'reset', 'intervention.recorded': 'intervention',

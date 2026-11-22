@@ -1,5 +1,5 @@
 import type { Event as ApiEvent } from '@pi-console/contract';
-import { MemoryReviewController, type WindowedCollection } from '@pi-console/viewmodels';
+import { MemoryRefreshController, MemoryReviewController, type WindowedCollection } from '@pi-console/viewmodels';
 import { applyEvent, mergePage, mergeSessionDetail, mergeTranscript } from '../state/reduce.ts';
 import { emptyState, type Connection, type ConsoleState } from '../state/state.ts';
 import { Unauthorized, type Api } from './api.ts';
@@ -15,8 +15,6 @@ const realClock: Clock = {
 export const reconnectDelays = [400, 800, 1600, 3200, 5000] as const;
 export const staleAfterMs = 45_000;
 const refreshDebounceMs = 350;
-/** A session's memory is refetched at most this often. */
-export const memoryRefreshMs = 5000;
 const memoryItemLimit = 100;
 const historyPageSize = 1000;
 /** Rows per history page: newest first, so the first page mostly repeats the snapshot window and later pages go back in time. */
@@ -40,6 +38,7 @@ export class ConsoleStore {
   readonly #listeners = new Set<Listener>();
   readonly #api: Api;
   #reviews: MemoryReviewController;
+  #memoryRefresh: MemoryRefreshController;
   readonly #clock: Clock;
   #abort: AbortController | null = null;
   #refresh: number | null = null;
@@ -54,8 +53,6 @@ export class ConsoleStore {
   #active(generation: number): boolean { return !this.#stopped && this.#generation === generation; }
   #takeRefreshAgain(): boolean { const again = this.#refreshAgain; this.#refreshAgain = false; return again; }
   readonly #loaded = new Map<string, Promise<void>>();
-  /** When each session's memory was last requested (clock ms), for the refetch throttle. */
-  readonly #memoryAt = new Map<string, number>();
   readonly #paging = new Map<WindowedCollection, Promise<void>>();
   /** Bounded collections that gained an id the client had not seen: their snapshot total may have moved, so it is refetched. */
   readonly #staleTotals = new Set<WindowedCollection>();
@@ -64,12 +61,20 @@ export class ConsoleStore {
     this.#api = api;
     this.#clock = clock;
     this.#reviews = this.#createReviews();
+    this.#memoryRefresh = this.#createMemoryRefresh();
+  }
+
+  #createMemoryRefresh(): MemoryRefreshController {
+    return new MemoryRefreshController(id => this.#fetchMemory(id), id => this.#reviews.load(id, { fresh: true }), {
+      set: (callback, ms = 350) => this.#clock.setTimeout(callback, ms),
+      clear: timer => { this.#clock.clearTimeout(timer as number); },
+    });
   }
 
   #createReviews(): MemoryReviewController {
     return new MemoryReviewController(this.#api, (id, review) => {
       this.#set({ ...this.#state, memoryReviews: new Map(this.#state.memoryReviews).set(id, review) });
-    }, id => { this.#memoryAt.delete(`memory:${id}`); return this.loadSessionMemory(id); });
+    }, id => this.#memoryRefresh.refresh(id));
   }
 
   readonly subscribe = (listener: Listener): (() => void) => {
@@ -91,7 +96,7 @@ export class ConsoleStore {
   start(): void {
     if (this.#stopped) {
       this.#reviews = this.#createReviews();
-      this.#memoryAt.clear();
+      this.#memoryRefresh = this.#createMemoryRefresh();
       this.#set({ ...this.#state, memoryReviews: new Map() });
     }
     this.#stopped = false;
@@ -102,6 +107,7 @@ export class ConsoleStore {
     this.#stopped = true;
     this.#generation++;
     this.#reviews.dispose();
+    this.#memoryRefresh.dispose();
     this.#abort?.abort();
     this.#unwatch();
     if (this.#refresh !== null) this.#clock.clearTimeout(this.#refresh);
@@ -150,9 +156,10 @@ export class ConsoleStore {
     const now = this.#clock.now();
     if (frame === 'heartbeat') { this.#set({ ...this.#state, lastFrameAt: now, connection: 'live', received: this.#state.received + 1 }); return; }
     const next = applyEvent(this.#state, frame);
-    if (next.gapCount !== this.#state.gapCount) this.#memoryAt.clear();
     if (frame.type !== 'snapshot') for (const name of next.bounded) if (next[name].length > this.#state[name].length) this.#staleTotals.add(name);
     this.#set({ ...next, lastFrameAt: now, connection: 'live', received: this.#state.received + 1 });
+    if (frame.type === 'snapshot') this.#memoryRefresh.invalidateVisible();
+    if (frame.type === 'session.updated' && frame.payload.memoryChanged) this.#memoryRefresh.invalidate(frame.payload.id);
     this.#scheduleRefresh();
   }
 
@@ -222,21 +229,18 @@ export class ConsoleStore {
     return this.#reviews.request(sessionId, itemId, action);
   }
 
-  /** Loads a session's read-only memory summary and newest items; at most once per `memoryRefreshMs` per session, and again after a gap. A failed load is retried on the next call. */
-  loadSessionMemory(sessionId: string): Promise<void> {
-    const key = `memory:${sessionId}`;
-    const last = this.#memoryAt.get(key);
-    const existing = this.#loaded.get(key);
-    const recent = last !== undefined && this.#clock.now() - last < memoryRefreshMs;
-    if (existing && recent) return existing;
-    this.#memoryAt.set(key, this.#clock.now());
-    void this.#reviews.load(sessionId);
-    const task = Promise.all([this.#api.sessionMemory(sessionId).catch(() => null), this.#api.memoryItems(sessionId, memoryItemLimit).catch(() => null)]).then(([memory, items]) => {
-      if (!memory || !items) { this.#memoryAt.delete(key); return; }
-      this.#set({ ...this.#state, memory: { ...this.#state.memory, [sessionId]: memory }, memoryItems: { ...this.#state.memoryItems, [sessionId]: items } });
-    });
-    this.#loaded.set(key, task);
-    return task;
+  /** Registers a visible panel; reopening always reads canonical data and readiness. */
+  watchSessionMemory(sessionId: string): () => void { return this.#memoryRefresh.watch(sessionId); }
+
+  /** Explicit canonical read, serialized with background invalidations and receipt completion. */
+  loadSessionMemory(sessionId: string): Promise<void> { return this.#memoryRefresh.refresh(sessionId); }
+
+  async #fetchMemory(sessionId: string): Promise<void> {
+    const generation = this.#generation;
+    const [memory, items] = await Promise.all([this.#api.sessionMemory(sessionId).catch(() => null), this.#api.memoryItems(sessionId, memoryItemLimit).catch(() => null)]);
+    if (!this.#active(generation)) return;
+    if (!memory || !items) return;
+    this.#set({ ...this.#state, memory: { ...this.#state.memory, [sessionId]: memory }, memoryItems: { ...this.#state.memoryItems, [sessionId]: items } });
   }
 
   /** Loads a session's transcript history once per gap; the live tail arrives over the stream. History is paged to its end (only the newest entries are kept), or, with `focus`, until that entry is present. A failed load is forgotten so the next open retries it. */

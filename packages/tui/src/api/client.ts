@@ -9,14 +9,24 @@ export interface StreamHandlers {
   onState: (state: { connected: boolean; error: string }) => void;
 }
 
+export interface StreamClock {
+  now: () => number;
+  setTimeout: (callback: () => void, ms: number) => ReturnType<typeof setTimeout>;
+  clearTimeout: (timer: ReturnType<typeof setTimeout>) => void;
+}
+const realClock: StreamClock = { now: () => Date.now(), setTimeout: (callback, ms) => setTimeout(callback, ms), clearTimeout: timer => { clearTimeout(timer); } };
+const staleAfterMs = 45_000;
+
 /** The daemon API client: bearer token, loopback only, SSE with resume from the last seen sequence. */
 export class DaemonClient {
   private readonly abort = new AbortController();
   private lastSeq: number | undefined;
   readonly credentials: Credentials;
+  private readonly clock: StreamClock;
 
-  constructor(credentials: Credentials) {
+  constructor(credentials: Credentials, clock: StreamClock = realClock) {
     this.credentials = credentials;
+    this.clock = clock;
   }
 
   private get(path: string, extra: Record<string, string> = {}): Promise<Response> {
@@ -93,26 +103,53 @@ export class DaemonClient {
     let delay = 500;
     while (!this.abort.signal.aborted) {
       try {
-        const response = await this.get('/stream', this.lastSeq === undefined ? {} : { 'Last-Event-ID': String(this.lastSeq) });
-        if (!response.ok || !response.body) throw new Error(`Daemon answered HTTP ${String(response.status)}`);
-        handlers.onState({ connected: true, error: '' });
-        delay = 500;
-        await this.read(response.body, handlers);
+        await this.attempt(handlers, () => { delay = 500; });
         handlers.onState({ connected: false, error: 'Stream closed by the daemon' });
       } catch (error) {
         if (this.abort.signal.aborted) return;
         handlers.onState({ connected: false, error: (error as Error).message });
       }
-      await new Promise(resolve => setTimeout(resolve, delay));
+      await this.sleep(delay);
       delay = Math.min(delay * 2, 8000);
     }
   }
 
-  private async read(body: ReadableStream<Uint8Array>, handlers: StreamHandlers): Promise<void> {
-    const parser = new FrameParser();
+  private async attempt(handlers: StreamHandlers, connected: () => void): Promise<void> {
+    const controller = new AbortController();
+    const signal = AbortSignal.any([this.abort.signal, controller.signal]);
+    let lastFrameAt = this.clock.now();
+    let timer: ReturnType<typeof setTimeout>;
+    const check = () => {
+      if (this.clock.now() - lastFrameAt > staleAfterMs) controller.abort(new Error('Stream freshness deadline exceeded'));
+      else timer = this.clock.setTimeout(check, staleAfterMs / 3);
+    };
+    timer = this.clock.setTimeout(check, staleAfterMs / 3);
+    try {
+      const response = await fetch(`${this.credentials.baseUrl}/api/v1/stream`, {
+        headers: { Authorization: `Bearer ${this.credentials.token}`, ...(this.lastSeq === undefined ? {} : { 'Last-Event-ID': String(this.lastSeq) }) }, signal,
+      });
+      if (!response.ok || !response.body) throw new Error(`Daemon answered HTTP ${String(response.status)}`);
+      handlers.onState({ connected: true, error: '' });
+      connected();
+      await this.read(response.body, handlers, () => { lastFrameAt = this.clock.now(); });
+    } finally { this.clock.clearTimeout(timer); }
+  }
+
+  private sleep(ms: number): Promise<void> {
+    if (this.abort.signal.aborted) return Promise.resolve();
+    return new Promise(resolve => {
+      const done = () => { this.clock.clearTimeout(timer); this.abort.signal.removeEventListener('abort', done); resolve(); };
+      const timer = this.clock.setTimeout(done, ms);
+      this.abort.signal.addEventListener('abort', done, { once: true });
+    });
+  }
+
+  private async read(body: ReadableStream<Uint8Array>, handlers: StreamHandlers, alive: () => void): Promise<void> {
+    const parser = new FrameParser(alive);
     const decoder = new TextDecoder();
     for await (const chunk of body) {
       for (const frame of parser.push(decoder.decode(chunk, { stream: true }))) {
+        alive();
         const event = JSON.parse(frame.data) as Event;
         this.lastSeq = event.seq;
         handlers.onEvent(event);

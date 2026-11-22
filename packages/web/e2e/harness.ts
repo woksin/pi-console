@@ -10,7 +10,7 @@ import { createStaticServer } from '../src/server/static-server.ts';
  * Playwright's pinned browser build may not be what is cached on this machine; any cached headless shell is good enough
  * for these specs. `PI_CONSOLE_CHROME` overrides; otherwise Playwright's own default applies.
  */
-function browserPath(): string | undefined {
+export function browserPath(): string | undefined {
   if (process.env.PI_CONSOLE_CHROME) return process.env.PI_CONSOLE_CHROME;
   const cache = join(homedir(), 'Library/Caches/ms-playwright');
   if (!existsSync(cache)) return undefined;

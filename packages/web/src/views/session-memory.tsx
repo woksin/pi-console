@@ -21,9 +21,8 @@ function MemoryItemView({ item, request }: { item: MemoryPanelItem; request: (ac
 export function SessionMemory({ id }: { id: string }) {
   const store = useStore();
   const state = useConsole();
-  const updatedAt = state.sessions.find(session => session.id === id)?.updatedAt ?? '';
   const now = clockNow(state, Date.now());
-  useEffect(() => { void store.loadSessionMemory(id); }, [store, id, updatedAt, state.gapCount]);
+  useEffect(() => store.watchSessionMemory(id), [store, id]);
   const memory = state.memory[id] ?? null;
   const view = memoryPanelViewModel({ memory, items: state.memoryItems[id] ?? [], now, review: state.memoryReviews.get(id) });
   if (!view.available) return <Panel title={view.title} aside="none seen"><span className="faint">No intent-memory store seen for this session</span></Panel>;

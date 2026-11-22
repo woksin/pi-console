@@ -1,4 +1,5 @@
 import type { Projector } from '../projector/projector.ts';
+import type { WorkQuerySource } from '../queries/work-queries.ts';
 import type { AnyProjection } from '../projector/projection.ts';
 import { burnProjection, type BurnState } from './burn.ts';
 import { lanesProjection, type LanesState } from './lanes.ts';
@@ -22,6 +23,7 @@ export interface ReadModels {
   questions: QuestionsState;
   messages: MessagesState;
   work: WorkState;
+  workQueries?: WorkQuerySource;
   memory: MemoryState;
   requests: RequestsState;
 }
@@ -30,5 +32,8 @@ const names = ['sessions', 'burn', 'lanes', 'questions', 'messages', 'work', 'me
 
 /** The current read models of a projector built from `consoleProjections()`. Read-only views of live state. */
 export function readModels(projector: Projector): ReadModels {
-  return Object.fromEntries(names.map(name => [name, projector.state(name)])) as unknown as ReadModels;
+  const models = Object.fromEntries(names.map(name => [name, projector.state(name)])) as unknown as ReadModels;
+  const source = projector.querySource('work');
+  if (source) models.workQueries = source as WorkQuerySource;
+  return models;
 }

@@ -27,7 +27,11 @@ export function applyEvent(state: ConsoleState, event: ApiEvent): ConsoleState {
   const base: ConsoleState = { ...state, seq: event.seq };
   switch (event.type) {
     case 'snapshot': return fromSnapshot(base, event.payload);
-    case 'session.updated': return { ...base, sessions: upsert(base.sessions, event.payload), liveAt: Math.max(base.liveAt, latest(event.payload.updatedAt)) };
+    case 'session.updated': {
+      const session = { ...event.payload };
+      delete session.memoryChanged;
+      return { ...base, sessions: upsert(base.sessions, session), liveAt: Math.max(base.liveAt, latest(session.updatedAt)) };
+    }
     case 'transcript.appended': return withTranscript({ ...base, liveAt: Math.max(base.liveAt, latest(event.payload.at)) }, event.payload);
     case 'message.sent': return { ...base, messages: upsert(base.messages, event.payload), liveAt: Math.max(base.liveAt, latest(event.payload.sentAt)) };
     default: return applyEntityEvent(base, event);
