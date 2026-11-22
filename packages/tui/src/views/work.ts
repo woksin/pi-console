@@ -9,15 +9,16 @@ export function workView(env: Env): SectionView {
   const query = listFilter(env.ui).trim().toLowerCase();
   const rows = model.rows.filter(row => [row.id, row.sessionId, row.session, row.kind, row.name, row.status.label, row.exit].join(' ').toLowerCase().includes(query));
   const width = env.width - 4;
-  const cursor = Math.min(env.ui.cursor.work, Math.max(0, rows.length - 1));
+  const clampCursor = (index: number) => Math.max(0, Math.min(index, rows.length - 1));
+  const cursor = clampCursor(env.ui.cursor.work);
   const { start, end } = windowOf(rows.length, cursor, Math.max(1, env.height - 4));
   const lines = rows.slice(start, end).map((row, offset): Line => selectable(split(
     [...statusParts(row.status, env.phase, false), t(' '), t(pad(row.status.label, 9), row.status.color), t(pad(row.kind, 6), 'violet'), t(row.name, 'text'), t(row.exit ? `  ${row.exit}` : '', row.exit === 'exit 0' ? 'green' : 'red')],
     [t(pad(row.session, 24), 'muted'), t(row.age.padStart(4), 'faint')], width - 1), width, start + offset === cursor, env.data.fresh.has(row.id)));
   return {
     length: rows.length,
-    rowAt: index => ({ sessionId: env.data.jobs.find(job => job.id === rows[index]?.id)?.sessionId ?? null, groupId: null }),
-    idAt: index => rows[index]?.id ?? null,
+    rowAt: index => ({ sessionId: env.data.jobs.find(job => job.id === rows[clampCursor(index)]?.id)?.sessionId ?? null, groupId: null }),
+    idAt: index => rows[clampCursor(index)]?.id ?? null,
     render: () => h(Panel, { title: `Work · ${String(model.running)} running · ${String(model.failed)} failed${shownOf(env.data, 'jobs', rows.length)}`, focused: true, grow: 1 },
       h(Lines, { lines: lines.length ? lines : emptyLines(emptyStates.work, width), grow: 1, onLineClick: index => { env.click(start + index); } })),
   };

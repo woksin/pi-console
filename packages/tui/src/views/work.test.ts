@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { generate } from '@pi-console/testkit';
 import type { Job, Session } from '@pi-console/contract';
+import { App } from '../app.ts';
 import { Store } from '../store/store.ts';
 import { commit, initial, reduce, typing, type Bounds, type UiState } from '../state/ui.ts';
 import { Screen, h, mountHeadless } from '../view/renderer.ts';
@@ -35,7 +36,8 @@ for (const [query, sessionId] of [
   test(`Work filters displayed rows case-insensitively by ${query}`, () => {
     const view = viewOf({ ...workUi, filter: query });
     assert.deepEqual(sessionIds(view), [sessionId]);
-    assert.deepEqual(view.rowAt(1), { sessionId: null, groupId: null });
+    assert.deepEqual(view.rowAt(1), view.rowAt(0), 'activation clamps to the highlighted last row');
+    assert.equal(view.idAt(1), view.idAt(0), 'copy selection uses the same clamped row');
   });
 }
 
@@ -73,10 +75,46 @@ for (const width of [80, 140]) {
   });
 }
 
+test('Work Enter opens the highlighted running job after the selected job finishes', async () => {
+  const first: Job = { ...jobs[1], name: 'first compile', startedAt: '2026-11-20T08:02:00Z' };
+  const second: Job = { ...jobs[0], name: 'second compile', status: 'running', exitCode: null, startedAt: '2026-11-20T08:01:00Z' };
+  const live = new Store();
+  live.apply({ seq: 1, type: 'snapshot', occurredAt: base.updatedAt, payload: {
+    version: 0, generatedAt: base.updatedAt, repositories: [], sessions, requests: [], questions: [], messages: [],
+    jobs: [first, second], resets: [], transcriptCursors: [], interventions: [],
+  } });
+  live.flush();
+  const opened: string[] = [];
+  const ui = await mountHeadless(h(App, {
+    store: live, endpoint: 'http://localhost', tokenSource: 'test', animate: false, initialState: { section: 'work' },
+    clock: () => Date.parse(base.updatedAt), loadTranscript: (id: string) => { opened.push(id); },
+    loadMemory: () => undefined, onQuit: () => undefined,
+  }), { width: 140, height: 24 });
+  try {
+    await ui.settle();
+    await ui.press('/');
+    await ui.type('running');
+    await ui.press('RETURN');
+    assert.match(ui.frame(), /first compile/);
+    assert.match(ui.frame(), /second compile/);
+    await ui.press('j');
+    assert.match(ui.frame(), /▌.*second compile/);
+    live.apply({ seq: 2, type: 'job.finished', occurredAt: base.updatedAt, payload: { ...second, status: 'done', exitCode: 0 } });
+    live.flush();
+    await ui.settle();
+    assert.doesNotMatch(ui.frame(), /second compile/);
+    assert.match(ui.frame(), /▌.*first compile/);
+    await ui.press('RETURN');
+    assert.deepEqual(opened, [first.sessionId]);
+    assert.match(ui.frame(), /Transcript/);
+  } finally { ui.destroy(); live.dispose(); }
+});
+
 test('a Work filter with no matches has no selectable row', () => {
   const state = { ...workUi, filter: 'missing' };
   const view = viewOf(state);
   assert.equal(view.length, 0);
   assert.deepEqual(view.rowAt(0), { sessionId: null, groupId: null });
+  assert.equal(view.idAt(0), null);
   assert.equal(reduce(state, 'open', boundsOf(view)).sessionId, null);
 });
