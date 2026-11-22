@@ -1,5 +1,6 @@
 import type { EventEnvelope, EventPayloads } from '@pi-console/contract';
 import { entry, insertSorted, markDirty } from '../projector/handlers.ts';
+import type { RequestModel } from '../projections/requests.ts';
 import { passThroughFields, type DerivationState, type ExplicitFacts, type Observation, type SessionRecord } from './model.ts';
 import { changeIndex, changeSuffix } from './session-arrays.ts';
 import { find, SessionRenderer } from './session-renderer.ts';
@@ -58,13 +59,16 @@ export function render(state: DerivationState, sessionId: string): void {
   renderer.renderAll();
 }
 
+function inOrder(record: SessionRecord, observation: Observation): boolean {
+  const last = record.observations.at(-1);
+  return !last || last.key <= observation.key;
+}
+
 export function observe(state: DerivationState, sessionId: string, observation: Observation): void {
   const runtime = runtimeFor(state);
   const record = session(state, sessionId);
   register(runtime, state, sessionId, observation);
-  const last = record.observations.at(-1);
-  const ordered = !last || last.key <= observation.key;
-  if (ordered && !runtime.unsafe) {
+  if (inOrder(record, observation) && !runtime.unsafe) {
     const renderer = rendererFor(state, sessionId);
     changeIndex(record, 'observations', record.observations.length);
     record.observations.push(observation);
@@ -83,6 +87,15 @@ export function renderOwner(state: DerivationState, requestId: string): void {
   else rendererFor(state, sessionId).refresh(requestId);
 }
 
+function statedRequest(payload: EventPayloads['RequestObserved'], event: EventEnvelope): RequestModel {
+  return {
+    id: payload.requestId, sessionId: payload.sessionId, text: payload.excerpt ?? '', origin: payload.origin,
+    originEvidence: payload.originEvidence, status: 'open', createdAt: event.occurredAt, resetId: null, answer: null,
+    interimAnswers: [], ref: event.refs, ...passThroughFields(),
+    withheld: payload.withheld ?? false, ...(payload.derivedFrom ? { derivedFrom: payload.derivedFrom } : {}),
+  };
+}
+
 export function stateRequest(state: DerivationState, payload: EventPayloads['RequestObserved'], event: EventEnvelope, key: string): void {
   const { requestId, sessionId } = payload;
   const facts = explicit(state, requestId);
@@ -96,12 +109,7 @@ export function stateRequest(state: DerivationState, payload: EventPayloads['Req
   const renderer = rendererFor(state, sessionId);
   facts.requestKey = key;
   facts.entryId = payload.entryId ?? event.refs?.entryId ?? null;
-  facts.request = {
-    id: requestId, sessionId, text: payload.excerpt ?? '', origin: payload.origin,
-    originEvidence: payload.originEvidence, status: 'open', createdAt: event.occurredAt, resetId: null, answer: null,
-    interimAnswers: [], ref: event.refs, ...passThroughFields(),
-    withheld: payload.withheld ?? false, ...(payload.derivedFrom ? { derivedFrom: payload.derivedFrom } : {}),
-  };
+  facts.request = statedRequest(payload, event);
   const record = session(state, sessionId);
   if (!renderer.explicitIds.has(requestId)) {
     renderer.explicitIds.add(requestId);

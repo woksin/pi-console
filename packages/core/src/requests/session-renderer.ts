@@ -44,7 +44,7 @@ export class SessionRenderer {
     for (const observation of record.observations) this.#pairing.apply(observation);
     for (const request of this.#pairing.requests) this.#indexRaw(request);
     this.explicitIds = new Set(record.explicitIds);
-    for (const id of record.explicitIds) this.#claim(id);
+    for (const id of record.explicitIds) this.#claim(id, find(state.explicit, id));
     this.#indices = new Map(record.requestIds.map((id, index) => [id, index]));
   }
 
@@ -56,9 +56,12 @@ export class SessionRenderer {
     this.#entries.set(entry, requests);
   }
 
-  #claim(id: string): void {
-    const facts = find(this.#state.explicit, id);
-    if (facts?.request?.sessionId !== this.#sessionId) return;
+  #ownsRequest(facts: ExplicitFacts | undefined): facts is ExplicitFacts & { request: RequestModel } {
+    return facts?.request?.sessionId === this.#sessionId;
+  }
+
+  #claim(id: string, facts: ExplicitFacts | undefined): void {
+    if (!this.#ownsRequest(facts)) return;
     this.#stated.set(id, facts.entryId);
     if (facts.entryId === null) return;
     const owners = this.#claims.get(facts.entryId) ?? new Set<string>();
@@ -103,10 +106,14 @@ export class SessionRenderer {
     markDirty(this.#state, 'requests', id);
   }
 
+  #isHidden(request: RequestModel, facts: ExplicitFacts | undefined): boolean {
+    return Boolean(facts?.request) || this.#claims.has(request.ref?.entryId ?? '');
+  }
+
   #writeRaw(request: RequestModel): void {
     const facts = find(this.#state.explicit, request.id);
-    if (facts?.request?.sessionId === this.#sessionId) return;
-    if (facts?.request || this.#claims.has(request.ref?.entryId ?? '')) this.#drop(request.id);
+    if (this.#ownsRequest(facts)) return;
+    if (this.#isHidden(request, facts)) this.#drop(request.id);
     else this.#write(overlay(request, facts));
   }
 
@@ -129,18 +136,18 @@ export class SessionRenderer {
     for (const request of affected) this.#writeRaw(request);
   }
 
-  #writeStated(id: string): void {
-    const facts = find(this.#state.explicit, id);
-    if (facts?.request?.sessionId === this.#sessionId) this.#write(overlay(facts.request, facts));
+  #writeStated(facts: ExplicitFacts | undefined): void {
+    if (this.#ownsRequest(facts)) this.#write(overlay(facts.request, facts));
   }
 
   /** Only a changed explicit request and the raw prompts it claims/releases need to be rendered. */
   refresh(id: string): void {
+    const facts = find(this.#state.explicit, id);
     const previous = this.#unclaim(id);
-    this.#claim(id);
+    this.#claim(id, facts);
     const affected = new Set([...this.#entryRequests(previous), ...this.#entryRequests(this.#stated.get(id))]);
     this.#refreshRaw(id, affected);
-    this.#writeStated(id);
+    this.#writeStated(facts);
   }
 
   /** Late observations and changed lineage retain the original whole-session re-derivation semantics. */
@@ -149,8 +156,7 @@ export class SessionRenderer {
       markDirty(this.#state, 'requests', id);
       Reflect.deleteProperty(this.#state.requests, id);
     }
-    const derived = this.#pairing.requests.filter(request =>
-      !this.#claims.has(request.ref?.entryId ?? '') && !find(this.#state.explicit, request.id)?.request);
+    const derived = this.#pairing.requests.filter(request => !this.#isHidden(request, find(this.#state.explicit, request.id)));
     const stated = [...this.#stated.keys()].flatMap(id => find(this.#state.explicit, id)?.request ?? []);
     const requests = [...derived, ...stated].map(request => overlay(request, find(this.#state.explicit, request.id)));
     for (const request of requests) {

@@ -97,7 +97,8 @@ export class SqliteProjectionStore implements ProjectionStore {
   }
 
   #materializeRequestSnapshot(record: ProjectionWrite): void {
-    if (record.name !== 'requests' || !record.rows || record.resetRows) return;
+    if (record.name !== 'requests') return;
+    if (!record.rows || record.resetRows) return;
     const previous = this.#load.get(record.name);
     if (!previous) return;
     // Old version-4 snapshots have no backing rows. Preserve their untouched requests on the first delta write.

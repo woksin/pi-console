@@ -47,14 +47,18 @@ export class SqliteRequestSessions {
   #writeArray(id: string, record: SessionRecord, field: SessionArray, saved: SavedArrays[SessionArray] | undefined): void {
     const items = record[field];
     if (saved?.items !== items) {
-      this.#truncate.run(id, field, 0);
-      for (let index = 0; index < items.length; index++) this.#writeItem(id, field, items, index);
+      this.#replaceArray(id, field, items);
       return;
     }
     for (const index of changedIndices(record, field)) {
       if (index < items.length) this.#writeItem(id, field, items, index);
     }
     if (items.length < saved.length) this.#truncate.run(id, field, items.length);
+  }
+
+  #replaceArray(id: string, field: SessionArray, items: unknown[]): void {
+    this.#truncate.run(id, field, 0);
+    for (let index = 0; index < items.length; index++) this.#writeItem(id, field, items, index);
   }
 
   #writeItem(id: string, field: SessionArray, items: unknown[], index: number): void {
@@ -72,15 +76,20 @@ export class SqliteRequestSessions {
 
   rolledBack(): void { this.#pending.clear(); }
 
-  load(state: DerivationState): void {
-    if (!Object.hasOwn(state, 'sessions')) return;
+  #initializeArrays(sessions: DerivationState['sessions']): Set<string> {
     const normalized = new Set<string>();
-    for (const [id, record] of Object.entries(state.sessions)) {
+    for (const [id, record] of Object.entries(sessions)) {
       // Legacy snapshots/rows already contain their arrays and remain readable without a rebuild.
       if (Object.hasOwn(record, 'observations')) continue;
       Object.assign(record, { observations: [], explicitIds: [], requestIds: [] });
       normalized.add(id);
     }
+    return normalized;
+  }
+
+  load(state: DerivationState): void {
+    if (!Object.hasOwn(state, 'sessions')) return;
+    const normalized = this.#initializeArrays(state.sessions);
     const rows = this.#db.prepare('SELECT session_id, field, value FROM request_session_arrays ORDER BY session_id, field, idx').all() as unknown as ArrayRow[];
     for (const row of rows) {
       if (!normalized.has(row.session_id)) continue;
