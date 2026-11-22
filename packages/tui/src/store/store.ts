@@ -14,7 +14,7 @@ export interface Data {
   /** Full collection sizes from a bounded snapshot; `null` when the daemon sent complete lists. */
   totals: Totals | null; bounded: readonly WindowedCollection[];
   /** Paging progress per windowed collection once its history has been requested. */
-  history: Partial<Record<WindowedCollection, { cursor: string | null; more: boolean }>>;
+  history: Partial<Record<WindowedCollection, { cursor: string | null; more: boolean; error?: boolean }>>;
   needsYou: AttentionItem[]; transcripts: ReadonlyMap<string, TranscriptEntry[]>;
   /** True after a successful attention fetch, until a fetch fails; `loaded` alone is too early. */
   needsYouLoaded: boolean; needsYouError: boolean;
@@ -99,6 +99,13 @@ export class Store {
 
   setNeedsYou(needsYou: AttentionItem[]): void {
     this.data = { ...this.data, needsYou, needsYouLoaded: true, needsYouError: false };
+    this.schedule();
+  }
+
+  /** Records a page failure without losing the cursor needed to retry it. */
+  setHistoryError(collection: WindowedCollection, error: boolean): void {
+    const progress = this.data.history[collection] ?? { cursor: null, more: true };
+    this.data = { ...this.data, history: { ...this.data.history, [collection]: { ...progress, error } } };
     this.schedule();
   }
 

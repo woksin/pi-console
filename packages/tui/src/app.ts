@@ -8,7 +8,8 @@ import { emptyLayout, resumeTranscript, transcriptViewport } from './state/trans
 import { neutralKey, typedCharacter, type KeyInput } from './state/keys.ts';
 import { Header, banner, footerLine, pulseLine, terminalTitle } from './shell/chrome.ts';
 import { Help, Palette, Settings, helpViewport } from './shell/overlays.ts';
-import { collectionToLoad, countsOf, memoryInput, type RequestMemoryAction } from './app-input.ts';
+import { collectionToLoad, countsOf, historyError, memoryInput, retryHistory, type RequestMemoryAction } from './app-input.ts';
+import { fit, t } from './view/parts.ts';
 import type { Env, SectionView } from './views/common.ts';
 import { overviewView } from './views/overview.ts';
 import { fleetView } from './views/fleet.ts';
@@ -79,7 +80,8 @@ export function App(props: AppProps): ReactElement {
 
   useTick(props.animate ? 6 : 1, () => { setClock(previous => ({ now: (props.clock ?? Date.now)(), phase: props.animate ? previous.phase + 1 : 0 })); });
 
-  const { showPulse, bodyHeight } = frameSize(data, size.height);
+  const failure = historyError(data, ui);
+  const { showPulse, bodyHeight } = frameSize(data, size.height, failure);
   const pulse = useMemo(() => pulseViewModel({ sessions: data.sessions, needsYou: data.needsYou.length }), [data.sessions, data.needsYou.length]);
   const [trackers] = useState(() => ({ look: new LookTracker(), flash: new FlashTracker() }));
   const onOverview = ui.section === 'overview' && !ui.sessionId;
@@ -91,7 +93,7 @@ export function App(props: AppProps): ReactElement {
   const view = (ui.sessionId ? sessionView : sectionViews[ui.section])(env);
   const viewRef = useRef(view);
   viewRef.current = view;
-  const atEnd = view.length === 0 || ui.cursor[ui.section] >= view.length - 1;
+  const atEnd = ui.cursor[ui.section] >= view.length - 1;
   useEffect(() => { const collection = collectionToLoad(ui, atEnd); if (collection) props.loadMore?.(collection); }, [ui.section, ui.sessionId, atEnd, view.length]);
   useUiEffects(ui, props, uiRef, apply);
   useFocusJump(ui, uiRef, viewRef, apply);
@@ -101,6 +103,7 @@ export function App(props: AppProps): ReactElement {
   heightRef.current = bodyHeight;
 
   useKeys(key => {
+    retryHistory({ ui: uiRef.current, data: dataRef.current, key: neutralKey(key), length: viewRef.current.length, loadMore: props.loadMore });
     const memory = memoryInput(uiRef.current, neutralKey(key), dataRef.current, size.width, props.requestMemoryAction);
     if (memory) { apply(memory); return; }
     const current = viewRef.current;
@@ -118,6 +121,7 @@ export function App(props: AppProps): ReactElement {
     h(Header, { ui, width: size.width, attention: data.needsYou.length, connection: data.connection, select: selectSection }),
     ...(showPulse ? [h(Text, { line: pulseLine(pulse, size.width) })] : []),
     ...(connectionBanner ? [h(Text, { line: connectionBanner })] : []),
+    h(HistoryError, { collection: failure, width: size.width }),
     h(Column, { grow: 1, paddingX: 1 }, view.render()),
     h(Text, { line: footerLine(ui, size.width) }),
     ...overlays(ui, data, input, size));
@@ -130,9 +134,14 @@ function retryAttention(ui: UiState, key: KeyInput, ctx: KeyContext): boolean {
   return true;
 }
 
-function frameSize(data: ReturnType<Store['getSnapshot']>, height: number): { showPulse: boolean; bodyHeight: number } {
+function HistoryError({ collection, width }: { collection: WindowedCollection | undefined; width: number }): ReactElement | null {
+  if (!collection) return null;
+  return h(Text, { line: fit([t(` Could not load older ${collection}. `, 'amber'), t('r', 'cyan'), t(' retry', 'muted')], width, 'raised') });
+}
+
+function frameSize(data: ReturnType<Store['getSnapshot']>, height: number, failure: WindowedCollection | undefined): { showPulse: boolean; bodyHeight: number } {
   const showPulse = height >= 24 && data.sessions.length > 0;
-  return { showPulse, bodyHeight: Math.max(4, height - 2 - Number(!data.connection.connected) - Number(showPulse)) };
+  return { showPulse, bodyHeight: Math.max(4, height - 2 - Number(!data.connection.connected) - Number(showPulse) - Number(failure !== undefined)) };
 }
 
 interface Size { width: number; height: number }

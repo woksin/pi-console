@@ -58,7 +58,8 @@ async function loadMore(runtime: Runtime, collection: WindowedCollection): Promi
   const progress = data.history[collection];
   if (!data.bounded.includes(collection) || progress?.more === false || paging.has(collection)) return;
   paging.add(collection);
-  try { runtime.store.mergePage(collection, await runtime.client.page(collection, progress?.cursor ?? null)); } catch { /* retried on the next scroll to the end */ } finally { paging.delete(collection); }
+  runtime.store.setHistoryError(collection, false);
+  try { runtime.store.mergePage(collection, await runtime.client.page(collection, progress?.cursor ?? null)); } catch { runtime.store.setHistoryError(collection, true); } finally { paging.delete(collection); }
 }
 
 export interface RunOptions { env?: NodeJS.ProcessEnv }
