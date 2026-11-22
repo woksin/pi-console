@@ -36,9 +36,9 @@ export function firstRunChecklist(input: { connected: boolean; sessions: number 
   return {
     title: 'Getting started',
     steps: [
-      input.connected ? step('Daemon running', 'done', 'Connected to the local pi-console daemon.') : step('Daemon running', 'todo', 'Start it with: pi-console daemon'),
+      input.connected ? step('Daemon running', 'done', 'Connected to the local pi-console daemon.') : step('Daemon running', 'todo', 'From a checkout, run: node packages/cli/bin/pi-console.mjs daemon --web-dist packages/web/dist'),
       input.sessions > 0 ? step('Sources detected', 'done', `${String(input.sessions)} pi sessions found.`) : step('Sources detected', 'todo', 'Waiting for pi session logs under ~/.pi/agent. Start pi in any repository.'),
-      step('Extension installed', 'optional', 'Optional: the pi-console extension adds live status; the console works from logs without it.'),
+      step('Extension installed', 'optional', 'Optional: the pi-console extension adds memory review; the console works from logs without it. Install steps: README, "Install the pi extension".'),
     ],
   };
 }

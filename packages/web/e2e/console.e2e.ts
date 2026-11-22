@@ -145,15 +145,15 @@ describe('web console e2e', () => {
       await page.getByLabel('Access token').fill(isolated.daemon.token);
       await page.getByRole('button', { name: 'Connect' }).click();
       await page.locator('.conn[data-connection="live"]').waitFor();
-      await page.getByRole('status').filter({ hasText: 'Loading…' }).waitFor();
+      await page.getByRole('status').filter({ hasText: 'Checking needs you…' }).waitFor();
       assert.equal(await page.locator('.hero.clear, .empty').count(), 0);
       assert.ok(!(await page.locator('#content').innerText()).includes('All clear'));
       failed.resolve(true);
-      await page.getByRole('alert').filter({ hasText: 'Could not load needs you.' }).waitFor();
+      await page.getByRole('alert').filter({ hasText: 'Needs you unavailable' }).waitFor();
       assert.equal(await page.locator('.hero.clear, .empty').count(), 0);
       assert.equal(await page.locator('.conn[data-connection="live"]').count(), 1);
       await page.getByRole('button', { name: 'Retry', exact: true }).click();
-      await page.getByRole('status').filter({ hasText: 'Loading…' }).waitFor();
+      await page.getByRole('status').filter({ hasText: 'Checking needs you…' }).waitFor();
       assert.equal(attempts, 2, 'retry re-issues the same load');
       retried.resolve(true);
       await page.locator('.hero.clear').waitFor();
@@ -245,12 +245,13 @@ describe('web console e2e', () => {
   });
 
   test('flags a daemon restart, keeps the last data visible, and reconnects by itself', async () => {
-    const page = await rig.open('/fleet');
-    await page.locator('.conn[data-connection="live"]').waitFor();
-    await page.locator('tr[data-session]').first().waitFor();
-    await rig.stopDaemon();
-    let down = true;
+    // The mock resets its sequence on restart; do not inherit a cursor aged by unrelated tests.
+    const isolated = await startRig();
+    const page = await isolated.open('/fleet');
     try {
+      await page.locator('.conn[data-connection="live"]').waitFor();
+      await page.locator('tr[data-session]').first().waitFor();
+      await isolated.stopDaemon();
       await page.waitForFunction(() => document.querySelector('.conn')?.getAttribute('data-connection') !== 'live', undefined, { timeout: 15_000 });
       assert.ok(await page.locator('tr[data-session]').count() > 0, 'stale data stays on screen instead of blanking');
       await page.getByTestId('banner').waitFor();
@@ -264,17 +265,13 @@ describe('web console e2e', () => {
       await page.locator('.stale-asof').waitFor();
       assert.match(await page.locator('.stale-asof').innerText(), /^As of \d{2}:\d{2}:\d{2}$/);
       assert.equal(await page.locator('.sidebar').evaluate(el => getComputedStyle(el).opacity), '1');
-      await rig.startDaemon();
-      down = false;
-    } finally {
-      if (down) await rig.startDaemon();
-    }
-    await page.locator('.conn[data-connection="live"]').waitFor({ timeout: 30_000 });
-    assert.equal(await connection(page), 'live');
-    await page.locator('#content[data-stale="false"]').waitFor();
-    assert.equal(await page.locator('.app').getAttribute('data-stale'), 'false');
-    assert.equal(await page.locator('.stale-asof').count(), 0);
-    await page.context().close();
+      await isolated.startDaemon();
+      await page.locator('.conn[data-connection="live"]').waitFor({ timeout: 30_000 });
+      assert.equal(await connection(page), 'live');
+      await page.locator('#content[data-stale="false"]').waitFor();
+      assert.equal(await page.locator('.app').getAttribute('data-stale'), 'false');
+      assert.equal(await page.locator('.stale-asof').count(), 0);
+    } finally { await page.context().close(); await isolated.close(); }
   });
 
   test('title and favicon carry the needs-you count; the palette groups, highlights and ranks prefix matches first', async () => {

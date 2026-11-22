@@ -17,6 +17,8 @@ const realClock: Clock = {
 export const reconnectDelays = [400, 800, 1600, 3200, 5000] as const;
 export const staleAfterMs = 45_000;
 const refreshDebounceMs = 350;
+const refreshIntervalMs = 2000;
+const needsYouPollMs = 60_000;
 const memoryItemLimit = 100;
 const memoryReadError = (error: unknown): string => error instanceof Error ? error.message : 'Memory read failed.';
 /** Rows per history page: newest first, so the first page mostly repeats the snapshot window and later pages go back in time. */
@@ -42,6 +44,7 @@ class RequestGeneration {
   /** A refresh requested while one is in flight runs again after it lands, never overlapping. */
   refreshing = false;
   refreshAgain = false;
+  scheduled = false;
 }
 
 /**
@@ -60,6 +63,9 @@ export class ConsoleStore {
   readonly #clock: Clock;
   #abort: AbortController | null = null;
   #refresh: number | null = null;
+  #poll: number | null = null;
+  #retryTimer: number | null = null;
+  #lastDerivedAt = Number.NEGATIVE_INFINITY;
   #requests = new RequestGeneration();
   #watchTimer: number | null = null;
   #lastActivityAt = 0;
@@ -121,7 +127,23 @@ export class ConsoleStore {
   }
 
   #connection(connection: Connection): void {
+    if (connection !== 'live') this.#clearPoll();
     if (this.#state.connection !== connection) this.#set({ ...this.#state, connection });
+  }
+
+  #clearPoll(): void {
+    if (this.#poll !== null) this.#clock.clearTimeout(this.#poll);
+    this.#poll = null;
+  }
+
+  #pollWhileLive(): void {
+    if (this.#stopped || this.#state.connection !== 'live') return;
+    if (this.#poll !== null) return;
+    this.#poll = this.#clock.setTimeout(() => {
+      this.#poll = null;
+      this.#scheduleRefresh(0);
+      this.#pollWhileLive();
+    }, needsYouPollMs);
   }
 
   start(): void {
@@ -144,7 +166,11 @@ export class ConsoleStore {
     this.#graphRefresh.dispose();
     this.#abort?.abort();
     this.#unwatch();
+    this.#clearPoll();
     if (this.#refresh !== null) this.#clock.clearTimeout(this.#refresh);
+    this.#refresh = null;
+    if (this.#retryTimer !== null) this.#clock.clearTimeout(this.#retryTimer);
+    this.#retryTimer = null;
   }
 
   async #run(generation: number): Promise<void> {
@@ -161,7 +187,7 @@ export class ConsoleStore {
         if (error instanceof Unauthorized) { this.#connection('unauthorized'); return; }
       } finally {
         controller.abort();
-        if (this.#active(generation)) this.#unwatch();
+        if (this.#active(generation)) { this.#unwatch(); this.#clearPoll(); }
       }
       if (!this.#active(generation)) return;
       this.#connection('offline');
@@ -183,7 +209,9 @@ export class ConsoleStore {
   }
 
   #sleep(ms: number): Promise<void> {
-    return new Promise(resolve => { this.#clock.setTimeout(resolve, ms); });
+    return new Promise(resolve => {
+      this.#retryTimer = this.#clock.setTimeout(() => { this.#retryTimer = null; resolve(); }, ms);
+    });
   }
 
   #frameWhenActive(generation: number, signal: AbortSignal, frame: ApiEvent | 'heartbeat'): void {
@@ -205,19 +233,29 @@ export class ConsoleStore {
     this.#set({ ...next, liveAtReceivedAt, lastFrameAt: now, connection: 'live', received: this.#state.received + 1 });
     if (frame.type === 'snapshot') this.#memoryRefresh.invalidateVisible();
     if (frame.type === 'session.updated' && frame.payload.memoryChanged) this.#memoryRefresh.invalidate(frame.payload.id);
-    this.#scheduleRefresh();
+    this.#pollWhileLive();
+    if (becameLive || frame.type !== 'transcript.appended') this.#scheduleRefresh();
     this.#graphRefresh.request(becameLive ? undefined : frame.type);
   }
 
   #heartbeat(): void {
     const becameLive = this.#state.connection !== 'live';
     this.#set({ ...this.#state, lastFrameAt: this.#lastActivityAt, connection: 'live', received: this.#state.received + 1 });
+    this.#pollWhileLive();
     if (becameLive) { this.#scheduleRefresh(); this.#graphRefresh.request(); }
   }
 
-  #scheduleRefresh(): void {
-    if (this.#refresh !== null) return;
-    this.#refresh = this.#clock.setTimeout(() => { this.#refresh = null; void this.#refreshDerived(); }, refreshDebounceMs);
+  #scheduleRefresh(debounce = refreshDebounceMs): void {
+    if (this.#stopped) return;
+    this.#requests.scheduled = true;
+    if (this.#refresh !== null || this.#requests.refreshing) return;
+    const delay = Math.max(debounce, this.#lastDerivedAt + refreshIntervalMs - this.#clock.now());
+    this.#refresh = this.#clock.setTimeout(() => {
+      this.#refresh = null;
+      this.#requests.scheduled = false;
+      if (this.#requests.refreshing || this.#clock.now() - this.#lastDerivedAt < refreshIntervalMs) this.#scheduleRefresh(0);
+      else void this.#refreshDerived();
+    }, delay);
   }
 
   /** Refetches the daemon-derived read models. Failures keep the last good copy (the stream banner reports connectivity). */
@@ -226,12 +264,19 @@ export class ConsoleStore {
   }
 
   async #refreshDerived(): Promise<void> {
+    if (this.#stopped) return;
     const requests = this.#requests;
     if (requests.refreshing) { requests.refreshAgain = true; return; }
     requests.refreshing = true;
     try {
       do { requests.refreshAgain = false; await this.#fetchDerived(requests); } while (this.#requestActive(requests) && this.#takeRefreshAgain(requests));
-    } finally { requests.refreshing = false; }
+    } finally {
+      requests.refreshing = false;
+      if (this.#requestActive(requests)) {
+        this.#lastDerivedAt = this.#clock.now();
+        if (requests.scheduled) this.#scheduleRefresh();
+      }
+    }
   }
 
   async #fetchDerived(requests: RequestGeneration): Promise<void> {
@@ -240,7 +285,7 @@ export class ConsoleStore {
       this.#api.needsYou().catch(() => null), this.#api.health().catch(() => null),
     ]);
     if (!this.#requestActive(requests)) return;
-    this.#set({ ...this.#state, needsYou: needsYou ?? this.#state.needsYou, needsYouLoaded: needsYou !== null, needsYouError: needsYou === null, health: health ?? this.#state.health });
+    this.#set({ ...this.#state, needsYou: needsYou ?? this.#state.needsYou, needsYouLoaded: needsYou !== null, needsYouError: needsYou === null, needsYouCached: needsYou !== null || this.#state.needsYouCached, health: health ?? this.#state.health });
     await this.#refreshTotals(requests);
   }
 

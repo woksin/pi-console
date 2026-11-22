@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { consoleTitle, hints, rememberPick, type PaletteItem } from '@pi-console/viewmodels';
+import { hints, rememberPick, type PaletteItem } from '@pi-console/viewmodels';
 import { clockNow, useConsole, useRoute } from './hooks.ts';
 import { contextFor } from './keys.ts';
 import { pickTarget, useShortcuts, type Overlay } from './shortcuts.ts';
@@ -8,6 +8,7 @@ import { sectionMeta, titleFor, sectionFor } from './routes.ts';
 import { Banner, Hints, Sidebar, TopBar, staleData } from './shell.tsx';
 import { applyTheme } from './theme.ts';
 import { faviconHref, setFavicon } from './favicon.ts';
+import { attentionPresentation, attentionTitle } from './attention.ts';
 import { setPrefs, usePrefs } from './prefs.ts';
 import { View } from './view.tsx';
 import { useTick } from '../ui/hooks.ts';
@@ -27,9 +28,9 @@ export function App() {
     setRecents(previous => rememberPick(previous, item.id));
     pickTarget(item, setOverlay);
   };
-  const attention = useMemo(() => state.needsYou.length, [state.needsYou]);
+  const attention = useMemo(() => attentionPresentation(state), [state.connection, state.needsYou, state.needsYouLoaded, state.needsYouError, state.needsYouCached]);
   const place = route.view === 'session' ? state.sessions.find(session => session.id === route.id)?.name ?? titleFor(route.view) : titleFor(route.view);
-  useEffect(() => { document.title = consoleTitle({ needsYou: attention, place }); }, [attention, place]);
+  useEffect(() => { document.title = attentionTitle(attention, place); }, [attention, place]);
   useEffect(() => { setFavicon(faviconHref(attention)); }, [attention]);
   const wall = useTick(1000);
   const now = clockNow(state, wall);

@@ -1,6 +1,6 @@
 import { parseArgs } from 'node:util';
 import { join, resolve } from 'node:path';
-import { defaultDataDir, loadConfig, sourceIds, startDaemon, type ConfigOverrides, type RunningDaemon, type SourceId } from '@pi-console/daemon';
+import { apiOnlyHint, defaultDataDir, isUsableWebBundle, loadConfig, loadToken, sourceIds, startDaemon, type ConfigOverrides, type RunningDaemon, type SourceId } from '@pi-console/daemon';
 
 const usage = (): string => `Usage: pi-console daemon [options]
 
@@ -20,7 +20,7 @@ Options:
   --backfill-days <n>   Days of session history read on first start (default 14)
   -h, --help            Show this help
 
-The token is in <data-dir>/token (owner-only). Open the web UI once with http://127.0.0.1:<port>/#token=<token>.`;
+The token is in <data-dir>/token (owner-only). With --web-dist the daemon prints this launch link; open it once: http://127.0.0.1:<port>/#token=<token>.`;
 
 export const daemonUsage = usage();
 
@@ -75,7 +75,7 @@ export function parseDaemonArgs(args: string[], env: NodeJS.ProcessEnv = process
   return { help: values.help === true, dataDir: resolve(values['data-dir'] ?? env.PI_CONSOLE_DATA_DIR ?? defaultDataDir()), overrides };
 }
 
-/** Runs the daemon until `stopSignal` resolves. Never prints the token. */
+/** Runs the daemon until `stopSignal` resolves. The token appears only in the launch link on stdout, and only when a web bundle is served. */
 export async function runDaemon(args: string[], io: DaemonCommandIo): Promise<number> {
   const parsed = parseDaemonArgs(args, io.env);
   if (parsed.help) {
@@ -86,6 +86,7 @@ export async function runDaemon(args: string[], io: DaemonCommandIo): Promise<nu
   const daemon: RunningDaemon = await startDaemon(config);
   io.out(`pi-console daemon listening on http://127.0.0.1:${daemon.port} (ready in ${Math.round(daemon.startupMs)} ms)`);
   io.out(`token file: ${parsed.dataDir}/token`);
+  io.out((await isUsableWebBundle(config.webDist)) ? `open the web console: http://127.0.0.1:${daemon.port}/#token=${loadToken(parsed.dataDir)}` : apiOnlyHint);
   await io.stopSignal;
   await daemon.close();
   return 0;
