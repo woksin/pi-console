@@ -15,6 +15,10 @@ export function neutralKey(event: Pick<KeyboardEvent, 'key' | 'ctrlKey' | 'metaK
 export const isTyping = (target: EventTarget | null): boolean =>
   target instanceof HTMLElement && (target.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName));
 
+/** Focused controls own activation keys, not navigation or overlay shortcuts. */
+export const nativeActivation = (key: string | null, target: EventTarget | null): boolean =>
+  (key === 'Enter' || key === 'Space') && target instanceof Element && target.closest('a, button, input, textarea, select, summary, [role="button"], [role="link"]') !== null;
+
 export interface ContextInput { route: Route; palette: boolean; help: boolean }
 
 /** The keymap context for the current screen; overlays capture keys before the view beneath them. */

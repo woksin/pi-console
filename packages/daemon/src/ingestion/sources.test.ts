@@ -142,21 +142,30 @@ for (const [source, change] of changes) {
   });
 }
 
+const questionHasErrors = (health: Json): boolean =>
+  health.sources.some((item: { source: string; errors: number }) => item.source === 'question-store' && item.errors > 0);
+
 test('a malformed or unreadable file in one source does not stop the others', async t => {
   const { tree, directory } = fixture(t);
   writeFileSync(join(tree.root, 'user-questions/items/q-1/bad.json'), '{');
   const blocked = join(tree.root, 'issue-work/registry.jsonl');
   const unreadable = process.platform !== 'win32' && process.getuid?.() !== 0;
-  if (unreadable) chmodSync(blocked, 0o000);
-  t.after(() => { try { if (unreadable) chmodSync(blocked, 0o600); } catch { /* already removed */ } });
+  const question = join(tree.root, 'user-questions/items/q-1/unreadable.json');
+  writeFileSync(question, '{}');
+  if (unreadable) { chmodSync(blocked, 0o000); chmodSync(question, 0o000); }
+  t.after(() => { try { if (unreadable) { chmodSync(blocked, 0o600); chmodSync(question, 0o600); } } catch { /* already removed */ } });
   const running = await launch(t, tree, directory);
-  const health = await running.get('health');
+  const health = await until(() => running.get('health'), value => !unreadable || questionHasErrors(value));
   const source = (id: string) => health.sources.find((item: { source: string }) => item.source === id);
   assert.equal((await running.get('questions')).items.length, 1);
   assert.equal((await running.get('messages')).items.length, 1);
   assert.ok((await running.get('sessions')).items.length >= 1, 'session ingestion still delivers');
   assert.ok((await events(running.daemon)).some(event => event.type === 'SourceSchemaUnknown' && event.source === 'question-store'), 'bad question file is a body-free warning');
-  if (unreadable) assert.ok(source('issue-work').errors > 0, 'unreadable file counted');
+  if (unreadable) {
+    assert.ok(source('issue-work').errors > 0, 'unreadable file counted');
+    assert.ok(source('question-store').errors > 0, 'unreadable question counted');
+    assert.equal(health.status, 'degraded', 'a failing non-session source degrades overall health');
+  }
   assert.equal(source('lane-messages').errors, 0);
 });
 

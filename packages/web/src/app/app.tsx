@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { consoleTitle, hints, rememberPick, resolve, type Action, type KeyContext, type PaletteItem } from '@pi-console/viewmodels';
 import { dispatch } from './commands.ts';
 import { clockNow, navigate, useConsole, useRoute } from './hooks.ts';
-import { contextFor, isTyping, neutralKey } from './keys.ts';
+import { contextFor, isTyping, nativeActivation, neutralKey } from './keys.ts';
 import { Help, Palette } from './overlays.tsx';
 import { parseRoute, sectionIds, sectionMeta, sessionHref, titleFor, hrefFor, sectionFor } from './routes.ts';
 import { Banner, Hints, Sidebar, TopBar, staleData } from './shell.tsx';
@@ -28,7 +28,7 @@ function handleGlobal(action: Action, ctl: { overlay: Overlay; setOverlay: (over
 }
 
 const ignoresKey = (key: string | null, overlay: Overlay, target: EventTarget | null): boolean =>
-  key === null || overlay === 'palette' || (isTyping(target) && key !== 'Ctrl+P');
+  key === null || overlay === 'palette' || (isTyping(target) && key !== 'Ctrl+P') || nativeActivation(key, target);
 
 /** Routes one resolved action: an open help dialog only closes; otherwise global, then the focused view, then back. */
 function perform(action: Action, overlay: Overlay, setOverlay: (overlay: Overlay) => void): boolean {

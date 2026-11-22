@@ -52,7 +52,7 @@ export async function run(options: RunOptions = {}): Promise<number> {
   const animate = env.PI_CONSOLE_REDUCED_MOTION !== '1' && env.NO_MOTION === undefined;
   const fixed = Date.parse(env.PI_CONSOLE_NOW ?? '');
   const clock = Number.isNaN(fixed) ? undefined : () => fixed;
-  return await new Promise<number>(resolveRun => {
+  return await new Promise<number>((resolveRun, rejectRun) => {
     let handle: Awaited<ReturnType<typeof launch>> | undefined;
     const finish = () => { runtime.stop(); resolveRun(0); };
     const node = createElement(App, {
@@ -63,6 +63,6 @@ export async function run(options: RunOptions = {}): Promise<number> {
       requestMemoryAction: (id, itemId, action) => { void runtime.reviews.request(id, itemId, action); },
       onQuit: () => { handle?.destroy(); finish(); },
     });
-    void launch(node, { fps: animate ? 20 : 8, onDestroy: finish }).then(started => { handle = started; });
+    void launch(node, { fps: animate ? 20 : 8, onDestroy: finish }).then(started => { handle = started; }, (error: unknown) => { runtime.stop(); rejectRun(error instanceof Error ? error : new Error(String(error))); });
   });
 }
