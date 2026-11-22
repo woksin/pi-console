@@ -6,6 +6,7 @@ import { useListNav } from '../app/hooks.ts';
 import { LoadOlder } from './load-older.tsx';
 import { EmptyFor } from '../ui/empty.tsx';
 import { groupHeight, laneHeight, timelineGroups } from './timeline-groups.ts';
+import { indexMarkers } from './timeline-markers.ts';
 
 const columns = 120;
 const labelWidth = 170;
@@ -16,6 +17,7 @@ export function TimelineView({ state, now }: ViewProps) {
   const [window, setWindow] = useState<TimeWindow | undefined>(undefined);
   const input = { sessions: state.sessions, requests: state.requests, resets: state.resets, questions: state.questions, messages: state.messages, width: columns };
   const view = useMemo(() => timelineViewModel({ ...input, window }), [state.sessions, state.requests, state.resets, state.questions, state.messages, window]);
+  const markersById = useMemo(() => indexMarkers(view.markers), [view.markers]);
   useActions(action => {
     const change: Partial<Record<typeof action, (current: TimeWindow) => TimeWindow>> = {
       'time.zoomIn': current => zoom(current, 0.5), 'time.zoomOut': current => zoom(current, 2), 'time.left': current => pan(current, -1), 'time.right': current => pan(current, 1),
@@ -53,7 +55,7 @@ export function TimelineView({ state, now }: ViewProps) {
             <rect className="lane-bg" x={0} y={0} width={labelWidth + plotWidth + 20} height={laneHeight - 4} rx={6} />
             <text className="lane-label" x={10} y={20}><tspan className="lane-glyph">{lane.status.glyph}</tspan> {names.get(lane.sessionId) ?? lane.label}</text>
             <line className="lane-line" x1={labelWidth} x2={labelWidth + plotWidth} y1={15} y2={15} />
-            {lane.cells.map(cell => <text key={cell.markerId} className={`mark tone-${cell.color}`} x={x(cell.column)} y={20} textAnchor="middle"><title>{view.markers.find(marker => marker.id === cell.markerId)?.text ?? ''}</title>{cell.glyph}</text>)}
+            {lane.cells.map(cell => <text key={cell.markerId} className={`mark tone-${cell.color}`} x={x(cell.column)} y={20} textAnchor="middle"><title>{markersById.get(cell.markerId)?.text ?? ''}</title>{cell.glyph}</text>)}
           </g>))}
         </g>)}
         {nowColumn >= 0 && nowColumn < columns && <g className="now-line" aria-label="Now"><line x1={x(nowColumn)} x2={x(nowColumn)} y1={22} y2={height} /><text x={x(nowColumn)} y={27} textAnchor="end">now</text></g>}
