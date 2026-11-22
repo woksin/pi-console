@@ -1,4 +1,4 @@
-import type { MemoryActionAvailability, MemoryActionReceipt, MemoryActionRequest, Event as ApiEvent, AttentionItem, Job, MemoryItem, Message, NeedsYou, Question, Request, Reset, Session, SessionDetail, SessionMemory, Transcript, TranscriptEntry } from '@pi-console/contract';
+import type { Graph, MemoryActionAvailability, MemoryActionReceipt, MemoryActionRequest, Event as ApiEvent, AttentionItem, Job, MemoryItem, Message, NeedsYou, Question, Request, Reset, Session, SessionDetail, SessionMemory, Transcript, TranscriptEntry } from '@pi-console/contract';
 import type { WindowedCollection } from '@pi-console/viewmodels';
 import type { HealthRecord } from '../state/state.ts';
 import { SseParser } from './sse.ts';
@@ -13,6 +13,7 @@ export interface PageParams { limit: number; after?: string | null; order?: 'asc
 export interface Api {
   needsYou(): Promise<AttentionItem[]>;
   health(): Promise<HealthRecord | null>;
+  graph(): Promise<Graph | null>;
   transcript(sessionId: string, after: number, limit: number): Promise<Transcript>;
   /** A page of one list, in order; `null` when the daemon does not know the route. */
   page<C extends WindowedCollection>(collection: C, params: PageParams): Promise<ListPage<C> | null>;
@@ -55,6 +56,7 @@ export function createApi(token: string, base = '', fetcher: typeof fetch = (...
     memoryActionReceipt: (id, signal) => reviewJson(`/memory-actions/${encodeURIComponent(id)}`, { signal }),
     async needsYou() { return (await get<NeedsYou>('/needs-you'))?.items ?? []; },
     async health() { return await get<HealthRecord>('/health'); },
+    async graph() { return await get<Graph>('/graph'); },
     async transcript(sessionId, after, limit) {
       const page = await get<Transcript>(`/sessions/${encodeURIComponent(sessionId)}/transcript?after=${String(after)}&limit=${String(limit)}`);
       return page ?? { items: [] as TranscriptEntry[], nextCursor: after, hasMore: false };

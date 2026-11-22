@@ -46,7 +46,7 @@ class RequestGeneration {
 
 /**
  * The client's single source of truth: server-sent state plus connection status. It owns the stream loop (resume by
- * Last-Event-ID, snapshot refetch on gap, backoff) and the derived-model refresh (`/needs-you`, `/health`).
+ * Last-Event-ID, snapshot refetch on gap, backoff) and the derived-model refresh (`/needs-you`, `/health`, `/graph`).
  */
 /** Paging stops at the end of history, or as soon as the entry being jumped to has been loaded. */
 const isLastPage = (result: { hasMore: boolean; items: readonly { id: string }[] }, focus: string | null): boolean =>
@@ -211,9 +211,11 @@ export class ConsoleStore {
 
   async #fetchDerived(requests: RequestGeneration): Promise<void> {
     this.#set({ ...this.#state, needsYouError: false });
-    const [needsYou, health] = await Promise.all([this.#api.needsYou().catch(() => null), this.#api.health().catch(() => null)]);
+    const [needsYou, health, graph] = await Promise.all([
+      this.#api.needsYou().catch(() => null), this.#api.health().catch(() => null), this.#api.graph().catch(() => null),
+    ]);
     if (!this.#requestActive(requests)) return;
-    this.#set({ ...this.#state, needsYou: needsYou ?? this.#state.needsYou, needsYouLoaded: needsYou !== null, needsYouError: needsYou === null, health: health ?? this.#state.health });
+    this.#set({ ...this.#state, needsYou: needsYou ?? this.#state.needsYou, needsYouLoaded: needsYou !== null, needsYouError: needsYou === null, health: health ?? this.#state.health, graph: graph ?? this.#state.graph });
     await this.#refreshTotals(requests);
   }
 

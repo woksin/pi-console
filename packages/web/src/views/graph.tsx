@@ -1,65 +1,87 @@
-import { laneLabel, graphViewModel, type GraphGroup } from '@pi-console/viewmodels';
-import { useMemo, useState } from 'react';
+import { useEffect, useId, useMemo, useState, type KeyboardEvent } from 'react';
 import type { ConsoleState } from '../state/state.ts';
 import { useActions } from '../app/commands.ts';
-import { navigate } from '../app/hooks.ts';
+import { navigate, useStore } from '../app/hooks.ts';
 import { sessionHref } from '../app/routes.ts';
 import { Panel } from '../ui/primitives.tsx';
 import { EmptyFor } from '../ui/empty.tsx';
-import { graphSize as size, placeLabel, placeNodes as place } from './graph-layout.ts';
+import { graphSize as size, placeLabel, placeNodes as place, type NodePlace } from './graph-layout.ts';
+import { webGraphModel, type WebGraphGroup, type WebGraphNode } from './graph-model.ts';
 
-/** Communication graph per repository, drawn from the shared graph model; a time scrubber replays who talked to whom up to a moment. */
+/** Canonical lane communication and separate, navigable session spawn relationships. */
 export function GraphView({ state }: { state: ConsoleState }) {
-  const times = useMemo(() => state.messages.map(message => Date.parse(message.sentAt)).sort((a, b) => a - b), [state.messages]);
+  const store = useStore();
+  useEffect(() => { void store.refresh(); }, [store, state.connection]);
+  const times = useMemo(() => (state.graph?.edges ?? []).map(edge => Date.parse(edge.lastAt)).filter(Number.isFinite).sort((a, b) => a - b), [state.graph]);
   const [scrub, setScrub] = useState<number | null>(null);
   const [scrubbing, setScrubbing] = useState(false);
   useActions(action => { if (action !== 'time.scrub') return false; setScrubbing(value => !value); setScrub(null); return true; });
   const upTo = scrubbing ? (scrub ?? times.at(-1) ?? 0) : Number.POSITIVE_INFINITY;
-  const view = useMemo(() => graphViewModel({ sessions: state.sessions, messages: state.messages.filter(message => Date.parse(message.sentAt) <= upTo) }), [state.sessions, state.messages, upTo]);
+  const view = useMemo(() => webGraphModel(state, upTo), [state.graph, state.sessions, upTo]);
   return (
     <div className="graph-page">
       <div className="toolbar">
         <button type="button" className="btn" aria-pressed={scrubbing} onClick={() => { setScrubbing(value => !value); setScrub(null); }}>Time scrubber <kbd className="kbd">t</kbd></button>
         {scrubbing && times.length > 0 && <>
           <input type="range" className="scrubber" aria-label="Time scrubber" min={times[0]} max={times.at(-1)} step={1000} value={Math.min(upTo, times.at(-1) ?? 0)} onChange={event => { setScrub(Number(event.target.value)); }} />
-          <time className="mono muted">{new Date(upTo).toISOString().slice(11, 19)}</time></>}
+          <time className="mono muted">{new Date(upTo).toISOString().slice(11, 19)}</time><span className="muted">Last-activity cutoff; counts are all-time</span></>}
       </div>
       <ul className="legend graph-legend" aria-label="Graph legend">
         <li><svg viewBox="0 0 32 12" aria-hidden="true"><path className="edge message" d="M1 6 H30" /></svg>Message →</li>
         <li><svg viewBox="0 0 32 12" aria-hidden="true"><path className="edge spawn" d="M1 6 H30" /></svg>Spawn →</li>
-        <li>Thicker edges = more messages</li><li>Nodes show session status</li>
+        <li>Thicker edges = more messages</li><li>Lane nodes; session status only in spawn relationships</li>
       </ul>
-      {view.groups.length === 0 ? <EmptyFor view="graph" />
-        : <div className="graph-grid">{view.groups.map(group => <GroupGraph key={group.repositoryId} group={group} />)}</div>}
+      <section aria-label="Lane communication">
+        <h2>Lane communication</h2>
+        {view.lanes.length === 0 ? <EmptyFor view="graph" />
+          : <div className="graph-grid">{view.lanes.map(group => <GroupGraph key={group.id} group={group} />)}</div>}
+      </section>
+      {view.sessions.length > 0 && <section aria-label="Session relationships">
+        <h2>Session relationships</h2>
+        <div className="graph-grid">{view.sessions.map(group => <GroupGraph key={group.id} group={group} />)}</div>
+      </section>}
     </div>
   );
 }
 
-function GroupGraph({ group }: { group: GraphGroup }) {
-  const positions = place(group);
+function GroupGraph({ group }: { group: WebGraphGroup }) {
+  const positions = place(group.nodes.map(node => node.id));
+  const arrowId = useId();
   return (
-    <Panel title={group.repositoryId} aside={`${String(group.messages)} messages`} className="graph-panel">
-      <svg className="graph" viewBox={`0 0 ${String(size)} ${String(size)}`} role="group" aria-label={`Communication graph for ${group.repositoryId}`}>
-        <defs><marker id={`arrow-${group.repositoryId}`} viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" className="arrow" /></marker></defs>
-        {group.edges.map(edge => {
-          const from = positions.get(edge.from);
-          const to = positions.get(edge.to);
-          if (!from || !to) return null;
-          const mx = (from.x + to.x) / 2 + (to.y - from.y) * 0.12;
-          const my = (from.y + to.y) / 2 - (to.x - from.x) * 0.12;
-          return <path key={`${edge.kind}:${edge.from}>${edge.to}`} className={`edge ${edge.kind}`} d={`M${String(from.x)} ${String(from.y)} Q${String(mx)} ${String(my)} ${String(to.x)} ${String(to.y)}`} strokeWidth={edge.thickness * 1.5} markerEnd={`url(#arrow-${group.repositoryId})`}><title>{`${edge.kind} ${String(edge.count)}×`}</title></path>;
-        })}
-        {group.nodes.map(node => {
-          const at = positions.get(node.sessionId);
-          const name = laneLabel(group.repositoryId, node.label);
-          const label = at && placeLabel(name, at);
-          return at && label && (
-            <g key={node.sessionId} className={`node tone-${node.status.color}`} transform={`translate(${String(at.x)} ${String(at.y)})`} tabIndex={0} role="link" aria-label={`${name}, ${node.status.label}`}
-              onClick={() => { navigate(sessionHref(node.sessionId)); }} onKeyDown={event => { if (event.key === 'Enter') navigate(sessionHref(node.sessionId)); }}>
-              <title>{name}</title><circle r="15" /><text className="glyph" textAnchor="middle" dy="5">{node.status.glyph}</text><text className="label" textAnchor={label.anchor} dx={label.dx} dy="32">{label.text}</text>
-            </g>);
-        })}
+    <Panel title={group.title} aside={group.summary} className="graph-panel">
+      <svg className="graph" viewBox={`0 0 ${String(size)} ${String(size)}`} role="group" aria-label={`Graph for ${group.title}`}>
+        <defs><marker id={arrowId} viewBox="0 0 10 10" refX="25" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" className="arrow" /></marker></defs>
+        {group.edges.map(edge => <GraphEdge key={`${edge.kind}:${edge.from}>${edge.to}`} edge={edge} positions={positions} arrowId={arrowId} />)}
+        {group.nodes.map(node => <GraphNode key={node.id} node={node} at={positions.get(node.id)} />)}
       </svg>
     </Panel>
+  );
+}
+
+function GraphEdge({ edge, positions, arrowId }: { edge: WebGraphGroup['edges'][number]; positions: Map<string, NodePlace>; arrowId: string }) {
+  const from = positions.get(edge.from);
+  const to = positions.get(edge.to);
+  if (!from || !to) return null;
+  const mx = (from.x + to.x) / 2 + (to.y - from.y) * 0.12;
+  const my = (from.y + to.y) / 2 - (to.x - from.x) * 0.12;
+  const path = edge.from === edge.to
+    ? `M${String(from.x)} ${String(from.y)} c-65 -65 65 -65 0 0`
+    : `M${String(from.x)} ${String(from.y)} Q${String(mx)} ${String(my)} ${String(to.x)} ${String(to.y)}`;
+  return <path className={`edge ${edge.kind}`} data-from={edge.from} data-to={edge.to} d={path} strokeWidth={edge.thickness * 1.5} markerEnd={`url(#${arrowId})`}><title>{`${edge.kind} ${String(edge.count)}×`}</title></path>;
+}
+
+function sessionLink(id: string) {
+  const open = () => { navigate(sessionHref(id)); };
+  return { role: 'link' as const, tabIndex: 0, onClick: open, onKeyDown: (event: KeyboardEvent<SVGGElement>) => { if (event.key === 'Enter') open(); } };
+}
+
+function GraphNode({ node, at }: { node: WebGraphNode; at: NodePlace | undefined }) {
+  if (!at) return null;
+  const label = placeLabel(node.label, at);
+  const interaction = node.sessionId === null ? { role: 'img' as const } : sessionLink(node.sessionId);
+  return (
+    <g className={`node${node.status ? ` tone-${node.status.color}` : ''}`} transform={`translate(${String(at.x)} ${String(at.y)})`} {...interaction} aria-label={node.status ? `${node.label}, ${node.status.label}` : node.label}>
+      <title>{node.label}</title><circle r="15" /><text className="glyph" textAnchor="middle" dy="5">{node.status?.glyph ?? '○'}</text><text className="label" textAnchor={label.anchor} dx={label.dx} dy="32">{label.text}</text>
+    </g>
   );
 }
