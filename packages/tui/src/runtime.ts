@@ -1,14 +1,14 @@
 import { createElement } from 'react';
 import { DaemonClient } from './api/client.ts';
 import { resolveCredentials, type Credentials } from './api/token.ts';
-import { throttled } from './refresh.ts';
+import { throttled, type Refresher } from './refresh.ts';
 import { Store } from './store/store.ts';
 import { App } from './app.ts';
 import { launch } from './view/renderer.ts';
 import { MemoryRefreshController, MemoryReviewController, type WindowedCollection } from '@pi-console/viewmodels';
 import { detectDepth, palette, themeFromEnv } from './view/theme.ts';
 
-export interface Runtime { store: Store; client: DaemonClient; reviews: MemoryReviewController; loadMemory: (id: string) => Promise<void>; watchMemory: (id: string) => () => void; stop: () => void }
+export interface Runtime { store: Store; client: DaemonClient; reviews: MemoryReviewController; loadMemory: (id: string) => Promise<void>; retryNeedsYou: Refresher['request']; watchMemory: (id: string) => () => void; stop: () => void }
 
 const NEEDS_YOU_REFRESH_MS = 2000;
 
@@ -23,7 +23,7 @@ export function connect(credentials: Credentials): Runtime {
   }, id => reviews.load(id, { fresh: true }));
   const loadMemory = (id: string): Promise<void> => memory.refresh(id);
   const reviews = new MemoryReviewController(client, (id, review) => { if (!stopped) store.setMemoryReview(id, review); }, loadMemory);
-  const refresher = throttled(async () => { store.setNeedsYou(await client.needsYou()); }, NEEDS_YOU_REFRESH_MS);
+  const refresher = attentionRequests(store, client);
   const refresh = refresher.request;
   void client.stream({
     onEvent: event => {
@@ -34,7 +34,20 @@ export function connect(credentials: Credentials): Runtime {
     },
     onState: state => { store.setConnection(state.connected, state.error); if (state.connected) refresh(); },
   });
-  return { store, client, reviews, loadMemory, watchMemory: id => memory.watch(id), stop: () => { stopped = true; memory.dispose(); reviews.dispose(); refresher.stop(); client.stop(); store.dispose(); } };
+  return { store, client, reviews, loadMemory, retryNeedsYou: refresh, watchMemory: id => memory.watch(id), stop: () => { stopped = true; memory.dispose(); reviews.dispose(); refresher.stop(); client.stop(); store.dispose(); } };
+}
+
+function attentionRequests(store: Store, client: DaemonClient): Refresher {
+  let stopped = false;
+  const load = async () => {
+    store.setNeedsYouError(false);
+    try {
+      const items = await client.needsYou();
+      if (!stopped) store.setNeedsYou(items);
+    } catch { if (!stopped) store.setNeedsYouError(true); }
+  };
+  const refresher = throttled(load, NEEDS_YOU_REFRESH_MS);
+  return { request: refresher.request, stop: () => { stopped = true; refresher.stop(); } };
 }
 
 const paging = new Set<WindowedCollection>();
@@ -64,6 +77,7 @@ export async function run(options: RunOptions = {}): Promise<number> {
     const finish = () => { runtime.stop(); resolveRun(0); };
     const node = createElement(App, {
       store: runtime.store, endpoint: credentials.baseUrl, tokenSource: credentials.tokenSource, animate, clock,
+      retryNeedsYou: runtime.retryNeedsYou,
       loadMore: collection => { void loadMore(runtime, collection); },
       loadTranscript: id => { void runtime.client.session(id).then(detail => { runtime.store.mergeDetail(detail); }, () => undefined); void runtime.client.transcript(id).then(entries => { runtime.store.mergeTranscript(id, entries); }, () => { runtime.store.mergeTranscript(id, []); }); },
       loadMemory: id => { void runtime.loadMemory(id); }, watchMemory: runtime.watchMemory,
