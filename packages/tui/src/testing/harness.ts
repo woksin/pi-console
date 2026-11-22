@@ -27,7 +27,7 @@ export async function startHarness(size = { width: 140, height: 42 }, options: {
   const quit = { requested: false };
   const ui = await mountHeadless(h(App, {
     store: runtime.store, endpoint: `http://127.0.0.1:${String(daemon.port)}`, tokenSource: 'test', animate: false,
-    loadTranscript: id => { void runtime.client.transcript(id).then(entries => { runtime.store.mergeTranscript(id, entries); }); },
+    loadTranscript: runtime.loadTranscript,
     loadMemory: id => { void runtime.loadMemory(id); }, watchMemory: runtime.watchMemory,
     onQuit: () => { quit.requested = true; },
   }), size);

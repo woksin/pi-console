@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactElement } from 'react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type EffectCallback, type ReactElement } from 'react';
 import { FlashTracker, LookTracker, paletteItems, pulseViewModel, rememberPick, resolve, type Action, type PaletteInput, type WindowedCollection } from '@pi-console/viewmodels';
 import { Column, Screen, Text, h, useClipboard, useKeys, useSize, useTerminalTitle, useTick } from './view/renderer.ts';
 import type { Store } from './store/store.ts';
@@ -26,8 +26,8 @@ const sectionViews: Record<Section, (env: Env) => SectionView> = {
 
 export interface AppProps {
   store: Store; endpoint: string; tokenSource: string;
-  /** Backfills a session's transcript when it is opened. */
-  loadTranscript: (sessionId: string) => void;
+  /** Backfills a session's transcript when it is opened; cleanup cancels the load on close or switch. */
+  loadTranscript: (sessionId: string) => ReturnType<EffectCallback>;
   /** Fetches the session's read-only memory summary and items. */
   loadMemory: (sessionId: string) => void;
   watchMemory?: (sessionId: string) => () => void;
@@ -199,7 +199,7 @@ function useFocusJump(ui: UiState, uiRef: { current: UiState }, viewRef: { curre
 }
 
 function useUiEffects(ui: UiState, props: AppProps, uiRef: { current: UiState }, apply: (next: UiState) => void): void {
-  useEffect(() => { if (ui.sessionId) props.loadTranscript(ui.sessionId); }, [ui.sessionId]);
+  useEffect(() => { if (ui.sessionId) return props.loadTranscript(ui.sessionId); }, [ui.sessionId]);
   useEffect(() => {
     if (!ui.sessionId || ui.pane !== 'memory') return;
     if (props.watchMemory) return props.watchMemory(ui.sessionId);

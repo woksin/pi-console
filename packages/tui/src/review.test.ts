@@ -95,7 +95,8 @@ test('transcript backfill reaches the tail beyond 50 pages using exclusive, non-
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   try {
     const port = (server.address() as { port: number }).port;
-    const entries = await new DaemonClient({ baseUrl: `http://127.0.0.1:${String(port)}`, token: 'x', tokenSource: 'test' }).transcript('s1');
+    const { entries, truncated } = await new DaemonClient({ baseUrl: `http://127.0.0.1:${String(port)}`, token: 'x', tokenSource: 'test' }).transcriptTail({ sessionId: 's1' });
+    assert.equal(truncated, true);
     assert.equal(entries.length, TRANSCRIPT_LIMIT);
     assert.equal(entries[0].cursor, (total - TRANSCRIPT_LIMIT + 1) * 17);
     assert.equal(entries[entries.length - 1].cursor, total * 17);
@@ -109,7 +110,7 @@ test('a capped transcript explicitly labels the retained newest entries, includi
     id: `cap-${String(index)}`, cursor: index + 1, sessionId: session.id, at: '2026-11-20T09:31:00.000Z',
     kind: 'assistant', text: `tail ${String(index)}`, toolCallId: null, resetId: null, requestId: null, toolResult: null,
   }));
-  const data = { ...new Store().getSnapshot(), sessions: [session], transcripts: new Map([[session.id, entries]]) };
+  const data = { ...new Store().getSnapshot(), sessions: [session], transcripts: new Map([[session.id, entries]]), transcriptsTruncated: new Set([session.id]) };
   for (const width of [80, 150]) {
     const view = sessionView({ data, ui: { ...initial, sessionId: session.id, search: 'tail' }, width, height: 30, now: 0, phase: 0, click: () => undefined });
     const ui = await mountHeadless(h(Screen, {}, view.render()), { width, height: 30 });
