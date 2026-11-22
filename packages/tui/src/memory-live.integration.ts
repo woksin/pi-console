@@ -50,19 +50,21 @@ test('visible headless memory panel follows real producer appends; hidden pane c
     onQuit: () => undefined,
   }), { width: 160, height: 42 });
   // Frame-pass polling alone does not yield to fetch, ingestion or the 350 ms refresh timer.
+  // Capture through ui.waitFor: a direct frame() can race a presenting render (OpenTUI OutputBusy).
+  const capture = () => ui.waitFor(() => true);
   const waitFor = async (expected: Parameters<typeof ui.waitFor>[0]) => {
-    const matches = typeof expected === 'string' ? (frame: ReturnType<typeof ui.frame>) => frame.includes(expected) : expected;
+    const matches = typeof expected === 'string' ? (frame: string) => frame.includes(expected) : expected;
     for (let attempt = 0; attempt < 200; attempt++) {
       await ui.settle();
-      if (matches(ui.frame())) return;
+      if (matches(await capture())) return;
     }
-    assert.fail(`Timed out waiting for memory UI: ${String(expected)}\n${ui.frame()}`);
+    assert.fail(`Timed out waiting for memory UI: ${String(expected)}\n${await capture()}`);
   };
   try {
     await waitFor('◉ live');
     await ui.press('2'); await waitFor('Fleet ·');
     // Fleet initially selects the repository header, not its session.
-    if (ui.frame().includes('Space expands the repository.')) await ui.press('RETURN');
+    if ((await capture()).includes('Space expands the repository.')) await ui.press('RETURN');
     await waitFor(frame => /\s+synthetic\s+/.test(frame));
     await ui.press('j');
     await ui.press('RETURN'); await waitFor('Transcript');
@@ -89,6 +91,6 @@ test('visible headless memory panel follows real producer appends; hidden pane c
     for (let n = 0; n < 4; n++) await ui.press('TAB');
     await waitFor(frame => /done[\s\S]*Synthetic live order/i.test(frame));
     assert.equal(runtime.store.getSnapshot().memoryItems.get('s1')?.[0].status, 'done');
-    assert.equal(ui.frame().includes('PRIVATE JOURNAL BODY'), false);
+    assert.equal((await capture()).includes('PRIVATE JOURNAL BODY'), false);
   } finally { ui.destroy(); runtime.stop(); await spec.close(); }
 });

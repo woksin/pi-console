@@ -48,6 +48,14 @@ test('help groups cover each shipped client binding once and render arrows as gl
   assert.deepEqual(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].map(keyLabel), ['↑', '↓', '←', '→']);
 });
 
+test('attention retry is an Overview-only TUI binding included in help and hints', () => {
+  assert.equal(resolve('overview', 'r'), 'attention.retry');
+  assert.equal(resolve('overview', 'r', 'web'), undefined);
+  for (const context of ['fleet', 'filter', 'help', 'transcript'] as const) assert.equal(resolve(context, 'r'), undefined);
+  assert.ok(hints('overview').includes('r retry'));
+  assert.ok(keymapGroups('tui').flatMap(group => group.bindings).some(binding => binding.action === 'attention.retry'));
+});
+
 test('hints are context-specific and de-duplicated', () => {
   const list = hints('fleet');
   assert.ok(list.includes('j/k move'));

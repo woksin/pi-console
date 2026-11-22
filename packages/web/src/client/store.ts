@@ -178,8 +178,9 @@ export class ConsoleStore {
   }
 
   async #fetchDerived(): Promise<void> {
+    this.#set({ ...this.#state, needsYouError: false });
     const [needsYou, health] = await Promise.all([this.#api.needsYou().catch(() => null), this.#api.health().catch(() => null)]);
-    this.#set({ ...this.#state, needsYou: needsYou ?? this.#state.needsYou, needsYouLoaded: this.#state.needsYouLoaded || needsYou !== null, health: health ?? this.#state.health });
+    this.#set({ ...this.#state, needsYou: needsYou ?? this.#state.needsYou, needsYouLoaded: needsYou !== null, needsYouError: needsYou === null, health: health ?? this.#state.health });
     await this.#refreshTotals();
   }
 

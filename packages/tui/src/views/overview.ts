@@ -48,18 +48,28 @@ function attentionPosition(total: number, end: number, cursor: number): string {
 function attentionPanel(model: OverviewViewModel, env: Env, width: number, height: number): ReturnType<typeof h> {
   const inner = width - 4;
   const { fresh, flashing } = changesOf(model, env);
-  const divider: Line[] = fresh.label ? [newSinceLine(fresh.label, inner)] : [];
+  const ready = env.data.needsYouLoaded && !env.data.needsYouError;
+  const status = attentionLoad(env);
+  const divider: Line[] = [...status.lines, ...(fresh.label ? [newSinceLine(fresh.label, inner)] : [])];
   const visible = Math.max(1, Math.floor((height - 4 - divider.length) / CARD_HEIGHT));
   const cursor = env.ui.cursor.overview;
   const { start, end } = windowOf(model.cards.length, cursor, visible);
   const lines: Line[] = model.cards.length === 0
-    ? calmLines(model, env, inner)
+    ? (ready ? calmLines(model, env, inner) : status.lines)
     : [...divider, ...model.cards.slice(start, end).flatMap((card, offset) =>
       cardLines(card, inner, { selected: start + offset === cursor, isNew: fresh.ids.has(card.id), flash: flashing(card.id) }, env))];
   const more = attentionPosition(model.cards.length, end, cursor);
-  return h(Panel, { title: model.headline, right: more, focused: true, accent: model.cards.length > 0 ? 'amber' : 'green', grow: 1 },
+  return h(Panel, { title: status.title ?? model.headline, right: more, focused: true, accent: ready ? attentionAccent(model) : 'muted', grow: 1 },
     h(Lines, { lines, grow: 1, onLineClick: index => { if (index >= divider.length) env.click(start + Math.floor((index - divider.length) / CARD_HEIGHT)); } }));
 }
+
+function attentionLoad(env: Env): { title?: string; lines: Line[] } {
+  if (env.data.needsYouError) return { title: 'Could not load needs you.', lines: [[t('r retry', 'muted')]] };
+  if (!env.data.needsYouLoaded) return { title: 'Loading…', lines: [] };
+  return { lines: [] };
+}
+
+const attentionAccent = (model: OverviewViewModel): 'amber' | 'green' => model.cards.length > 0 ? 'amber' : 'green';
 
 const eighths = ' ▁▂▃▄▅▆▇█';
 const BAR_ROWS = 3;

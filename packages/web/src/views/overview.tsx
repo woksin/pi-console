@@ -1,7 +1,7 @@
 import { overviewEmpty, overviewViewModel, pressureHistogram, type PressureHistogram } from '@pi-console/viewmodels';
 import { useMemo } from 'react';
 import type { ViewProps } from '../app/view.tsx';
-import { navigate, useListNav } from '../app/hooks.ts';
+import { navigate, useListNav, useStore } from '../app/hooks.ts';
 import { sessionHref } from '../app/routes.ts';
 import { SkeletonRows, Sparkline, StatusBadge } from '../ui/primitives.tsx';
 import { EmptyFor, FirstRun } from '../ui/empty.tsx';
@@ -11,6 +11,7 @@ import { useNewSince, useStatusFlash } from './overview-changes.ts';
 
 export function OverviewView({ state, now }: ViewProps) {
   const view = useMemo(() => overviewViewModel({ needsYou: state.needsYou, sessions: state.sessions, repositories: state.repositories.length, now }), [state.needsYou, state.sessions, state.repositories.length, now]);
+  const ready = state.needsYouLoaded && !state.needsYouError;
   const histogram = useMemo(() => pressureHistogram(state.sessions), [state.sessions]);
   const byId = new Map(view.cards.map(card => [card.id, card]));
   const sections = groupAttentionCards(view.cards);
@@ -19,8 +20,8 @@ export function OverviewView({ state, now }: ViewProps) {
   if (!state.snapshotLoaded) return <div className="page"><SkeletonRows label="overview" /></div>;
   return (
     <div className="page overview">
-      <section className={`hero${view.cards.length === 0 ? ' clear' : ''}`} aria-labelledby="needs-you">
-        <h2 id="needs-you" className="hero-title">{view.headline}</h2>
+      <section className={`hero${ready && view.cards.length === 0 ? ' clear' : ''}`} aria-labelledby="needs-you">
+        <AttentionSummary state={state} headline={view.headline} />
         <p className="muted">{view.fleet.sessions} sessions · {view.fleet.repositories} repositories · {view.fleet.tokens} tokens · {view.fleet.cost}</p>
       </section>
       {state.sessions.length > 0 && <div className="summary-strip" aria-label="Fleet summary">
@@ -34,12 +35,25 @@ export function OverviewView({ state, now }: ViewProps) {
           <h3 className="attention-heading">{section.label} <span className="faint">{section.cards.length}</span></h3>
           <ol className="cards">{section.cards.map(card => <AttentionCard key={card.id} card={card} isNew={fresh.ids.has(card.id)} selected={nav.selected === card.id} onSelect={() => { nav.select(card.id); }} />)}</ol>
         </section>)}
-        {view.cards.length === 0 && (state.sessions.length === 0
-          ? <FirstRun connected={state.connection === 'live'} sessions={0} />
-          : <EmptyFor model={overviewEmpty(view.fleet.working)} />)}
+        <AttentionEmpty state={state} ready={ready} empty={view.cards.length === 0} working={view.fleet.working} />
       </div>
     </div>
   );
+}
+
+function AttentionEmpty({ state, ready, empty, working }: { state: ViewProps['state']; ready: boolean; empty: boolean; working: number }) {
+  if (!ready || !empty) return null;
+  return state.sessions.length === 0 ? <FirstRun connected={state.connection === 'live'} sessions={0} /> : <EmptyFor model={overviewEmpty(working)} />;
+}
+
+function AttentionSummary({ state, headline }: { state: ViewProps['state']; headline: string }) {
+  const store = useStore();
+  if (state.needsYouError) return <div role="alert">
+    <h2 id="needs-you" className="hero-title">Could not load needs you.</h2>
+    <button onClick={() => { void store.refresh(); }}>Retry</button>
+  </div>;
+  if (!state.needsYouLoaded) return <h2 id="needs-you" className="hero-title" role="status">Loading…</h2>;
+  return <h2 id="needs-you" className="hero-title">{headline}</h2>;
 }
 
 /** Sessions per context-pressure bin; each bar takes its colour from its place on the shared pressure ramp, with the 60 and 80 % ticks. */

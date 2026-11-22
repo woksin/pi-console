@@ -29,8 +29,9 @@ export interface ConsoleState {
   memoryReviews: ReadonlyMap<string, MemoryReviewSession>;
   /** The daemon's single attention list; clients never compute their own. */
   needsYou: AttentionItem[];
-  /** True once the attention list has arrived; it is fetched after the snapshot, so `snapshotLoaded` alone is too early. */
+  /** True after a successful attention fetch, until a fetch fails; `snapshotLoaded` alone is too early. */
   needsYouLoaded: boolean;
+  needsYouError: boolean;
   graph: Graph | null;
   health: HealthRecord | null;
   overview: Overview | null;
@@ -63,7 +64,7 @@ export const retentionFor = (state: Pick<ConsoleState, 'deepHistory'>, sessionId
 export function emptyState(): ConsoleState {
   return {
     repositories: [], sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], interventions: [],
-    transcripts: {}, memory: {}, memoryItems: {}, memoryReviews: new Map(), needsYou: [], needsYouLoaded: false, graph: null, health: null, overview: null, liveAt: 0, snapshotLoaded: false, seq: 0,
+    transcripts: {}, memory: {}, memoryItems: {}, memoryReviews: new Map(), needsYou: [], needsYouLoaded: false, needsYouError: false, graph: null, health: null, overview: null, liveAt: 0, snapshotLoaded: false, seq: 0,
     connection: 'connecting', lastFrameAt: 0, gapCount: 0, received: 0, deepHistory: [], totals: null, bounded: [], history: {},
   };
 }
