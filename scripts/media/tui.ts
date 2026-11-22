@@ -1,7 +1,9 @@
 // TUI captures: the real TUI on a pty (xterm headless emulator), screen -> SVG -> PNG through the already-launched Chromium.
 import { fileURLToPath } from 'node:url';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { BrowserContext, Page } from 'playwright-core';
 import { themeTokens } from '../../packages/contract/src/index.ts';
+import { memoryItems } from '../../packages/testkit/src/mock-daemon/memory.ts';
 import { startPty, type Pty } from '../../packages/tui/src/testing/pty.ts';
 import { screenToSvg } from '../../packages/tui/src/testing/svg.ts';
 import type { Rig } from '../../packages/web/e2e/harness.ts';
@@ -24,7 +26,7 @@ function launch(rig: Rig, size: { cols: number; rows: number }, theme: string): 
 }
 
 /** The settled screen as pixels. */
-async function snap({ pty, page, scale, opaque }: Terminal, title: string): Promise<Buffer> {
+async function snap({ pty, page, opaque }: Terminal, title: string): Promise<Buffer> {
   await pause();
   const svg = screenToSvg(pty.terminal, { background: themeTokens.bg, foreground: themeTokens.text }, title);
   const [, width, height] = /width="(\d+)" height="(\d+)"/.exec(svg) ?? [];
@@ -65,8 +67,12 @@ async function openSession(pty: Pty): Promise<void> {
 }
 
 /** Searches for the reset divider so its carried/interrupted lists are on screen. */
-async function openSessionAtReset(pty: Pty): Promise<void> {
-  await openSession(pty);
+async function showReset(pty: Pty): Promise<void> {
+  // The reset lives before the default tail page: move to its edge, then load the older page.
+  pty.send('g'); await pause(500);
+  for (let page = 0; page < 6 && pty.screen().includes('older entries above'); page++) {
+    pty.send('g'); await pause(600);
+  }
   pty.send('/'); await pause(250);
   pty.send('handoff\r'); await pty.waitFor('⟲ handoff');
 }
@@ -86,7 +92,8 @@ async function stills(rig: Rig, work: Work): Promise<void> {
 /** A short terminal: the filtered transcript has only the divider in it, so a tall one would be mostly empty. */
 async function sessionStill(rig: Rig, work: Work): Promise<void> {
   await withTerminal(rig, { cols: 110, rows: 17, scale: 2, opaque: false }, async term => {
-    await openSessionAtReset(term.pty);
+    await openSession(term.pty);
+    await showReset(term.pty);
     writeStill(work, 'tui-session-resets', await snap(term, 'pi-console TUI reset divider'));
   });
 }
@@ -98,6 +105,67 @@ async function monoStill(rig: Rig, work: Work): Promise<void> {
   });
 }
 
+async function questionStill(rig: Rig, work: Work): Promise<void> {
+  await withTerminal(rig, { cols: 140, rows: 24, scale: 2, opaque: false }, async term => {
+    term.pty.send('4'); await term.pty.waitFor('Questions');
+    term.pty.send('v'); await term.pty.waitFor('Keep the cache bounded');
+    writeStill(work, 'tui-question-expanded', await snap(term, 'pi-console TUI expanded question'));
+  });
+}
+
+async function settingsStill(rig: Rig, work: Work): Promise<void> {
+  await withTerminal(rig, { cols: 80, rows: 16, scale: 2, opaque: false }, async term => {
+    term.pty.send(','); await term.pty.waitFor('Settings');
+    for (let row = 0; row < 80; row++) { term.pty.send('j'); await pause(10); }
+    await term.pty.waitFor('context ramp');
+    writeStill(work, 'tui-settings-scroll', await snap(term, 'pi-console TUI Settings scrolled to the end'));
+  });
+}
+
+async function memoryStills(rig: Rig, work: Work): Promise<void> {
+  const items = memoryItems();
+  const originalLength = items.length;
+  const base = items.find(item => item.sessionId === 's2')!;
+  // Extend the existing synthetic store just for this scene, so an older proposal lies beyond the first 100 rows.
+  items.push(...Array.from({ length: 100 }, (_, index) => ({
+    ...base, id: `gallery-done-${String(index)}`, status: 'done' as const, statusBasis: 'recorded' as const,
+    text: `Completed synthetic checkpoint ${String(index + 1)}`, at: new Date(Date.parse(fixedNow) - index * 1000).toISOString(), command: null,
+  })));
+  try {
+    await withTerminal(rig, { cols: 140, rows: 28, scale: 2, opaque: false }, async term => {
+      await openSession(term.pty);
+      for (let tab = 0; tab < 4; tab++) { term.pty.send('\t'); await pause(100); }
+      await term.pty.waitFor('100/107 loaded');
+      if (wanted(work, 'tui-memory-paging')) writeStill(work, 'tui-memory-paging', await snap(term, 'pi-console TUI memory history'));
+      if (!wanted(work, 'tui-memory-review')) return;
+      for (let item = 0; item < 99; item++) { term.pty.send(']'); await pause(15); }
+      await term.pty.waitFor('107/107 loaded');
+      for (let item = 0; item < 6; item++) { term.pty.send(']'); await pause(50); }
+      await term.pty.waitFor('/memory confirm item-2');
+      writeStill(work, 'tui-memory-review', await snap(term, 'pi-console TUI older memory proposal'));
+    });
+  } finally { items.splice(originalLength); }
+}
+
+async function attentionStill(rig: Rig, work: Work): Promise<void> {
+  const server = rig.daemon.server;
+  const original = server.listeners('request')[0];
+  const unavailable = (request: IncomingMessage, response: ServerResponse): void => {
+    if (request.url?.startsWith('/api/v1/needs-you')) {
+      response.writeHead(503, { 'Content-Type': 'application/json' });
+      response.end(JSON.stringify({ error: 'Synthetic outage' }));
+    } else original(request, response);
+  };
+  server.removeListener('request', original);
+  server.on('request', unavailable);
+  try {
+    await withTerminal(rig, { cols: 110, rows: 24, scale: 2, opaque: false }, async term => {
+      await term.pty.waitFor('unavailable');
+      writeStill(work, 'tui-attention-retry', await snap(term, 'pi-console TUI attention unavailable'));
+    });
+  } finally { server.removeListener('request', unavailable); server.on('request', original); }
+}
+
 async function tourGif(rig: Rig, work: Work): Promise<void> {
   await withTerminal(rig, { cols: 100, rows: 30, scale: 1, opaque: true }, async term => {
     const { pty } = term;
@@ -106,7 +174,7 @@ async function tourGif(rig: Rig, work: Work): Promise<void> {
     await hold(900);
     pty.send('2'); await pty.waitFor('Fleet'); await hold(900);
     await openSession(pty); await hold(900);
-    pty.send('/'); await pause(250); pty.send('handoff\r'); await pty.waitFor('⟲ handoff'); await hold(1400);
+    await showReset(pty); await hold(1400);
     pty.send('\u001b'); await pause(300);
     pty.send(ctrlP); await pause(300); await hold(500);
     for (const letter of 'aur') { pty.send(letter); await hold(200); }
@@ -117,9 +185,19 @@ async function tourGif(rig: Rig, work: Work): Promise<void> {
   });
 }
 
+const scenes = [
+  { ids: ['tui-overview', 'tui-palette'], capture: stills },
+  { ids: ['tui-session-resets'], capture: sessionStill },
+  { ids: ['tui-mono'], capture: monoStill },
+  { ids: ['tui-question-expanded'], capture: questionStill },
+  { ids: ['tui-settings-scroll'], capture: settingsStill },
+  { ids: ['tui-memory-paging', 'tui-memory-review'], capture: memoryStills },
+  { ids: ['tui-attention-retry'], capture: attentionStill },
+  { ids: ['tui-tour'], capture: tourGif },
+];
+
 export async function captureTui(rig: Rig, work: Work): Promise<void> {
-  if (['tui-overview', 'tui-palette'].some(id => wanted(work, id))) await stills(rig, work);
-  if (wanted(work, 'tui-session-resets')) await sessionStill(rig, work);
-  if (wanted(work, 'tui-mono')) await monoStill(rig, work);
-  if (wanted(work, 'tui-tour')) await tourGif(rig, work);
+  for (const scene of scenes) {
+    if (scene.ids.some(id => wanted(work, id))) await scene.capture(rig, work);
+  }
 }
