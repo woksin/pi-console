@@ -33,7 +33,7 @@ const messages = [
   { ...fixture.messages[1], fromSessionId: 'session-1', toSessionId: 'session-0', text: 'reverse payload' },
   { ...fixture.messages[2], fromSessionId: 'session-2', toSessionId: 'session-0', text: 'external payload' },
   { ...fixture.messages[3], fromSessionId: 'session-3', toSessionId: 'session-1', text: 'same-lane payload' },
-  { ...fixture.messages[4], fromSessionId: 'lane-0', toSessionId: 'lane-1', text: 'identity-mixup payload' },
+  { ...fixture.messages[4], fromSessionId: 'unknown-lane', toSessionId: 'lane-1', text: 'unknown-lane payload' },
   { ...fixture.messages[5], fromSessionId: 'unknown-session', toSessionId: 'session-1', text: 'unknown payload' },
 ];
 const graph: Graph = {
@@ -52,7 +52,7 @@ const graph: Graph = {
 function assertRecent(frame: string, cursor: number): void {
   assert.match(frame, /Recent/i);
   assert.match(frame, new RegExp(['forward payload', 'reverse payload', 'external payload'][cursor]));
-  assert.doesNotMatch(frame, /identity-mixup payload|unknown payload/);
+  assert.doesNotMatch(frame, /unknown-lane payload|unknown payload/);
   if (cursor === 0) {
     assert.match(frame, /same-lane payload/);
     assert.doesNotMatch(frame, /reverse payload|external payload/);
@@ -88,6 +88,31 @@ function graphEnv(source: Graph, scrubColumn = 0): Env {
   return { data: { ...store.getSnapshot(), graph: source, sessions, messages }, ui: { ...initial, section: 'messages', messagesGraph: true, scrub: true, scrubColumn }, width: 80, height: 24, now, phase: 0, click: () => undefined };
 }
 
+for (const source of [
+  { name: 'daemon lane IDs', from: 'lane-0', to: 'lane-1', sessions: [] },
+  { name: 'session IDs', from: 'session-0', to: 'session-1', sessions },
+  { name: 'mixed lane and session IDs', from: 'session-0', to: 'lane-1', sessions },
+]) {
+  test(`Recent lists messages with ${source.name} for the selected lane edge`, async () => {
+    const env = graphEnv(graph);
+    const message = { ...fixture.messages[0], fromSessionId: source.from, toSessionId: source.to };
+    const messages = [
+      { ...message, text: 'selected edge payload' },
+      { ...message, fromSessionId: source.to, toSessionId: source.from, text: 'reverse edge payload' },
+      { ...message, fromSessionId: 'unknown-lane', text: 'unknown sender payload' },
+      { ...message, toSessionId: 'unknown-lane', text: 'unknown recipient payload' },
+    ];
+    const view = messagesView({ ...env, data: { ...env.data, messages, sessions: source.sessions }, width: 112 });
+    const ui = await mountHeadless(h(Screen, {}, view.render()), { width: 112, height: 24 });
+    try {
+      await ui.settle();
+      assert.match(ui.frame(), /Recent/i);
+      assert.match(ui.frame(), /selected edge payload/);
+      assert.doesNotMatch(ui.frame(), /reverse edge payload|unknown sender payload|unknown recipient payload/);
+    } finally { ui.destroy(); }
+  });
+}
+
 test('last-activity cutoff includes its boundary, retains all-time counts and never filters session spawn edges', () => {
   const env = graphEnv(activityGraph);
   const first = messagesView(env);
@@ -109,20 +134,47 @@ test('empty and single-activity graphs have a visible, finite scrubber', () => {
   assert.match(one.lines.flat().map(part => part.text).join(''), /counts are all-time/);
 });
 
-async function mountActivityGraph(width: number) {
+async function mountActivityGraph(width: number, cursor = 0) {
   const store = new Store();
   store.apply({ seq: 1, type: 'snapshot', occurredAt: fixture.generatedAt, payload: { ...fixture, sessions, messages } });
   store.setGraph(activityGraph);
   store.setConnection(true, '');
   store.setNeedsYou([]);
   store.flush();
+  const opened: string[] = [];
   const ui = await mountHeadless(h(App, {
     store, endpoint: 'http://localhost', tokenSource: 'test', animate: false, clock: () => now,
-    initialState: { section: 'messages', messagesGraph: true }, loadTranscript: () => undefined, loadMemory: () => undefined, onQuit: () => undefined,
+    initialState: { section: 'messages', messagesGraph: true, cursor: { ...initial.cursor, messages: cursor } },
+    loadTranscript: (id: string) => { opened.push(id); }, loadMemory: () => undefined, onQuit: () => undefined,
   }), { width, height: 24 });
   await ui.settle();
-  return { store, ui };
+  return { store, ui, opened };
 }
+
+test('scrubbing clamps activation and copy selection to the highlighted remaining edge', async () => {
+  const env = graphEnv(activityGraph);
+  const view = messagesView({ ...env, ui: { ...env.ui, cursor: { ...initial.cursor, messages: 3 } } });
+  assert.equal(view.length, 2);
+  assert.equal(view.rowAt(3).sessionId, 'session-0');
+  assert.equal(view.idAt(3), 'session-0');
+  const { ui, store, opened } = await mountActivityGraph(112, 3);
+  try {
+    await ui.press('t');
+    await ui.press('h');
+    assert.match(ui.frame(), /3 edges/);
+    assert.match(ui.frame(), /▌.*spawn/);
+    await ui.press('RETURN');
+    assert.deepEqual(opened, ['session-0']);
+  } finally { ui.destroy(); store.dispose(); }
+});
+
+test('an empty scrubbed graph has no activation or copy target', () => {
+  const env = graphEnv({ nodes: [], edges: [] });
+  const view = messagesView({ ...env, data: { ...env.data, sessions: [] } });
+  assert.equal(view.length, 0);
+  assert.deepEqual(view.rowAt(3), { sessionId: null, groupId: null });
+  assert.equal(view.idAt(3), null);
+});
 
 const snapshotFrame = (frame: string): string => frame.split('\n').map(line => line.trimEnd()).join('\n').trimEnd();
 

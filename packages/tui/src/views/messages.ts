@@ -89,7 +89,9 @@ function conversation(env: Env, edge: DisplayEdge | undefined, width: number): L
   if (edge.kind === 'spawn') return [[t('Spawn edge', 'violet', { bold: true })], [t('The parent started this subagent.', 'muted')]];
   const lanes = new Map(env.data.graph.nodes.map(node => [node.laneId, node.label]));
   const sessionLanes = new Map(env.data.sessions.map(session => [session.id, session.laneId]));
-  const messages = env.data.messages.filter(message => sessionLanes.get(message.fromSessionId) === edge.from && sessionLanes.get(message.toSessionId) === edge.to).sort((a, b) => Date.parse(b.sentAt) - Date.parse(a.sentAt)).slice(0, 8);
+  // Daemon messages carry lane IDs; session-based sources need their endpoints mapped to lanes.
+  const laneOf = (endpoint: string) => sessionLanes.get(endpoint) ?? (lanes.has(endpoint) ? endpoint : undefined);
+  const messages = env.data.messages.filter(message => laneOf(message.fromSessionId) === edge.from && laneOf(message.toSessionId) === edge.to).sort((a, b) => Date.parse(b.sentAt) - Date.parse(a.sentAt)).slice(0, 8);
   return [
     [t(`${lanes.get(edge.from) ?? edge.from} → ${lanes.get(edge.to) ?? edge.to}`, 'text', { bold: true })], [t(`${String(edge.count)} ${edge.kind === 'message' ? 'messages' : edge.kind}`, 'muted')], blank, heading('Recent'),
     ...messages.flatMap((message): Line[] => [[t(`${message.sentAt.slice(11, 19)} `, 'faint'), t(message.status, deliveryColor[message.status])], ...wrap(message.text, width - 4, 2).map((text): Line => [t('  ' + text, 'text')])]),
@@ -102,7 +104,8 @@ function graphView(env: Env): SectionView {
   const flat = groups.flatMap(group => group.edges);
   const wide = env.width >= 110;
   const width = (wide ? env.width - 48 : env.width) - 4;
-  const cursor = Math.min(env.ui.cursor.messages, Math.max(0, flat.length - 1));
+  const clampCursor = (index: number) => Math.max(0, Math.min(index, flat.length - 1));
+  const cursor = clampCursor(env.ui.cursor.messages);
   const graph = graphLines(groups, cursor, env, width);
   const { edgeLine } = graph;
   const lines = graph.lines.length ? graph.lines : emptyLines(emptyStates.graph, width);
@@ -112,8 +115,8 @@ function graphView(env: Env): SectionView {
   return {
     length: flat.length,
     time: scrubber.time,
-    rowAt: index => ({ sessionId: flat[index]?.sessionId ?? null, groupId: null }),
-    idAt: index => flat[index]?.from ?? null,
+    rowAt: index => ({ sessionId: flat[clampCursor(index)]?.sessionId ?? null, groupId: null }),
+    idAt: index => flat[clampCursor(index)]?.from ?? null,
     render: () => h(Column, { grow: 1 },
       h(Lines, { lines: scrubber.lines }),
       h(Row, { grow: 1, gap: 1 },
