@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import process from 'node:process';
+import { URL } from 'node:url';
 import { shots, webViews, budget } from './scenes.ts';
 
 const ids = new Set(shots.map(shot => shot.id));
