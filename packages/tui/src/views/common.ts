@@ -22,6 +22,8 @@ export interface Env {
 export interface SectionView {
   /** Number of selectable rows; the reducer clamps the cursor to it. */
   length: number;
+  /** Full-width detail viewport, when a list supports narrow-terminal detail. */
+  detail?: { max: number; page: number };
   rowAt: (index: number) => { sessionId: string | null; groupId: string | null; entryId?: string | null };
   /** Requests only: the sessions the session filter cycles through. */
   sessionIds?: readonly string[];

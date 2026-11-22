@@ -61,7 +61,11 @@ export class Store {
         };
         break;
       }
-      case 'session.updated': this.data = { ...this.data, sessions: upsert(this.data.sessions, event.payload) }; this.touch(event.payload.id); break;
+      case 'session.updated': {
+        const session = { ...event.payload };
+        delete session.memoryChanged;
+        this.data = { ...this.data, sessions: upsert(this.data.sessions, session) }; this.touch(session.id); break;
+      }
       case 'request.observed': case 'request.interrupted': this.data = { ...this.data, requests: upsert(this.data.requests, event.payload) }; this.touch(event.payload.id); break;
       case 'question.asked': this.data = { ...this.data, questions: upsert(this.data.questions, event.payload) }; this.touch(event.payload.id); break;
       case 'message.sent': this.data = { ...this.data, messages: upsert(this.data.messages, event.payload) }; this.touch(event.payload.id); break;

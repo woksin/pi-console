@@ -5,10 +5,10 @@ import { throttled } from './refresh.ts';
 import { Store } from './store/store.ts';
 import { App } from './app.ts';
 import { launch } from './view/renderer.ts';
-import { MemoryReviewController, type WindowedCollection } from '@pi-console/viewmodels';
+import { MemoryRefreshController, MemoryReviewController, type WindowedCollection } from '@pi-console/viewmodels';
 import { detectDepth, palette, themeFromEnv } from './view/theme.ts';
 
-export interface Runtime { store: Store; client: DaemonClient; reviews: MemoryReviewController; loadMemory: (id: string) => Promise<void>; stop: () => void }
+export interface Runtime { store: Store; client: DaemonClient; reviews: MemoryReviewController; loadMemory: (id: string) => Promise<void>; watchMemory: (id: string) => () => void; stop: () => void }
 
 const NEEDS_YOU_REFRESH_MS = 2000;
 
@@ -16,18 +16,25 @@ const NEEDS_YOU_REFRESH_MS = 2000;
 export function connect(credentials: Credentials): Runtime {
   const store = new Store();
   const client = new DaemonClient(credentials);
-  const loadMemory = async (id: string): Promise<void> => {
-    try { const [memory, items] = await Promise.all([client.sessionMemory(id), client.memoryItems(id)]); store.mergeMemory(id, memory, items); }
-    catch { /* Keep the last canonical data while disconnected. */ }
-  };
-  const reviews = new MemoryReviewController(client, (id, review) => { store.setMemoryReview(id, review); }, loadMemory);
+  let stopped = false;
+  const memory = new MemoryRefreshController(async id => {
+    const [summary, items] = await Promise.all([client.sessionMemory(id), client.memoryItems(id)]);
+    if (!stopped) store.mergeMemory(id, summary, items);
+  }, id => reviews.load(id, { fresh: true }));
+  const loadMemory = (id: string): Promise<void> => memory.refresh(id);
+  const reviews = new MemoryReviewController(client, (id, review) => { if (!stopped) store.setMemoryReview(id, review); }, loadMemory);
   const refresher = throttled(async () => { store.setNeedsYou(await client.needsYou()); }, NEEDS_YOU_REFRESH_MS);
   const refresh = refresher.request;
   void client.stream({
-    onEvent: event => { store.apply(event); if (event.type !== 'transcript.appended') refresh(); },
+    onEvent: event => {
+      store.apply(event);
+      if (event.type === 'snapshot') memory.invalidateVisible();
+      if (event.type === 'session.updated' && event.payload.memoryChanged) memory.invalidate(event.payload.id);
+      if (event.type !== 'transcript.appended') refresh();
+    },
     onState: state => { store.setConnection(state.connected, state.error); if (state.connected) refresh(); },
   });
-  return { store, client, reviews, loadMemory, stop: () => { reviews.dispose(); refresher.stop(); client.stop(); store.dispose(); } };
+  return { store, client, reviews, loadMemory, watchMemory: id => memory.watch(id), stop: () => { stopped = true; memory.dispose(); reviews.dispose(); refresher.stop(); client.stop(); store.dispose(); } };
 }
 
 const paging = new Set<WindowedCollection>();
@@ -59,7 +66,7 @@ export async function run(options: RunOptions = {}): Promise<number> {
       store: runtime.store, endpoint: credentials.baseUrl, tokenSource: credentials.tokenSource, animate, clock,
       loadMore: collection => { void loadMore(runtime, collection); },
       loadTranscript: id => { void runtime.client.session(id).then(detail => { runtime.store.mergeDetail(detail); }, () => undefined); void runtime.client.transcript(id).then(entries => { runtime.store.mergeTranscript(id, entries); }, () => { runtime.store.mergeTranscript(id, []); }); },
-      loadMemory: id => { void runtime.loadMemory(id); void runtime.reviews.load(id); },
+      loadMemory: id => { void runtime.loadMemory(id); }, watchMemory: runtime.watchMemory,
       requestMemoryAction: (id, itemId, action) => { void runtime.reviews.request(id, itemId, action); },
       onQuit: () => { handle?.destroy(); finish(); },
     });

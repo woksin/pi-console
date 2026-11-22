@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import type { Event, MemoryItem, SessionMemory, TranscriptEntry } from '@pi-console/contract';
-import { ConsoleStore, memoryRefreshMs, type Clock } from './store.ts';
+import type { Event, MemoryItem, SessionMemory, SessionUpdate, TranscriptEntry } from '@pi-console/contract';
+import { ConsoleStore, type Clock } from './store.ts';
 import type { Api } from './api.ts';
 
 const clock: Clock = { now: () => 0, setTimeout: () => 0, clearTimeout: () => undefined };
@@ -117,7 +117,7 @@ test('a complete (unbounded) snapshot never pages', async () => {
   assert.equal(calls, 0);
 });
 
-const memorySummary = (sessionId: string): SessionMemory => ({
+const memorySummary = (sessionId: SessionMemory['sessionId']): SessionMemory => ({
   sessionId, storeDetected: true,
   counts: { active: 0, proposed: 1, done: 0, superseded: 0, withdrawn: 0, rejected: 0 },
   proposedConfirmable: 1, unresolved: { lowerBound: 2, atLastHandoff: null }, wider: 0, handoffs: [],
@@ -128,32 +128,29 @@ const proposedItem: MemoryItem = {
   sourceType: 'coordinator_order', sourceMessageId: null, at: '2026-01-01T00:00:00.000Z', command: '/memory confirm item-1',
 };
 
-test('session memory loads summary and bounded items together, sharing requests and throttling per session', async () => {
-  let now = 0;
+test('visible memory loads canonical pairs and readiness once per watch, independent of other sessions', async () => {
   const summaries: string[] = [];
   const availabilityCalls: string[] = [];
   const itemCalls: unknown[] = [];
   const api = {
-    memoryActionAvailability: (sessionId: string) => { availabilityCalls.push(sessionId); return Promise.resolve(null); },
-    sessionMemory: (sessionId: string) => { summaries.push(sessionId); return Promise.resolve(memorySummary(sessionId)); },
-    memoryItems: (sessionId: string, limit: number) => { itemCalls.push([sessionId, limit]); return Promise.resolve([proposedItem]); },
+    memoryActionAvailability: (sessionId: SessionMemory['sessionId']) => { availabilityCalls.push(sessionId); return Promise.resolve(null); },
+    sessionMemory: (sessionId: SessionMemory['sessionId']) => { summaries.push(sessionId); return Promise.resolve(memorySummary(sessionId)); },
+    memoryItems: (sessionId: SessionMemory['sessionId'], limit: Parameters<Api['memoryItems']>[1]) => { itemCalls.push([sessionId, limit]); return Promise.resolve([proposedItem]); },
   } as unknown as Api;
-  const store = new ConsoleStore(api, { ...clock, now: () => now });
-  const first = store.loadSessionMemory('s1');
-  assert.equal(store.loadSessionMemory('s1'), first);
-  await first;
+  const store = new ConsoleStore(api, clock);
+  const close = store.watchSessionMemory('s1');
+  await new Promise<void>(resolve => { setImmediate(resolve); });
   assert.deepEqual(store.getState().memory.s1, memorySummary('s1'));
   assert.deepEqual(store.getState().memoryItems.s1, [proposedItem]);
-  now = memoryRefreshMs - 1;
-  await store.loadSessionMemory('s1');
-  await store.loadSessionMemory('s2');
-  assert.deepEqual(summaries, ['s1', 's2']);
-  now = memoryRefreshMs;
-  await store.loadSessionMemory('s1');
+  const closeSecond = store.watchSessionMemory('s2');
+  await new Promise<void>(resolve => { setImmediate(resolve); });
+  close(); store.watchSessionMemory('s1');
+  await new Promise<void>(resolve => { setImmediate(resolve); });
   assert.deepEqual(summaries, ['s1', 's2', 's1']);
   assert.deepEqual(itemCalls, [['s1', 100], ['s2', 100], ['s1', 100]]);
-  assert.deepEqual(availabilityCalls, ['s1', 's2', 's1'], 'availability shares the memory throttle, not render frequency');
+  assert.deepEqual(availabilityCalls, ['s1', 's2', 's1']);
   assert.deepEqual(store.getState().memory.s2, memorySummary('s2'));
+  closeSecond(); store.stop();
 });
 
 function lifecycleStream() {
@@ -180,7 +177,7 @@ test('StrictMode start-stop-start recreates review tracking without replaying a 
   } as unknown as Api;
   const store = new ConsoleStore(api, clock);
   store.start(); store.stop(); store.start();
-  await store.loadSessionMemory('s1');
+  store.watchSessionMemory('s1');
   await new Promise<void>(resolve => { setImmediate(resolve); });
   assert.equal(availabilityCalls, 1);
   assert.equal(store.getState().memoryReviews.get('s1')?.availability?.available, true);
@@ -198,21 +195,25 @@ test('StrictMode start-stop-start recreates review tracking without replaying a 
   store.stop();
 });
 
-test('a resnapshot clears the session memory throttle even before its refresh interval expires', async () => {
+test('a resnapshot invalidates visible memory without touching hidden sessions', async () => {
   let emit: (frame: unknown) => void = () => undefined;
   let calls = 0;
   const api = {
     stream: (_seq: number, _signal: AbortSignal, onFrame: (frame: unknown) => void) => { emit = onFrame; onFrame(windowedSnapshot([], 0)); return new Promise<void>(() => undefined); },
     sessionMemory: () => { calls++; return Promise.resolve(memorySummary('s1')); },
     memoryItems: () => Promise.resolve([proposedItem]),
+    needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null),
   } as unknown as Api;
-  const store = new ConsoleStore(api, clock);
-  store.start();
-  await store.loadSessionMemory('s1');
-  await store.loadSessionMemory('s1');
+  const timers = new Map<number, () => void>();
+  let key = 0;
+  const store = new ConsoleStore(api, { ...clock, setTimeout: callback => { timers.set(++key, callback); return key; }, clearTimeout: token => { timers.delete(token); } });
+  store.start(); store.watchSessionMemory('s1');
+  await new Promise<void>(resolve => { setImmediate(resolve); });
   assert.equal(calls, 1);
   emit({ ...windowedSnapshot([], 0), seq: 9 });
-  await store.loadSessionMemory('s1');
+  const pending = [...timers.values()]; timers.clear();
+  for (const callback of pending) callback();
+  await new Promise<void>(resolve => { setImmediate(resolve); });
   store.stop();
   assert.equal(calls, 2);
 });
@@ -228,7 +229,7 @@ for (const cached of [false, true]) test(`an items failure preserves the ${cache
   const store = new ConsoleStore(api, { ...clock, now: () => now });
   if (cached) await store.loadSessionMemory('s1');
   const good = store.getState();
-  now = memoryRefreshMs;
+  now = 5000;
   fail = true;
   await store.loadSessionMemory('s1');
   assert.equal(store.getState(), good);
@@ -252,11 +253,61 @@ test('a failed session memory refresh preserves the last good copy and retries i
   const store = new ConsoleStore(api, { ...clock, now: () => now });
   await store.loadSessionMemory('s1');
   const good = store.getState();
-  now = memoryRefreshMs;
+  now = 5000;
   await store.loadSessionMemory('s1');
   assert.equal(store.getState(), good);
   await store.loadSessionMemory('s1');
   assert.equal(calls, 3);
   assert.deepEqual(store.getState().memory.s1, memorySummary('s1'));
   assert.deepEqual(store.getState().memoryItems.s1, [proposedItem]);
+});
+
+test('only marked visible session updates refetch; replacement clears stale rows and marker never persists', async () => {
+  let emit!: (event: Event) => void;
+  let calls = 0;
+  let items = [proposedItem];
+  const timers = new Map<number, () => void>(); let key = 0;
+  const api = {
+    stream: (_seq: Event['seq'], _signal: AbortSignal, event: (frame: Event) => void) => { emit = event; return new Promise(() => undefined); },
+    needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null),
+    sessionMemory: (id: SessionMemory['sessionId']) => { calls++; return Promise.resolve(memorySummary(id)); },
+    memoryItems: () => Promise.resolve(items), memoryAvailability: () => Promise.reject(new Error('unavailable')),
+  } as unknown as Api;
+  const store = new ConsoleStore(api, { ...clock, setTimeout: callback => { timers.set(++key, callback); return key; }, clearTimeout: token => { timers.delete(token); } });
+  const session = { id: 's1', repositoryId: 'r', name: '', laneId: 'l', role: 'main' as const, parentSessionId: null, orchestratorSessionId: 's1',
+    branch: '', cwd: '', model: '', status: 'idle' as const, startedAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', contextPercent: 0, samples: [] };
+  const send = (seq: Event['seq'], payload: Partial<SessionUpdate>) => { emit({ seq, type: 'session.updated', occurredAt: session.updatedAt, payload: { ...session, ...payload } }); };
+  const settle = () => new Promise<void>(resolve => { setImmediate(resolve); });
+  const tick = async () => { const pending = [...timers.values()]; timers.clear(); for (const callback of pending) callback(); await settle(); };
+  store.start(); send(1, { memoryChanged: true }); await tick();
+  assert.equal(calls, 0, 'hidden marker does no memory work');
+  const close = store.watchSessionMemory('s1'); await settle();
+  assert.equal(calls, 1);
+  send(2, {}); send(3, { id: 's2', memoryChanged: true }); await tick();
+  assert.equal(calls, 1, 'heartbeat and sibling marker do no memory work');
+  items = [];
+  for (let seq = 4; seq < 30; seq++) send(seq, { memoryChanged: true });
+  await tick();
+  assert.equal(calls, 2);
+  assert.deepEqual(store.getState().memoryItems.s1, []);
+  assert.equal(Object.hasOwn(store.getState().sessions[0], 'memoryChanged'), false);
+  close(); send(30, { memoryChanged: true }); await tick();
+  assert.equal(calls, 2);
+  store.stop();
+});
+
+test('stop and restart generations reject late memory responses', async () => {
+  let resolve!: (summary: SessionMemory) => void;
+  let calls = 0;
+  const api = {
+    sessionMemory: () => { calls++; return calls === 1 ? new Promise<SessionMemory>(done => { resolve = done; }) : Promise.resolve(memorySummary('s1')); },
+    memoryItems: () => Promise.resolve([proposedItem]), needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null),
+    stream: () => new Promise(() => undefined),
+  } as unknown as Api;
+  const store = new ConsoleStore(api, clock);
+  const old = store.loadSessionMemory('s1'); store.stop(); store.start();
+  await store.loadSessionMemory('s1');
+  const current = store.getState(); resolve({ ...memorySummary('s1'), wider: 999 }); await old;
+  assert.equal(store.getState(), current);
+  store.stop();
 });

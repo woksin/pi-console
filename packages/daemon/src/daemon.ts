@@ -5,7 +5,9 @@ import type { DaemonConfig } from './config.ts';
 import { EventLoopHealth } from './event-loop.ts';
 import { apiQuery, type ApiContext } from './api/routes.ts';
 import { FileMemoryHandoffs, type MemoryHandoffReader } from './api/memory-handoffs.ts';
-import { noTranscripts, type TranscriptReader } from './api/transcripts.ts';
+import type { TranscriptReader } from './api/transcripts.ts';
+import { FileTranscriptReader } from './api/file-transcripts.ts';
+import { TranscriptSources } from './api/transcript-sources.ts';
 import { healthOf, settingsOf } from './api/health.ts';
 import { apiPrefix, authenticate, checkSource, exchangeToken, HttpError, streamPath } from './security/guard.ts';
 import { Credentials, loadToken } from './security/token.ts';
@@ -132,12 +134,14 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
     discard: () => stream.invalidateIfIdle(),
   });
   const stopDeltas = projector.onApplied(event => { batcher.add(event); });
-  const ingestion = new SessionIngestion(new CheckpointCache(log), { roots: options.sessionRoots, backfillWindowDays: options.backfillWindowDays, pollMs: options.pollMs, now });
+  const checkpoints = new CheckpointCache(log);
+  const fileTranscripts = new FileTranscriptReader(new TranscriptSources(checkpoints, options.sessionRoots));
+  const ingestion = new SessionIngestion(checkpoints, { roots: options.sessionRoots, backfillWindowDays: options.backfillWindowDays, pollMs: options.pollMs, now });
   const sources = sourceSetFor(log, options, now);
   let port = options.port;
   const eventLoop = new EventLoopHealth();
   const apiContext: ApiContext = {
-    queries, transcripts: options.transcripts ?? noTranscripts, memoryHandoffs: options.memoryHandoffs ?? new FileMemoryHandoffs(),
+    queries, transcripts: options.transcripts ?? fileTranscripts, memoryHandoffs: options.memoryHandoffs ?? new FileMemoryHandoffs(),
     health: () => healthOf({ startedAt, dataDir: options.dataDir, log, projector, stream, ingestion, sources, batcher, backfillWindowDays: options.backfillWindowDays, eventLoop: eventLoop.read() }),
     settings: () => settingsOf(options, port),
   };
@@ -154,7 +158,7 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
   return {
     port, address: '127.0.0.1', log, stream, ingestion, sources, startupMs: performance.now() - started,
     async close() {
-      await Promise.all([sources.stop(), ingestion.stop()]);
+      await Promise.all([sources.stop(), ingestion.stop(), fileTranscripts.close()]);
       batcher.flush();
       stream.close();
       actions?.close();

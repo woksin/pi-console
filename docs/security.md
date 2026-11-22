@@ -110,6 +110,17 @@ are rejected. These portable Node checks are snapshots, not an atomic directory 
 `openat`/`openat2` traversal, a concurrent local process renaming parent directories can still race them. Do not treat
 an arbitrarily mutable source tree as a filesystem sandbox; the console remains single-user (T10).
 
+Transcript history resolves session IDs exclusively through committed ingestion checkpoints and validated session
+headers, never by constructing a path from request input or walking a browser-supplied directory. Duplicate valid
+headers claiming one ID fail closed. Each batch reopens through the same boundary and validates identity, saved
+head fingerprint and captured size, and rejects multiply linked files. Disappearance, replacement, truncation and detectable rewrites invalidate
+history; a truncate-and-regrow entirely between observations remains subject to the filesystem limitations above.
+Reads capture EOF, yield between bounded chunks and retain O(limit) window rows plus bounded I/O buffers.
+Only byte-offset hints (32 LRU entries) are cached; bodies are re-read and read-time redaction remains authoritative,
+including after a cache hit or daemon restart. Two scans may run concurrently with at most eight waiters; excess
+requests get a generic 503. Metadata associations are bounded by the checkpoint set. No raw transcript bodies are
+stored in projections, SQLite or SSE deltas.
+
 ## Specs required
 
 Every milestone includes hostile-case specs: wrong or missing token, wrong Host, foreign Origin (also on SSE and WebSocket), no Origin with cookie only, missing CSRF header, read-only token attempting a command, forged extension connect, oversized and malformed frames, a transcript containing terminal escape sequences and script tags, a fixture with known secret shapes, a scan failure (must withhold), and a replayed intervention (must not run twice).
