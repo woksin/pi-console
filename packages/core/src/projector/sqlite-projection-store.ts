@@ -2,6 +2,8 @@ import { DatabaseSync, type StatementSync } from 'node:sqlite';
 import type { ProjectionRecord, ProjectionRow, ProjectionStore, ProjectionWrite } from './projection.ts';
 import { parseRecords } from './records.ts';
 import { SqliteWorkRows } from './sqlite-work-rows.ts';
+import type { DerivationState, SessionRecord } from '../requests/model.ts';
+import { SqliteRequestSessions } from '../requests/sqlite-sessions.ts';
 
 /**
  * Projection metadata and dirty rows share one WAL transaction with their replay positions. The store is derived state:
@@ -17,6 +19,7 @@ export class SqliteProjectionStore implements ProjectionStore {
   readonly #deleteRow: StatementSync;
   readonly #resetRows: StatementSync;
   #workRows: SqliteWorkRows | undefined;
+  readonly #requestSessions: SqliteRequestSessions;
 
   constructor(path: string) {
     this.#db = new DatabaseSync(path);
@@ -29,6 +32,7 @@ export class SqliteProjectionStore implements ProjectionStore {
         name TEXT NOT NULL, collection TEXT NOT NULL, id TEXT NOT NULL, value TEXT NOT NULL,
         PRIMARY KEY (name, collection, id)
       );`);
+      this.#requestSessions = new SqliteRequestSessions(this.#db);
       this.#load = this.#db.prepare('SELECT version, position, state FROM projections WHERE name = ?');
       this.#save = this.#db.prepare(`INSERT INTO projections (name, version, position, state) VALUES (?, ?, ?, ?)
         ON CONFLICT(name) DO UPDATE SET version = excluded.version, position = excluded.position, state = excluded.state`);
@@ -53,8 +57,13 @@ export class SqliteProjectionStore implements ProjectionStore {
   }
 
   #writeRow(name: string, row: ProjectionRow): void {
-    if (row.value === undefined) this.#deleteRow.run(name, row.collection, row.id);
-    else this.#putRow.run(name, row.collection, row.id, JSON.stringify(row.value));
+    let value = row.value;
+    if (name === 'requests' && row.collection === 'sessions') {
+      if (value === undefined) this.#requestSessions.delete(row.id);
+      else value = this.#requestSessions.write(row.id, value as SessionRecord);
+    }
+    if (value === undefined) this.#deleteRow.run(name, row.collection, row.id);
+    else this.#putRow.run(name, row.collection, row.id, JSON.stringify(value));
   }
 
   load(name: string): ProjectionRecord | undefined {
@@ -64,6 +73,7 @@ export class SqliteProjectionStore implements ProjectionStore {
     for (const item of this.#rows.iterate(name)) {
       state[item.collection as string][item.id as string] = parseRecords(item.value as string);
     }
+    if (name === 'requests') this.#requestSessions.load(state as unknown as DerivationState);
     return { name, version: row.version as number, position: row.position as number, state };
   }
 
@@ -78,18 +88,30 @@ export class SqliteProjectionStore implements ProjectionStore {
     try {
       for (const record of records) this.#write(record);
       this.#db.exec('COMMIT');
+      this.#requestSessions.committed();
     } catch (error) {
       this.#db.exec('ROLLBACK');
+      this.#requestSessions.rolledBack();
       throw error;
     }
   }
 
+  #materializeRequestSnapshot(record: ProjectionWrite): void {
+    if (record.name !== 'requests' || !record.rows || record.resetRows) return;
+    const previous = this.#load.get(record.name);
+    if (!previous) return;
+    // Old version-4 snapshots have no backing rows. Preserve their untouched requests on the first delta write.
+    for (const row of snapshotRows(parseRecords(previous.state as string))) this.#writeRow(record.name, row);
+  }
+
   #write(record: ProjectionWrite): void {
+    this.#materializeRequestSnapshot(record);
     const work = this.#indexedWork(record.name);
     this.#save.run(record.name, record.version, record.position, JSON.stringify(record.state));
     if (record.resetRows || !record.rows) {
       this.#resetRows.run(record.name);
       work?.reset();
+      if (record.name === 'requests') this.#requestSessions.reset();
     }
     const rows = record.rows ?? (work ? snapshotRows(record.state) : []);
     for (const row of rows) {
