@@ -1,5 +1,6 @@
 import type { EventEnvelope, Job, Message, Question, Request, Reset, Session } from '@pi-console/contract';
 import { ConsoleQueries, deltaFor, type AttentionItem, type Delta, type ReadModels, type RequestFilter } from '@pi-console/core';
+import { changedMemorySessions, memoryMayChange, memoryState } from './memory-state.ts';
 
 /** Queries memoised for one flush: read models do not change while a batch of deltas is being computed. */
 class BatchQueries extends ConsoleQueries {
@@ -36,11 +37,13 @@ function derivedSessions(queries: ConsoleQueries): Map<string, string> {
 interface DerivedState {
   sessions: Map<string, string>;
   requests: Map<string, string>;
+  memory: Map<string, string>;
 }
 
 /** Detached fingerprints preserve the last visible state even when projection rows are mutated in place. */
-function derivedState(queries: ConsoleQueries): DerivedState {
+function derivedState(queries: ConsoleQueries, memory = memoryState(queries)): DerivedState {
   return {
+    memory,
     sessions: derivedSessions(queries),
     requests: new Map(queries.requests().map(request => [request.id, JSON.stringify(request)])),
   };
@@ -131,12 +134,13 @@ export class DeltaBatcher {
       const delta = deltaFor(queries, event, seen);
       if (delta && !deltas.has(keyOf(delta))) deltas.set(keyOf(delta), delta);
     }
-    this.#addDerivedEntities(queries, deltas);
+    this.#addDerivedEntities(queries, deltas, events);
     for (const delta of deltas.values()) this.#publish(delta);
   }
 
-  #addDerivedEntities(queries: ConsoleQueries, deltas: Map<string, Delta>): void {
-    const derived = derivedState(queries);
+  #addDerivedEntities(queries: ConsoleQueries, deltas: Map<string, Delta>, events: readonly EventEnvelope[]): void {
+    const memory = memoryMayChange(events) ? undefined : this.#derived?.memory;
+    const derived = derivedState(queries, memory);
     const before = this.#derived ?? derived;
     this.#addDerivedRequests(queries, before, derived, deltas);
     for (const session of queries.sessions()) {
@@ -144,7 +148,16 @@ export class DeltaBatcher {
       const delta = { type: 'session.updated', payload: session };
       deltas.set(keyOf(delta), delta);
     }
+    this.#addMemory(queries, changedMemorySessions(before.memory, derived.memory, events), deltas);
     this.#derived = derived;
+  }
+
+  #addMemory(queries: ConsoleQueries, sessions: Set<string>, deltas: Map<string, Delta>): void {
+    for (const session of queries.sessions()) {
+      if (!sessions.has(session.id)) continue;
+      const delta = { type: 'session.updated', payload: { ...session, memoryChanged: true } };
+      deltas.set(keyOf(delta), delta);
+    }
   }
 
   #addDerivedRequests(queries: ConsoleQueries, before: DerivedState, derived: DerivedState, deltas: Map<string, Delta>): void {

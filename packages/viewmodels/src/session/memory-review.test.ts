@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import type { MemoryActionAvailability, MemoryActionReceipt, MemoryActionRequest, MemoryItem, SessionMemory } from '@pi-console/contract';
 import { MemoryReviewController, type MemoryReviewApi, type ReviewScheduler } from './memory-review-controller.ts';
+import { MemoryRefreshController } from './memory-refresh-controller.ts';
 import { emptyMemoryReview, memoryReviewHint, memoryReviewIngestionGraceMs, memoryReviewProgress, type MemoryReviewSession } from './memory-review.ts';
 import { memoryPanelViewModel } from './memory.ts';
 
@@ -92,6 +93,38 @@ test('one explicit request, human then ingestion then observed, refresh canonica
   assert.equal(r.hasTimer(), false);
   assert.equal(r.posts.length, 1);
   r.controller.dispose();
+});
+
+test('a marker after receipt completion reads fresh readiness after an older in-flight availability request', async () => {
+  let review = emptyMemoryReview();
+  let reads = 0;
+  const api: MemoryReviewApi = {
+    memoryActionAvailability: () => Promise.resolve(available),
+    requestMemoryAction: (_id, request) => Promise.resolve(receipt('observed-applied', request)),
+    memoryActionReceipt: () => Promise.reject(new Error('No polling expected')),
+  };
+  const refresh: MemoryRefreshController = new MemoryRefreshController(() => { reads++; return Promise.resolve(); }, id => reviews.load(id, { fresh: true }));
+  const reviews: MemoryReviewController = new MemoryReviewController(api, (_id, value) => { review = value; }, id => refresh.refresh(id));
+  await reviews.load('s1');
+  let release!: (value: MemoryActionAvailability) => void;
+  let calls = 0;
+  api.memoryActionAvailability = () => {
+    calls++;
+    return calls === 1 ? new Promise(resolve => { release = resolve; }) : Promise.resolve({ ...available, generation: 'g2' });
+  };
+  const completion = reviews.request('s1', item.id, 'confirm');
+  await flush();
+  assert.equal(reads, 1, 'receipt completion first refreshes canonical memory');
+  assert.equal(calls, 1, 'receipt readiness is still in flight');
+  const close = refresh.watch('s1');
+  await flush();
+  assert.equal(reads, 2, 'the visible marker refreshes canonical memory independently');
+  release({ ...available, available: false, reason: 'not-ready' });
+  await completion; await flush();
+  assert.equal(calls, 2, 'the marker does not settle for the older availability result');
+  assert.equal(review.availability?.generation, 'g2');
+  assert.equal(review.availability?.available, true);
+  close(); refresh.dispose(); reviews.dispose();
 });
 
 test('terminal outcomes stop polling, including explicit reject, without synthesizing memory', async () => {

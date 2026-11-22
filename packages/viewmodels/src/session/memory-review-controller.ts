@@ -46,10 +46,11 @@ export class MemoryReviewController {
     if (this.#abort.signal.aborted) return;
     this.#sessions.set(id, value); this.#publish(id, value);
   }
-  load(sessionId: string): Promise<void> {
+  /** Invalidations and terminal receipts require a read started after any older availability request. */
+  load(sessionId: string, options: { fresh?: boolean } = {}): Promise<void> {
     if (this.#abort.signal.aborted) return Promise.resolve();
     const existing = this.#loading.get(sessionId);
-    if (existing) return existing;
+    if (existing) return options.fresh ? existing.then(() => this.load(sessionId)) : existing;
     const task = this.#availability(sessionId).finally(() => { this.#loading.delete(sessionId); });
     this.#loading.set(sessionId, task);
     return task;
@@ -86,7 +87,7 @@ export class MemoryReviewController {
   async #refresh(target: ReviewTarget): Promise<void> {
     if (this.#abort.signal.aborted) return;
     await this.#reload(target.sessionId).catch(() => undefined);
-    await this.load(target.sessionId);
+    await this.load(target.sessionId, { fresh: true });
   }
   #deadline(receipt: MemoryActionReceipt): number { return receipt.expiresAt + memoryReviewIngestionGraceMs; }
   #pending(target: ReviewTarget, receipt: MemoryActionReceipt): void {

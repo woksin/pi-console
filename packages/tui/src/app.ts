@@ -29,6 +29,7 @@ export interface AppProps {
   loadTranscript: (sessionId: string) => void;
   /** Fetches the session's read-only memory summary and items. */
   loadMemory: (sessionId: string) => void;
+  watchMemory?: (sessionId: string) => () => void;
   requestMemoryAction?: RequestMemoryAction;
   /** Fetches the next older page of a list the snapshot only windowed; called when the cursor reaches the end of a list. */
   loadMore?: (collection: WindowedCollection) => void;
@@ -173,7 +174,11 @@ function useFocusJump(ui: UiState, uiRef: { current: UiState }, viewRef: { curre
 
 function useUiEffects(ui: UiState, props: AppProps, uiRef: { current: UiState }, apply: (next: UiState) => void): void {
   useEffect(() => { if (ui.sessionId) props.loadTranscript(ui.sessionId); }, [ui.sessionId]);
-  useEffect(() => { if (ui.sessionId && ui.pane === 'memory') props.loadMemory(ui.sessionId); }, [ui.sessionId, ui.pane]);
+  useEffect(() => {
+    if (!ui.sessionId || ui.pane !== 'memory') return;
+    if (props.watchMemory) return props.watchMemory(ui.sessionId);
+    props.loadMemory(ui.sessionId);
+  }, [ui.sessionId, ui.pane]);
   useEffect(() => { if (ui.quit) props.onQuit(); }, [ui.quit]);
   useEffect(() => {
     if (!ui.notice) return undefined;
