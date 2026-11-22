@@ -40,6 +40,8 @@
 .edge { fill: none; stroke: var(--violet); opacity: 0.8; stroke-linecap: round; }
 .edge.spawn { stroke: var(--cyan); stroke-dasharray: 3 5; }
 .edge.message { stroke-dasharray: 8 4; animation: pulse-dash 1.4s linear infinite; }
+.edge.waiting-on { stroke: var(--amber); stroke-dasharray: 10 5; }
+.edge.barred-by { stroke: var(--red); stroke-dasharray: 1 5; }
 .arrow { fill: var(--violet); }
 .node { cursor: pointer; }
 .node circle { fill: var(--raised); stroke: var(--tone, var(--border)); stroke-width: 2; transition: r 0.15s, filter 0.15s; }

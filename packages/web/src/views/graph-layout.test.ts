@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { cells, type GraphGroup } from '@pi-console/viewmodels';
+import { cells } from '@pi-console/viewmodels';
 import { graphSize, labelCharWidth, placeLabel, placeNodes } from './graph-layout.ts';
 
 /** Horizontal span of a placed label at the layout's own per-character budget. */
@@ -12,7 +12,7 @@ const extent = (x: number, label: { text: string; anchor: string; dx: number }):
 
 const layout = (count: number, name: (index: number) => string) => {
   const nodes = Array.from({ length: count }, (_, index) => ({ sessionId: `s${String(index)}`, label: name(index) }));
-  const positions = placeNodes({ nodes } as unknown as GraphGroup);
+  const positions = placeNodes(nodes.map(node => node.sessionId));
   return nodes.map(node => {
     const at = positions.get(node.sessionId) ?? { x: 0, y: 0 };
     const label = placeLabel(node.label, at);
