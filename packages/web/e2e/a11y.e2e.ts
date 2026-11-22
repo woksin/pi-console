@@ -11,6 +11,41 @@ async function focused(control: Locator): Promise<void> {
   assert.equal(await control.evaluate(node => node === document.activeElement), true);
 }
 
+test('timeline events are tabbable controls with visible focus and shared keyboard/click details', async () => {
+  const page = await rig.open('/timeline');
+  try {
+    const events = page.locator('.timeline-marker');
+    await events.nth(1).waitFor();
+    await page.getByRole('button', { name: 'Fit', exact: true }).focus();
+    await page.keyboard.press('Tab');
+    await focused(events.first());
+    assert.equal(await events.first().getAttribute('role'), 'button');
+    assert.match(await events.first().getAttribute('aria-label') ?? '', /.+ · .+ · .+ · .+/);
+    assert.equal(await events.first().evaluate(node => node.closest('[role="img"]') === null), true);
+    assert.equal(await events.first().evaluate(node => {
+      const ring = node.querySelector('.marker-ring');
+      return node.matches(':focus-visible') && ring !== null && getComputedStyle(ring).stroke !== 'none';
+    }), true);
+    const detail = page.getByRole('region', { name: 'Timeline event detail' });
+    for (const [index, key] of [[0, 'Enter'], [1, 'Space']] as const) {
+      if (index === 1) await page.keyboard.press('Tab');
+      const event = events.nth(index);
+      const text = await event.locator('title').textContent();
+      await page.keyboard.press(key);
+      await page.locator('.timeline-marker[aria-pressed="true"]').waitFor();
+      assert.equal(await event.getAttribute('aria-pressed'), 'true');
+      await focused(event);
+      assert.ok((await detail.innerText()).includes(text ?? 'missing event text'));
+      assert.equal(await page.locator('.timeline-marker[aria-pressed="true"]').count(), 1);
+      assert.equal(await event.evaluate(node => node.parentElement?.classList.contains('selected')), true);
+      assert.match(page.url(), /#\/timeline$/);
+    }
+    await events.first().click();
+    assert.equal(await events.first().getAttribute('aria-pressed'), 'true');
+    assert.ok((await detail.innerText()).includes(await events.first().locator('title').textContent() ?? 'missing'));
+  } finally { await page.context().close(); }
+});
+
 async function backgroundInert(page: Page, expected: boolean): Promise<void> {
   assert.deepEqual(await page.locator('.sidebar, .main').evaluateAll(nodes => nodes.map(node => node.hasAttribute('inert'))), [expected, expected]);
 }
