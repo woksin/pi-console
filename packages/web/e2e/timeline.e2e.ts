@@ -52,6 +52,11 @@ async function connect(page: Page, initial: Snapshot): Promise<void> {
 const group = (page: Page, collection: Collection) => page.getByRole('group', { name: `${collection} history`, exact: true });
 const button = (page: Page, collection: Collection) => group(page, collection).getByRole('button', { name: `Load older ${collection}`, exact: true });
 
+function isHistoryPage(address: string, collection: Collection): boolean {
+  const url = new URL(address);
+  return url.pathname === `/api/v1/${collection}` && url.searchParams.get('limit') !== '1';
+}
+
 async function routePages(page: Page, failedRequest?: Promise<void>): Promise<Map<Collection, string[]>> {
   const seen = new Map<Collection, string[]>();
   const current = snapshot('New');
@@ -63,7 +68,8 @@ async function routePages(page: Page, failedRequest?: Promise<void>): Promise<Ma
     const failure = collection === 'requests' ? failedRequest : undefined;
     await page.route(`**/api/v1/${collection}?*`, async route => {
       const url = new URL(route.request().url());
-      if (url.searchParams.get('limit') !== '200') { await route.continue(); return; }
+      if (!isHistoryPage(route.request().url(), collection)) { await route.continue(); return; }
+      assert.equal(url.searchParams.get('order'), 'desc');
       calls.push(url.searchParams.get('after') ?? '');
       if (calls.length === 1 && failure) {
         await failure;
@@ -78,10 +84,7 @@ async function routePages(page: Page, failedRequest?: Promise<void>): Promise<Ma
 }
 
 async function loadPage(page: Page, collection: Collection): Promise<void> {
-  const response = page.waitForResponse(result => {
-    const url = new URL(result.url());
-    return url.pathname === `/api/v1/${collection}` && url.searchParams.get('limit') === '200';
-  });
+  const response = page.waitForResponse(result => isHistoryPage(result.url(), collection));
   await button(page, collection).click();
   const result = await response;
   assert.equal(result.status(), 200);
@@ -106,7 +109,7 @@ test('Timeline independently pages five collections, retries failure, dedupes li
     await connect(page, snapshot('New'));
     for (const collection of collections) assert.ok((await group(page, collection).innerText()).includes(`Showing 1 of 2 ${collection}`));
     const failed = page.waitForResponse(response => response.status() === 503 && new URL(response.url()).pathname === '/api/v1/requests');
-    const started = page.waitForRequest(request => new URL(request.url()).pathname === '/api/v1/requests' && new URL(request.url()).searchParams.get('limit') === '200');
+    const started = page.waitForRequest(request => isHistoryPage(request.url(), 'requests'));
     await button(page, 'requests').dblclick();
     await started;
     assert.equal(seen.get('requests')?.length, 1, 'in-flight double activation shares one page request');
@@ -126,10 +129,10 @@ async function assertLoadedTimeline(page: Page): Promise<void> {
   assert.equal(await page.locator('.tl .lane').count(), 2);
   assert.equal(await page.locator('.timeline-marker').count(), 8, 'four kinds on each lane without duplicate controls');
   assert.equal(await page.getByRole('button', { name: /Stale page request/ }).count(), 0, 'current values beat overlapping stale pages');
-  await page.getByRole('button', { name: '+', exact: true }).click();
+  await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
   for (const collection of collections) assert.match(await group(page, collection).innerText(), /Showing 2 of 2/);
   await page.getByRole('button', { name: 'Fit', exact: true }).click();
-  const event = page.getByRole('button', { name: /Human request.*Old session.*Old request/ });
+  const event = page.getByRole('button', { name: /Human request.*repo\/old.*Old request/ });
   await event.click();
   const detail = page.getByRole('region', { name: 'Timeline event detail' });
   assert.ok((await detail.innerText()).includes('Old request'));
