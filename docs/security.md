@@ -63,7 +63,7 @@ Decisions are in [ADR-0006](adr/0006-security-model.md). This page lists assets,
 |---|---|---|
 | T1 | DNS rebinding makes a web page talk to `127.0.0.1` | Loopback bind; Host allowlist; token required on every request including SSE and WebSocket |
 | T2 | Cross-site request forges a steer or abort | Bearer authentication; Origin check on state-changing and upgrade requests; cross-site fetch refusal; no permissive CORS |
-| T3 | Token theft | 256-bit random token; 0600 file; web launch token in a scrubbed fragment, kept only in tab session storage; no query-token or cookie authentication; rotation; scoped read-only tokens; no token in logs |
+| T3 | Token theft | 256-bit random token; 0600 file; web launch token in a scrubbed `#token=` fragment, kept only in tab-scoped sessionStorage; no query-token or cookie authentication; manual rotation (delete the file, restart); a separate opt-in memory-review token, with the normal token read-only; no token in logs |
 | T4 | Remote exposure by mistake | Off by default; explicit opt-in; persistent banner; Tailscale Serve or TLS proxy with trusted-proxy list; Funnel documented as not recommended |
 | T5 | Secrets in stored or displayed content | Redact at ingestion; fail closed if scanning fails; credential files on a deny list; redact again at the point of return; pointers instead of copies |
 | T6 | Prompt injection through transcripts, messages, questions or MCP text | Rendered as text or sanitised Markdown; control sequences stripped; links not auto-followed; console-delivered text carries a provenance prefix; interventions are typed commands, never "execute this text" |
