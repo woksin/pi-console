@@ -7,6 +7,8 @@ import { LoadOlder } from './load-older.tsx';
 import { EmptyFor } from '../ui/empty.tsx';
 import { groupHeight, laneHeight, timelineGroups } from './timeline-groups.ts';
 import { indexMarkers } from './timeline-markers.ts';
+import { TimelineMarker } from './timeline-marker.tsx';
+import { TimelineDetail } from './timeline-detail.tsx';
 
 const columns = 120;
 const labelWidth = 170;
@@ -15,9 +17,11 @@ const x = (column: number): number => labelWidth + column / (columns - 1) * plot
 
 export function TimelineView({ state, now }: ViewProps) {
   const [window, setWindow] = useState<TimeWindow | undefined>(undefined);
+  const [selectedMarkerId, setSelectedMarkerId] = useState<string | null>(null);
   const input = { sessions: state.sessions, requests: state.requests, resets: state.resets, questions: state.questions, messages: state.messages, width: columns };
   const view = useMemo(() => timelineViewModel({ ...input, window }), [state.sessions, state.requests, state.resets, state.questions, state.messages, window]);
   const markersById = useMemo(() => indexMarkers(view.markers), [view.markers]);
+  const selectedMarker = selectedMarkerId === null ? undefined : markersById.get(selectedMarkerId);
   useActions(action => {
     const change: Partial<Record<typeof action, (current: TimeWindow) => TimeWindow>> = {
       'time.zoomIn': current => zoom(current, 0.5), 'time.zoomOut': current => zoom(current, 2), 'time.left': current => pan(current, -1), 'time.right': current => pan(current, 1),
@@ -45,7 +49,7 @@ export function TimelineView({ state, now }: ViewProps) {
         </div>
         <ul className="legend" aria-label="Legend">{markerLegend.map(item => <li key={item.label} className={`tone-${item.color}`}><span className="legend-glyph" aria-hidden="true">{item.glyph}</span>{item.label}</li>)}</ul>
       </div>
-      <svg className="tl" viewBox={`0 0 ${String(labelWidth + plotWidth + 20)} ${String(height)}`} role="img" aria-label="Timeline of requests, answers, resets, questions and messages per session">
+      <svg className="tl" viewBox={`0 0 ${String(labelWidth + plotWidth + 20)} ${String(height)}`} role="group" aria-label="Timeline of requests, answers, resets, questions and messages per session">
         {ticks.map(tick => <g key={tick.at}><line className="tick" x1={x(tick.column)} x2={x(tick.column)} y1={22} y2={height} /><text className="axis" x={x(tick.column)} y={14} textAnchor="middle">{tick.label}</text></g>)}
         {groups.map(group => <g key={group.repositoryId} className="timeline-group" aria-label={group.repositoryId} transform={`translate(0 ${String(group.top)})`}>
           <rect className="repository-bg" x={0} y={0} width={labelWidth + plotWidth + 20} height={groupHeight - 4} />
@@ -55,12 +59,16 @@ export function TimelineView({ state, now }: ViewProps) {
             <rect className="lane-bg" x={0} y={0} width={labelWidth + plotWidth + 20} height={laneHeight - 4} rx={6} />
             <text className="lane-label" x={10} y={20}><tspan className="lane-glyph">{lane.status.glyph}</tspan> {names.get(lane.sessionId) ?? lane.label}</text>
             <line className="lane-line" x1={labelWidth} x2={labelWidth + plotWidth} y1={15} y2={15} />
-            {lane.cells.map(cell => <text key={cell.markerId} className={`mark tone-${cell.color}`} x={x(cell.column)} y={20} textAnchor="middle"><title>{markersById.get(cell.markerId)?.text ?? ''}</title>{cell.glyph}</text>)}
+            {lane.cells.map(cell => {
+              const marker = markersById.get(cell.markerId);
+              return marker && <TimelineMarker key={cell.markerId} marker={marker} lane={names.get(lane.sessionId) ?? lane.label} x={x(cell.column)} selected={selectedMarkerId === marker.id} onSelect={() => { setSelectedMarkerId(marker.id); rows.select(lane.sessionId); }} />;
+            })}
           </g>))}
         </g>)}
         {nowColumn >= 0 && nowColumn < columns && <g className="now-line" aria-label="Now"><line x1={x(nowColumn)} x2={x(nowColumn)} y1={22} y2={height} /><text x={x(nowColumn)} y={27} textAnchor="end">now</text></g>}
       </svg>
       {history}
+      {selectedMarker && <TimelineDetail marker={selectedMarker} lane={names.get(selectedMarker.sessionId) ?? selectedMarker.sessionId} />}
     </div>
   );
 }
