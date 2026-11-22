@@ -1,6 +1,7 @@
 import { DatabaseSync, type StatementSync } from 'node:sqlite';
-import type { ProjectionRecord, ProjectionStore, ProjectionWrite } from './projection.ts';
+import type { ProjectionRecord, ProjectionRow, ProjectionStore, ProjectionWrite } from './projection.ts';
 import { parseRecords } from './records.ts';
+import { SqliteWorkRows } from './sqlite-work-rows.ts';
 
 /**
  * Projection metadata and dirty rows share one WAL transaction with their replay positions. The store is derived state:
@@ -15,6 +16,7 @@ export class SqliteProjectionStore implements ProjectionStore {
   readonly #putRow: StatementSync;
   readonly #deleteRow: StatementSync;
   readonly #resetRows: StatementSync;
+  #workRows: SqliteWorkRows | undefined;
 
   constructor(path: string) {
     this.#db = new DatabaseSync(path);
@@ -34,6 +36,19 @@ export class SqliteProjectionStore implements ProjectionStore {
       ON CONFLICT(name, collection, id) DO UPDATE SET value = excluded.value`);
     this.#deleteRow = this.#db.prepare('DELETE FROM projection_rows WHERE name = ? AND collection = ? AND id = ?');
     this.#resetRows = this.#db.prepare('DELETE FROM projection_rows WHERE name = ?');
+    if (this.#db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'work_rows'").get()) this.workRows();
+  }
+
+  #indexedWork(name: string): SqliteWorkRows | undefined {
+    if (name !== 'work') return undefined;
+    if (this.#workRows) return this.#workRows;
+    if (!this.#db.prepare("SELECT 1 FROM sqlite_master WHERE name = 'work_rows'").get()) return undefined;
+    return this.workRows();
+  }
+
+  #writeRow(name: string, row: ProjectionRow): void {
+    if (row.value === undefined) this.#deleteRow.run(name, row.collection, row.id);
+    else this.#putRow.run(name, row.collection, row.id, JSON.stringify(row.value));
   }
 
   load(name: string): ProjectionRecord | undefined {
@@ -45,6 +60,9 @@ export class SqliteProjectionStore implements ProjectionStore {
     }
     return { name, version: row.version as number, position: row.position as number, state };
   }
+
+  /** Opt-in indexed work access on the same transaction/connection as projection rows. */
+  workRows(): SqliteWorkRows { return this.#workRows ??= new SqliteWorkRows(this.#db); }
 
   /** Existing callers (including the SSE reservation) continue to save ordinary snapshots. */
   save(records: readonly ProjectionRecord[]): void { this.saveChanges(records); }
@@ -61,13 +79,23 @@ export class SqliteProjectionStore implements ProjectionStore {
   }
 
   #write(record: ProjectionWrite): void {
+    const work = this.#indexedWork(record.name);
     this.#save.run(record.name, record.version, record.position, JSON.stringify(record.state));
-    if (record.resetRows || !record.rows) this.#resetRows.run(record.name);
-    for (const row of record.rows ?? []) {
-      if (row.value === undefined) this.#deleteRow.run(record.name, row.collection, row.id);
-      else this.#putRow.run(record.name, row.collection, row.id, JSON.stringify(row.value));
+    if (record.resetRows || !record.rows) {
+      this.#resetRows.run(record.name);
+      work?.reset();
+    }
+    const rows = record.rows ?? (work ? snapshotRows(record.state) : []);
+    for (const row of rows) {
+      this.#writeRow(record.name, row);
+      work?.change(row);
     }
   }
 
   close(): void { this.#db.close(); }
+}
+
+function snapshotRows(state: unknown) {
+  return Object.entries(state as Record<string, Record<string, unknown>>).flatMap(([collection, items]) =>
+    Object.entries(items).map(([id, value]) => ({ collection, id, value })));
 }
