@@ -35,7 +35,7 @@ function rig(total = 8000) {
   const queries: URL[] = [];
   let fail = false;
   const api = createApi('token', '', async (input, init) => {
-    const url = new URL(String(input), 'http://localhost'); queries.push(url);
+    const url = new URL(input instanceof Request ? input.url : input, 'http://localhost'); queries.push(url);
     assert.equal(new Headers(init?.headers).get('Authorization'), 'Bearer token');
     assert.equal(init?.cache, 'no-store');
     if (fail) { fail = false; return new Response('', { status: 503 }); }
@@ -44,6 +44,17 @@ function rig(total = 8000) {
   return { store: new ConsoleStore(api, clock), queries, fail: () => { fail = true; } };
 }
 
+function loadedTranscript(store: ConsoleStore, sessionId = 's1'): TranscriptEntry[] {
+  const entries = store.getState().transcripts[sessionId];
+  assert.ok(entries, `Transcript for ${sessionId} has not been initialized`);
+  return entries;
+}
+
+test('transcript assertions reject a session that has not been initialized', () => {
+  const { store } = rig();
+  assert.throws(() => loadedTranscript(store), { name: 'AssertionError', message: 'Transcript for s1 has not been initialized' });
+});
+
 test('tail omits after, older/newer use the visible edges and retain a movable 2500-entry window', async () => {
   const { store, queries } = rig();
   await store.loadTranscript('s1');
@@ -51,7 +62,7 @@ test('tail omits after, older/newer use the visible edges and retain a movable 2
   assert.equal(queries[0].searchParams.get('order'), 'desc');
   assert.equal(queries[0].searchParams.has('after'), false);
   for (let page = 0; page < 6; page++) await store.pageTranscript('s1', 'older');
-  let entries = store.getState().transcripts.s1;
+  let entries = loadedTranscript(store);
   assert.equal(entries.length, 2500);
   assert.equal(entries[0].cursor, 4501);
   assert.equal(entries.at(-1)?.cursor, 7000);
@@ -59,7 +70,7 @@ test('tail omits after, older/newer use the visible edges and retain a movable 2
   await store.pageTranscript('s1', 'newer');
   assert.equal(queries.at(-1)?.searchParams.get('order'), 'asc');
   assert.equal(queries.at(-1)?.searchParams.get('after'), '7000');
-  entries = store.getState().transcripts.s1;
+  entries = loadedTranscript(store);
   assert.equal(entries.length, 2500);
   assert.equal(entries[0].cursor, 5001);
   assert.equal(entries.at(-1)?.cursor, 7500);
@@ -70,14 +81,14 @@ test('around jumps are direct, repeatable and fall back to a single fresh tail o
   const { store, queries, fail } = rig();
   for (let attempt = 0; attempt < 2; attempt++) {
     await store.loadTranscript('s1', 'e42');
-    assert.ok(store.getState().transcripts.s1.some(item => item.id === 'e42'));
+    assert.ok(loadedTranscript(store).some(item => item.id === 'e42'));
     assert.equal(queries.at(-1)?.searchParams.get('around'), 'e42');
   }
   await store.loadTranscript('s1', 'missing');
-  assert.equal(store.getState().transcripts.s1.at(-1)?.cursor, 8000);
+  assert.equal(loadedTranscript(store).at(-1)?.cursor, 8000);
   assert.equal(store.getState().transcriptHistory.s1.lastPage, 'tail');
   fail(); await store.loadTranscript('s1', 'e42');
-  assert.equal(store.getState().transcripts.s1.at(-1)?.cursor, 8000);
+  assert.equal(loadedTranscript(store).at(-1)?.cursor, 8000);
   assert.equal(queries.length, 6);
 });
 
@@ -86,12 +97,12 @@ test('older failures expose retryable status and return-to-live and reopen disca
   await store.loadTranscript('s1');
   fail(); await store.pageTranscript('s1', 'older');
   assert.equal(store.getState().transcriptHistory.s1.error, 'older');
-  assert.equal(store.getState().transcripts.s1.length, 500);
+  assert.equal(loadedTranscript(store).length, 500);
   await store.pageTranscript('s1', 'older');
   assert.equal(store.getState().transcriptHistory.s1.error, undefined);
-  assert.equal(store.getState().transcripts.s1.length, 1000);
+  assert.equal(loadedTranscript(store).length, 1000);
   await store.returnToLiveTranscript('s1');
-  assert.equal(store.getState().transcripts.s1.length, 500);
+  assert.equal(loadedTranscript(store).length, 500);
   store.closeTranscript('s1'); await store.loadTranscript('s1');
   assert.equal(queries.at(-1)?.searchParams.has('after'), false);
   assert.equal(store.getState().transcriptHistory.s1.lastPage, 'tail');
@@ -113,7 +124,7 @@ test('overlapping paging is deduplicated, and close or another session cancels s
   const second = store.loadTranscript('s2');
   assert.equal(reads[0].signal?.aborted, true);
   reads[0].result.resolve({ items: [entry(1)], nextCursor: 1, hasMore: true }); await first;
-  assert.deepEqual(store.getState().transcripts.s1, []);
+  assert.deepEqual(loadedTranscript(store), []);
   reads[1].result.resolve({ items: [entry(2)], nextCursor: 2, hasMore: true }); await second;
   const older = store.pageTranscript('s2', 'older');
   await store.pageTranscript('s2', 'older');
@@ -121,5 +132,5 @@ test('overlapping paging is deduplicated, and close or another session cancels s
   store.closeTranscript('s2');
   assert.equal(reads[2].signal?.aborted, true);
   reads[2].result.resolve({ items: [entry(1)], nextCursor: 1, hasMore: false }); await older;
-  assert.deepEqual(store.getState().transcripts.s2.map(item => item.cursor), [2]);
+  assert.deepEqual(loadedTranscript(store, 's2').map(item => item.cursor), [2]);
 });

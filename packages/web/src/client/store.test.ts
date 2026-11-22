@@ -329,37 +329,54 @@ test('heartbeat-only resumes retry failed attention and health reads exactly onc
   }
 });
 
-test('pending session detail, transcript and memory finish after a snapshot-free stalled reconnect', async t => {
+test('pending detail, tail and memory finish after a resumable reconnect; older transcript pages stay explicit', async t => {
   const detail = Promise.withResolvers<Awaited<ReturnType<Api['session']>>>();
   const transcript = Promise.withResolvers<Awaited<ReturnType<Api['transcript']>>>();
+  const transcriptQueries: Parameters<Api['transcript']>[] = [];
   const memory = Promise.withResolvers<SessionMemory>();
   const calls = { detail: 0, transcript: 0, memory: 0 };
   const session = { id: 's1', repositoryId: 'r', name: '', laneId: 'l', role: 'main' as const, parentSessionId: null, orchestratorSessionId: 's1',
     branch: '', cwd: '', model: '', status: 'idle' as const, startedAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', contextPercent: 0, samples: [] };
   const { store, emitters, lastEventIds, tick } = streamingStore(t, {
     session: () => { calls.detail++; return detail.promise; },
-    transcript: () => { calls.transcript++; return calls.transcript === 1 ? transcript.promise : Promise.resolve({ items: [entry(2)], nextCursor: 2, hasMore: false }); },
+    transcript: (...params: Parameters<Api['transcript']>) => {
+      transcriptQueries.push(params); calls.transcript++;
+      return calls.transcript === 1 ? transcript.promise : Promise.resolve({ items: [entry(1)], nextCursor: 1, hasMore: false });
+    },
     sessionMemory: () => { calls.memory++; return memory.promise; }, memoryItems: () => Promise.resolve([proposedItem]),
   });
   const snapshot = windowedSnapshot([], 0);
   emitters[0]({ ...snapshot, payload: { ...snapshot.payload, sessions: [session] } });
   const gapCount = store.getState().gapCount;
   const pending = [store.loadSessionDetail('s1'), store.loadTranscript('s1'), store.loadSessionMemory('s1')];
+  const clockAnchor = store.getState().liveAtReceivedAt;
   await tick(staleAfterMs + staleAfterMs / 3);
   assert.equal(store.getState().connection, 'offline');
   await tick(reconnectDelays[0]);
+  const beforeResume = clockNow(store.getState(), Date.now());
   emitters[1]('heartbeat');
+  assert.equal(store.getState().liveAtReceivedAt, clockAnchor, 'resume does not reset the event-time anchor');
+  assert.equal(clockNow(store.getState(), Date.now()), beforeResume, 'resume does not rewind the displayed clock');
   assert.deepEqual(lastEventIds, [0, snapshot.seq]);
   assert.equal(store.getState().gapCount, gapCount, 'a resumed stream does not retrigger the session view effects');
+  assert.equal(transcriptQueries[0][3]?.signal?.aborted, false, 'the in-flight tail read survives resume');
   detail.resolve({ session, jobs: [job('older', 'done', session.startedAt)], requests: [], questions: [], resets: [], subagents: [] });
-  transcript.resolve({ items: [entry(1)], nextCursor: 1, hasMore: true });
+  transcript.resolve({ items: [entry(2)], nextCursor: 2, hasMore: true });
   memory.resolve(memorySummary('s1'));
   await Promise.all(pending);
   assert.deepEqual(store.getState().jobs.map(item => item.id), ['older']);
-  assert.deepEqual(store.getState().transcripts.s1, [entry(1), entry(2)], 'pagination continues after the resume');
+  assert.deepEqual(store.getState().transcripts.s1, [entry(2)], 'the pending tail page completes without scanning older history');
+  assert.equal(store.getState().transcriptHistory.s1.older, true, 'descending hasMore means older history is available');
+  assert.deepEqual(transcriptQueries[0].slice(0, 3), ['s1', undefined, 500]);
+  assert.equal(transcriptQueries[0][3]?.order, 'desc');
   assert.deepEqual(store.getState().memory.s1, memorySummary('s1'));
   assert.deepEqual(store.getState().memoryItems.s1, [proposedItem]);
-  assert.deepEqual(calls, { detail: 1, transcript: 2, memory: 1 }, 'the original reads complete without another view load');
+  assert.deepEqual(calls, { detail: 1, transcript: 1, memory: 1 }, 'the original reads complete without another view load');
+  await store.pageTranscript('s1', 'older');
+  assert.deepEqual(store.getState().transcripts.s1, [entry(1), entry(2)], 'older navigation still works after resume');
+  assert.equal(transcriptQueries[1][1], 2);
+  assert.equal(transcriptQueries[1][3]?.order, 'desc');
+  assert.deepEqual(calls, { detail: 1, transcript: 2, memory: 1 }, 'only explicit navigation fetches another transcript page');
 });
 
 test('pending history stays deduplicated and completes across a resumable reconnect', async t => {
