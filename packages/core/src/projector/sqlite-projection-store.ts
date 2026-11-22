@@ -18,22 +18,28 @@ export class SqliteProjectionStore implements ProjectionStore {
 
   constructor(path: string) {
     this.#db = new DatabaseSync(path);
-    this.#db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA busy_timeout = 5000;');
-    this.#db.exec(`CREATE TABLE IF NOT EXISTS projections (
-      name TEXT PRIMARY KEY, version INTEGER NOT NULL, position INTEGER NOT NULL, state TEXT NOT NULL
-    );
-    CREATE TABLE IF NOT EXISTS projection_rows (
-      name TEXT NOT NULL, collection TEXT NOT NULL, id TEXT NOT NULL, value TEXT NOT NULL,
-      PRIMARY KEY (name, collection, id)
-    );`);
-    this.#load = this.#db.prepare('SELECT version, position, state FROM projections WHERE name = ?');
-    this.#save = this.#db.prepare(`INSERT INTO projections (name, version, position, state) VALUES (?, ?, ?, ?)
-      ON CONFLICT(name) DO UPDATE SET version = excluded.version, position = excluded.position, state = excluded.state`);
-    this.#rows = this.#db.prepare('SELECT collection, id, value FROM projection_rows WHERE name = ? ORDER BY collection, id');
-    this.#putRow = this.#db.prepare(`INSERT INTO projection_rows (name, collection, id, value) VALUES (?, ?, ?, ?)
-      ON CONFLICT(name, collection, id) DO UPDATE SET value = excluded.value`);
-    this.#deleteRow = this.#db.prepare('DELETE FROM projection_rows WHERE name = ? AND collection = ? AND id = ?');
-    this.#resetRows = this.#db.prepare('DELETE FROM projection_rows WHERE name = ?');
+    try {
+      this.#db.exec('PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA busy_timeout = 5000;');
+      this.#db.exec(`CREATE TABLE IF NOT EXISTS projections (
+        name TEXT PRIMARY KEY, version INTEGER NOT NULL, position INTEGER NOT NULL, state TEXT NOT NULL
+      );
+      CREATE TABLE IF NOT EXISTS projection_rows (
+        name TEXT NOT NULL, collection TEXT NOT NULL, id TEXT NOT NULL, value TEXT NOT NULL,
+        PRIMARY KEY (name, collection, id)
+      );`);
+      this.#load = this.#db.prepare('SELECT version, position, state FROM projections WHERE name = ?');
+      this.#save = this.#db.prepare(`INSERT INTO projections (name, version, position, state) VALUES (?, ?, ?, ?)
+        ON CONFLICT(name) DO UPDATE SET version = excluded.version, position = excluded.position, state = excluded.state`);
+      this.#rows = this.#db.prepare('SELECT collection, id, value FROM projection_rows WHERE name = ? ORDER BY collection, id');
+      this.#putRow = this.#db.prepare(`INSERT INTO projection_rows (name, collection, id, value) VALUES (?, ?, ?, ?)
+        ON CONFLICT(name, collection, id) DO UPDATE SET value = excluded.value`);
+      this.#deleteRow = this.#db.prepare('DELETE FROM projection_rows WHERE name = ? AND collection = ? AND id = ?');
+      this.#resetRows = this.#db.prepare('DELETE FROM projection_rows WHERE name = ?');
+    } catch (error) {
+      try { this.#db.close(); }
+      catch { process.stderr.write('pi-console: SQLite startup cleanup failed\n'); }
+      throw error;
+    }
   }
 
   load(name: string): ProjectionRecord | undefined {
