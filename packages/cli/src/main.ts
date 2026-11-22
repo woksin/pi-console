@@ -4,6 +4,7 @@ import { runTuiCommand } from './tui.ts';
 
 const usage = [
   'Usage: pi-console <command>',
+  '       pi-console --help | -h | help',
   '',
   'Commands:',
   '  daemon   Start the read-only console daemon (pi-console daemon --help)',
@@ -11,6 +12,8 @@ const usage = [
   '',
   'Errors print a short message; set PI_CONSOLE_DEBUG=1 to include a stack trace.',
 ].join('\n');
+
+const helpWords: ReadonlySet<string | undefined> = new Set([undefined, '--help', '-h', 'help']);
 
 function daemonStopSignal(): Promise<void> {
   return new Promise<void>(resolve => {
@@ -24,8 +27,8 @@ export async function main(argv: readonly string[]): Promise<number> {
   const [command, ...rest] = argv;
   if (command === 'daemon') return runDaemon(rest, { out: line => { console.log(line); }, stopSignal: daemonStopSignal() });
   if (command === 'tui') return await runTuiCommand(rest);
-  if (argv.length === 0 || command === '--help') {
-    console.error(usage);
+  if (helpWords.has(command)) {
+    console.log(usage);
     return 0;
   }
   console.error(`Unknown command "${command}".\n${usage}`);

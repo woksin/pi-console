@@ -61,3 +61,17 @@ test('a missing or unconfigured bundle is a plain 404 and the API keeps working'
     assert.equal(api.status, 200);
   }
 });
+
+test('without a usable web bundle the response carries the API-only hint and never the token', async t => {
+  const missing = join(mkdtempSync(join(tmpdir(), 'pi-console-web-')), 'no-such-dist');
+  t.after(() => { rmSync(join(missing, '..'), { recursive: true, force: true }); });
+  for (const webDist of [undefined, missing]) {
+    const spec = await specDaemon(undefined, { webDist });
+    t.after(() => spec.close());
+    const page = await call(spec.daemon.port, '/');
+    assert.equal(page.status, 404);
+    assert.match(page.text, /API only: start with --web-dist <path to packages\/web\/dist> to serve the web console/);
+    assert.equal(page.text.includes(spec.token), false);
+    assert.equal(page.text.includes('#token='), false);
+  }
+});

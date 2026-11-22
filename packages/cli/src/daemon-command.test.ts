@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { defaultDataDir } from '@pi-console/daemon';
@@ -56,7 +56,7 @@ test('the daemon command serves the API until stopped and never prints the token
   let stop = (): void => undefined;
   const stopSignal = new Promise<void>(resolve => { stop = resolve; });
   const running = runDaemon(['--data-dir', directory, '--port', '0', '--sessions', join(directory, 'none'), '--agent-root', join(directory, 'agent'), '--orch-root', join(directory, 'orch')], { out: line => lines.push(line), stopSignal, env: {} });
-  for (let i = 0; i < 200 && lines.length < 2; i++) await new Promise(resolve => setTimeout(resolve, 10));
+  for (let i = 0; i < 200 && lines.length < 3; i++) await new Promise(resolve => setTimeout(resolve, 10));
   const port = Number(/127\.0\.0\.1:(\d+)/.exec(lines[0])?.[1]);
   const token = readFileSync(join(directory, 'token'), 'utf8').trim();
   const reply = await fetch(`http://127.0.0.1:${port}/api/v1/health`, { headers: { Authorization: `Bearer ${token}` } });
@@ -64,6 +64,41 @@ test('the daemon command serves the API until stopped and never prints the token
   assert.equal(lines.join('\n').includes(token), false);
   stop();
   assert.equal(await running, 0);
+});
+
+async function startedLines(directory: string, extra: string[]): Promise<{ lines: string[]; finish: () => Promise<number> }> {
+  const lines: string[] = [];
+  let stop = (): void => undefined;
+  const stopSignal = new Promise<void>(resolve => { stop = resolve; });
+  const running = runDaemon(['--data-dir', directory, '--port', '0', '--sessions', join(directory, 'none'), '--agent-root', join(directory, 'agent'), '--orch-root', join(directory, 'orch'), ...extra], { out: line => lines.push(line), stopSignal, env: {} });
+  for (let i = 0; i < 200 && lines.length < 3; i++) await new Promise(resolve => setTimeout(resolve, 10));
+  return { lines, finish: () => { stop(); return running; } };
+}
+
+test('without a usable web bundle the daemon says it is API only and prints no launch link', async t => {
+  const directory = mkdtempSync(join(tmpdir(), 'pi-console-cli-'));
+  t.after(() => { rmSync(directory, { recursive: true, force: true }); });
+  for (const extra of [[], ['--web-dist', join(directory, 'missing')]]) {
+    const { lines, finish } = await startedLines(directory, extra);
+    assert.match(lines[2], /^API only: start with --web-dist <path to packages\/web\/dist>/);
+    assert.equal(lines.join('\n').includes('#token='), false);
+    assert.equal(lines.join('\n').includes(readFileSync(join(directory, 'token'), 'utf8').trim()), false);
+    assert.equal(await finish(), 0);
+  }
+});
+
+test('with a web bundle the daemon prints one launch link with the token in the fragment', async t => {
+  const directory = mkdtempSync(join(tmpdir(), 'pi-console-cli-'));
+  t.after(() => { rmSync(directory, { recursive: true, force: true }); });
+  const dist = join(directory, 'dist');
+  mkdirSync(dist);
+  writeFileSync(join(dist, 'index.html'), '<!doctype html>');
+  const { lines, finish } = await startedLines(directory, ['--web-dist', dist]);
+  const token = readFileSync(join(directory, 'token'), 'utf8').trim();
+  const port = /127\.0\.0\.1:(\d+)/.exec(lines[0])?.[1];
+  assert.equal(lines[2], `open the web console: http://127.0.0.1:${String(port)}/#token=${token}`);
+  assert.equal(lines.filter(line => line.includes(token)).length, 1);
+  assert.equal(await finish(), 0);
 });
 
 test('help prints usage without starting anything', async () => {

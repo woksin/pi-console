@@ -28,6 +28,6 @@ test('the first-run checklist ticks what it can see and keeps the extension opti
   assert.deepEqual(fresh.steps.map(item => [item.label, item.state, item.glyph]), [
     ['Daemon running', 'done', '✓'], ['Sources detected', 'todo', '○'], ['Extension installed', 'optional', '◇'],
   ]);
-  assert.match(firstRunChecklist({ connected: false, sessions: 0 }).steps[0].detail, /pi-console daemon/);
+  assert.match(firstRunChecklist({ connected: false, sessions: 0 }).steps[0].detail, /packages\/cli\/bin\/pi-console\.mjs daemon --web-dist packages\/web\/dist/);
   assert.equal(firstRunChecklist({ connected: true, sessions: 3 }).steps[1].state, 'done');
 });

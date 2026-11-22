@@ -68,10 +68,20 @@ for (const entry of [installed, direct]) {
     assert.equal(result.stderr, '--port must be a non-negative integer\n');
   });
 
-  test(`${entry}: help documents debug errors and still succeeds`, () => {
-    const result = invoke(entry, ['--help']);
-    assert.equal(result.status, 0);
+  for (const word of ['--help', '-h', 'help']) {
+    test(`${entry}: ${word} prints usage to stdout and exits zero`, () => {
+      const result = invoke(entry, [word]);
+      assert.equal(result.status, 0);
+      assert.equal(result.stderr, '');
+      assert.match(result.stdout, /^Usage: pi-console <command>/);
+      assert.match(result.stdout, /PI_CONSOLE_DEBUG=1.*stack/);
+    });
+  }
+
+  test(`${entry}: an unknown command exits two with usage on stderr`, () => {
+    const result = invoke(entry, ['open']);
+    assert.equal(result.status, 2);
     assert.equal(result.stdout, '');
-    assert.match(result.stderr, /PI_CONSOLE_DEBUG=1.*stack/);
+    assert.match(result.stderr, /^Unknown command "open"/);
   });
 }

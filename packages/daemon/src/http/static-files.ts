@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { readFile, realpath, stat } from 'node:fs/promises';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { extname, join, sep } from 'node:path';
@@ -19,6 +20,12 @@ const types = new Map(Object.entries({
   '.png': 'image/png', '.ico': 'image/x-icon', '.woff2': 'font/woff2', '.woff': 'font/woff', '.txt': 'text/plain; charset=utf-8',
   '.webmanifest': 'application/manifest+json', '.map': 'application/json; charset=utf-8',
 }));
+
+/** Said at startup and in the bundle-missing response; never carries the token. */
+export const apiOnlyHint = 'API only: start with --web-dist <path to packages/web/dist> to serve the web console';
+
+/** True when `webDist` is set and holds an `index.html` the daemon can serve. */
+export const webBundleUsable = (webDist: string | undefined): webDist is string => webDist !== undefined && existsSync(join(webDist, 'index.html'));
 
 async function existingFile(path: string): Promise<boolean> {
   try {
@@ -69,11 +76,11 @@ function notFound(res: ServerResponse, message: string): void {
   res.end(message);
 }
 
-/** Serves the built web bundle from `root`. A missing bundle is a plain 404, not an error. */
+/** Serves the built web bundle from `root`. A missing or unusable bundle is a plain 404 with a hint, not an error. */
 export async function serveStatic(root: string | undefined, req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
   if (!['GET', 'HEAD'].includes(req.method ?? '')) throw new HttpError(405, 'Method not allowed');
-  if (root === undefined) {
-    notFound(res, 'Web bundle not configured\n');
+  if (!webBundleUsable(root)) {
+    notFound(res, `Web bundle not available. ${apiOnlyHint}\n`);
     return;
   }
   const file = await servable(root, url);
