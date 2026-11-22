@@ -1,8 +1,8 @@
 import { decode, type EventEnvelope, type EventLog, type SkipReason } from '@pi-console/contract';
-import { MemoryProjectionStore, type AnyProjection, type DirtyReporter, type ProjectionStore, type ProjectionWrite } from './projection.ts';
+import { MemoryProjectionStore, type AnyProjection, type DirtyReporter, type ProjectionRuntime, type ProjectionStore, type ProjectionWrite } from './projection.ts';
 
 interface Slot {
-  projection: AnyProjection; state: unknown; position: number;
+  projection: AnyProjection; state: unknown; position: number; runtime?: ProjectionRuntime;
   dirty: Map<string, Set<string>>; dirtyRows: number; resetRows: boolean; report: DirtyReporter;
 }
 
@@ -34,10 +34,10 @@ export class Projector {
   #unsaved = 0;
   #flushTimer: ReturnType<typeof setInterval> | undefined;
 
-  constructor(log: EventLog, projections: readonly AnyProjection[], store: ProjectionStore = new MemoryProjectionStore()) {
+  constructor(log: EventLog, projections: readonly AnyProjection[], store: ProjectionStore = new MemoryProjectionStore(), runtimes: Readonly<Record<string, ProjectionRuntime>> = {}) {
     this.#log = log;
     this.#store = store;
-    this.#slots = projections.map(projection => restore(store, projection));
+    this.#slots = projections.map(projection => restore(store, projection, runtimes[projection.name]));
     const skipped = store.load(skippedName);
     this.#skipped = (skipped?.state as SkippedEvents | undefined) ?? noSkips();
     this.#position = Math.min(this.#skipped.position, ...this.#slots.map(slot => slot.position));
@@ -57,6 +57,11 @@ export class Projector {
     const slot = this.#slots.find(candidate => candidate.projection.name === name);
     if (!slot) throw new Error(`Unknown projection ${name}`);
     return slot.state;
+  }
+
+  /** An optional read source supplied by the projection's lifecycle collaborator. */
+  querySource(name: string): unknown {
+    return this.#slots.find(slot => slot.projection.name === name)?.runtime?.querySource;
   }
 
   /** Applies every stored event the projections have not seen yet, then saves snapshots. */
@@ -101,6 +106,7 @@ export class Projector {
     if (this.#store.saveChanges) this.#store.saveChanges(records);
     else this.#store.save(records);
     for (const slot of this.#slots) {
+      slot.runtime?.afterCommit(slot.dirty);
       slot.dirty.clear();
       slot.dirtyRows = 0;
       slot.resetRows = false;
@@ -124,7 +130,10 @@ export class Projector {
     if (decoded.kind === 'skipped') this.#countSkip(stored.seq, decoded.reason);
     for (const slot of this.#slots) {
       if (slot.position >= stored.seq) continue;
-      if (decoded.kind === 'ok') slot.state = slot.projection.apply(slot.state, decoded.event, slot.report);
+      if (decoded.kind === 'ok') {
+        slot.runtime?.beforeApply(decoded.event);
+        slot.state = slot.projection.apply(slot.state, decoded.event, slot.report);
+      }
       slot.position = stored.seq;
     }
     this.#skipped.position = Math.max(this.#skipped.position, stored.seq);
@@ -138,11 +147,11 @@ export class Projector {
 }
 
 /** Loads a snapshot, or starts from empty when there is none or its version is stale. */
-function restore(store: ProjectionStore, projection: AnyProjection): Slot {
-  const record = store.load(projection.name);
+function restore(store: ProjectionStore, projection: AnyProjection, runtime?: ProjectionRuntime): Slot {
+  const record = runtime ? runtime.restore(projection) : store.load(projection.name);
   const current = record?.version === projection.version;
   const slot: Slot = {
-    projection, state: current ? record.state : projection.initial(), position: current ? record.position : 0,
+    projection, runtime, state: current ? record.state : projection.initial(), position: current ? record.position : 0,
     dirty: new Map(), dirtyRows: 0, resetRows: !current,
     report(collection, id) {
       let ids = slot.dirty.get(collection);
@@ -150,6 +159,7 @@ function restore(store: ProjectionStore, projection: AnyProjection): Slot {
       if (!ids.has(id)) { ids.add(id); slot.dirtyRows++; }
     },
   };
+  runtime?.bind(slot.state, current);
   return slot;
 }
 
