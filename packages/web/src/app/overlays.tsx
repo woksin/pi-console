@@ -28,7 +28,7 @@ function Highlighted({ segments }: { segments: readonly MatchSegment[] }) {
 
 function PaletteRow({ item, active, onHover, onPick }: { item: PaletteItem; active: boolean; onHover: () => void; onPick: () => void }) {
   return (
-    <li id={`pal-${item.id}`} role="option" aria-selected={active} className={active ? 'pal-row active' : 'pal-row'} onMouseEnter={onHover} onMouseDown={onPick}>
+    <li id={`pal-${item.id}`} role="option" aria-selected={active} className={active ? 'pal-row active' : 'pal-row'} onMouseEnter={onHover} onMouseDown={event => { event.preventDefault(); onPick(); }}>
       <span className="pal-glyph" style={{ '--tone': `var(--${item.tone})` } as React.CSSProperties} role="img" aria-label={item.status} title={item.status}>{item.glyph}</span>
       <span className="pal-label truncate"><Highlighted segments={item.segments} /></span>
       <span className="pal-detail truncate">{item.detail}</span>{item.key && <Kbd>{item.key}</Kbd>}
@@ -63,7 +63,7 @@ export function Palette({ data, recents, onClose, onPick }: PaletteProps) {
   };
   const row = (item: PaletteItem) => { const position = items.indexOf(item); return <PaletteRow key={item.id} item={item} active={position === active} onHover={() => { setIndex(position); }} onPick={() => { onPick(item); }} />; };
   return (
-    <div className="overlay" onMouseDown={onClose}>
+    <div className="overlay" onMouseDown={event => { event.preventDefault(); onClose(); }}>
       <div ref={dialog} tabIndex={-1} className="dialog palette" role="dialog" aria-modal="true" aria-label="Command palette" onMouseDown={event => { event.stopPropagation(); }}>
         <input value={query} placeholder="Jump to a session, lane, request, question, message or command…" spellCheck={false} autoComplete="off"
           role="combobox" aria-expanded="true" aria-controls="palette-list" aria-activedescendant={items[active] ? `pal-${items[active].id}` : undefined}
@@ -87,7 +87,7 @@ export function Palette({ data, recents, onClose, onPick }: PaletteProps) {
 export function Help({ onClose }: { onClose: () => void }) {
   const dialog = useModalFocus();
   return (
-    <div className="overlay" onMouseDown={onClose}>
+    <div className="overlay" onMouseDown={event => { event.preventDefault(); onClose(); }}>
       <div ref={dialog} tabIndex={-1} className="dialog help" role="dialog" aria-modal="true" aria-label="Keyboard help" onMouseDown={event => { event.stopPropagation(); }}>
         <header className="help-head"><h2>Keyboard</h2><button type="button" className="btn ghost" onClick={onClose}>Close <Kbd>Esc</Kbd></button></header>
         <p className="muted">Read-only console: nothing here can change a session. Same keys as the terminal UI.</p>

@@ -69,6 +69,36 @@ test('help contains focus and restores its opener after Escape and its Close but
   } finally { await page.context().close(); }
 });
 
+test('mouse palette picks and Help backdrop dismissal restore focus without blocking palette input selection', async () => {
+  const page = await rig.open('/requests');
+  try {
+    await page.locator('.conn[data-connection="live"]').waitFor();
+    const paletteOpener = page.getByRole('button', { name: /^Palette/ });
+    await paletteOpener.click();
+    const palette = page.getByRole('dialog', { name: 'Command palette' });
+    const input = palette.getByRole('combobox');
+    await input.fill('>sett');
+    await palette.locator('.pal-heading').first().click();
+    await input.click({ clickCount: 3, position: { x: 30, y: 20 } });
+    await focused(input);
+    assert.equal(await input.evaluate(node => { const field = node as HTMLInputElement; return field.selectionStart !== field.selectionEnd; }), true, 'mouse text selection in the input is preserved');
+    await palette.getByRole('option').first().click();
+    await page.waitForURL('**/#/settings');
+    await palette.waitFor({ state: 'detached' });
+    await focused(paletteOpener);
+    await backgroundInert(page, false);
+
+    const helpOpener = page.getByRole('button', { name: /^Help/ });
+    await helpOpener.click();
+    const help = page.getByRole('dialog', { name: 'Keyboard help' });
+    await help.waitFor();
+    await page.locator('.overlay').click({ position: { x: 10, y: 10 } });
+    await help.waitFor({ state: 'detached' });
+    await focused(helpOpener);
+    await backgroundInert(page, false);
+  } finally { await page.context().close(); }
+});
+
 test('request selection is labelled, tabbable, visibly focused and activated by Enter and Space without navigating', async () => {
   const page = await rig.open('/requests');
   try {
