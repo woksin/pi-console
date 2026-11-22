@@ -37,7 +37,7 @@ const openSession = async (): Promise<Page> => {
       historyLoaded = page.waitForResponse(async response => {
         if (new URL(response.url()).pathname !== '/api/v1/sessions/s2/transcript' || !response.ok()) return false;
         const history = await response.json() as { hasMore: boolean };
-        return history.hasMore === false;
+        return !history.hasMore;
       });
     },
   });
