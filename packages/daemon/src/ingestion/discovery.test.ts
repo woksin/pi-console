@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, promises, readdirSync, rmSync, symlinkSync, utimesSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { discoverFiles, discoverFilesSliced } from './discover-files.ts';
@@ -31,6 +31,24 @@ test('sliced discovery keeps sorted scope, window and symlink rules identical to
   for (const path of ['missing', 'linked', 'credentials']) {
     assert.deepEqual(await discoverFilesSliced(join(root, path), { extension: '.jsonl' }, since), []);
   }
+});
+
+test('sliced discovery awaits directory I/O before visiting entries', async t => {
+  const root = fixture(t);
+  const ready = Promise.withResolvers<undefined>();
+  const read = t.mock.method(promises, 'readdir', async () => {
+    await ready.promise;
+    return readdirSync(root, { withFileTypes: true });
+  });
+  const scope = { extension: '.jsonl', recursive: false };
+  const expected = discoverFiles(root, scope, since);
+  let finished = false;
+  const discovery = discoverFilesSliced(root, scope, since).then(files => { finished = true; return files; });
+  assert.equal(read.mock.calls.length, 1, 'directory enumeration uses asynchronous I/O');
+  await new Promise<void>(resolve => { setImmediate(resolve); });
+  assert.equal(finished, false, 'macrotasks run while the directory read is pending');
+  ready.resolve(undefined);
+  assert.deepEqual(await discovery, expected);
 });
 
 test('discovery gives macrotasks a turn even when scanning empty directories', async t => {

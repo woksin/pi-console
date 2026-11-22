@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, readdirSync, statSync, type Dirent } from 'node:fs';
+import { existsSync, lstatSync, promises, readdirSync, statSync, type Dirent } from 'node:fs';
 import { basename, join } from 'node:path';
 import { pathDenied } from '@pi-console/adapters';
 import type { Feed } from './source-table.ts';
@@ -21,11 +21,11 @@ export function discoverFiles(directory: string, feed: Scope, since: number): st
   return [...walk(directory, { feed, since })].filter((path): path is string => path !== undefined).sort();
 }
 
-/** Yield even across empty/denied directories; no discovery slice intentionally exceeds 5 ms. */
+/** Read directories off-loop and yield even across empty/denied directories; slices target 5 ms. */
 export async function discoverFilesSliced(directory: string, feed: Scope, since: number): Promise<string[]> {
   const files: string[] = [];
   let started = performance.now();
-  for (const path of walk(directory, { feed, since })) {
+  for await (const path of walkAsync(directory, { feed, since })) {
     if (path !== undefined) files.push(path);
     if (performance.now() - started < sliceMs) continue;
     await yieldToLoop();
@@ -46,6 +46,18 @@ function* walk(directory: string, scan: Scan): Generator<string | undefined> {
   for (const entry of readdirSync(directory, { withFileTypes: true })) {
     yield undefined;
     yield* visit(join(directory, entry.name), entry, scan);
+  }
+}
+
+/** Directory enumeration itself can exceed a slice on a large feed, so do it on the I/O pool. */
+async function* walkAsync(directory: string, scan: Scan): AsyncGenerator<string | undefined> {
+  if (!isReadableDirectory(directory) || scan.feed.ancestors?.some(path => !isReadableDirectory(path))) return;
+  for (const entry of await promises.readdir(directory, { withFileTypes: true })) {
+    yield undefined;
+    const path = join(directory, entry.name);
+    if (pathDenied(path) || entry.isSymbolicLink()) continue;
+    if (entry.isDirectory() && scan.feed.recursive !== false) yield* walkAsync(path, scan);
+    else if (entry.isFile() && wanted(path, scan)) yield path;
   }
 }
 
