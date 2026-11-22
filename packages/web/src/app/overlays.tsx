@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { bindingsFor, paletteScopes, paletteView, resolve, type Action, type MatchSegment, type PaletteInput, type PaletteItem } from '@pi-console/viewmodels';
 import { neutralKey } from './keys.ts';
+import { useModalFocus } from './modal-focus.ts';
 import { Kbd } from '../ui/primitives.tsx';
 
 interface PaletteProps { data: Pick<PaletteInput, 'sessions' | 'requests' | 'questions' | 'messages'>; recents: readonly string[]; onClose: () => void; onPick: (item: PaletteItem) => void }
@@ -48,10 +49,9 @@ function PaletteFooter({ shown, total }: { shown: number; total: number }) {
 export function Palette({ data, recents, onClose, onPick }: PaletteProps) {
   const [query, setQuery] = useState('');
   const [index, setIndex] = useState(0);
-  const input = useRef<HTMLInputElement>(null);
+  const dialog = useModalFocus();
   const view = useMemo(() => paletteView({ ...data, query, recents, client: 'web' }), [data, query, recents]);
   const { items } = view;
-  useEffect(() => { input.current?.focus(); }, []);
   const active = Math.min(index, Math.max(0, items.length - 1));
   const onKey = (event: React.KeyboardEvent): void => {
     const step = paletteStep(paletteAction(event.nativeEvent), active, items.length);
@@ -64,8 +64,8 @@ export function Palette({ data, recents, onClose, onPick }: PaletteProps) {
   const row = (item: PaletteItem) => { const position = items.indexOf(item); return <PaletteRow key={item.id} item={item} active={position === active} onHover={() => { setIndex(position); }} onPick={() => { onPick(item); }} />; };
   return (
     <div className="overlay" onMouseDown={onClose}>
-      <div className="dialog palette" role="dialog" aria-modal="true" aria-label="Command palette" onMouseDown={event => { event.stopPropagation(); }}>
-        <input ref={input} value={query} placeholder="Jump to a session, lane, request, question, message or command…" spellCheck={false} autoComplete="off"
+      <div ref={dialog} tabIndex={-1} className="dialog palette" role="dialog" aria-modal="true" aria-label="Command palette" onMouseDown={event => { event.stopPropagation(); }}>
+        <input value={query} placeholder="Jump to a session, lane, request, question, message or command…" spellCheck={false} autoComplete="off"
           role="combobox" aria-expanded="true" aria-controls="palette-list" aria-activedescendant={items[active] ? `pal-${items[active].id}` : undefined}
           onChange={event => { setQuery(event.target.value); setIndex(0); }} onKeyDown={onKey} />
         <ul id="palette-list" role="listbox" aria-label={`Results: ${view.scope}`}>
@@ -85,12 +85,11 @@ export function Palette({ data, recents, onClose, onPick }: PaletteProps) {
 
 /** Help is generated from the one keymap, so it can never disagree with what the keys do. */
 export function Help({ onClose }: { onClose: () => void }) {
-  const closer = useRef<HTMLButtonElement>(null);
-  useEffect(() => { closer.current?.focus(); }, []);
+  const dialog = useModalFocus();
   return (
     <div className="overlay" onMouseDown={onClose}>
-      <div className="dialog help" role="dialog" aria-modal="true" aria-label="Keyboard help" onMouseDown={event => { event.stopPropagation(); }}>
-        <header className="help-head"><h2>Keyboard</h2><button ref={closer} type="button" className="btn ghost" onClick={onClose}>Close <Kbd>Esc</Kbd></button></header>
+      <div ref={dialog} tabIndex={-1} className="dialog help" role="dialog" aria-modal="true" aria-label="Keyboard help" onMouseDown={event => { event.stopPropagation(); }}>
+        <header className="help-head"><h2>Keyboard</h2><button type="button" className="btn ghost" onClick={onClose}>Close <Kbd>Esc</Kbd></button></header>
         <p className="muted">Read-only console: nothing here can change a session. Same keys as the terminal UI.</p>
         <dl className="help-list">
           {bindingsFor('web').map(binding => (
