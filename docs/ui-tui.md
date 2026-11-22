@@ -23,7 +23,7 @@ Number keys jump, clicks work on tabs and rows. Everything except explicit memor
 | `1` | Overview | "Needs you" cards from `/needs-you` plus a fleet summary: status bars, context sparkline, tokens, cost |
 | `2` | Fleet | Repositories, then sessions by lane with status glyph, context bar, age, cost; `/` filters, `space` folds a group, `Enter` opens a session |
 | (Enter) | Session | Transcript with tool calls, diffs and reset markers; `f` follows the tail, `/` searches; right rail cycles requests, questions, jobs, resets (`Tab`) |
-| `3` | Requests | Requests with origin evidence, answer state and partial-answer flags |
+| `3` | Requests | Requests with origin evidence, answer state and partial-answer flags; `[` / `]` step the state filter, `o` the origin filter and `S` the session filter (each wraps, and the header line shows what is on) |
 | `4` | Questions | Open, blocking and urgent questions with options; `v` expands the selected question at any width, with full text and wrapped options; arrows/PgUp/PgDn/Home/End scroll, `v` or Esc returns |
 | `5` | Messages | Inter-agent messages with delivery state; `v` switches to the canonical lane communication graph, with session spawn relationships in a separate section |
 | `6` | Timeline | Per-session lanes with request, answer and message markers; `+`/`-` zoom, `h`/`l` pan, `t` scrubs |
