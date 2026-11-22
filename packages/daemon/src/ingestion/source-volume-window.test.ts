@@ -24,10 +24,14 @@ class MemoryLog implements EventLog {
   saved = new Map<string, SourceCheckpoint>();
   checkpointReads = 0;
   delayMs = 0;
+  /** When set, every append parks here until released; `entered` resolves on the first parked append. */
+  gate?: Promise<unknown>;
+  readonly entered = Promise.withResolvers<undefined>();
   readonly #keys = new Set<string>();
 
   async append(events: readonly NewEvent[], checkpoints: readonly SourceCheckpoint[] = []): Promise<AppendResult> {
     if (this.delayMs > 0) await wait(this.delayMs);
+    if (this.gate) { this.entered.resolve(undefined); await this.gate; }
     let appended = 0;
     for (const event of events) if (!this.#keys.has(event.idempotencyKey)) { this.#keys.add(event.idempotencyKey); this.events.push(event); appended++; }
     for (const checkpoint of checkpoints) this.saved.set(`${checkpoint.source}|${checkpoint.identity}`, checkpoint);
@@ -244,16 +248,26 @@ async function waitFor(condition: () => boolean, timeoutMs: number): Promise<voi
   }
 }
 
-test('stopping during a long backfill returns within a second', async t => {
+test('stopping during a long backfill returns once the in-flight append is released and processes nothing further', { timeout: 30_000 }, async t => {
   const tree = buildAgentTree(agentRoot(t));
   for (let i = 0; i < 300; i++) put(join(tree.root, 'user-questions/items', `bulk-${i}`, 'r00000001.json'), JSON.stringify({ v: 1, id: `bulk-${i}`, rev: 1, type: 'question', priority: 'normal', blocking: '', text: 'Bulk?', history: [{ seq: 1, type: 'created', ts: '2026-11-20T09:03:00.000Z' }] }) + '\n');
   const log = new MemoryLog();
-  log.delayMs = 30;
+  const release = Promise.withResolvers<undefined>();
+  log.gate = release.promise;
   const source = spec(tree.root, 'question-store');
   const set = new SourceSet([{ id: source.id, worker: () => ingestion(log, source) }], { intervalMs: 20 });
   set.start();
-  await wait(150);
-  const began = performance.now();
-  await set.stop();
-  assert.ok(performance.now() - began < 1_000, `stop took ${performance.now() - began} ms`);
+  try {
+    await log.entered.promise; // The backfill is blocked inside an append.
+    const stopping = set.stop();
+    release.resolve(undefined);
+    await Promise.race([stopping, wait(10_000).then(() => { throw new Error('stop did not resolve within the watchdog'); })]);
+    const processed = log.events.length;
+    await wait(100);
+    assert.equal(log.events.length, processed, 'no rows are processed after stop resolved');
+    assert.ok(processed < 300, `stop abandoned the backfill (processed ${processed} of 300)`);
+  } finally {
+    release.resolve(undefined);
+    await set.stop();
+  }
 });
