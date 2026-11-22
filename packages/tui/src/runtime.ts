@@ -1,5 +1,6 @@
 import { createElement } from 'react';
 import { TranscriptLoader } from './transcript-loader.ts';
+import { MemoryLoader } from './memory-loader.ts';
 import { DaemonClient } from './api/client.ts';
 import { resolveCredentials, type Credentials } from './api/token.ts';
 import { throttled, type Refresher } from './refresh.ts';
@@ -9,7 +10,7 @@ import { launch } from './view/renderer.ts';
 import { MemoryRefreshController, MemoryReviewController, type WindowedCollection } from '@pi-console/viewmodels';
 import { detectDepth, palette, themeFromEnv } from './view/theme.ts';
 
-export interface Runtime { store: Store; client: DaemonClient; loadTranscript: TranscriptLoader['load']; reviews: MemoryReviewController; loadMemory: (id: string) => Promise<void>; retryNeedsYou: Refresher['request']; watchMemory: (id: string) => () => void; stop: () => void }
+export interface Runtime { store: Store; client: DaemonClient; loadTranscript: TranscriptLoader['load']; reviews: MemoryReviewController; loadMemory: (id: string) => Promise<void>; loadMoreMemory: MemoryLoader['more']; retryNeedsYou: Refresher['request']; watchMemory: (id: string) => () => void; stop: () => void }
 
 const NEEDS_YOU_REFRESH_MS = 2000;
 
@@ -18,11 +19,10 @@ export function connect(credentials: Credentials): Runtime {
   const store = new Store();
   const client = new DaemonClient(credentials);
   let stopped = false;
-  const memory = new MemoryRefreshController(async id => {
-    const [summary, items] = await Promise.all([client.sessionMemory(id), client.memoryItems(id)]);
-    if (!stopped) store.mergeMemory(id, summary, items);
-  }, id => reviews.load(id, { fresh: true }));
+  const memoryLoader = new MemoryLoader(store, client);
+  const memory = new MemoryRefreshController(id => memoryLoader.refresh(id), id => reviews.load(id, { fresh: true }));
   const loadMemory = (id: string): Promise<void> => memory.refresh(id);
+  const loadMoreMemory = olderMemory(store, memoryLoader, memory);
   const reviews = new MemoryReviewController(client, (id, review) => { if (!stopped) store.setMemoryReview(id, review); }, loadMemory);
   const transcripts = new TranscriptLoader(store, client);
   const refresher = attentionRequests(store, client);
@@ -36,7 +36,17 @@ export function connect(credentials: Credentials): Runtime {
     },
     onState: state => { store.setConnection(state.connected, state.error); if (state.connected) refresh(); },
   });
-  return { store, client, loadTranscript: transcripts.load, reviews, loadMemory, retryNeedsYou: refresh, watchMemory: id => memory.watch(id), stop: () => { stopped = true; transcripts.stop(); memory.dispose(); reviews.dispose(); refresher.stop(); client.stop(); store.dispose(); } };
+  return { store, client, loadTranscript: transcripts.load, reviews, loadMemory, loadMoreMemory, retryNeedsYou: refresh, watchMemory: id => memory.watch(id), stop: () => { stopped = true; transcripts.stop(); memoryLoader.stop(); memory.dispose(); reviews.dispose(); refresher.stop(); client.stop(); store.dispose(); } };
+}
+
+function olderMemory(store: Store, loader: MemoryLoader, refresh: MemoryRefreshController): Runtime['loadMoreMemory'] {
+  return id => {
+    if (store.getSnapshot().memoryHistory.get(id)?.error === 'refresh') {
+      refresh.invalidate(id);
+      return refresh.refresh(id);
+    }
+    return loader.more(id);
+  };
 }
 
 function attentionRequests(store: Store, client: DaemonClient): Refresher {
@@ -84,6 +94,7 @@ export async function run(options: RunOptions = {}): Promise<number> {
       loadMore: collection => { void loadMore(runtime, collection); },
       loadTranscript: runtime.loadTranscript,
       loadMemory: id => { void runtime.loadMemory(id); }, watchMemory: runtime.watchMemory,
+      loadMoreMemory: id => { void runtime.loadMoreMemory(id); },
       requestMemoryAction: (id, itemId, action) => { void runtime.reviews.request(id, itemId, action); },
       onQuit: () => { handle?.destroy(); finish(); },
     });

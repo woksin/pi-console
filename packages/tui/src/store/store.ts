@@ -7,6 +7,8 @@ const upsert = <T extends { id: string }>(items: T[], item: T): T[] => {
   return index < 0 ? [...items, item] : items.map((existing, position) => (position === index ? item : existing));
 };
 
+export interface MemoryHistory { cursor: string | null; more: boolean; total?: number; loading: boolean; error?: 'refresh' | 'more' }
+
 export interface Connection { connected: boolean; error: string; lastSeq: number | undefined; lastEventAt: number | undefined; eventsReceived: number }
 export interface Data {
   loaded: boolean; connection: Connection; repositories: number;
@@ -23,6 +25,8 @@ export interface Data {
   /** Read-only intent memory per session id, fetched when its session is opened. */
   memory: ReadonlyMap<string, SessionMemory>; memoryItems: ReadonlyMap<string, MemoryItem[]>;
   memoryReviews: ReadonlyMap<string, MemoryReviewSession>;
+  /** Loaded memory history is separate from whole-session summary counts. */
+  memoryHistory: ReadonlyMap<string, MemoryHistory>;
   /** Ids of entities touched since the last render, used for the brief "just changed" highlight. */
   fresh: ReadonlyMap<string, number>;
 }
@@ -34,7 +38,7 @@ export interface Data {
 export class Store {
   private data: Data = {
     loaded: false, connection: { connected: false, error: 'Connecting…', lastSeq: undefined, lastEventAt: undefined, eventsReceived: 0 }, repositories: 0,
-    sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], totals: null, bounded: [], history: {}, needsYou: [], needsYouLoaded: false, needsYouError: false, transcripts: new Map(), transcriptsTruncated: new Set(), memory: new Map(), memoryItems: new Map(), memoryReviews: new Map(), fresh: new Map(),
+    sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], totals: null, bounded: [], history: {}, needsYou: [], needsYouLoaded: false, needsYouError: false, transcripts: new Map(), transcriptsTruncated: new Set(), memory: new Map(), memoryItems: new Map(), memoryReviews: new Map(), memoryHistory: new Map(), fresh: new Map(),
   };
   private readonly listeners = new Set<() => void>();
   private timer: ReturnType<typeof setTimeout> | undefined;
@@ -125,6 +129,11 @@ export class Store {
       ...this.data, sessions: mergeHistory(this.data.sessions, [detail.session, ...detail.subagents]), requests: mergeHistory(this.data.requests, detail.requests),
       questions: mergeHistory(this.data.questions, detail.questions), jobs: mergeHistory(this.data.jobs, detail.jobs), resets: mergeHistory(this.data.resets, detail.resets),
     };
+    this.schedule();
+  }
+
+  setMemoryHistory(sessionId: SessionMemory['sessionId'], progress: MemoryHistory): void {
+    this.data = { ...this.data, memoryHistory: new Map(this.data.memoryHistory).set(sessionId, progress) };
     this.schedule();
   }
 

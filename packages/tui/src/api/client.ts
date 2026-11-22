@@ -1,5 +1,5 @@
 import type { WindowedCollection } from '@pi-console/viewmodels';
-import type { MemoryActionAvailability, MemoryActionReceipt, MemoryActionRequest, Event, MemoryItem, SessionDetail, SessionMemory, TranscriptEntry, Transcript, NeedsYou, AttentionItem } from '@pi-console/contract';
+import type { MemoryActionAvailability, MemoryActionReceipt, MemoryActionRequest, Event, MemoryItem, MemoryItemPage, SessionDetail, SessionMemory, TranscriptEntry, Transcript, NeedsYou, AttentionItem } from '@pi-console/contract';
 import { FrameParser } from './sse.ts';
 import type { Credentials } from './token.ts';
 import { TRANSCRIPT_LIMIT } from '../store/store.ts';
@@ -84,7 +84,12 @@ export class DaemonClient {
 
   /** The newest memory items of one session. */
   async memoryItems(sessionId: string, limit = 100): Promise<MemoryItem[]> {
-    return (await this.json<{ items: MemoryItem[] }>(`/memory-items?limit=${String(limit)}&order=desc&sessionId=${encodeURIComponent(sessionId)}`)).items;
+    return (await this.memoryPage(sessionId, null, limit)).items;
+  }
+
+  /** One newest-first memory page, retaining the daemon's total and exclusive older cursor. */
+  async memoryPage(sessionId: string, after: string | null = null, limit = 100): Promise<MemoryItemPage> {
+    return await this.json(`/memory-items?limit=${String(limit)}&order=desc&sessionId=${encodeURIComponent(sessionId)}${after ? `&after=${encodeURIComponent(after)}` : ''}`);
   }
 
   async transcript(sessionId: string, signal?: AbortSignal): Promise<TranscriptEntry[]> {
