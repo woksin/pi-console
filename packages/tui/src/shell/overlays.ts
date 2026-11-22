@@ -1,5 +1,5 @@
 import { keyLabel, keymapGroups, pad, paletteScopes, paletteView, settingsViewModel, themePreview, wrap, type KeymapGroup, type PaletteItem, type PaletteView, type SettingsInput, type SettingsRow, type Tone } from '@pi-console/viewmodels';
-import { Column, Lines, Overlay, Panel, Row, h, type Line, type Part } from '../view/renderer.ts';
+import { Lines, Overlay, Panel, h, type Line, type Part } from '../view/renderer.ts';
 import { blank, fit, gap, heading, rule, selectable, split, t, windowOf } from '../view/parts.ts';
 import type { Data } from '../store/store.ts';
 import type { UiState } from '../state/ui.ts';
@@ -57,16 +57,29 @@ function helpLines(groups: KeymapGroup[], width: number): Line[] {
   }), blank]);
 }
 
-export function Help(props: { width: number; height: number }) {
-  const width = Math.min(116, props.width - 2);
-  const column = Math.floor((width - 6) / 2);
+function helpContent({ width }: { width: number }): Line[] {
   const groups = keymapGroups('tui');
-  const left = helpLines(groups.slice(0, 2), column);
-  const right = helpLines(groups.slice(2), column);
-  const box = frame(props.width, props.height, { width, height: Math.max(left.length, right.length) + 5 });
-  return h(Overlay, box, h(Panel, { title: 'Help', right: '? or esc closes', focused: true, grow: 1, background: 'raised' },
+  if (width < 100) return helpLines(groups, width - 4);
+  const column = Math.floor((width - 6) / 2);
+  const left = helpLines(groups.slice(0, 2), column), right = helpLines(groups.slice(2), column);
+  return Array.from({ length: Math.max(left.length, right.length) }, (_, index) => [...fit(left[index] ?? [], column), gap(2), ...fit(right[index] ?? [], column)]);
+}
+
+export function helpViewport(size: { width: number; height: number }) {
+  const wanted = Math.min(116, size.width - 2);
+  const lines = helpContent({ width: wanted });
+  const box = frame(size.width, size.height, { width: wanted, height: lines.length + 5 });
+  const page = Math.max(1, box.height - 5);
+  return { lines, box, bounds: { page, max: Math.max(0, lines.length - page) } };
+}
+
+export function Help(props: { width: number; height: number; scroll?: number }) {
+  const { lines, box, bounds } = helpViewport(props);
+  const start = Math.min(props.scroll ?? 0, bounds.max);
+  const position = bounds.max > 0 ? `${String(start + 1)}–${String(Math.min(lines.length, start + bounds.page))} of ${String(lines.length)} · ↑↓ PgUp/PgDn Home/End · ` : '';
+  return h(Overlay, box, h(Panel, { title: 'Help', right: `${position}? or esc closes`, focused: true, grow: 1, background: 'raised' },
     h(Lines, { lines: [heading('Keyboard map (shared with the web console)'), blank], height: 2 }),
-    h(Row, { grow: 1, gap: 2 }, h(Column, { width: column }, h(Lines, { lines: left, grow: 1 })), h(Column, { width: column }, h(Lines, { lines: right, grow: 1 }))),
+    h(Lines, { lines: lines.slice(start, start + bounds.page), grow: 1 }),
     h(Lines, { lines: [[t('Read-only: nothing here can change a session.', 'faint')]], height: 1 })));
 }
 
