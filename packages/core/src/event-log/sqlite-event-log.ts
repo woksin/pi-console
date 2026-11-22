@@ -66,14 +66,20 @@ export class SqliteEventLog implements EventLog {
 
   constructor(path: string, options: SqliteEventLogOptions = {}) {
     this.#database = new DatabaseSync(path);
-    this.#database.exec(schema);
-    this.#insert = this.#database.prepare(`INSERT INTO events
-      (id, idempotencyKey, type, version, occurredAt, recordedAt, source, subject, actor, payload, refs)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`);
-    this.#saveCheckpoint = this.#database.prepare(`INSERT INTO checkpoints (source, identity, value) VALUES (?, ?, ?)
-      ON CONFLICT (source, identity) DO UPDATE SET value = excluded.value`);
-    this.#read = this.#database.prepare('SELECT * FROM events WHERE seq > ? ORDER BY seq LIMIT ?');
-    this.#last = this.#database.prepare('SELECT COALESCE(MAX(seq), 0) AS seq FROM events');
+    try {
+      this.#database.exec(schema);
+      this.#insert = this.#database.prepare(`INSERT INTO events
+        (id, idempotencyKey, type, version, occurredAt, recordedAt, source, subject, actor, payload, refs)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT DO NOTHING`);
+      this.#saveCheckpoint = this.#database.prepare(`INSERT INTO checkpoints (source, identity, value) VALUES (?, ?, ?)
+        ON CONFLICT (source, identity) DO UPDATE SET value = excluded.value`);
+      this.#read = this.#database.prepare('SELECT * FROM events WHERE seq > ? ORDER BY seq LIMIT ?');
+      this.#last = this.#database.prepare('SELECT COALESCE(MAX(seq), 0) AS seq FROM events');
+    } catch (error) {
+      try { this.#database.close(); }
+      catch { process.stderr.write('pi-console: SQLite startup cleanup failed\n'); }
+      throw error;
+    }
     this.#now = options.now ?? (() => new Date());
     this.#pageSize = options.pageSize ?? 500;
     this.#sliceEvents = options.sliceEvents ?? 250;

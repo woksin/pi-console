@@ -1,6 +1,6 @@
 export const sectionIds = ['overview', 'fleet', 'requests', 'questions', 'messages', 'timeline', 'work'] as const;
 export type SectionId = (typeof sectionIds)[number];
-export type ViewId = SectionId | 'session' | 'settings';
+export type ViewId = SectionId | 'session' | 'settings' | 'not-found';
 
 export const sectionMeta: Record<SectionId, { label: string; hint: string; icon: string }> = {
   overview: { label: 'Overview', hint: 'What needs you now', icon: '◉' },
@@ -21,7 +21,11 @@ export function parseRoute(hash: string): Route {
   const [path, query = ''] = hash.replace(/^#\/?/, '').split('?');
   const [first = '', second] = path.split('/');
   const params = Object.fromEntries(new URLSearchParams(query));
-  const id = second ? decodeURIComponent(second) : null;
+  let id: string | null;
+  try {
+    decodeURIComponent(path);
+    id = second ? decodeURIComponent(second) : null;
+  } catch { return { view: 'not-found', id: null, params: {} }; }
   if (first === 'session' && id) return { view: 'session', id, params };
   if (first === 'settings') return { view: 'settings', id: null, params };
   return { view: isSection(first) ? first : 'overview', id, params };
@@ -35,4 +39,5 @@ export function hrefFor(view: ViewId, id?: string | null, params: Record<string,
 export const sessionHref = (id: string, entryId?: string | null): string => hrefFor('session', id, entryId ? { entry: entryId } : {});
 
 export const sectionFor = (view: ViewId): SectionId | null => (isSection(view) ? view : null);
-export const titleFor = (view: ViewId): string => (view === 'session' ? 'Session' : view === 'settings' ? 'Settings' : sectionMeta[view].label);
+const viewTitles = { session: 'Session', settings: 'Settings', 'not-found': 'Not found' };
+export const titleFor = (view: ViewId): string => isSection(view) ? sectionMeta[view].label : viewTitles[view];
