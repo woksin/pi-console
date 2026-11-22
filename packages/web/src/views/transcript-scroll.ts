@@ -17,11 +17,12 @@ function capture(pane: HTMLElement): Anchor | null {
   return null;
 }
 
-/** Puts the anchored line back at its captured offset; if it was evicted, the oldest surviving line is the nearest honest position. */
+/** Puts the anchored line back at its captured offset; eviction clamps to the nearest surviving edge. */
 function restore(pane: HTMLElement, anchor: Anchor | null, lines: readonly TranscriptLine[]): void {
   if (!anchor) return;
   const exact = document.getElementById(`line-${anchor.id}`);
-  const element = exact ?? (lines.length > 0 ? document.getElementById(`line-${lines[0].key}`) : null);
+  const nearest = Number(anchor.id) > (lines.at(-1)?.key ?? 0) ? lines.at(-1) : lines[0];
+  const element = exact ?? (nearest ? document.getElementById(`line-${nearest.key}`) : null);
   if (!element) return;
   const delta = element.getBoundingClientRect().top - pane.getBoundingClientRect().top - (exact ? anchor.top : 0);
   if (Math.abs(delta) > 0.5) pane.scrollTop += delta;
@@ -57,8 +58,8 @@ export interface TranscriptScroll {
 }
 
 /** Follow-the-tail, pause on user scroll, anchoring on a line id while paused, and the one-time scroll to a jump target. */
-export function useTranscriptScroll(lines: readonly TranscriptLine[], focusEntry: string | null): TranscriptScroll {
-  const { follow, pause, toggleFollow } = useFollow(focusEntry === null);
+export function useTranscriptScroll(lines: readonly TranscriptLine[], focusEntry: string | null, onResume: () => void): TranscriptScroll {
+  const { follow, pause, toggleFollow } = useFollow(focusEntry === null, onResume);
   const pane = useRef<HTMLDivElement>(null);
   const end = useRef<HTMLDivElement>(null);
   const tail = tailSignature(lines);

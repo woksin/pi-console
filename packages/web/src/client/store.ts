@@ -1,8 +1,9 @@
 import type { Event as ApiEvent } from '@pi-console/contract';
 import { MemoryRefreshController, MemoryReviewController, type WindowedCollection } from '@pi-console/viewmodels';
-import { applyEvent, mergePage, mergeSessionDetail, mergeTranscript } from '../state/reduce.ts';
+import { applyEvent, mergePage, mergeSessionDetail } from '../state/reduce.ts';
 import { emptyState, type Connection, type ConsoleState, type MemoryReadStatus } from '../state/state.ts';
 import { Unauthorized, type Api } from './api.ts';
+import { TranscriptHistory } from './transcript-history.ts';
 
 export interface Clock { now(): number; setTimeout(callback: () => void, ms: number): number; clearTimeout(id: number): void }
 
@@ -17,12 +18,9 @@ export const staleAfterMs = 45_000;
 const refreshDebounceMs = 350;
 const memoryItemLimit = 100;
 const memoryReadError = (error: unknown): string => error instanceof Error ? error.message : 'Memory read failed.';
-const historyPageSize = 1000;
 /** Rows per history page: newest first, so the first page mostly repeats the snapshot window and later pages go back in time. */
 const listPageSize = 500;
 const windowedNames: readonly WindowedCollection[] = ['sessions', 'requests', 'questions', 'messages', 'jobs', 'resets'];
-/** Enough pages to reach the tail of any realistic session (the TUI pages the same way); only the newest entries are retained. */
-const maxHistoryPages = 60;
 
 type Listener = () => void;
 interface MemoryRead { sessionId: string }
@@ -36,7 +34,6 @@ interface SessionDetailLoad {
 
 /** Pending reads and their cleanup belong to the current snapshot, even across resumable connections. */
 class RequestGeneration {
-  readonly loaded = new Map<string, Promise<void>>();
   readonly details = new Map<string, SessionDetailLoad>();
   readonly paging = new Map<WindowedCollection, Promise<void>>();
   /** Bounded collections that gained an id the client had not seen: their snapshot total may have moved, so it is refetched. */
@@ -50,14 +47,11 @@ class RequestGeneration {
  * The client's single source of truth: server-sent state plus connection status. It owns the stream loop (resume by
  * Last-Event-ID, snapshot refetch on gap, backoff) and the derived-model refresh (`/needs-you`, `/health`).
  */
-/** Paging stops at the end of history, or as soon as the entry being jumped to has been loaded. */
-const isLastPage = (result: { hasMore: boolean; items: readonly { id: string }[] }, focus: string | null): boolean =>
-  !result.hasMore || (focus !== null && result.items.some(item => item.id === focus));
-
 export class ConsoleStore {
   #state: ConsoleState = emptyState();
   readonly #listeners = new Set<Listener>();
   readonly #api: Api;
+  readonly #transcript: TranscriptHistory;
   #reviews: MemoryReviewController;
   #memoryRefresh: MemoryRefreshController;
   readonly #clock: Clock;
@@ -75,6 +69,7 @@ export class ConsoleStore {
   #takeRefreshAgain(requests: RequestGeneration): boolean { const again = requests.refreshAgain; requests.refreshAgain = false; return again; }
 
   #resetRequests(): void {
+    this.#transcript.close();
     this.#requests = new RequestGeneration();
     if (this.#refresh !== null) this.#clock.clearTimeout(this.#refresh);
     this.#refresh = null;
@@ -83,6 +78,7 @@ export class ConsoleStore {
   constructor(api: Api, clock: Clock = realClock) {
     this.#api = api;
     this.#clock = clock;
+    this.#transcript = new TranscriptHistory(api, () => this.#state, state => { this.#set(state); });
     this.#reviews = this.#createReviews();
     this.#memoryRefresh = this.#createMemoryRefresh();
   }
@@ -342,28 +338,9 @@ export class ConsoleStore {
     }
   }
 
-  /** Loads a session's transcript history once per gap; the live tail arrives over the stream. History is paged to its end (only the newest entries are kept), or, with `focus`, until that entry is present. A failed load is forgotten so the next open retries it. */
-  loadTranscript(sessionId: string, focus: string | null = null): Promise<void> {
-    const requests = this.#requests;
-    const key = `${sessionId}:${String(this.#state.gapCount)}:${focus ?? ''}`;
-    const existing = requests.loaded.get(key);
-    if (existing) return existing;
-    const task = this.#fetchTranscript(requests, sessionId, focus).then(complete => { if (!complete) requests.loaded.delete(key); });
-    requests.loaded.set(key, task);
-    return task;
-  }
-
-  /** Returns false when a page could not be fetched. */
-  async #fetchTranscript(requests: RequestGeneration, sessionId: string, focus: string | null): Promise<boolean> {
-    let after = 0;
-    for (let page = 0; page < maxHistoryPages; page++) {
-      const result = await this.#api.transcript(sessionId, after, historyPageSize).catch(() => null);
-      if (!this.#requestActive(requests)) return false;
-      if (!result) return false;
-      this.#set(mergeTranscript(this.#state, sessionId, result.items, focus !== null));
-      if (isLastPage(result, focus)) return true;
-      after = result.nextCursor;
-    }
-    return true;
-  }
+  /** A single descending tail page, or one around-entry page for a deliberate jump. */
+  loadTranscript(sessionId: string, focus: string | null = null): Promise<void> { return this.#transcript.open(sessionId, focus); }
+  pageTranscript(sessionId: string, direction: 'older' | 'newer'): Promise<void> { return this.#transcript.page(sessionId, direction); }
+  returnToLiveTranscript(sessionId: string): Promise<void> { return this.#transcript.tail(sessionId); }
+  closeTranscript(sessionId: string): void { this.#transcript.close(sessionId); }
 }

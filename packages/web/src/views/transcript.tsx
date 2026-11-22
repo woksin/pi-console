@@ -1,23 +1,75 @@
+import { useRef } from 'react';
 import { glyphs, type ResetRequest, type TranscriptLine } from '@pi-console/viewmodels';
 import { useListNav } from '../app/hooks.ts';
 import { focusKey } from './transcript-jump.ts';
-import { useTranscriptScroll } from './transcript-scroll.ts';
+import { useTranscriptScroll, type TranscriptScroll } from './transcript-scroll.ts';
 import { EmptyState } from '../ui/primitives.tsx';
+import type { TranscriptProgress } from '../state/transcript-history.ts';
 
-interface TranscriptProps { lines: readonly TranscriptLine[]; focusEntry: string | null; searching: boolean }
+interface TranscriptProps {
+  lines: readonly TranscriptLine[]; focusEntry: string | null; searching: boolean;
+  progress?: TranscriptProgress;
+  onPage: (direction: 'older' | 'newer') => void; onLive: () => void;
+}
+
+type HistoryActions = Pick<TranscriptProps, 'progress' | 'onPage' | 'onLive'>;
+
+function HistoryControls({ progress, onPage, onLive }: HistoryActions) {
+  if (!progress) return null;
+  const retry = (): void => {
+    if (progress.error === 'older' || progress.error === 'newer') onPage(progress.error);
+    else onLive();
+  };
+  const busy = progress.loading !== undefined;
+  return <>
+    {progress.older && <button type="button" className="btn" disabled={busy} onClick={() => { onPage('older'); }}>Load older</button>}
+    {progress.newer && <button type="button" className="btn" disabled={busy} onClick={() => { onPage('newer'); }}>Load newer</button>}
+    {progress.loading && <span role="status">Loading {progress.loading}…</span>}
+    {progress.error && <span role="alert">Could not load {progress.error}. <button type="button" className="btn" onClick={retry}>Retry</button></span>}
+  </>;
+}
+
+function FollowControls({ scroll, progress, onLive }: Pick<HistoryActions, 'progress' | 'onLive'> & { scroll: TranscriptScroll }) {
+  const busy = progress?.loading !== undefined;
+  return <>
+    <button type="button" className="btn follow" aria-pressed={scroll.follow} disabled={busy} onClick={scroll.toggleFollow}>{scroll.follow ? '● Following' : '○ Follow tail'} <kbd className="kbd">f</kbd></button>
+    {(!scroll.follow || progress?.newer) && <button type="button" className="btn" disabled={busy} onClick={onLive}>Return to live</button>}
+  </>;
+}
+
+function olderAllowed(progress: TranscriptProgress | undefined, following: boolean, searching: boolean): boolean {
+  return !following && !searching && progress?.older === true && !progress.loading;
+}
+
+function useOlderAtTop(scroll: TranscriptScroll, enabled: boolean, load: () => void): () => void {
+  const previousTop = useRef(0);
+  return () => {
+    scroll.onScroll();
+    const top = scroll.pane.current?.scrollTop ?? 0;
+    const reachedTop = top < previousTop.current && top <= 2;
+    previousTop.current = top;
+    if (reachedTop && enabled) load();
+  };
+}
 
 /** Every character is rendered as a React text node (escaped); transcript text is never interpreted as markup. */
-export function Transcript({ lines, focusEntry, searching }: TranscriptProps) {
-  const scroll = useTranscriptScroll(lines, focusEntry);
+export function Transcript({ lines, focusEntry, searching, progress, onPage, onLive }: TranscriptProps) {
+  const scroll = useTranscriptScroll(lines, focusEntry, onLive);
+  const page = (direction: 'older' | 'newer'): void => { scroll.pause(); scroll.remember(); onPage(direction); };
+  const olderEnabled = olderAllowed(progress, scroll.follow, searching);
+  const onScroll = useOlderAtTop(scroll, olderEnabled, () => { page('older'); });
   const nav = useListNav(lines.map(line => String(line.key)), {
     initial: focusKey(lines, focusEntry), fallback: String(lines.at(-1)?.key),
     onMove: key => { scroll.pause(); document.getElementById(`line-${key}`)?.scrollIntoView({ block: 'nearest' }); scroll.remember(); },
   });
-  if (lines.length === 0) return <EmptyState title={searching ? 'No lines match' : 'No transcript yet'} mark="…">{searching ? 'Clear the search to see the whole transcript.' : 'Lines stream in here as the agent works.'}</EmptyState>;
   return (
     <div className="transcript-shell">
-      <div className="transcript-controls"><button type="button" className="btn follow" aria-pressed={scroll.follow} onClick={scroll.toggleFollow}>{scroll.follow ? '● Following' : '○ Follow tail'} <kbd className="kbd">f</kbd></button></div>
-      <div ref={scroll.pane} onScroll={scroll.onScroll} className="transcript" role="log" aria-live="off" aria-label="Transcript lines">
+      <div className="transcript-controls">
+        <FollowControls scroll={scroll} progress={progress} onLive={onLive} />
+        <HistoryControls progress={progress} onPage={page} onLive={onLive} />
+      </div>
+      <div ref={scroll.pane} onScroll={onScroll} className="transcript" role="log" aria-live="off" aria-label="Transcript lines">
+      {lines.length === 0 && !progress?.loading && <EmptyState title={searching ? 'No lines match' : 'No transcript yet'} mark="…">{searching ? 'Clear the search to see the whole transcript.' : 'Lines stream in here as the agent works.'}</EmptyState>}
       {lines.map(line => <Line key={line.key} line={line} selected={nav.selected === String(line.key)} focused={line.id === focusEntry} onSelect={() => { nav.select(String(line.key)); scroll.pause(); }} />)}
       <div ref={scroll.end} />
       </div>

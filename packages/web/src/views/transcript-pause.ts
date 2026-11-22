@@ -19,10 +19,10 @@ export function usePauseOnUserScroll(pause: () => void): void {
 export interface Follow { follow: boolean; pause: () => void; toggleFollow: () => void }
 
 /** Follow-the-tail state: toggled by the follow action, paused by any user scroll away from the tail. */
-export function useFollow(initial: boolean): Follow {
+export function useFollow(initial: boolean, onResume: () => void): Follow {
   const [follow, setFollow] = useState(initial);
   const pause = useCallback((): void => { setFollow(false); }, []);
-  const toggleFollow = useCallback((): void => { setFollow(value => !value); }, []);
+  const toggleFollow = useCallback((): void => { if (!follow) onResume(); setFollow(!follow); }, [follow, onResume]);
   useActions(action => { if (action !== 'follow.toggle') return false; toggleFollow(); return true; });
   usePauseOnUserScroll(pause);
   return { follow, pause, toggleFollow };

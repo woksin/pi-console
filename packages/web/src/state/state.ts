@@ -53,8 +53,8 @@ export interface ConsoleState {
   gapCount: number;
   /** Frames (events and heartbeats) received since this page loaded. */
   received: number;
-  /** Sessions whose history was loaded deliberately (a jump to an old line); they keep far more lines than the default window. */
-  deepHistory: readonly string[];
+  /** The visible transcript's bounded-window edges and request status, independent of follow/pause. */
+  transcriptHistory: Record<string, import('./transcript-history.ts').TranscriptProgress>;
   /** Full collection sizes from the daemon; `null` against a daemon that sends complete snapshots. */
   totals: Totals | null;
   /** Collections the snapshot only carried a window of (active items plus the newest); the rest of their history is paged. */
@@ -63,15 +63,11 @@ export interface ConsoleState {
   history: Partial<Record<WindowedCollection, { cursor: string | null; more: boolean }>>;
 }
 
-export const transcriptRetention = 2500;
-export const deepRetention = 20_000;
-export const retentionFor = (state: Pick<ConsoleState, 'deepHistory'>, sessionId: string): number => (state.deepHistory.includes(sessionId) ? deepRetention : transcriptRetention);
-
 export function emptyState(): ConsoleState {
   return {
     repositories: [], sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], interventions: [],
     transcripts: {}, memory: {}, memoryItems: {}, memoryStatus: {}, memoryReviews: new Map(), needsYou: [], needsYouLoaded: false, needsYouError: false, graph: null, health: null, overview: null, liveAt: 0, liveAtReceivedAt: null, snapshotLoaded: false, seq: 0,
-    connection: 'connecting', lastFrameAt: 0, gapCount: 0, received: 0, deepHistory: [], totals: null, bounded: [], history: {},
+    connection: 'connecting', lastFrameAt: 0, gapCount: 0, received: 0, transcriptHistory: {}, totals: null, bounded: [], history: {},
   };
 }
 

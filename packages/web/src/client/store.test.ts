@@ -16,24 +16,28 @@ const entry = (cursor: number): TranscriptEntry => ({
 function history(total: number, failFirst = 0): { api: Api; calls: () => number } {
   let calls = 0;
   const api = {
-    transcript: (_session: string, after: number, limit: number) => {
+    transcript: (_session: string, after: number | undefined, limit: number, options?: { order?: string }) => {
       calls++;
       if (calls <= failFirst) return Promise.reject(new Error('unreachable'));
-      const items = Array.from({ length: Math.max(0, Math.min(limit, total - after)) }, (_, index) => entry(after + index + 1));
-      const nextCursor = after + items.length;
-      return Promise.resolve({ items, nextCursor, hasMore: nextCursor < total });
+      const descending = options?.order === 'desc';
+      const end = descending ? (after ?? total + 1) - 1 : Math.min(total, (after ?? 0) + limit);
+      const start = descending ? Math.max(1, end - limit + 1) : (after ?? 0) + 1;
+      const items = Array.from({ length: Math.max(0, end - start + 1) }, (_, index) => entry(start + index));
+      return Promise.resolve({ items, nextCursor: descending ? start : end, hasMore: descending ? start > 1 : end < total });
     },
   } as unknown as Api;
   return { api, calls: () => calls };
 }
 
-test('opening a long session loads the newest history, not the oldest: it pages to the end and keeps the last 2,500', async () => {
-  const store = new ConsoleStore(history(6000).api, clock);
+test('opening a long session fetches just one descending tail page', async () => {
+  const { api, calls } = history(6000);
+  const store = new ConsoleStore(api, clock);
   await store.loadTranscript('s1');
   const loaded = store.getState().transcripts.s1 ?? [];
-  assert.equal(loaded.length, 2500);
+  assert.equal(calls(), 1);
+  assert.equal(loaded.length, 500);
   assert.equal(loaded.at(-1)?.cursor, 6000, 'the tail is present');
-  assert.equal(loaded[0]?.cursor, 3501);
+  assert.equal(loaded[0]?.cursor, 5501);
 });
 
 test('a failed history load is retried on the next open instead of being cached', async () => {

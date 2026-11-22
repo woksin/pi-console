@@ -1,7 +1,8 @@
 import type { SessionDetail, TranscriptEntry } from '@pi-console/contract';
 import { mergeHistory, mergeSnapshot, type WindowedCollection } from '@pi-console/viewmodels';
 import type { ListPage } from '../client/api.ts';
-import { retentionFor, type ApiEvent, type ConsoleState } from './state.ts';
+import type { ApiEvent, ConsoleState } from './state.ts';
+import { emptyProgress, transcriptArrival } from './transcript-history.ts';
 
 function upsert<T extends { id: string }>(items: readonly T[], item: T): T[] {
   const index = items.findIndex(existing => existing.id === item.id);
@@ -14,10 +15,8 @@ function upsert<T extends { id: string }>(items: readonly T[], item: T): T[] {
 function withTranscript(state: ConsoleState, entry: TranscriptEntry): ConsoleState {
   const current = state.transcripts[entry.sessionId] ?? [];
   if (current.some(existing => existing.id === entry.id)) return state;
-  const next = [...current, entry].sort((a, b) => a.cursor - b.cursor);
-  const keep = retentionFor(state, entry.sessionId);
-  if (next.length > keep) next.splice(0, next.length - keep);
-  return { ...state, transcripts: { ...state.transcripts, [entry.sessionId]: next } };
+  const result = transcriptArrival(current, state.transcriptHistory[entry.sessionId] ?? emptyProgress, entry);
+  return { ...state, transcripts: { ...state.transcripts, [entry.sessionId]: result.entries }, transcriptHistory: { ...state.transcriptHistory, [entry.sessionId]: result.progress } };
 }
 
 const latest = (...times: string[]): number => Math.max(0, ...times.map(time => Date.parse(time)).filter(Number.isFinite));
@@ -90,13 +89,4 @@ export function mergeSessionDetail(state: ConsoleState, detail: SessionDetail): 
     ...state, sessions: mergeHistory(state.sessions, [detail.session, ...detail.subagents]), requests: mergeHistory(state.requests, detail.requests),
     questions: mergeHistory(state.questions, detail.questions), jobs: mergeHistory(state.jobs, detail.jobs), resets: mergeHistory(state.resets, detail.resets),
   };
-}
-
-/** Merges transcript history fetched over HTTP (older entries the stream never carried). Does not touch `seq`. `deep` keeps the long window. */
-export function mergeTranscript(state: ConsoleState, sessionId: string, entries: readonly TranscriptEntry[], deep = false): ConsoleState {
-  const marked = deep && !state.deepHistory.includes(sessionId) ? { ...state, deepHistory: [...state.deepHistory, sessionId] } : state;
-  const byId = new Map((marked.transcripts[sessionId] ?? []).map(entry => [entry.id, entry]));
-  for (const entry of entries) byId.set(entry.id, entry);
-  const merged = [...byId.values()].sort((a, b) => a.cursor - b.cursor).slice(-retentionFor(marked, sessionId));
-  return { ...marked, transcripts: { ...marked.transcripts, [sessionId]: merged } };
 }
