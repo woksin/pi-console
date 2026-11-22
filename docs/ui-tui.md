@@ -31,6 +31,12 @@ Number keys jump, clicks work on tabs and rows. Everything except explicit memor
 | `:` `Ctrl+P` | Palette | Commands, and `@` finds a session |
 | `?` `,` | Help, Settings | The shared keymap; connection health, data counts and sources |
 
+Help scrolls with arrows, PgUp/PgDn and Home/End, including on short terminals; `?` or Esc closes it.
+
+Fleet, Requests, Questions, Messages and Work load older history when you reach the last loaded row; Timeline also loads older resets. If a history page fails, press `r` to retry, or try moving forward again at the end of the list.
+
+"Needs you" also refreshes every 60 seconds while connected, even without new stream events. After a failed load, press `r` in Overview to retry.
+
 Header: brand, tabs, a "N need you" pill and the live/offline link. Footer: the keymap's hints for the current context (so a new binding appears here without TUI changes). While the stream is down a banner shows the error and the sequence number it will resume from; the client reconnects with capped backoff and resumes through `Last-Event-ID`. Below 112 columns the tab labels collapse to numbers and side panels drop; transcript text is sanitised, so terminal escapes in a session cannot reach the screen.
 
 Screenshots and a tour, captured from the real TUI on a pty against the mock daemon's synthetic fixture by `npm run media` ([docs/media/README.md](media/README.md)). `npm run media -w @pi-console/tui` still writes a full per-view SVG and plain-text capture into `docs/media/tui/` as scratch output (not committed).
@@ -80,9 +86,8 @@ The Go Bubble Tea implementation from the bake-off ([round 2](spikes/tui-bubblet
 
 ## Known gaps
 
-- Help lists the whole keymap and is cut off on terminals shorter than about 45 rows.
 - No visual regression of the colour output; specs assert text, and the SVGs are for review.
 
 ## Session memory pane
 
-The session view's side pane cycles through `memory` as its fifth tab (same keys as the other panes). It renders the same panel as the web: counts, unresolved bound, items, the exact `/memory confirm <id>` text for proposed items and the handoff figures. No key writes anything.
+The session view's side pane cycles through `memory` as its fifth tab (same keys as the other panes). It renders the same panel as the web: counts, unresolved bound, items, the exact `/memory confirm <id>` text for proposed items and the handoff figures. The explicit `c` / `x` [memory-review keys](#memory-review) POST requests for native confirmation in pi when available; they do not write memory directly.
