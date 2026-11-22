@@ -130,7 +130,11 @@ export async function mountHeadless(node: ReactNode, size: { width: number; heig
     flags.IS_REACT_ACT_ENVIRONMENT = true;
     try { await act(async () => { await work(); }); } finally { flags.IS_REACT_ACT_ENVIRONMENT = false; }
   };
-  const settle = async () => { await inAct(async () => { await new Promise(resolve => setTimeout(resolve, 15)); await ui.flush(); }); };
+  const settle = async () => {
+    await inAct(async () => { await new Promise(resolve => setTimeout(resolve, 15)); });
+    // act can commit another render when it exits; wait after React has drained its work.
+    await ui.waitForVisualIdle();
+  };
   return {
     frame: () => ui.captureCharFrame(),
     press: async (key, modifiers) => {
