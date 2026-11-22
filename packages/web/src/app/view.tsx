@@ -1,4 +1,5 @@
 import type { ConsoleState } from '../state/state.ts';
+import { EmptyState } from '../ui/primitives.tsx';
 import { FleetView } from '../views/fleet.tsx';
 import { MessagesView } from '../views/messages.tsx';
 import { OverviewView } from '../views/overview.tsx';
@@ -24,6 +25,7 @@ const renderers: Record<Route['view'], Render> = {
   timeline: props => <TimelineView {...props} />,
   work: props => <WorkView {...props} />,
   settings: props => <SettingsView {...props} />,
+  'not-found': () => <EmptyState title="Page not found" mark="∅">This link is invalid. <a href="#/overview">Back to overview</a></EmptyState>,
 };
 
 export function View({ route, state, now }: { route: Route } & ViewProps) {

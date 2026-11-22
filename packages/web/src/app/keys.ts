@@ -1,5 +1,5 @@
 import type { KeyContext } from '@pi-console/viewmodels';
-import type { Route } from './routes.ts';
+import { sectionFor, type Route } from './routes.ts';
 
 const named: Record<string, string> = { ' ': 'Space', Escape: 'Esc' };
 
@@ -28,5 +28,5 @@ export function contextFor({ route, palette, help }: ContextInput): KeyContext {
   if (route.view === 'session') return 'detail';
   if (route.view === 'timeline') return 'timeline';
   if (route.view === 'messages' && route.params.view === 'graph') return 'graph';
-  return route.view === 'settings' ? 'global' : route.view;
+  return sectionFor(route.view) ?? 'global';
 }
