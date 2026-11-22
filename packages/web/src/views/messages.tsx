@@ -12,16 +12,22 @@ import { LoadOlder } from './load-older.tsx';
 
 type Mode = 'list' | 'graph';
 
+/** Filters the raw rows with the shared match rules (as the TUI does), then labels lanes (the filter does not apply to the graph) for display; `total` is the unfiltered count. */
+function useMessageRows(state: ViewProps['state'], now: number, mode: Mode, query: string): { view: { rows: MessageRow[] }; total: number } {
+  const model = useMemo(() => messagesViewModel({ messages: state.messages, sessions: state.sessions, now }), [state.messages, state.sessions, now]);
+  const matched = useMemo(() => filterMessageRows(model.rows, mode === 'list' ? query : ''), [model.rows, mode, query]);
+  const view = useMemo(() => {
+    const names = new Map(state.sessions.map(session => [session.id, laneLabel(session.repositoryId, session.laneId)]));
+    return { rows: matched.map(row => ({ ...row, from: names.get(row.fromSessionId) ?? row.from, to: names.get(row.toSessionId) ?? row.to })) };
+  }, [matched, state.sessions]);
+  return { view, total: model.rows.length };
+}
+
 export function MessagesView({ state, now, mode }: ViewProps & { mode: Mode }) {
   const [query, setQuery] = useState('');
   const search = useRef<HTMLInputElement>(null);
   useSearchFocus(search);
-  const all = useMemo(() => {
-    const model = messagesViewModel({ messages: state.messages, sessions: state.sessions, now });
-    const names = new Map(state.sessions.map(session => [session.id, laneLabel(session.repositoryId, session.laneId)]));
-    return model.rows.map(row => ({ ...row, from: names.get(row.fromSessionId) ?? row.from, to: names.get(row.toSessionId) ?? row.to }));
-  }, [state.messages, state.sessions, now]);
-  const view = { rows: filterMessageRows(all, query) };
+  const { view, total } = useMessageRows(state, now, mode, query);
   const go = (next: Mode): void => { navigate(hrefFor('messages', null, next === 'graph' ? { view: 'graph' } : {})); };
   useActions(action => { if (action !== 'view.toggle') return false; go(mode === 'graph' ? 'list' : 'graph'); return true; });
   const rows = new Map(view.rows.map(row => [row.id, row]));
@@ -33,9 +39,9 @@ export function MessagesView({ state, now, mode }: ViewProps & { mode: Mode }) {
         {mode === 'list' && <SearchBox value={query} onChange={setQuery} placeholder="Filter messages…" inputRef={search} />}
         <span className="muted">{view.rows.length} messages</span>
       </div>
-      {mode === 'list' && <LoadOlder state={state} collection="messages" shown={all.length} noun="messages" />}
+      {mode === 'list' && <LoadOlder state={state} collection="messages" shown={total} noun="messages" />}
       {mode === 'graph' ? <GraphView state={state} /> : view.rows.length === 0
-        ? <EmptyList view="messages" none={all.length === 0} noun="messages" />
+        ? <EmptyList view="messages" none={total === 0} noun="messages" />
         : <ol className="stack" aria-label="Messages">{view.rows.map(row => <MessageCard key={row.id} row={row} selected={nav.selected === row.id} onSelect={() => { nav.select(row.id); }} />)}</ol>}
     </div>
   );
