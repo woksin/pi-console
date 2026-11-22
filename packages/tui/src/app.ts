@@ -118,7 +118,7 @@ export function App(props: AppProps): ReactElement {
   const selectSection = (section: Section) => { apply(reduce(uiRef.current, `section.${String(sectionOrder.indexOf(section) + 1)}` as Action, boundsOf(viewRef.current, heightRef.current))); };
 
   return h(Screen, {},
-    h(Header, { ui, width: size.width, attention: data.needsYou.length, connection: data.connection, select: selectSection }),
+    h(Header, { ui, width: size.width, attention: data, connection: data.connection, select: selectSection }),
     ...(showPulse ? [h(Text, { line: pulseLine(pulse, size.width) })] : []),
     ...(connectionBanner ? [h(Text, { line: connectionBanner })] : []),
     h(HistoryError, { collection: failure, width: size.width }),
