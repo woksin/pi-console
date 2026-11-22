@@ -4,8 +4,8 @@
  * `mountHeadless`. Swapping the renderer (the Bubble Tea fallback in ADR-0003) means re-implementing this file.
  */
 import { act, createElement, useEffect, type ReactElement, type ReactNode } from 'react';
-import { createCliRenderer, TextAttributes, type CliRenderer } from '@opentui/core';
-import { createRoot, useKeyboard, useTerminalDimensions, useAnimationTick, useRenderer } from '@opentui/react';
+import { createCliRenderer, decodePasteBytes, stripAnsiSequences, TextAttributes, type CliRenderer } from '@opentui/core';
+import { createRoot, useKeyboard, usePaste, useTerminalDimensions, useAnimationTick, useRenderer } from '@opentui/react';
 import { testRender } from '@opentui/react/test-utils';
 import type { KeyInput } from '../state/keys.ts';
 import { palette, type Color } from './theme.ts';
@@ -69,8 +69,13 @@ export const Clickable = (props: { onClick: () => void; children?: ReactNode; wi
 export const Text = (props: { line: Line }): ReactElement => renderLine(props.line, 0);
 export const Spacer = (props: { grow?: number }): ReactElement => element('box', { flexGrow: props.grow ?? 1 });
 
-export const useKeys = (handler: (key: KeyInput) => void): void => {
+export const useKeys = (handler: (key: KeyInput) => void, onPaste?: (text: string) => void): void => {
   useKeyboard(event => { handler({ name: event.name, sequence: event.sequence, ctrl: event.ctrl, meta: event.meta, shift: event.shift }); });
+  usePaste(event => {
+    const text = stripAnsiSequences(decodePasteBytes(event.bytes))
+      .replace(/[\r\n\u2028\u2029]+/g, ' ').replace(/\p{Cc}/gu, '');
+    onPaste?.(text);
+  });
 };
 export const useSize = (): { width: number; height: number } => useTerminalDimensions();
 /** Calls `callback` at `fps` on the renderer's shared clock; `undefined` pauses it. */
@@ -107,6 +112,7 @@ export interface Headless {
   /** Named keys use OpenTUI names (RETURN, ESCAPE, ARROW_DOWN, TAB, PAGE_UP); single characters are typed. */
   press: (key: string, modifiers?: { ctrl?: boolean; shift?: boolean }) => Promise<void>;
   type: (text: string) => Promise<void>;
+  paste: (text: string) => Promise<void>;
   click: (x: number, y: number) => Promise<void>;
   resize: (width: number, height: number) => Promise<void>;
   waitFor: (text: string | ((frame: string) => boolean)) => Promise<string>;
@@ -132,6 +138,7 @@ export async function mountHeadless(node: ReactNode, size: { width: number; heig
       await settle();
     },
     type: async text => { await inAct(async () => { await ui.mockInput.typeText(text); }); await settle(); },
+    paste: async text => { await inAct(async () => { await ui.mockInput.pasteBracketedText(text); }); await settle(); },
     click: async (x, y) => { await inAct(async () => { await ui.mockMouse.click(x, y); }); await settle(); },
     resize: async (width, height) => { await inAct(() => { ui.resize(width, height); }); await settle(); },
     waitFor: async text => ui.waitForFrame(typeof text === 'string' ? (frame => frame.includes(text)) : text, { maxPasses: 40 }),
