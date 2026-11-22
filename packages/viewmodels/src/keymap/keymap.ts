@@ -52,7 +52,7 @@ export const bindings: readonly Binding[] = [
   { keys: ['PageDown'], action: 'page.down', label: 'Page down', contexts: [...lists, 'transcript'] },
   { keys: ['r'], action: 'attention.retry', label: 'Retry needs you after a failed load', hint: 'r retry', contexts: ['overview'], clients: ['tui'] },
   { keys: ['Enter'], action: 'open', label: 'Open', hint: '⏎ open', contexts: [...listContexts, 'timeline', 'graph', 'palette', 'filter'], tuiOnlyContexts: ['timeline', 'graph'] },
-  { keys: ['Esc'], action: 'back', label: 'Close, cancel, back', hint: 'esc back', contexts: [...lists, 'transcript', 'graph', 'timeline', 'palette', 'filter', 'help'], tuiOnlyContexts: [...listContexts, 'graph', 'timeline'] },
+  { keys: ['Esc'], action: 'back', label: 'Close, cancel, back', hint: 'esc back', contexts: [...lists, 'transcript', 'graph', 'timeline', 'palette', 'filter', 'help'] },
   { keys: ['Tab'], action: 'pane.next', label: 'Next pane', hint: 'tab pane', contexts: ['detail', 'transcript'], clients: ['tui'] },
   { keys: ['Shift+Tab'], action: 'pane.previous', label: 'Previous pane', contexts: ['detail', 'transcript'], clients: ['tui'] },
   { keys: ['f'], action: 'follow.toggle', label: 'Toggle follow-tail in a transcript', hint: 'f follow', contexts: ['transcript'] },

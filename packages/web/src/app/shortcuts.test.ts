@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test, type TestContext } from 'node:test';
 import type { PaletteItem } from '@pi-console/viewmodels';
-import { pickTarget, type Overlay } from './shortcuts.ts';
+import { goBack, pickTarget, type Overlay } from './shortcuts.ts';
 
 function browserFor(t: TestContext) {
   const pending: (() => void)[] = [];
@@ -44,4 +44,16 @@ test('view actions picked in the palette remain deferred until the palette has c
   assert.equal(browser.location.hash, '');
   assert.deepEqual(overlays, []);
   pending[0]();
+});
+
+test('Escape goes back from a session even when the key arrives before the view re-renders', t => {
+  const { browser } = browserFor(t);
+  let backs = 0;
+  Object.assign(browser, { history: { length: 2, back: () => { backs += 1; } } });
+  browser.location.hash = '#/session/s1';
+  assert.equal(goBack('back'), true);
+  assert.equal(backs, 1);
+  browser.location.hash = '#/fleet';
+  assert.equal(goBack('back'), false);
+  assert.equal(backs, 1);
 });

@@ -76,3 +76,7 @@ test('web list contexts follow the route; overlays and graph take precedence', (
   assert.equal(contextFor({ route: parseRoute('#/messages?view=graph'), palette: false, help: false }), 'graph');
   assert.equal(contextFor({ route: parseRoute('#/session/s2'), palette: false, help: false }), 'detail');
 });
+
+test('Escape resolves to back in every list context, so a key pressed just after navigating into a session still goes back', () => {
+  for (const context of ['overview', 'fleet', 'requests', 'questions', 'messages', 'work', 'detail', 'timeline', 'graph'] as const) assert.equal(resolveWebKey(context, 'Esc'), 'back', context);
+});
