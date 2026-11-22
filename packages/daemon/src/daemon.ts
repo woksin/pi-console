@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { join } from 'node:path';
-import { ConsoleQueries, consoleProjections, Projector, readModels, SqliteEventLog, SqliteProjectionStore } from '@pi-console/core';
+import { ConsoleQueries, consoleProjections, createCompletedWorkRuntime, Projector, readModels, SqliteEventLog, SqliteProjectionStore } from '@pi-console/core';
 import type { DaemonConfig } from './config.ts';
 import { EventLoopHealth } from './event-loop.ts';
 import { apiQuery, type ApiContext } from './api/routes.ts';
@@ -50,7 +50,7 @@ async function openCore(dataDir: string): Promise<Core> {
   const path = join(dataDir, 'console.db');
   const log = new SqliteEventLog(path);
   const store = new SqliteProjectionStore(path);
-  const projector = new Projector(log, consoleProjections(), store);
+  const projector = new Projector(log, consoleProjections(), store, { work: createCompletedWorkRuntime(store) });
   await projector.start();
   return { log, store, projector };
 }

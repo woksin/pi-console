@@ -19,7 +19,7 @@ type Bounded = NonNullable<Snapshot['bounded']>;
  */
 export function screenSnapshot(models: ReadModels, attention: readonly AttentionItem[], generatedAt: string, recent = recentWindow): Snapshot {
   const referenced = referencedBy(attention);
-  const jobs = windowOf(jobEntries(models), recent);
+  const jobs = workWindow(models, recent);
   const requests = windowOf(requestEntries(models, referenced), recent);
   const questions = windowOf(questionEntries(models, referenced), recent);
   const messages = windowOf(messageEntries(models), recent);
@@ -49,6 +49,10 @@ export function screenSnapshot(models: ReadModels, attention: readonly Attention
     },
     bounded,
   };
+}
+
+function workWindow(models: ReadModels, recent: number) {
+  return models.workQueries ? models.workQueries.window(recent) : windowOf(jobEntries(models), recent);
 }
 
 /** Active and newest sessions, plus sessions that own kept items, plus every parent of a kept session. */
