@@ -19,9 +19,10 @@ function interruptExplicitly(state: DerivationState, requestId: string, resetId:
  * The request/answer derivation (ADR-0008 Phase A, docs/requests.md). Ordered observations continue a cached pairing
  * machine; late facts and changed lineage re-derive the session. The JSON state alone remains sufficient to replay.
  * Facts that name a request (non-raw) are taken as stated and override the derivation.
+ * Version 5 distinguishes normalized session-array storage, so older binaries rebuild rather than misread its rows.
  */
 export const requestDerivation: RequestDerivation = projection<DerivationState>(
-  'requests', 4, () => ({ requests: {}, sessions: {}, explicit: {} }), {
+  'requests', 5, () => ({ requests: {}, sessions: {}, explicit: {} }), {
     SessionStarted(state, payload) {
       session(state, payload.sessionId).facts = {
         child: payload.role === 'subagent', parentSessionId: payload.parentSessionId, parentSessionKnown: payload.parentSessionKnown === true,

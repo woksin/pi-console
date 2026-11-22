@@ -84,6 +84,7 @@ export class SessionRenderer {
       const index = this.#record.requestIds.length;
       this.#indices.set(request.id, index);
       this.#record.requestIds.push(request.id);
+      markDirty(this.#state, 'sessions', this.#sessionId);
       changeIndex(this.#record, 'requestIds', index);
     }
     this.#state.requests[request.id] = request;
@@ -96,6 +97,7 @@ export class SessionRenderer {
     const ids = this.#record.requestIds;
     const last = ids.pop();
     if (last === undefined) return;
+    markDirty(this.#state, 'sessions', this.#sessionId);
     if (index < ids.length) {
       ids[index] = last;
       this.#indices.set(last, index);
@@ -164,6 +166,7 @@ export class SessionRenderer {
       this.#state.requests[request.id] = request;
     }
     this.#record.requestIds = requests.map(request => request.id);
+    markDirty(this.#state, 'sessions', this.#sessionId);
     this.#indices = new Map(this.#record.requestIds.map((id, index) => [id, index]));
   }
 }
