@@ -25,18 +25,23 @@ function retainedBeforePage(current: readonly TranscriptEntry[], page: Transcrip
   return current.filter(entry => entry.cursor > newest);
 }
 
+function windowEdges(progress: TranscriptProgress, page: Transcript, direction: TranscriptLoad, window: { total: number; entries: readonly TranscriptEntry[] }): { older: boolean; newer: boolean } {
+  const edges = pageEdges(progress, page, direction);
+  if (window.total > transcriptRetention) {
+    if (direction === 'older') edges.newer = true;
+    else edges.older = true;
+  }
+  if (progress.observedTail > (window.entries.at(-1)?.cursor ?? 0)) edges.newer = true;
+  return edges;
+}
+
 /** A contiguous, movable window: evict only the edge opposite the requested direction. */
 export function transcriptPage(current: readonly TranscriptEntry[], progress: TranscriptProgress, page: Transcript, direction: TranscriptLoad): { entries: TranscriptEntry[]; progress: TranscriptProgress } {
   const previous = retainedBeforePage(current, page, direction);
   const unique = new Map([...page.items, ...previous].map(entry => [entry.id, entry]));
   const all = [...unique.values()].sort((a, b) => a.cursor - b.cursor);
   const entries = direction === 'older' ? all.slice(0, transcriptRetention) : all.slice(-transcriptRetention);
-  const edges = pageEdges(progress, page, direction);
-  if (all.length > transcriptRetention) {
-    if (direction === 'older') edges.newer = true;
-    else edges.older = true;
-  }
-  if (progress.observedTail > (entries.at(-1)?.cursor ?? 0)) edges.newer = true;
+  const edges = windowEdges(progress, page, direction, { total: all.length, entries });
   return { entries, progress: { ...edges, focusEntry: direction === 'tail' ? undefined : progress.focusEntry, observedTail: progress.observedTail, revision: progress.revision + (direction === 'tail' || direction === 'around' ? 1 : 0), lastPage: direction } };
 }
 

@@ -7,6 +7,30 @@ import { createApi, type Api } from './api.ts';
 const clock: Clock = { now: () => 0, setTimeout: () => 0, clearTimeout: () => undefined };
 const entry = (cursor: number): TranscriptEntry => ({ id: `e${cursor}`, cursor, sessionId: 's1', at: '2026-01-01T00:00:00Z', kind: 'assistant', text: `line ${cursor}`, toolCallId: null, resetId: null });
 
+interface PageQuery { around: string | null; after?: number; limit: number; descending: boolean }
+
+function pageQuery(query: URLSearchParams): PageQuery {
+  return {
+    around: query.get('around'), after: query.has('after') ? Number(query.get('after')) : undefined,
+    limit: Number(query.get('limit')), descending: query.get('order') === 'desc',
+  };
+}
+
+function pageStart({ around, after, limit, descending }: PageQuery, total: number): number {
+  if (around) return Math.max(1, Number(around.slice(1)) - Math.floor(limit / 2));
+  return descending ? Math.max(1, (after ?? total + 1) - limit) : (after ?? 0) + 1;
+}
+
+function historyResponse(query: PageQuery, total: number): Response {
+  const { around, after, limit, descending } = query;
+  if (around === 'missing') return new Response('', { status: 404 });
+  const start = pageStart(query, total);
+  const descendingPage = descending && !around;
+  const end = descendingPage ? (after ?? total + 1) - 1 : Math.min(total, start + limit - 1);
+  const items = Array.from({ length: end - start + 1 }, (_, index) => entry(start + index));
+  return Response.json({ items, nextCursor: descending ? start : end, hasMore: descendingPage ? start > 1 : end < total, hasOlder: start > 1 });
+}
+
 function rig(total = 8000) {
   const queries: URL[] = [];
   let fail = false;
@@ -15,16 +39,7 @@ function rig(total = 8000) {
     assert.equal(new Headers(init?.headers).get('Authorization'), 'Bearer token');
     assert.equal(init?.cache, 'no-store');
     if (fail) { fail = false; return new Response('', { status: 503 }); }
-    const query = url.searchParams;
-    const limit = Number(query.get('limit'));
-    const descending = query.get('order') === 'desc';
-    const after = query.has('after') ? Number(query.get('after')) : undefined;
-    const around = query.get('around');
-    if (around === 'missing') return new Response('', { status: 404 });
-    const start = around ? Math.max(1, Number(around.slice(1)) - Math.floor(limit / 2)) : descending ? Math.max(1, (after ?? total + 1) - limit) : (after ?? 0) + 1;
-    const end = descending && !around ? (after ?? total + 1) - 1 : Math.min(total, start + limit - 1);
-    const items = Array.from({ length: end - start + 1 }, (_, index) => entry(start + index));
-    return Response.json({ items, nextCursor: descending ? start : end, hasMore: descending && !around ? start > 1 : end < total, hasOlder: start > 1 });
+    return historyResponse(pageQuery(url.searchParams), total);
   });
   return { store: new ConsoleStore(api, clock), queries, fail: () => { fail = true; } };
 }
