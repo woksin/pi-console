@@ -82,6 +82,42 @@ test('palette cycles Tab in both directions, inerts the background and restores 
   } finally { await page.context().close(); }
 });
 
+async function paletteSelectionVisible(page: Page): Promise<void> {
+  await page.waitForFunction(() => {
+    const active = document.querySelector('#palette-list [aria-selected="true"]')?.getBoundingClientRect();
+    const viewport = document.getElementById('palette-list')?.getBoundingClientRect();
+    return active && viewport && active.top >= viewport.top && active.bottom <= viewport.bottom;
+  }, undefined, { timeout: 2000 });
+}
+
+test('long palette keeps the keyboard-active option visible and its combobox descendant correct', async () => {
+  const page = await rig.open('/requests', { width: 1440, height: 480 });
+  try {
+    await page.locator('.conn[data-connection="live"]').waitFor();
+    await page.getByRole('button', { name: /^Palette/ }).click();
+    const palette = page.getByRole('dialog', { name: 'Command palette' });
+    const input = palette.getByRole('combobox');
+    const list = palette.getByRole('listbox');
+    const options = list.getByRole('option');
+    await options.last().waitFor();
+    const count = await options.count();
+    assert.ok(count > 10, 'the palette has enough options to overflow');
+    assert.equal(await list.evaluate(node => node.scrollHeight > node.clientHeight), true);
+    assert.equal(await options.last().evaluate(node => {
+      const viewport = document.getElementById('palette-list')?.getBoundingClientRect();
+      return viewport !== undefined && node.getBoundingClientRect().top >= viewport.bottom;
+    }), true, 'the last option starts below the visible rows');
+    for (const [key, index] of [['ArrowDown', count - 1], ['ArrowUp', 0]] as const) {
+      for (let step = 1; step < count; step++) await page.keyboard.press(key);
+      await options.nth(index).and(list.locator('[aria-selected="true"]')).waitFor();
+      assert.equal(await options.nth(index).getAttribute('aria-selected'), 'true');
+      assert.equal(await input.getAttribute('aria-activedescendant'), await options.nth(index).getAttribute('id'));
+      await paletteSelectionVisible(page);
+      await focused(input);
+    }
+  } finally { await page.context().close(); }
+});
+
 test('help contains focus and restores its opener after Escape and its Close button', async () => {
   const page = await rig.open('/requests');
   try {

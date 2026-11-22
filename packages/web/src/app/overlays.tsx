@@ -3,6 +3,7 @@ import { bindingsFor, paletteScopes, paletteView, resolve, type Action, type Mat
 import { neutralKey } from './keys.ts';
 import { useModalFocus } from './modal-focus.ts';
 import { Kbd } from '../ui/primitives.tsx';
+import { useScrollIntoView } from '../ui/hooks.ts';
 
 interface PaletteProps { data: Pick<PaletteInput, 'sessions' | 'requests' | 'questions' | 'messages'>; recents: readonly string[]; onClose: () => void; onPick: (item: PaletteItem) => void }
 
@@ -27,8 +28,9 @@ function Highlighted({ segments }: { segments: readonly MatchSegment[] }) {
 }
 
 function PaletteRow({ item, active, onHover, onPick }: { item: PaletteItem; active: boolean; onHover: () => void; onPick: () => void }) {
+  const ref = useScrollIntoView<HTMLLIElement>(active);
   return (
-    <li id={`pal-${item.id}`} role="option" aria-selected={active} className={active ? 'pal-row active' : 'pal-row'} onMouseEnter={onHover} onMouseDown={event => { event.preventDefault(); onPick(); }}>
+    <li ref={ref} id={`pal-${item.id}`} role="option" aria-selected={active} className={active ? 'pal-row active' : 'pal-row'} onMouseEnter={onHover} onMouseDown={event => { event.preventDefault(); onPick(); }}>
       <span className="pal-glyph" style={{ '--tone': `var(--${item.tone})` } as React.CSSProperties} role="img" aria-label={item.status} title={item.status}>{item.glyph}</span>
       <span className="pal-label truncate"><Highlighted segments={item.segments} /></span>
       <span className="pal-detail truncate">{item.detail}</span>{item.key && <Kbd>{item.key}</Kbd>}
