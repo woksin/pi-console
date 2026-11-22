@@ -307,19 +307,47 @@ test('concurrent authenticated handshakes cannot exceed the peer cap, but same-s
   assert.ok(established.slice(1).every(ws => ws.readyState === WebSocket.OPEN));
 });
 
+test('a full channel authenticates same-session replacements before closing the old peer, but refuses a new session', { timeout: 10_000 }, async t => {
+  const spec = await setup(t);
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+  const established: WebSocket[] = [];
+  for (let index = 0; index < 32; index++) {
+    if (index % 8 === 0) t.mock.timers.tick(1001);
+    established.push(await spec.connect({ sessionId: `peer-${String(index)}` }));
+  }
+  t.mock.timers.tick(1001);
+  const replacement = await spec.connect({ sessionId: 'peer-0' });
+  await wait(() => established[0].readyState === WebSocket.CLOSED);
+  const denied = await spec.connect({ sessionId: 'peer-0', secret: spec.readToken });
+  assert.equal(denied.readyState, WebSocket.CLOSED, 'failed authentication cannot replace the authenticated peer');
+  assert.equal(replacement.readyState, WebSocket.OPEN);
+  const newcomer = new WebSocket(`ws://127.0.0.1:${spec.daemon.port}/api/v1/extensions/memory-review`);
+  t.after(() => { newcomer.terminate(); });
+  const [bytes] = await once(newcomer, 'message');
+  const refused = once(newcomer, 'close');
+  newcomer.send(JSON.stringify(helloFrame(JSON.parse(String(bytes)), 'peer-32', spec.token)));
+  await refused;
+  assert.equal(replacement.readyState, WebSocket.OPEN);
+  assert.ok(established.slice(1).every(ws => ws.readyState === WebSocket.OPEN));
+});
+
 test('unauthenticated upgrade pressure has a separate small budget and cannot occupy established review slots', { timeout: 10_000 }, async t => {
   const spec = await setup(t);
   const provider = await spec.connect();
-  await new Promise(resolve => setTimeout(resolve, 1100));
+  t.mock.timers.enable({ apis: ['Date'], now: Date.now() });
+  t.mock.timers.tick(1001);
   const pending = Array.from({ length: 8 }, () => new WebSocket(`ws://127.0.0.1:${spec.daemon.port}/api/v1/extensions/memory-review`));
   t.after(() => { for (const socket of pending) socket.terminate(); });
   await Promise.all(pending.map(socket => once(socket, 'message')));
+  t.mock.timers.tick(1001); // The pending limit still applies in a fresh upgrade-rate window.
   const refused = new WebSocket(`ws://127.0.0.1:${spec.daemon.port}/api/v1/extensions/memory-review`);
   refused.on('error', () => { /* Expected unauthenticated admission pressure. */ });
   await new Promise(resolve => refused.once('close', resolve));
   const delivered = once(provider, 'message');
   assert.equal((await spec.call('', 'POST', { requestId: 'pressure', itemId: 'i1', action: 'confirm' })).status, 202);
   assert.equal(JSON.parse(String((await delivered)[0])).value.sessionId, 's1');
+  await Promise.all(pending.map(socket => once(socket, 'close')));
+  assert.equal((await spec.connect({ sessionId: 'after-timeout' })).readyState, WebSocket.OPEN, 'handshake timeouts release pending slots');
 });
 
 test('wrong store, unrelated sessions, read-token HMAC, hostile frames and upgrades fail closed', { timeout: 5000 }, async t => {

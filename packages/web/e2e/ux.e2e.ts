@@ -40,6 +40,28 @@ test('dense attention keeps daemon order, ten visible items and keyboard selecti
   await page.context().close();
 });
 
+test('Work keyboard paging and bottom jump keep the selected row visible', async () => {
+  const fixture = rig.daemon.store.fixture;
+  const original = fixture.jobs;
+  fixture.jobs = Array.from({ length: 40 }, (_, index) => ({
+    ...original[0], id: `work-scroll-${String(index).padStart(2, '0')}`, name: `Work row ${String(index)}`, status: 'running',
+  }));
+  const page = await rig.open('/work', { width: 1440, height: 400 });
+  try {
+    const rows = page.locator('.grid[aria-label="Work"] tbody tr');
+    await rows.nth(39).waitFor();
+    for (const [key, index] of [['PageDown', 10], ['G', 39]] as const) {
+      await page.keyboard.press(key);
+      await page.locator('.grid tr.selected').filter({ hasText: `Work row ${String(index)}` }).waitFor();
+      await page.waitForFunction(() => {
+        const selected = document.querySelector('.grid tr.selected')?.getBoundingClientRect();
+        const viewport = document.querySelector('#content')?.getBoundingClientRect();
+        return selected && viewport && selected.top >= viewport.top && selected.bottom <= viewport.bottom;
+      }, undefined, { timeout: 2000 });
+    }
+  } finally { fixture.jobs = original; await page.context().close(); }
+});
+
 test('questions distinguish blocking and urgent, with read-only lettered options', async () => {
   const fixture = rig.daemon.store.fixture;
   const original = fixture.questions;

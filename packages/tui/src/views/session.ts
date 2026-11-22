@@ -7,6 +7,7 @@ import { sessionSideWidth } from '../state/session-layout.ts';
 import { transcriptViewport, transcriptWindow, type TranscriptAnchor, type TranscriptLayout } from '../state/transcript-window.ts';
 import type { Env, SectionView } from './common.ts';
 import { memoryLines } from './session-memory.ts';
+import { TRANSCRIPT_LIMIT } from '../store/store.ts';
 
 const LIMITS: Record<TranscriptLine['kind'], number> = { user: 8, thinking: 2, assistant: 14, tool: 1, result: 3, diff: 12, reset: 1 };
 
@@ -170,6 +171,7 @@ export function sessionView(env: Env): SectionView {
   const rendered = transcriptLines(env, model, entries, transcriptWidth);
   const { padded, below, paused } = visibleLines(rendered, ui, transcriptViewport(env.height));
   const following = ui.follow;
+  const cap = data.transcriptsTruncated.has(model.id) ? `capped at newest ${String(TRANSCRIPT_LIMIT)}` : '';
   const status = statusText(ui.search, paused, model.transcript.length, below);
   const loading = !data.transcripts.has(model.id) && model.transcript.length === 0;
   return {
@@ -179,7 +181,7 @@ export function sessionView(env: Env): SectionView {
     rowAt: () => ({ sessionId: null, groupId: null }),
     idAt: () => model.id,
     render: () => h(Column, { grow: 1 },
-      h(Panel, { height: 4, focused: false }, h(Lines, { lines: header(model, env.width - 4, env.phase) })),
+      h(Panel, { height: 4, focused: false, right: cap }, h(Lines, { lines: header(model, env.width - 4, env.phase) })),
       h(Row, { grow: 1, gap: 1 },
         h(Panel, { title: 'Transcript', right: status, grow: 1, focused: true, accent: following ? 'green' : 'amber' },
           h(Lines, { lines: loading ? [[t('Loading transcript…', 'muted')]] : padded, grow: 1 })),
