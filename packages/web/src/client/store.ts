@@ -24,10 +24,18 @@ const windowedNames: readonly WindowedCollection[] = ['sessions', 'requests', 'q
 const maxHistoryPages = 60;
 
 type Listener = () => void;
+export type SessionDetailStatus = 'loading' | 'loaded' | 'failed' | 'not-found';
+interface SessionDetailLoad {
+  sessionId: string;
+  requests: RequestGeneration;
+  status: SessionDetailStatus;
+  task: Promise<void>;
+}
 
 /** Pending reads and their cleanup belong to the current snapshot, even across resumable connections. */
 class RequestGeneration {
   readonly loaded = new Map<string, Promise<void>>();
+  readonly details = new Map<string, SessionDetailLoad>();
   readonly paging = new Map<WindowedCollection, Promise<void>>();
   /** Bounded collections that gained an id the client had not seen: their snapshot total may have moved, so it is refetched. */
   readonly staleTotals = new Set<WindowedCollection>();
@@ -178,6 +186,7 @@ export class ConsoleStore {
     if (frame === 'heartbeat') { this.#set({ ...this.#state, lastFrameAt: now, connection: 'live', received: this.#state.received + 1 }); return; }
     if (frame.type === 'snapshot') this.#resetRequests();
     const next = applyEvent(this.#state, frame);
+    if (frame.type === 'session.updated') this.#invalidateSessionDetail(frame.payload);
     if (frame.type !== 'snapshot') for (const name of next.bounded) if (next[name].length > this.#state[name].length) this.#requests.staleTotals.add(name);
     this.#set({ ...next, lastFrameAt: now, connection: 'live', received: this.#state.received + 1 });
     if (frame.type === 'snapshot') this.#memoryRefresh.invalidateVisible();
@@ -240,20 +249,57 @@ export class ConsoleStore {
     if (page) this.#set(mergePage(this.#state, collection, page));
   }
 
-  /** Loads a session's complete jobs, requests, questions and subagents once per gap (the snapshot only carries a window). */
+  /** Detail requests have their own status: an absent snapshot row is not evidence of a 404. */
+  getSessionDetailStatus(sessionId: string): SessionDetailStatus | undefined {
+    return this.#requests.details.get(sessionId)?.status;
+  }
+
+  #invalidateSessionDetail(session: { id: string }): void {
+    const details = this.#requests.details;
+    const load = details.get(session.id);
+    if (load?.status === 'not-found' || load?.status === 'failed') details.delete(session.id);
+  }
+
+  #clearSessionDetailStatus(load: SessionDetailLoad | undefined): void {
+    if (!load) return;
+    load.requests.details.delete(load.sessionId);
+    this.#set({ ...this.#state });
+  }
+
+  #publishSessionDetail(load: SessionDetailLoad, state = this.#state): void {
+    if (!this.#requestActive(load.requests)) return;
+    if (load.requests.details.get(load.sessionId) !== load) return;
+    this.#set({ ...state });
+  }
+
+  /** Loads a session's complete jobs, requests, questions and subagents once per gap; missing sessions are checked even with an unbounded snapshot. Failed requests can be retried immediately. */
   loadSessionDetail(sessionId: string): Promise<void> {
-    if (this.#state.bounded.length === 0) return Promise.resolve();
     const requests = this.#requests;
-    const key = `detail:${sessionId}:${String(this.#state.gapCount)}`;
-    const existing = requests.loaded.get(key);
-    if (existing) return existing;
-    const task = this.#api.session(sessionId).catch(() => null).then(detail => {
-      if (!this.#requestActive(requests)) return;
-      if (detail) this.#set(mergeSessionDetail(this.#state, detail));
-      else requests.loaded.delete(key);
-    });
-    requests.loaded.set(key, task);
-    return task;
+    const existing = requests.details.get(sessionId);
+    if (this.#state.bounded.length === 0 && this.#state.sessions.some(session => session.id === sessionId)) {
+      this.#clearSessionDetailStatus(existing);
+      return Promise.resolve();
+    }
+    if (existing?.status === 'loading' || existing?.status === 'loaded') return existing.task;
+    const load: SessionDetailLoad = { sessionId, requests, status: 'loading', task: Promise.resolve() };
+    requests.details.set(sessionId, load);
+    load.task = this.#fetchSessionDetail(load);
+    this.#publishSessionDetail(load);
+    return load.task;
+  }
+
+  async #fetchSessionDetail(load: SessionDetailLoad): Promise<void> {
+    try {
+      const detail = await this.#api.session(load.sessionId);
+      if (!this.#requestActive(load.requests)) return;
+      load.status = detail ? 'loaded' : 'not-found';
+      this.#publishSessionDetail(load, detail ? mergeSessionDetail(this.#state, detail) : this.#state);
+    } catch {
+      // Even a synchronous transport throw settles after the loading state has been registered.
+      await Promise.resolve();
+      load.status = 'failed';
+      this.#publishSessionDetail(load);
+    }
   }
 
   requestMemoryAction(sessionId: string, itemId: string, action: 'confirm' | 'reject'): Promise<void> {
