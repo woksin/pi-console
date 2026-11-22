@@ -35,7 +35,7 @@ export function loadToken(directory: string, name = 'token'): string {
   createIfMissing(path);
   ownerOnly(path, 0o600);
   const token = readFileSync(path, 'utf8').trim();
-  if (!tokenPattern.test(token)) throw new Error('Invalid token file; delete it to generate a new one');
+  if (!tokenPattern.test(token)) throw new Error(`Invalid token file ${path}: expected 64 lowercase hex characters; delete it and restart the daemon to generate a new one.`);
   return token;
 }
 

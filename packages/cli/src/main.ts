@@ -35,12 +35,20 @@ export async function main(argv: readonly string[]): Promise<number> {
   return 2;
 }
 
+function isDaemonArgumentError(argv: readonly string[], error: unknown): boolean {
+  return argv[0] === 'daemon' && error instanceof Error && 'code' in error && typeof error.code === 'string' && error.code.startsWith('ERR_PARSE_ARGS_');
+}
+
 /** Shared process boundary for both the installed executable and direct source entry. */
 export async function runCli(argv: readonly string[]): Promise<number> {
   try {
     return await main(argv);
   } catch (error: unknown) {
     console.error(process.env.PI_CONSOLE_DEBUG === '1' ? error : error instanceof Error ? error.message : String(error));
+    if (isDaemonArgumentError(argv, error)) {
+      console.error('Run "pi-console daemon --help" for usage.');
+      return 2;
+    }
     return 1;
   }
 }

@@ -1,9 +1,9 @@
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, relative } from 'node:path';
-import { resolveCredentials } from './token.ts';
+import { CredentialError, resolveCredentials } from './token.ts';
 
 function dataDir(t: TestContext): string {
   const directory = mkdtempSync(join(tmpdir(), 'pi-console-tui-token-'));
@@ -72,6 +72,39 @@ for (const config of ['{', 'null', '[]', '{}', '{"port":"5888"}', '{"port":70000
     assert.equal(credentials.tokenSource, join(directory, 'token'));
   });
 }
+
+test('a missing token still suggests starting the daemon or selecting another token', t => {
+  const directory = dataDir(t);
+  const file = join(directory, 'missing-token');
+  assert.throws(() => resolveCredentials({ PI_CONSOLE_DATA_DIR: directory, PI_CONSOLE_TOKEN_FILE: file }), {
+    message: `No daemon token at ${file}. Start the daemon first, or set PI_CONSOLE_TOKEN / PI_CONSOLE_TOKEN_FILE.`,
+  });
+});
+
+test('a token path that is a directory reports the real read error rather than a missing token', t => {
+  const directory = dataDir(t);
+  const file = join(directory, 'token-directory');
+  mkdirSync(file, { mode: 0o700 });
+  assert.throws(() => resolveCredentials({ PI_CONSOLE_DATA_DIR: directory, PI_CONSOLE_TOKEN_FILE: file }), (error: unknown) => {
+    assert.ok(error instanceof CredentialError);
+    assert.ok(error.message.startsWith(`Cannot read daemon token at ${file}: EISDIR:`));
+    assert.ok(error.message.endsWith('Check the file and its permissions, or set PI_CONSOLE_TOKEN_FILE.'));
+    return true;
+  });
+});
+
+test('permission denied identifies the token file and suggests checking its permissions', { skip: process.platform === 'win32' || process.getuid?.() === 0 }, t => {
+  const directory = dataDir(t);
+  const file = join(directory, 'token');
+  chmodSync(file, 0o000);
+  assert.throws(() => resolveCredentials({ PI_CONSOLE_DATA_DIR: directory }), (error: unknown) => {
+    assert.ok(error instanceof CredentialError);
+    assert.ok(error.message.startsWith(`Cannot read daemon token at ${file}: EACCES:`));
+    assert.ok(error.message.endsWith('Check the file and its permissions, or set PI_CONSOLE_TOKEN_FILE.'));
+    assert.doesNotMatch(error.message, /secret/);
+    return true;
+  });
+});
 
 test('a token with a control character is refused up front without echoing it', t => {
   const directory = dataDir(t);
