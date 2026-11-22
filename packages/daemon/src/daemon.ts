@@ -1,6 +1,6 @@
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import { join } from 'node:path';
-import { ConsoleQueries, consoleProjections, Projector, readModels, SqliteEventLog, SqliteProjectionStore } from '@pi-console/core';
+import { ConsoleQueries, consoleProjections, createCompletedWorkRuntime, Projector, readModels, SqliteEventLog, SqliteProjectionStore } from '@pi-console/core';
 import type { DaemonConfig } from './config.ts';
 import { EventLoopHealth } from './event-loop.ts';
 import { apiQuery, type ApiContext } from './api/routes.ts';
@@ -48,11 +48,23 @@ export interface RunningDaemon {
 
 interface Core { log: SqliteEventLog; store: SqliteProjectionStore; projector: Projector }
 
-async function openCore(dataDir: string): Promise<Core> {
+type Cleanup = () => void | Promise<void>;
+
+async function rollback(cleanups: Cleanup[]): Promise<void> {
+  for (const cleanup of cleanups.reverse()) {
+    try { await cleanup(); }
+    catch { process.stderr.write('pi-console: startup cleanup failed\n'); }
+  }
+}
+
+async function openCore(dataDir: string, cleanups: Cleanup[]): Promise<Core> {
   const path = join(dataDir, 'console.db');
   const log = new SqliteEventLog(path);
+  cleanups.push(() => { log.close(); });
   const store = new SqliteProjectionStore(path);
-  const projector = new Projector(log, consoleProjections(), store);
+  cleanups.push(() => { store.close(); });
+  const projector = new Projector(log, consoleProjections(), store, { work: createCompletedWorkRuntime(store) });
+  cleanups.push(() => { projector.stop(); });
   await projector.start();
   return { log, store, projector };
 }
@@ -102,6 +114,11 @@ function handler(parts: HandlerParts): Handler {
   };
 }
 
+function closeServer(server: Server): Promise<void> {
+  server.closeAllConnections();
+  return new Promise<void>(resolve => { server.close(() => { resolve(); }); });
+}
+
 function createHttpServer(handle: Handler): Server {
   const server = createServer({ maxHeaderSize: 16 * 1024 }, (req, res) => { void handle(req, res); });
   server.requestTimeout = 10_000;
@@ -114,12 +131,21 @@ function createHttpServer(handle: Handler): Server {
  * background, and the API v1 over plain `node:http` on 127.0.0.1 (ADR-0002 addendum, docs/api/v1.md).
  */
 export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon> {
+  const cleanups: Cleanup[] = [];
+  try { return await openDaemon(options, cleanups); }
+  catch (error) {
+    await rollback(cleanups);
+    throw error;
+  }
+}
+
+async function openDaemon(options: DaemonOptions, cleanups: Cleanup[]): Promise<RunningDaemon> {
   const started = performance.now();
   const startedAt = new Date().toISOString();
   const now = options.now ?? (() => new Date());
   const control = options.memoryActions ? loadToken(options.dataDir, 'memory-control-token') : undefined;
   const credentials = new Credentials(loadToken(options.dataDir), control);
-  const { log, store, projector } = await openCore(options.dataDir);
+  const { log, store, projector } = await openCore(options.dataDir, cleanups);
   const queries = () => new ConsoleQueries(() => readModels(projector), now);
   const stream = new StreamHub({
     ...streamSequence(store, projector.position), ringSize: options.replayWindow, heartbeatMs: options.heartbeatMs,
@@ -130,16 +156,23 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
     now,
     warn: message => { process.stderr.write(`pi-console: ${message}\n`); },
   });
+  cleanups.push(() => { stream.close(); });
   const batcher = new DeltaBatcher(() => readModels(projector), delta => { stream.publish(delta.type, delta.payload); }, now, {
     discard: () => stream.invalidateIfIdle(),
   });
+  cleanups.push(() => { batcher.flush(); });
   const stopDeltas = projector.onApplied(event => { batcher.add(event); });
+  cleanups.push(stopDeltas);
   const checkpoints = new CheckpointCache(log);
   const fileTranscripts = new FileTranscriptReader(new TranscriptSources(checkpoints, options.sessionRoots));
+  cleanups.push(() => fileTranscripts.close());
   const ingestion = new SessionIngestion(checkpoints, { roots: options.sessionRoots, backfillWindowDays: options.backfillWindowDays, pollMs: options.pollMs, now });
+  cleanups.push(() => ingestion.stop());
   const sources = sourceSetFor(log, options, now);
+  cleanups.push(() => sources.stop());
   let port = options.port;
   const eventLoop = new EventLoopHealth();
+  cleanups.push(() => { eventLoop.close(); });
   const apiContext: ApiContext = {
     queries, transcripts: options.transcripts ?? fileTranscripts, memoryHandoffs: options.memoryHandoffs ?? new FileMemoryHandoffs(),
     health: () => healthOf({ startedAt, dataDir: options.dataDir, log, projector, stream, ingestion, sources, batcher, backfillWindowDays: options.backfillWindowDays, eventLoop: eventLoop.read() }),
@@ -147,8 +180,12 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
   };
   let actions: MemoryActions | undefined;
   const server = createHttpServer(handler({ port: () => port, credentials, api: apiContext, stream, webDist: options.webDist, actions: () => actions }));
-  if (control !== undefined) actions = new MemoryActions({ config: options, server, secret: control, queries, models: () => readModels(projector), log });
-  else server.on('upgrade', (_req, socket) => { socket.destroy(); });
+  cleanups.push(() => closeServer(server));
+  if (control !== undefined) {
+    actions = new MemoryActions({ config: options, server, secret: control, queries, models: () => readModels(projector), log });
+    const acquired = actions;
+    cleanups.push(() => { acquired.close(); });
+  } else server.on('upgrade', (_req, socket) => { socket.destroy(); });
   port = await listen(server, options.port);
   actions?.port(port);
   if (options.ingest !== false) {
@@ -162,8 +199,7 @@ export async function startDaemon(options: DaemonOptions): Promise<RunningDaemon
       batcher.flush();
       stream.close();
       actions?.close();
-      server.closeAllConnections();
-      await new Promise<void>(resolve => { server.close(() => { resolve(); }); });
+      await closeServer(server);
       stopDeltas();
       projector.stop();
       store.close();

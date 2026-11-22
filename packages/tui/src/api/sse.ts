@@ -1,14 +1,20 @@
-/** Incremental Server-Sent Events parser: feed chunks, receive complete frames. Comment lines (keep-alives) are dropped. */
+/** Incremental Server-Sent Events parser: feed chunks, receive complete frames. Comments notify the optional heartbeat listener. */
 export interface Frame { id?: string; event?: string; data: string }
 
 export class FrameParser {
   private buffer = '';
 
+  private readonly heartbeat: () => void;
+
+  constructor(heartbeat: () => void = () => undefined) { this.heartbeat = heartbeat; }
+
   push(chunk: string): Frame[] {
     this.buffer += chunk.replace(/\r\n?/g, '\n');
     const frames: Frame[] = [];
     for (let end = this.buffer.indexOf('\n\n'); end >= 0; end = this.buffer.indexOf('\n\n')) {
-      const frame = parse(this.buffer.slice(0, end));
+      const block = this.buffer.slice(0, end);
+      if (block.split('\n').some(line => line.startsWith(':'))) this.heartbeat();
+      const frame = parse(block);
       this.buffer = this.buffer.slice(end + 2);
       if (frame) frames.push(frame);
     }

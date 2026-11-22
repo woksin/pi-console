@@ -68,9 +68,10 @@ export class ConsoleQueries {
     const session = sessions.find(item => item.id === id);
     if (!session) return undefined;
     const belongs = (item: Pick<Request, 'sessionId'>) => item.sessionId === id;
+    const work = this.#models().workQueries;
     return {
       session, requests: this.requests().filter(belongs), questions: this.questions().filter(belongs),
-      jobs: this.jobs().filter(belongs), resets: this.resets().filter(belongs),
+      jobs: work ? work.all(id) : this.jobs().filter(belongs), resets: this.resets().filter(belongs),
       subagents: sessions.filter(item => item.parentSessionId === id),
     };
   }
@@ -112,12 +113,15 @@ export class ConsoleQueries {
   }
 
   jobById(id: Job['id']): Job | undefined {
-    const row = own(this.#models().work.jobs, id);
+    const models = this.#models();
+    if (models.workQueries) return models.workQueries.byId(id);
+    const row = own(models.work.jobs, id);
     return row ? toJob(row) : undefined;
   }
 
   jobs(): Job[] {
-    return Object.values(this.#models().work.jobs).map(toJob).sort(by(job => job.startedAt, job => job.id));
+    const models = this.#models();
+    return models.workQueries ? models.workQueries.all() : Object.values(models.work.jobs).map(toJob).sort(by(job => job.startedAt, job => job.id));
   }
 
   resets(): Reset[] {
@@ -167,6 +171,10 @@ export class ConsoleQueries {
 
   /** One keyset page of a list, in the list's total order (or its exact reverse). */
   page(collection: PageCollection, query: PageQuery): Page<Listed> {
+    if (collection === 'jobs') {
+      const source = this.#models().workQueries;
+      if (source) return source.page(query);
+    }
     return pageOf<Listed>(collection, this.#pageEntries(collection, query), query);
   }
 

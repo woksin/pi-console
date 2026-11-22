@@ -6,7 +6,6 @@
   "exports": {
     ".": "./src/index.ts"
   },
-  "devDependencies": { "@types/ws": "8.18.2" },
   "scripts": {
     "test": "node --test \"src/**/*.test.ts\""
   },
@@ -17,6 +16,7 @@
     "@pi-console/adapters": "*"
   },
   "devDependencies": {
+    "@types/ws": "8.18.2",
     "@pi-console/testkit": "*"
   }
 }
