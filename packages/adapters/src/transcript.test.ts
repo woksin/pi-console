@@ -3,7 +3,28 @@ import assert from 'node:assert/strict';
 import { appendFileSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { readTranscript } from './transcript.ts';
+import { readTranscript, readTranscriptFrames } from './transcript.ts';
+
+test('framed reads retain start/end bytes and safely seek around CRLF and multibyte records', async t => {
+  const root = mkdtempSync(join(tmpdir(), 'pi-transcript-frames-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const path = join(root, 'session.jsonl');
+  const first = JSON.stringify({ text: 'λ' }) + '\r\n';
+  const second = JSON.stringify({ text: 'next' }) + '\n';
+  writeFileSync(path, first + '\n' + second + '{torn');
+  const end = Buffer.byteLength(first + '\n' + second);
+  const page = await readTranscriptFrames({ path, roots: [root] });
+  assert.deepEqual(page.entries, [
+    { value: { text: 'λ' }, start: 0, end: Buffer.byteLength(first) },
+    { value: { text: 'next' }, start: Buffer.byteLength(first) + 1, end },
+  ]);
+  assert.equal(page.partial, true);
+  const seek = await readTranscriptFrames({ path, roots: [root], offset: 3, seekAfter: true });
+  assert.deepEqual(seek.entries, [page.entries[1]]);
+  assert.deepEqual(await readTranscriptFrames({ path, roots: [root], endOffset: Buffer.byteLength(first) }), {
+    entries: [page.entries[0]], nextOffset: Buffer.byteLength(first), partial: false,
+  });
+});
 
 test('oversized records are withheld and paging reaches the following record', async t => {
   const root = mkdtempSync(join(tmpdir(), 'pi-transcript-large-'));
