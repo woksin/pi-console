@@ -45,7 +45,7 @@ export function resumePoint(lastId: string | undefined, current: number): number
 
 /**
  * SSE fan-out with a bounded replay ring. Ids are contiguous between replay barriers. A resume inside the ring
- * replays deltas after the id; a resume before it, across an unobserved gap or restart gets a fresh snapshot.
+ * replays deltas after the id within a byte budget; an oversized replay, an older id, gap or restart gets a fresh snapshot.
  */
 export class StreamHub {
   readonly #options: StreamOptions;
@@ -116,7 +116,16 @@ export class StreamHub {
   #catchUp(after: number | undefined): string[] {
     const earliest = this.#ring[0]?.seq ?? this.#seq + 1;
     if (after === undefined || after < earliest - 1) return [this.#snapshotFrame()];
-    return this.#ring.filter(frame => frame.seq > after).map(frame => frame.text);
+    const replay: string[] = [];
+    let bytes = 0;
+    for (const frame of this.#ring) {
+      if (frame.seq <= after) continue;
+      bytes += Buffer.byteLength(frame.text);
+      // Leave headroom for HTTP framing rather than treating a healthy reconnect as a slow live client.
+      if (bytes > this.#options.maxBufferedBytes / 2) return [this.#snapshotFrame()];
+      replay.push(frame.text);
+    }
+    return replay;
   }
 
   /** Prefer half the slow-client cap; even an oversized active window cannot bypass the hard limit. */
