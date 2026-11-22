@@ -174,7 +174,7 @@ async function openDaemon(options: DaemonOptions, cleanups: Cleanup[]): Promise<
   cleanups.push(() => { eventLoop.close(); });
   const apiContext: ApiContext = {
     queries, transcripts: options.transcripts ?? fileTranscripts, memoryHandoffs: options.memoryHandoffs ?? new FileMemoryHandoffs(),
-    health: () => healthOf({ startedAt, dataDir: options.dataDir, log, projector, stream, ingestion, sources, batcher, backfillWindowDays: options.backfillWindowDays, eventLoop: eventLoop.read() }),
+    health: () => healthOf({ startedAt, dataDir: options.dataDir, log, projector, stream, ingestion, sources, batcher, backfillWindowDays: options.backfillWindowDays, eventLoop: eventLoop.read(), config: options }),
     settings: () => settingsOf(options, port),
   };
   let actions: MemoryActions | undefined;

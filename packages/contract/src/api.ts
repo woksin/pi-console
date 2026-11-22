@@ -72,6 +72,9 @@ const sessionMemory = strict({
 const graphNode = strict({ laneId: id, label: str, repositoryId: nullable(id) });
 const graphEdge = strict({ fromLane: id, toLane: id, kind: oneOf('message', 'spawn', 'waiting-on', 'barred-by'), lastAt: time, count: int });
 
+/** Whether a configured directory can be read; optional everywhere so payloads from older daemons stay valid. Never carries the path. */
+const availability = oneOf('available', 'missing', 'unavailable', 'disabled');
+
 /** Daemon health: lag per source, projection queue depth, db size, backfill progress, memory (docs/api/v1.md). */
 const health = strict({
   status: oneOf('ok', 'starting', 'degraded'), startedAt: time,
@@ -79,16 +82,18 @@ const health = strict({
   projection: strict({ position: int, queueDepth: int, skipped: int }),
   eventLoop: strict({ p50: { type: 'number', minimum: 0 }, p99: { type: 'number', minimum: 0 }, max: { type: 'number', minimum: 0 } }),
   stream: strict({ seq: int, clients: int, retained: int }),
-  sources: array(strict({ source: id, files: int, lagBytes: int, lastPollAt: nullable(time), errors: int })),
+  agentRootAvailability: availability,
+  sources: array(strict({ source: id, files: int, lagBytes: int, lastPollAt: nullable(time), errors: int, availability }, ['source', 'files', 'lagBytes', 'lastPollAt', 'errors'])),
   backfill: strict({ complete: bool, windowDays: int }),
   memory: strict({ rssBytes: int, heapUsedBytes: int }),
-});
+}, ['status', 'startedAt', 'eventLog', 'projection', 'eventLoop', 'stream', 'sources', 'backfill', 'memory']);
 
 /** Read-only daemon settings. Never paths, tokens or other values that identify the machine beyond the port. */
 const settings = strict({
   version: int, bind: oneOf('127.0.0.1'), port: int, backfillWindowDays: int, replayWindow: int, webBundle: bool,
-  sources: array(strict({ source: id, enabled: bool })),
-});
+  agentRootAvailability: availability,
+  sources: array(strict({ source: id, enabled: bool, availability }, ['source', 'enabled'])),
+}, ['version', 'bind', 'port', 'backfillWindowDays', 'replayWindow', 'webBundle', 'sources']);
 
 /**
  * Additive API v1 definitions (the gaps listed in docs/milestones.md M1). `transcriptEntry` and `request` replace the
