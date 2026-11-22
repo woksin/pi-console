@@ -33,7 +33,13 @@ Checks: `npm test -w @pi-console/web` (unit), `npm run e2e -w @pi-console/web` (
 
 ## Memory review
 
-Enable review explicitly on the daemon and connect an owning interactive pi provider supporting memory-action protocol v1. Paste the separate `<data-dir>/memory-control-token` into the existing access-token screen (a new tab can use another token); the normal `<data-dir>/token` remains read-only. Never put either token in logs or source control.
+Enable review explicitly on the daemon by adding this to `<data-dir>/config.json` (default `~/.pi-console/config.json`), merged with any existing keys:
+
+```json
+{ "memoryActions": true }
+```
+
+Restart the daemon, which reads `config.json` only at start; it then creates the separate `memory-control-token`. Connect an owning interactive pi provider supporting memory-action protocol v1. Paste the separate `<data-dir>/memory-control-token` into the existing access-token screen (a new tab can use another token); the normal `<data-dir>/token` remains read-only. Never put either token in logs or source control.
 
 For a recorded, non-withheld proposed item, **Confirm…** / **Reject…** request a review. Finish the native human confirmation in the owning pi session. The panel shows **Awaiting confirmation in pi**, then **Pi reported approval; awaiting producer ingestion**. Only canonical producer ingestion changes the item/counts; a receipt alone never marks memory active or rejected. Decline, conflict, unavailable and expiry before approval are non-applied outcomes. Unknown is not proof that nothing was applied: a reported producer write can remain unverified while ingestion catches up. Tracking retries transient receipt failures with backoff through the deadline plus ingestion grace, then refreshes canonical memory once. Check pi before explicitly retrying an unknown outcome; reported-but-unverified writes are never labelled expired. Requests are never automatically re-sent on reconnect, navigation or tab closure.
 

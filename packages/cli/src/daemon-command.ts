@@ -20,6 +20,8 @@ Options:
   --backfill-days <n>   Days of session history read on first start (default 14)
   -h, --help            Show this help
 
+Memory review is off by default; set "memoryActions": true in <data-dir>/config.json and restart to enable it.
+
 The token is in <data-dir>/token (owner-only). With --web-dist the daemon prints this launch link; open it once: http://127.0.0.1:<port>/#token=<token>.`;
 
 export const daemonUsage = usage();

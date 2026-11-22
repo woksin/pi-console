@@ -112,7 +112,7 @@ export function App(props: AppProps): ReactElement {
   useAppKeys({ props, uiRef, dataRef, viewRef, heightRef, size, copy, apply });
 
   useTerminalTitle(terminalTitle(ui, data));
-  const connectionBanner = banner(data.connection, size.width);
+  const connectionBanner = banner(data.connection, size.width, props.endpoint);
   const input = { endpoint: props.endpoint, tokenSource: props.tokenSource, ...data.connection, now: clock.now,
     counts: countsOf(data) };
   const selectSection = (section: Section) => { apply(reduce(uiRef.current, `section.${String(sectionOrder.indexOf(section) + 1)}` as Action, boundsOf(viewRef.current, heightRef.current))); };
