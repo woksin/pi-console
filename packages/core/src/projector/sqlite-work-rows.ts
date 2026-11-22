@@ -53,8 +53,9 @@ export class SqliteWorkRows {
     const metadata = this.#db.prepare(`SELECT version, position,
       EXISTS (SELECT 1 FROM json_each(state, '$.jobs') LIMIT 1) AS embedded
       FROM projections WHERE name = 'work'`).get();
-    if (!metadata || metadata.version !== version || metadata.embedded) return undefined;
-    const row = this.#db.prepare("SELECT json_remove(state, '$.jobs') AS state FROM projections WHERE name = 'work'").get()!;
+    if (metadata?.version !== version || metadata.embedded) return undefined;
+    const row = this.#db.prepare("SELECT json_remove(state, '$.jobs') AS state FROM projections WHERE name = 'work'").get();
+    if (!row) return undefined;
     const state = parseRecords<WorkState>(row.state as string);
     state.jobs = Object.create(null) as WorkState['jobs'];
     for (const item of this.#db.prepare(`SELECT p.id, p.value FROM work_rows w JOIN projection_rows p
@@ -89,7 +90,7 @@ export class SqliteWorkRows {
 
   count(selection: WorkSelection): number {
     const { where, values } = predicates(selection, false);
-    return this.#db.prepare(`SELECT COUNT(*) AS total FROM work_rows w WHERE ${where}`).get(...values)!.total as number;
+    return this.#db.prepare(`SELECT COUNT(*) AS total FROM work_rows w WHERE ${where}`).get(...values)?.total as number;
   }
 
   select(selection: WorkSelection): JobModel[] {

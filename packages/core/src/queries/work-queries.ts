@@ -1,6 +1,6 @@
 import type { Job } from '@pi-console/contract';
 import type { WorkState } from '../projections/work.ts';
-import { SqliteWorkRows, terminalWork, type WorkSelection } from '../projector/sqlite-work-rows.ts';
+import { terminalWork, type SqliteWorkRows, type WorkSelection } from '../projector/sqlite-work-rows.ts';
 import { toJob } from './entities.ts';
 import { decodeCursor, pageOf, sortedEntries, windowOf, type Entry, type Page, type PageParams } from './paging.ts';
 

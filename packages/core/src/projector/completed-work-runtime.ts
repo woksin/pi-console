@@ -31,7 +31,7 @@ export function createCompletedWorkRuntime(store: SqliteProjectionStore): Projec
     afterCommit(dirty) {
       readable = true;
       for (const id of dirty.get('jobs') ?? []) {
-        if (Object.hasOwn(state.jobs, id) && terminalWork(state.jobs[id])) delete state.jobs[id];
+        if (Object.hasOwn(state.jobs, id) && terminalWork(state.jobs[id])) Reflect.deleteProperty(state.jobs, id);
       }
     },
     querySource: sqlWorkQueries(rows, () => state, () => readable),
