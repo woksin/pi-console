@@ -25,6 +25,7 @@ const windowedNames: readonly WindowedCollection[] = ['sessions', 'requests', 'q
 const maxHistoryPages = 60;
 
 type Listener = () => void;
+interface MemoryRead { sessionId: string }
 export type SessionDetailStatus = 'loading' | 'loaded' | 'failed' | 'not-found';
 interface SessionDetailLoad {
   sessionId: string;
@@ -87,7 +88,7 @@ export class ConsoleStore {
   }
 
   #createMemoryRefresh(): MemoryRefreshController {
-    return new MemoryRefreshController(id => this.#fetchMemory(id), id => this.#reviews.load(id, { fresh: true }), {
+    return new MemoryRefreshController(id => this.#fetchMemory({ sessionId: id }), id => this.#reviews.load(id, { fresh: true }), {
       set: (callback, ms = 350) => this.#clock.setTimeout(callback, ms),
       clear: timer => { this.#clock.clearTimeout(timer as number); },
     });
@@ -313,13 +314,13 @@ export class ConsoleStore {
   /** Explicit canonical read, serialized with background invalidations and receipt completion. */
   loadSessionMemory(sessionId: string): Promise<void> { return this.#memoryRefresh.refresh(sessionId); }
 
-  #setMemoryStatus(sessionId: string, status: MemoryReadStatus): void {
+  #setMemoryStatus({ sessionId, status }: MemoryRead & { status: MemoryReadStatus }): void {
     this.#set({ ...this.#state, memoryStatus: { ...this.#state.memoryStatus, [sessionId]: status } });
   }
 
-  async #fetchMemory(sessionId: string): Promise<void> {
+  async #fetchMemory({ sessionId }: MemoryRead): Promise<void> {
     const requests = this.#requests;
-    this.#setMemoryStatus(sessionId, { status: 'loading' });
+    this.#setMemoryStatus({ sessionId, status: { status: 'loading' } });
     try {
       const [memory, items] = await Promise.all([this.#api.sessionMemory(sessionId), this.#api.memoryItems(sessionId, memoryItemLimit)]);
       if (!this.#requestActive(requests)) return;
@@ -330,7 +331,7 @@ export class ConsoleStore {
       });
     } catch (error) {
       if (!this.#requestActive(requests)) return;
-      this.#setMemoryStatus(sessionId, { status: 'error', message: memoryReadError(error) });
+      this.#setMemoryStatus({ sessionId, status: { status: 'error', message: memoryReadError(error) } });
     }
   }
 
