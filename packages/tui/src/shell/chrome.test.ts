@@ -7,6 +7,10 @@ import type { Connection } from '../store/store.ts';
 import type { Session } from '@pi-console/contract';
 import { palette } from '../view/theme.ts';
 import { pulseViewModel } from '@pi-console/viewmodels';
+import { generate, needsYou } from '@pi-console/testkit';
+
+const items = needsYou(generate().fixture).items;
+const loadedAttention = { needsYou: items, needsYouLoaded: true, needsYouError: false, needsYouCached: true };
 
 test('mono pulse uses the shared status glyphs rather than a solid white run', () => {
   const statuses = ['needs-you', 'blocked', 'failed', 'working', 'waiting', 'idle', 'done'] as const;
@@ -23,8 +27,38 @@ test('mono pulse uses the shared status glyphs rather than a solid white run', (
 
 const offline: Connection = { connected: false, error: 'terminated', lastSeq: 42, lastEventAt: Date.parse('2026-11-20T12:00:03Z'), eventsReceived: 1 };
 
+const attentionStates = [
+  { name: 'loading', attention: { ...loadedAttention, needsYou: [], needsYouLoaded: false, needsYouCached: false }, expected: /checking…/ },
+  { name: 'failed first load', attention: { ...loadedAttention, needsYou: [], needsYouLoaded: false, needsYouError: true, needsYouCached: false }, expected: /unavailable/ },
+  { name: 'loaded empty', attention: { ...loadedAttention, needsYou: [] }, expected: /●/ },
+  { name: 'loaded non-empty', attention: loadedAttention, expected: new RegExp(`(?:!|●) ${String(items.length)}(?: need you)? `) },
+  { name: 'failed refresh with cached empty list', attention: { ...loadedAttention, needsYou: [], needsYouLoaded: false, needsYouError: true }, expected: /0 (?:need you · )?stale/ },
+  { name: 'failed refresh with cached items', attention: { ...loadedAttention, needsYouLoaded: false, needsYouError: true }, expected: new RegExp(`${String(items.length)} (?:need you · )?stale`) },
+];
+
+for (const theme of ['midnight', 'contrast', 'mono'] as const) {
+  for (const width of [80, 112, 160]) {
+    for (const state of attentionStates) {
+      test(`header: ${state.name} at ${String(width)} columns in ${theme}`, async () => {
+        palette.configure('truecolor', theme);
+        const ui = await mountHeadless(h(Screen, {}, h(Header, { ui: initial, width, attention: state.attention, connection: offline, select: () => undefined })), { width, height: 2 });
+        try {
+          await ui.settle();
+          const frame = ui.frame();
+          assert.match(frame, state.expected);
+          assert.match(frame, /◌ offline/);
+          for (let key = 1; key <= 7; key++) assert.ok(frame.includes(` ${String(key)} `));
+          for (const line of frame.split('\n')) assert.ok(Array.from(line).length <= width);
+          if (!state.attention.needsYouLoaded) assert.doesNotMatch(frame, /all clear/);
+          if (state.name === 'loaded empty' && width === 160) assert.match(frame, /● all clear/);
+        } finally { ui.destroy(); palette.configure('truecolor', 'midnight'); }
+      });
+    }
+  }
+}
+
 test('100-column header keeps all tab numbers, the active label and an explicit attention glyph', async () => {
-  const ui = await mountHeadless(h(Screen, {}, h(Header, { ui: { ...initial, section: 'fleet' }, width: 100, attention: 19, connection: { ...offline, connected: true }, select: () => undefined })), { width: 100, height: 30 });
+  const ui = await mountHeadless(h(Screen, {}, h(Header, { ui: { ...initial, section: 'fleet' }, width: 100, attention: { ...loadedAttention, needsYou: Array.from({ length: 19 }, () => items[0]) }, connection: { ...offline, connected: true }, select: () => undefined })), { width: 100, height: 30 });
   try {
     const frame = await ui.waitFor('! 19');
     for (let key = 1; key <= 7; key++) assert.ok(frame.includes(` ${String(key)} `));

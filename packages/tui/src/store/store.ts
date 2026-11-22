@@ -25,6 +25,8 @@ export interface Data {
   transcriptHistory: ReadonlyMap<string, TranscriptProgress>;
   /** True after a successful attention fetch, until a fetch fails; `loaded` alone is too early. */
   needsYouLoaded: boolean; needsYouError: boolean;
+  /** True after any successful attention fetch, including an empty list; retained across refresh failures. */
+  needsYouCached: boolean;
   /** Read-only intent memory per session id, fetched when its session is opened. */
   memory: ReadonlyMap<string, SessionMemory>; memoryItems: ReadonlyMap<string, MemoryItem[]>;
   memoryReviews: ReadonlyMap<string, MemoryReviewSession>;
@@ -41,7 +43,7 @@ export interface Data {
 export class Store {
   private data: Data = {
     loaded: false, connection: { connected: false, error: 'Connecting…', lastSeq: undefined, lastEventAt: undefined, eventsReceived: 0 }, repositories: 0,
-    graph: { nodes: [], edges: [] }, sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], totals: null, bounded: [], history: {}, needsYou: [], needsYouLoaded: false, needsYouError: false, transcripts: new Map(), transcriptsTruncated: new Set(), transcriptHistory: new Map(), memory: new Map(), memoryItems: new Map(), memoryReviews: new Map(), memoryHistory: new Map(), fresh: new Map(),
+    graph: { nodes: [], edges: [] }, sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], totals: null, bounded: [], history: {}, needsYou: [], needsYouLoaded: false, needsYouError: false, needsYouCached: false, transcripts: new Map(), transcriptsTruncated: new Set(), transcriptHistory: new Map(), memory: new Map(), memoryItems: new Map(), memoryReviews: new Map(), memoryHistory: new Map(), fresh: new Map(),
   };
   private readonly listeners = new Set<() => void>();
   private timer: ReturnType<typeof setTimeout> | undefined;
@@ -109,7 +111,7 @@ export class Store {
   setGraph(graph: Graph): void { this.data = { ...this.data, graph }; this.schedule(); }
 
   setNeedsYou(needsYou: AttentionItem[]): void {
-    this.data = { ...this.data, needsYou, needsYouLoaded: true, needsYouError: false };
+    this.data = { ...this.data, needsYou, needsYouLoaded: true, needsYouError: false, needsYouCached: true };
     this.schedule();
   }
 

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Event, Reset, Snapshot, TranscriptEntry } from '@pi-console/contract';
 import { Store } from './store.ts';
-import { generate } from '@pi-console/testkit';
+import { generate, needsYou } from '@pi-console/testkit';
 
 const fixture = generate().fixture as unknown as { repositories: unknown[]; sessions: { id: string; name: string }[]; requests: unknown[]; questions: unknown[]; messages: unknown[]; jobs: unknown[]; resets: unknown[]; transcript: TranscriptEntry[] };
 
@@ -28,6 +28,32 @@ test('reset pages and live rows survive a bounded reconnect without duplicates; 
   store.apply({ seq: 4, occurredAt: '2026-01-01T00:00:00Z', type: 'snapshot', payload: { ...resetSnapshot([]), bounded: [] } });
   assert.deepEqual(store.getSnapshot().resets, []);
   store.dispose();
+});
+
+test('attention cache availability survives failed refreshes without changing current-load semantics', () => {
+  const store = new Store();
+  const state = () => {
+    const data = store.getSnapshot();
+    return [data.needsYouLoaded, data.needsYouError, data.needsYouCached];
+  };
+  try {
+    assert.deepEqual(state(), [false, false, false]);
+    store.setNeedsYouError(true);
+    assert.deepEqual(state(), [false, true, false], 'a failed first load has no cache');
+    store.setNeedsYouError(false);
+    assert.deepEqual(state(), [false, false, false]);
+    for (const items of [[], needsYou(generate().fixture).items]) {
+      store.setNeedsYou(items);
+      assert.deepEqual(state(), [true, false, true]);
+      store.setNeedsYouError(true);
+      assert.deepEqual(state(), [false, true, true]);
+      assert.deepEqual(store.getSnapshot().needsYou, items, 'empty and non-empty cached lists survive');
+      store.setNeedsYouError(false);
+      assert.deepEqual(state(), [false, false, true], 'a retry keeps its cache but is not yet current');
+      store.setNeedsYou(items);
+      assert.deepEqual(state(), [true, false, true]);
+    }
+  } finally { store.dispose(); }
 });
 
 test('a snapshot loads every collection and tracks the stream position', async () => {

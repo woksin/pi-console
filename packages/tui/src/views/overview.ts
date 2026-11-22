@@ -49,7 +49,7 @@ function attentionPanel(model: OverviewViewModel, env: Env, width: number, heigh
   const inner = width - 4;
   const { fresh, flashing } = changesOf(model, env);
   const ready = env.data.needsYouLoaded && !env.data.needsYouError;
-  const status = attentionLoad(env);
+  const status = attentionLoad(model, env);
   const divider: Line[] = [...status.lines, ...(fresh.label ? [newSinceLine(fresh.label, inner)] : [])];
   const visible = Math.max(1, Math.floor((height - 4 - divider.length) / CARD_HEIGHT));
   const cursor = env.ui.cursor.overview;
@@ -59,13 +59,16 @@ function attentionPanel(model: OverviewViewModel, env: Env, width: number, heigh
     : [...divider, ...model.cards.slice(start, end).flatMap((card, offset) =>
       cardLines(card, inner, { selected: start + offset === cursor, isNew: fresh.ids.has(card.id), flash: flashing(card.id) }, env))];
   const more = attentionPosition(model.cards.length, end, cursor);
-  return h(Panel, { title: status.title ?? model.headline, right: more, focused: true, accent: ready ? attentionAccent(model) : 'muted', grow: 1 },
+  return h(Panel, { title: status.title ?? model.headline, right: more, focused: true, accent: ready ? attentionAccent(model) : status.accent, grow: 1 },
     h(Lines, { lines, grow: 1, onLineClick: index => { if (index >= divider.length) env.click(start + Math.floor((index - divider.length) / CARD_HEIGHT)); } }));
 }
 
-function attentionLoad(env: Env): { title?: string; lines: Line[] } {
-  if (env.data.needsYouError) return { title: 'Could not load needs you.', lines: [[t('r retry', 'muted')]] };
-  if (!env.data.needsYouLoaded) return { title: 'Loading…', lines: [] };
+function attentionLoad(model: OverviewViewModel, env: Env): { title?: string; lines: Line[]; accent?: 'amber' | 'muted' } {
+  if (env.data.needsYouError) return {
+    title: env.data.needsYouCached ? `${model.headline} · stale` : 'Could not load needs you.',
+    lines: [[t('r retry', 'muted')]], accent: 'amber',
+  };
+  if (!env.data.needsYouLoaded) return { title: 'Loading…', lines: [], accent: 'muted' };
   return { lines: [] };
 }
 
