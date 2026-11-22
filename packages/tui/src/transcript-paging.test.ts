@@ -63,7 +63,7 @@ for (const width of [80, 112]) test(`bidirectional edge paging, retry, follow an
     assert.match(ui.frame(), /older entries above — scroll up to load/);
     assert.doesNotMatch(ui.frame(), /following tail/);
     await ui.press('f'); await publish();
-    assert.match(ui.frame(), /following tail/);
+    assert.match(await ui.waitFor('following tail'), /following tail/);
     assert.equal(store.getSnapshot().transcripts.get(id)?.at(-1)?.cursor, 6000);
     for (const line of ui.frame().split('\n')) assert.ok([...line].length <= width, line);
   } finally { ui.destroy(); loader.stop(); store.dispose(); }

@@ -52,12 +52,14 @@ test('attention loading and failure stay separate from connection; retry reaches
   try {
     await ui.settle();
     assert.match(ui.frame(), /Loading…/);
-    assert.doesNotMatch(ui.frame(), /All clear|Sources detected/);
+    assert.match(ui.frame(), /checking…/);
+    assert.doesNotMatch(ui.frame(), /[Aa]ll clear|Sources detected/);
     store.setNeedsYouError(true);
     await settleStore();
     assert.match(ui.frame(), /Could not load needs you\./);
+    assert.match(ui.frame(), /unavailable/);
     assert.match(ui.frame(), /r retry/);
-    assert.doesNotMatch(ui.frame(), /All clear|Sources detected|Disconnected/);
+    assert.doesNotMatch(ui.frame(), /[Aa]ll clear|Sources detected|Disconnected/);
     await ui.press('r');
     assert.equal(retries, 1);
     await settleStore();
@@ -70,7 +72,35 @@ test('attention loading and failure stay separate from connection; retry reaches
     assert.equal(retries, 1, 'healthy lists do not retry');
     store.setNeedsYouError(true);
     await settleStore();
-    assert.doesNotMatch(ui.frame(), /All clear|Nothing needs you\./, 'a later failure invalidates the calm state');
+    assert.match(ui.frame(), /All clear: nothing needs you · stale/);
+    assert.match(ui.frame(), /0 stale/);
+    assert.match(ui.frame(), /r retry/);
+    assert.doesNotMatch(ui.frame(), /Nothing needs you\./, 'a later failure does not present cached calm as current');
+    await ui.press('r');
+    assert.equal(retries, 2);
+    await settleStore();
+    assert.match(ui.frame(), /0 stale/);
+    assert.match(ui.frame(), /Loading…/);
+    store.setNeedsYou(needsYou(fixture).items);
+    await settleStore();
+    assert.doesNotMatch(ui.frame(), /stale|unavailable|[Aa]ll clear/);
+  } finally { ui.destroy(); store.dispose(); }
+});
+
+test('Overview marks non-empty cached attention stale after a failed refresh', async () => {
+  const store = new Store();
+  const fixture = generate().fixture;
+  const items = needsYou(fixture).items;
+  store.apply({ type: 'snapshot', seq: 1, payload: fixture } as unknown as Event);
+  store.setNeedsYou(items);
+  store.setNeedsYouError(true);
+  const view = overviewView({ data: store.getSnapshot(), ui: initial, width: 100, height: 30, now: 0, phase: 0, click: () => undefined });
+  const ui = await mountHeadless(h(Screen, {}, view.render()), { width: 100, height: 30 });
+  try {
+    await ui.settle();
+    assert.match(ui.frame(), new RegExp(`${String(items.length)} things need you · stale`));
+    assert.match(ui.frame(), /r retry/);
+    assert.doesNotMatch(ui.frame(), /All clear|Could not load needs you\./);
   } finally { ui.destroy(); store.dispose(); }
 });
 

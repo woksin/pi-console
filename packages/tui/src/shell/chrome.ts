@@ -3,7 +3,7 @@ import { Clickable, Row, Spacer, Text, h, type Line, type Part } from '../view/r
 import { fit, split, t } from '../view/parts.ts';
 import { palette } from '../view/theme.ts';
 import { contextOf, sections, type Section, type UiState } from '../state/ui.ts';
-import type { Connection } from '../store/store.ts';
+import type { Connection, Data } from '../store/store.ts';
 
 const labels: Record<Section, string> = {
   overview: 'Overview', fleet: 'Fleet', requests: 'Requests', questions: 'Questions', messages: 'Messages', timeline: 'Timeline', work: 'Work',
@@ -15,27 +15,43 @@ export function terminalTitle(ui: Pick<UiState, 'section' | 'sessionId'>, data: 
   return consoleTitle({ needsYou: data.needsYou.length, place: session?.name ?? labels[ui.section] });
 }
 
-export interface HeaderProps { ui: UiState; width: number; attention: number; connection: Connection; select: (section: Section) => void }
+type Attention = Pick<Data, 'needsYou' | 'needsYouLoaded' | 'needsYouError' | 'needsYouCached'>;
+export interface HeaderProps { ui: UiState; width: number; attention: Attention; connection: Connection; select: (section: Section) => void }
+
+function headerNavigation(ui: UiState, compact: boolean) {
+  const active = ui.sessionId ? undefined : ui.section;
+  const brand = [t('π ', 'violet', { bold: true }), t(compact ? '' : 'console', 'text', { bold: true }), t(' ', 'faint')];
+  const tabs = sections.map((section, index) => ({ section, line: section === active
+    ? [t(` ${String(index + 1)} `, 'bg', { background: 'cyan', bold: true }), t(` ${labels[section]} `, 'text', { bold: true, underline: true })]
+    : [t(` ${String(index + 1)} `, 'faint'), t(compact ? '' : `${labels[section]} `, 'muted')] }));
+  return { brand, tabs, width: cells(brand) + tabs.reduce((sum, tab) => sum + cells(tab.line), 0) };
+}
 
 /** Brand, section tabs (clickable, number keys shown) and the attention and connection pills. */
 export function Header(props: HeaderProps) {
-  const { ui, connection } = props;
-  const compact = props.width < 112;
-  const active = ui.sessionId ? undefined : ui.section;
-  const tabs = sections.map((section, index) => h(Clickable, { key: section, onClick: () => { props.select(section); } },
-    h(Text, { line: section === active
-      ? [t(` ${String(index + 1)} `, 'bg', { background: 'cyan', bold: true }), t(` ${labels[section]} `, 'text', { bold: true, underline: true })]
-      : [t(` ${String(index + 1)} `, 'faint'), t(compact ? '' : `${labels[section]} `, 'muted')] })));
+  const link: Line = props.connection.connected ? [t('◉ live ', 'green')] : [t('◌ offline ', 'red', { bold: true })];
+  const full = headerNavigation(props.ui, false);
+  const compact = props.width < 112 || full.width + cells(attentionLine(props.attention, false)) + cells(link) + 2 > props.width;
+  const navigation = compact ? headerNavigation(props.ui, true) : full;
   const attention = attentionLine(props.attention, compact);
-  const link: Line = connection.connected ? [t('◉ live ', 'green')] : [t('◌ offline ', 'red', { bold: true })];
+  const room = Math.max(0, props.width - navigation.width - cells(link) - 2);
+  const tabs = navigation.tabs.map(tab => h(Clickable, { key: tab.section, onClick: () => { props.select(tab.section); } }, h(Text, { line: tab.line })));
   return h(Row, { background: 'raised', paddingX: 1, height: 1 },
-    h(Text, { line: [t('π ', 'violet', { bold: true }), t(compact ? '' : 'console', 'text', { bold: true }), t(' ', 'faint')] }), ...tabs,
-    h(Spacer, {}), h(Text, { line: attention }), h(Text, { line: link }));
+    h(Text, { line: navigation.brand }), ...tabs,
+    h(Spacer, {}), h(Text, { line: fit(attention, Math.min(room, cells(attention))) }), h(Text, { line: link }));
 }
 
-function attentionLine(count: number, compact: boolean): Line {
+function attentionLine(attention: Attention, compact: boolean): Line {
+  if (!attention.needsYouLoaded || attention.needsYouError) return unavailableAttention(attention, compact);
+  const count = attention.needsYou.length;
   if (count === 0) return [t(compact ? '● ' : '● all clear ', 'green')];
   return [t(compact ? `! ${String(count)} ` : `● ${String(count)} need you `, 'amber', { bold: true })];
+}
+
+function unavailableAttention(attention: Attention, compact: boolean): Line {
+  if (attention.needsYouCached) return [t(compact ? `! ${String(attention.needsYou.length)} stale ` : `● ${String(attention.needsYou.length)} need you · stale `, 'muted', { dim: true })];
+  if (attention.needsYouError) return [t(compact ? '! unavailable ' : '⚠ attention unavailable ', 'amber')];
+  return [t('checking… ', 'muted', { dim: true })];
 }
 
 /** Cell height mirrors urgency, as in the web strip: needs-you, blocked and failed full, idle and done low. */
