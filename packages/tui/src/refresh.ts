@@ -1,4 +1,20 @@
 export interface Refresher { request: () => void; stop: () => void }
+export interface ConnectedRefresher extends Refresher { setConnected: (connected: boolean) => void }
+
+/** Periodic requests share the event throttle and exist only while connected. */
+export function pollWhileConnected(refresher: Refresher, interval: number): ConnectedRefresher {
+  let stopped = false;
+  let timer: ReturnType<typeof setInterval> | undefined;
+  const setConnected = (connected: boolean) => {
+    clearInterval(timer);
+    timer = undefined;
+    if (!connected || stopped) return;
+    timer = setInterval(refresher.request, interval);
+    refresher.request();
+  };
+  const stop = () => { stopped = true; setConnected(false); refresher.stop(); };
+  return { request: refresher.request, setConnected, stop };
+}
 
 /**
  * Runs `load` at most once per `interval` and never overlapping. A request that arrives while throttled or in flight is not dropped:

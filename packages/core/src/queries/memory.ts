@@ -65,7 +65,9 @@ export function proposedMemoryAttention(models: ReadModels): AttentionItem[] {
   const groups = new Map<string, MemoryItemModel[]>();
   for (const row of recorded(models).filter(item => item.status === 'proposed' && item.statusBasis === 'recorded')) {
     const key = memorySessionOf(models, row) ?? unlinkedMemory;
-    groups.set(key, [...groups.get(key) ?? [], row]);
+    const group = groups.get(key);
+    if (group) group.push(row);
+    else groups.set(key, [row]);
   }
   return [...groups].map(([key, rows]) => {
     const since = rows.map(row => row.at).sort(compareText)[0];
