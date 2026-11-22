@@ -139,6 +139,19 @@ export class Store {
     this.schedule();
   }
 
+  /** A fresh open must not inherit a previously browsed window or its pending arrivals. */
+  resetTranscript(sessionId: Session['id']): void {
+    const transcripts = new Map(this.data.transcripts);
+    const transcriptHistory = new Map(this.data.transcriptHistory);
+    const transcriptsTruncated = new Set(this.data.transcriptsTruncated);
+    transcripts.delete(sessionId);
+    transcriptHistory.delete(sessionId);
+    transcriptsTruncated.delete(sessionId);
+    this.pendingTranscripts.delete(sessionId);
+    this.data = { ...this.data, transcripts, transcriptHistory, transcriptsTruncated };
+    this.schedule();
+  }
+
   setTranscriptProgress(sessionId: Session['id'], change: Partial<TranscriptProgress>): void {
     const progress = this.data.transcriptHistory.get(sessionId) ?? emptyProgress;
     this.data = { ...this.data, transcriptHistory: new Map(this.data.transcriptHistory).set(sessionId, { ...progress, ...change }) };
@@ -169,15 +182,17 @@ export class Store {
   private appendTranscript(entries: readonly TranscriptEntry[], only?: string): void {
     for (const entry of entries) {
       const key = only ?? entry.sessionId;
-      const progress = this.data.transcriptHistory.get(key);
-      if (progress?.newer) {
-        this.setTranscriptProgress(key, { observedTail: Math.max(progress.observedTail ?? 0, entry.cursor) });
-        continue;
-      }
-      const list = this.pendingTranscripts.get(key) ?? [...(this.data.transcripts.get(key) ?? [])];
-      if (!list.some(existing => existing.id === entry.id)) list.push(entry);
-      this.pendingTranscripts.set(key, list);
+      const progress = this.data.transcriptHistory.get(key) ?? emptyProgress;
+      this.setTranscriptProgress(key, { observedTail: Math.max(progress.observedTail ?? 0, entry.cursor) });
+      if (progress.newer) continue;
+      this.appendWindowEntry(key, entry);
     }
+  }
+
+  private appendWindowEntry(sessionId: Session['id'], entry: TranscriptEntry): void {
+    const list = this.pendingTranscripts.get(sessionId) ?? [...(this.data.transcripts.get(sessionId) ?? [])];
+    if (!list.some(existing => existing.id === entry.id)) list.push(entry);
+    this.pendingTranscripts.set(sessionId, list);
   }
 
   detail(sessionId: string): SessionDetail | undefined {

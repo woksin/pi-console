@@ -1,4 +1,4 @@
-import { useEffect, type EffectCallback, type RefObject } from 'react';
+import { useEffect, useRef, type EffectCallback, type RefObject } from 'react';
 import { resolve } from '@pi-console/viewmodels';
 import { contextOf, type UiState } from './state/ui.ts';
 import { pauseTranscript, resumeTranscript, transcriptWindow, type TranscriptLayout } from './state/transcript-window.ts';
@@ -64,7 +64,12 @@ function pageUi(ui: UiState, progress: TranscriptProgress | undefined, layout: T
 export function useTranscriptWindow({ ref, apply, data, layout, viewport }: { ref: RefObject<UiState>; apply: (ui: UiState) => void; data: Data; layout: TranscriptLayout; viewport: number }): void {
   const id = ref.current.sessionId;
   const progress = id ? data.transcriptHistory.get(id) : undefined;
+  const previousId = useRef<string | null>(null);
   useEffect(() => {
+    const opening = previousId.current !== id;
+    previousId.current = id;
+    // The load effect resets the store, but this render may still contain the cached window.
+    if (opening) return;
     if (ref.current.sessionId === id) apply(pageUi(ref.current, progress, layout, viewport));
   }, [id, progress?.revision, progress?.newer]);
 }

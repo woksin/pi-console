@@ -53,6 +53,7 @@ export class TranscriptLoader {
     this.stop();
     const visible: VisibleTranscript = { id, controller: new AbortController(), focus: entryId };
     this.active = visible;
+    this.store.resetTranscript(id);
     this.store.setTranscriptProgress(id, { returnToLive: false, observedTail: 0 });
     this.requestDetail(visible);
     this.request(visible, entryId ? 'around' : 'tail');
@@ -62,7 +63,7 @@ export class TranscriptLoader {
   focus = (id: string, entryId: string): void => {
     const visible = this.visibleSession(id);
     if (!visible) return;
-    if (visible.focus === entryId) return;
+    if (this.focusing(visible, entryId)) return;
     visible.focus = entryId;
     this.request(visible, 'around');
   };
@@ -82,6 +83,11 @@ export class TranscriptLoader {
     return this.active.controller.signal.aborted ? undefined : this.active;
   }
 
+  private focusing(visible: VisibleTranscript, entryId: string): boolean {
+    const progress = this.store.getSnapshot().transcriptHistory.get(visible.id);
+    return visible.focus === entryId && progress?.loading === 'around';
+  }
+
   private requestDetail(visible: VisibleTranscript): void {
     const { signal } = visible.controller;
     void this.client.session(visible.id, signal).then(detail => {
@@ -96,8 +102,22 @@ export class TranscriptLoader {
     void this.fetch(visible, direction, signal).then(page => {
       publishIfActive(signal, () => { this.store.setTranscriptPage(visible.id, page, direction); });
     }, () => {
-      publishIfActive(signal, () => { this.store.setTranscriptProgress(visible.id, { loading: undefined, error: direction }); });
+      publishIfActive(signal, () => { this.requestFailed(visible, direction); });
     });
+  }
+
+  private requestFailed(visible: VisibleTranscript, direction: TranscriptLoad): void {
+    if (this.needsTailFallback(visible, direction)) {
+      visible.focus = undefined;
+      this.request(visible, 'tail');
+      return;
+    }
+    this.store.setTranscriptProgress(visible.id, { loading: undefined, error: direction });
+  }
+
+  private needsTailFallback(visible: VisibleTranscript, direction: TranscriptLoad): boolean {
+    const entries = this.store.getSnapshot().transcripts.get(visible.id) ?? [];
+    return direction === 'around' && entries.length === 0;
   }
 
   private async fetch(visible: VisibleTranscript, direction: TranscriptLoad, signal: AbortSignal): Promise<Transcript> {
