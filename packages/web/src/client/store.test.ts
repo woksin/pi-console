@@ -5,7 +5,7 @@ import { generate } from '@pi-console/testkit';
 import { clockNow } from '../app/hooks.ts';
 import { attentionPresentation } from '../app/attention.ts';
 import { ConsoleStore, reconnectDelays, staleAfterMs, type Clock } from './store.ts';
-import { createApi, type Api } from './api.ts';
+import { StaleResume, createApi, type Api } from './api.ts';
 
 const clock: Clock = { now: () => 0, setTimeout: () => 0, clearTimeout: () => undefined };
 
@@ -1021,4 +1021,99 @@ test('stop and restart generations reject late memory responses', async () => {
   const current = store.getState(); resolve({ ...memorySummary('s1'), wider: 999 }); await old;
   assert.equal(store.getState(), current);
   store.stop();
+});
+
+test('a 400 stream reply drops the saved sequence and reconnects at once for a fresh snapshot', async t => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 0 });
+  const seqs: number[] = [];
+  const snapshots = [windowedSnapshot([job('old', 'running', '2026-01-01T00:00:00Z')], 1), { ...windowedSnapshot([job('new', 'running', '2026-01-02T00:00:00Z')], 1), seq: 2 }];
+  const stream: Api['stream'] = (seq, _signal, onFrame) => {
+    seqs.push(seq);
+    if (seqs.length === 2) return Promise.reject(new StaleResume());
+    onFrame(snapshots[seqs.length === 1 ? 0 : 1]);
+    return seqs.length === 1 ? Promise.resolve() : new Promise<void>(() => undefined);
+  };
+  const api = { needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null), graph: () => Promise.resolve(null), page: () => Promise.resolve(emptyList), stream } as unknown as Api;
+  const store = new ConsoleStore(api, { now: () => Date.now(), setTimeout: (callback, ms) => setTimeout(callback, ms) as unknown as number, clearTimeout: timer => { clearTimeout(timer); } });
+  t.after(() => { store.stop(); });
+  store.start();
+  await settle();
+  assert.deepEqual(store.getState().jobs.map(row => row.id), ['old']);
+  t.mock.timers.tick(reconnectDelays[0]);
+  await settle();
+  assert.deepEqual(seqs, [0, 5, 0], 'the refused sequence is dropped and the retry needs no backoff');
+  assert.deepEqual(store.getState().jobs.map(row => row.id), ['new'], 'state comes from the fresh snapshot alone');
+  assert.equal(store.getState().connection, 'live');
+});
+
+test('a second 400 without a saved sequence falls back to normal backoff', async t => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 0 });
+  let attempts = 0;
+  const stream: Api['stream'] = (seq, _signal, onFrame) => {
+    attempts++;
+    if (attempts === 1) { onFrame(windowedSnapshot([], 0)); return Promise.resolve(); }
+    return Promise.reject(seq > 0 ? new StaleResume() : new Error('stream failed: 400'));
+  };
+  const api = { needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null), graph: () => Promise.resolve(null), page: () => Promise.resolve(emptyList), stream } as unknown as Api;
+  const store = new ConsoleStore(api, { now: () => Date.now(), setTimeout: (callback, ms) => setTimeout(callback, ms) as unknown as number, clearTimeout: timer => { clearTimeout(timer); } });
+  t.after(() => { store.stop(); });
+  store.start();
+  await settle();
+  t.mock.timers.tick(reconnectDelays[0]);
+  await settle();
+  assert.equal(attempts, 3, 'one resume, one immediate retry without a sequence');
+  assert.equal(store.getState().connection, 'offline');
+  await settle();
+  assert.equal(attempts, 3, 'no tight loop');
+  t.mock.timers.tick(reconnectDelays[1] - 1);
+  await settle();
+  assert.equal(attempts, 3, 'the backoff has grown after the first offline');
+  t.mock.timers.tick(1);
+  await settle();
+  assert.equal(attempts, 4);
+});
+
+test('the stream client raises StaleResume only for a 400 that answers a resume', async () => {
+  const api = (status: number) => createApi('token', '', () => Promise.resolve(new Response(null, { status })));
+  await assert.rejects(api(400).stream(7, new AbortController().signal, () => undefined), StaleResume);
+  await assert.rejects(api(400).stream(0, new AbortController().signal, () => undefined), /stream failed: 400/);
+});
+
+test('a refused resume starts fresh: the open transcript is reloaded and reviews are revalidated against the new history', async t => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 0 });
+  const connections: { onFrame: (frame: Parameters<Api['stream']>[2] extends (frame: infer F) => void ? F : never) => void; end: (error?: Error) => void }[] = [];
+  const stream: Api['stream'] = (_seq, signal, onFrame) => new Promise<void>((resolve, reject) => {
+    connections.push({ onFrame, end: error => { if (error) reject(error); else resolve(); } });
+    signal.addEventListener('abort', () => { resolve(); }, { once: true });
+  });
+  let availability = 0;
+  const { api: transcriptApi, calls: transcriptCalls } = history(3);
+  const api = {
+    ...transcriptApi, stream,
+    needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null), graph: () => Promise.resolve(null), page: () => Promise.resolve(emptyList),
+    memoryActionAvailability: () => { availability++; return Promise.resolve({ version: 1, available: true, providerVersion: 1, generation: 'g1', reason: 'available' }); },
+    sessionMemory: () => Promise.resolve(memorySummary('s1')), memoryItems: () => Promise.resolve([proposedItem]),
+  } as unknown as Api;
+  const store = new ConsoleStore(api, { now: () => Date.now(), setTimeout: (callback, ms) => setTimeout(callback, ms) as unknown as number, clearTimeout: timer => { clearTimeout(timer); } });
+  t.after(() => { store.stop(); });
+  // What the session view's effect does on every render.
+  const render = (): Promise<void> => store.transcriptReader.reconcile({ sessionId: 's1', focus: null, snapshotLoaded: store.getState().snapshotLoaded, gapCount: store.getState().gapCount });
+  store.subscribe(() => { void render(); });
+  store.start();
+  store.watchSessionMemory('s1');
+  connections[0].onFrame(windowedSnapshot([], 0));
+  await settle();
+  assert.equal(transcriptCalls(), 1);
+  assert.equal(store.getState().memoryReviews.get('s1')?.availability?.available, true);
+  const before = availability;
+  connections[0].end(new StaleResume());
+  await settle();
+  assert.equal(store.getState().memoryReviews.size, 0, 'mirrored reviews are cleared with the rest');
+  connections[1].onFrame({ ...windowedSnapshot([], 0), seq: 1 });
+  await settle();
+  t.mock.timers.tick(500);
+  await settle();
+  assert.equal(transcriptCalls(), 2, 'the open transcript is fetched again from the new history');
+  assert.ok(availability > before);
+  assert.equal(store.getState().memoryReviews.get('s1')?.availability?.available, true, 'unchanged availability is still published to the fresh state');
 });

@@ -2,7 +2,7 @@ import type { Event as ApiEvent } from '@pi-console/contract';
 import { MemoryRefreshController, MemoryReviewController, type WindowedCollection } from '@pi-console/viewmodels';
 import { applyEvent, mergePage, mergeSessionDetail } from '../state/reduce.ts';
 import { emptyState, type Connection, type ConsoleState, type MemoryReadStatus } from '../state/state.ts';
-import { Unauthorized, type Api } from './api.ts';
+import { StaleResume, Unauthorized, type Api } from './api.ts';
 import { GraphRefreshController } from './graph-refresh.ts';
 import { TranscriptHistory } from './transcript-history.ts';
 
@@ -72,6 +72,8 @@ export class ConsoleStore {
   #attempt = 0;
   #stopped = false;
   #generation = 0;
+  /** The next snapshot replaces a reset history: it advances `gapCount` even though no state precedes it. */
+  #reseeded = false;
   /** Read through methods: these flags change across awaits, which control-flow narrowing cannot see. */
   #active(generation: number): boolean { return !this.#stopped && this.#generation === generation; }
   #requestActive(requests: RequestGeneration): boolean { return !this.#stopped && this.#requests === requests; }
@@ -174,25 +176,54 @@ export class ConsoleStore {
   }
 
   async #run(generation: number): Promise<void> {
-    while (this.#active(generation)) {
-      const controller = new AbortController();
-      this.#abort = controller;
-      this.#lastActivityAt = this.#clock.now();
-      this.#connection(this.#state.seq > 0 ? 'reconnecting' : 'connecting');
-      this.#watch(controller);
-      try {
-        await this.#api.stream(this.#state.seq, controller.signal, frame => { this.#frameWhenActive(generation, controller.signal, frame); });
-      } catch (error) {
-        if (!this.#active(generation)) return;
-        if (error instanceof Unauthorized) { this.#connection('unauthorized'); return; }
-      } finally {
-        controller.abort();
-        if (this.#active(generation)) { this.#unwatch(); this.#clearPoll(); }
-      }
-      if (!this.#active(generation)) return;
+    const active = (): boolean => this.#active(generation);
+    const deliver = (signal: AbortSignal, frame: ApiEvent | 'heartbeat'): void => { this.#frameWhenActive(generation, signal, frame); };
+    while (active()) {
+      const next = await this.#connectOnce(active, deliver);
+      if (next === 'stop' || !active()) return;
+      if (next === 'again') continue;
       this.#connection('offline');
       await this.#sleep(reconnectDelays[Math.min(this.#attempt++, reconnectDelays.length - 1)]);
     }
+  }
+
+  /** One stream connection: `stop` ends the loop, `again` reconnects at once, `backoff` waits first. */
+  async #connectOnce(active: () => boolean, deliver: (signal: AbortSignal, frame: ApiEvent | 'heartbeat') => void): Promise<'stop' | 'again' | 'backoff'> {
+    const controller = new AbortController();
+    this.#abort = controller;
+    this.#lastActivityAt = this.#clock.now();
+    this.#connection(this.#state.seq > 0 ? 'reconnecting' : 'connecting');
+    this.#watch(controller);
+    try {
+      await this.#api.stream(this.#state.seq, controller.signal, frame => { deliver(controller.signal, frame); });
+      return 'backoff';
+    } catch (error) {
+      return active() ? this.#afterFailure(error) : 'stop';
+    } finally {
+      controller.abort();
+      if (active()) { this.#unwatch(); this.#clearPoll(); }
+    }
+  }
+
+  /**
+   * One reset path for a daemon whose history was replaced: pending reads, the transcript reader and the review cache all belonged to the old
+   * history, so they are dropped with the mirrored state. The next snapshot counts as a gap, so every mounted view reloads what it shows.
+   */
+  #freshStart(): void {
+    this.#resetRequests();
+    this.#transcript.close();
+    this.#reviews.dispose();
+    this.#reviews = this.#createReviews();
+    this.#reseeded = true;
+    this.#set({ ...emptyState(), gapCount: this.#state.gapCount, connection: 'connecting' });
+  }
+
+  /** A rejected token ends the loop; a refused resume sequence means the daemon's history was reset, so mirrored state is dropped and the stream reopens at once for a fresh snapshot. */
+  #afterFailure(error: unknown): 'stop' | 'again' | 'backoff' {
+    if (error instanceof Unauthorized) { this.#connection('unauthorized'); return 'stop'; }
+    if (!(error instanceof StaleResume)) return 'backoff';
+    this.#freshStart();
+    return 'again';
   }
 
   #watch(controller: AbortController): void {
@@ -226,7 +257,7 @@ export class ConsoleStore {
     if (frame === 'heartbeat') { this.#heartbeat(); return; }
     const becameLive = this.#state.connection !== 'live';
     if (frame.type === 'snapshot') this.#resetRequests();
-    const next = applyEvent(this.#state, frame);
+    const next = this.#applyFrame(frame);
     if (frame.type === 'session.updated') this.#invalidateSessionDetail(frame.payload);
     if (frame.type !== 'snapshot') for (const name of next.bounded) if (next[name].length > this.#state[name].length) this.#requests.staleTotals.add(name);
     const liveAtReceivedAt = next.liveAt !== this.#state.liveAt ? now : this.#state.liveAtReceivedAt;
@@ -236,6 +267,13 @@ export class ConsoleStore {
     this.#pollWhileLive();
     if (becameLive || frame.type !== 'transcript.appended') this.#scheduleRefresh();
     this.#graphRefresh.request(becameLive ? undefined : frame.type);
+  }
+
+  #applyFrame(frame: ApiEvent): ConsoleState {
+    const applied = applyEvent(this.#state, frame);
+    if (frame.type !== 'snapshot' || !this.#reseeded) return applied;
+    this.#reseeded = false;
+    return { ...applied, gapCount: applied.gapCount + 1 };
   }
 
   #heartbeat(): void {
