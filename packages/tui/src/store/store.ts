@@ -1,5 +1,5 @@
 import { type MemoryReviewSession, mergeHistory, mergeSnapshot, type Totals, type WindowedCollection } from '@pi-console/viewmodels';
-import type { AttentionItem, Event, Job, MemoryItem, Message, Question, Request, Reset, Session, SessionDetail, SessionMemory, TranscriptEntry } from '@pi-console/contract';
+import type { AttentionItem, Event, Graph, Job, MemoryItem, Message, Question, Request, Reset, Session, SessionDetail, SessionMemory, TranscriptEntry } from '@pi-console/contract';
 
 export const TRANSCRIPT_LIMIT = 2500;
 const upsert = <T extends { id: string }>(items: T[], item: T): T[] => {
@@ -10,6 +10,7 @@ const upsert = <T extends { id: string }>(items: T[], item: T): T[] => {
 export interface Connection { connected: boolean; error: string; lastSeq: number | undefined; lastEventAt: number | undefined; eventsReceived: number }
 export interface Data {
   loaded: boolean; connection: Connection; repositories: number;
+  graph: Graph;
   sessions: Session[]; requests: Request[]; questions: Question[]; messages: Message[]; jobs: Job[]; resets: Reset[];
   /** Full collection sizes from a bounded snapshot; `null` when the daemon sent complete lists. */
   totals: Totals | null; bounded: readonly WindowedCollection[];
@@ -32,7 +33,7 @@ export interface Data {
 export class Store {
   private data: Data = {
     loaded: false, connection: { connected: false, error: 'Connecting…', lastSeq: undefined, lastEventAt: undefined, eventsReceived: 0 }, repositories: 0,
-    sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], totals: null, bounded: [], history: {}, needsYou: [], needsYouLoaded: false, needsYouError: false, transcripts: new Map(), memory: new Map(), memoryItems: new Map(), memoryReviews: new Map(), fresh: new Map(),
+    graph: { nodes: [], edges: [] }, sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], totals: null, bounded: [], history: {}, needsYou: [], needsYouLoaded: false, needsYouError: false, transcripts: new Map(), memory: new Map(), memoryItems: new Map(), memoryReviews: new Map(), fresh: new Map(),
   };
   private readonly listeners = new Set<() => void>();
   private timer: ReturnType<typeof setTimeout> | undefined;
@@ -96,6 +97,8 @@ export class Store {
     this.data = { ...this.data, connection: { ...this.data.connection, connected, error } };
     this.schedule();
   }
+
+  setGraph(graph: Graph): void { this.data = { ...this.data, graph }; this.schedule(); }
 
   setNeedsYou(needsYou: AttentionItem[]): void {
     this.data = { ...this.data, needsYou, needsYouLoaded: true, needsYouError: false };

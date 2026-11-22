@@ -25,7 +25,7 @@ Number keys jump, clicks work on tabs and rows. Everything except explicit memor
 | (Enter) | Session | Transcript with tool calls, diffs and reset markers; `f` follows the tail, `/` searches; right rail cycles requests, questions, jobs, resets (`Tab`) |
 | `3` | Requests | Requests with origin evidence, answer state and partial-answer flags |
 | `4` | Questions | Open, blocking and urgent questions with options |
-| `5` | Messages | Inter-agent messages with delivery state; `v` switches to the communication graph |
+| `5` | Messages | Inter-agent messages with delivery state; `v` switches to the canonical lane communication graph, with session spawn relationships in a separate section |
 | `6` | Timeline | Per-session lanes with request, answer and message markers; `+`/`-` zoom, `h`/`l` pan, `t` scrubs |
 | `7` | Work | Jobs (phases, ci, watchers) with state, exit code and owning session |
 | `:` `Ctrl+P` | Palette | Commands, and `@` finds a session |
