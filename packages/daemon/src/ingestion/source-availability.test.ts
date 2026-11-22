@@ -2,7 +2,8 @@ import assert from 'node:assert/strict';
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { test, type TestContext } from 'node:test';
+import fsModule from 'node:fs';
+import { mock, test, type TestContext } from 'node:test';
 import { defaultConfig, type DaemonConfig } from '../config.ts';
 import { directoryDiagnostics, isProblem, summarizeAvailability } from './source-availability.ts';
 
@@ -117,4 +118,22 @@ test('optional lane feeds appear only when configured, and a directory that appe
   mkdirSync(join(lanes, '.state/roster'), { recursive: true });
   mkdirSync(join(root, 'agent/lane-status'), { recursive: true });
   assert.equal(summary(config).get('lane-messages'), 'available');
+});
+
+test('a directory that cannot be listed or traversed is unavailable, whatever the error says', t => {
+  const root = tree(t);
+  mkdirSync(join(root, 'agent/sessions'), { recursive: true });
+  const denied = join(root, 'agent/sessions');
+  const access = fsModule.accessSync.bind(fsModule);
+  const mocked = mock.method(fsModule, 'accessSync', (path: string, mode?: number) => {
+    if (path === denied) throw Object.assign(new Error(`EACCES: permission denied, access '${path}'`), { code: 'EACCES' });
+    access(path, mode);
+  });
+  t.after(() => { mocked.mock.restore(); });
+  const result = summary(configAt(root));
+  assert.equal(result.get('session-jsonl'), 'unavailable');
+  assert.equal(result.get('agent-root'), 'available');
+  assert.equal(mocked.mock.calls.some(call => call.arguments[1] === (fsModule.constants.R_OK | fsModule.constants.X_OK)), true);
+  const text = JSON.stringify([...result]);
+  assert.equal(text.includes('EACCES') || text.includes(root), false);
 });

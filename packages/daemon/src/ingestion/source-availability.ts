@@ -1,4 +1,4 @@
-import { lstatSync, statSync } from 'node:fs';
+import fs, { lstatSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { DaemonConfig } from '../config.ts';
 import { sourceTable } from './source-table.ts';
@@ -17,10 +17,20 @@ export type AvailabilityConfig = DaemonConfig & { ingest?: boolean };
 
 const rank: Record<Availability, number> = { available: 0, disabled: 0, unavailable: 1, missing: 2 };
 
-/** Metadata only, never contents. A missing entry is `missing`; any other failure or a non-directory is `unavailable`. */
+/** A directory is only usable when it can be listed and traversed. Any failure is reported as the state alone, never the error. */
+function readable(path: string): Availability {
+  try {
+    fs.accessSync(path, fs.constants.R_OK | fs.constants.X_OK);
+    return 'available';
+  } catch {
+    return 'unavailable';
+  }
+}
+
+/** Metadata and permission bits only, never contents. A missing entry is `missing`; any other failure, a non-directory or an unreadable directory is `unavailable`. */
 function probe(path: string, lookup: typeof statSync | typeof lstatSync): Availability {
   try {
-    return lookup(path).isDirectory() ? 'available' : 'unavailable';
+    return lookup(path).isDirectory() ? readable(path) : 'unavailable';
   } catch (error) {
     return (error as NodeJS.ErrnoException).code === 'ENOENT' ? 'missing' : 'unavailable';
   }
