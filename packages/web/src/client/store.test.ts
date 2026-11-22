@@ -1078,3 +1078,42 @@ test('the stream client raises StaleResume only for a 400 that answers a resume'
   await assert.rejects(api(400).stream(7, new AbortController().signal, () => undefined), StaleResume);
   await assert.rejects(api(400).stream(0, new AbortController().signal, () => undefined), /stream failed: 400/);
 });
+
+test('a refused resume starts fresh: the open transcript is reloaded and reviews are revalidated against the new history', async t => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 0 });
+  const connections: { onFrame: (frame: Parameters<Api['stream']>[2] extends (frame: infer F) => void ? F : never) => void; end: (error?: Error) => void }[] = [];
+  const stream: Api['stream'] = (_seq, signal, onFrame) => new Promise<void>((resolve, reject) => {
+    connections.push({ onFrame, end: error => { if (error) reject(error); else resolve(); } });
+    signal.addEventListener('abort', () => { resolve(); }, { once: true });
+  });
+  let availability = 0;
+  const { api: transcriptApi, calls: transcriptCalls } = history(3);
+  const api = {
+    ...transcriptApi, stream,
+    needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null), graph: () => Promise.resolve(null), page: () => Promise.resolve(emptyList),
+    memoryActionAvailability: () => { availability++; return Promise.resolve({ version: 1, available: true, providerVersion: 1, generation: 'g1', reason: 'available' }); },
+    sessionMemory: () => Promise.resolve(memorySummary('s1')), memoryItems: () => Promise.resolve([proposedItem]),
+  } as unknown as Api;
+  const store = new ConsoleStore(api, { now: () => Date.now(), setTimeout: (callback, ms) => setTimeout(callback, ms) as unknown as number, clearTimeout: timer => { clearTimeout(timer); } });
+  t.after(() => { store.stop(); });
+  // What the session view's effect does on every render.
+  const render = (): Promise<void> => store.transcriptReader.reconcile({ sessionId: 's1', focus: null, snapshotLoaded: store.getState().snapshotLoaded, gapCount: store.getState().gapCount });
+  store.subscribe(() => { void render(); });
+  store.start();
+  store.watchSessionMemory('s1');
+  connections[0].onFrame(windowedSnapshot([], 0));
+  await settle();
+  assert.equal(transcriptCalls(), 1);
+  assert.equal(store.getState().memoryReviews.get('s1')?.availability?.available, true);
+  const before = availability;
+  connections[0].end(new StaleResume());
+  await settle();
+  assert.equal(store.getState().memoryReviews.size, 0, 'mirrored reviews are cleared with the rest');
+  connections[1].onFrame({ ...windowedSnapshot([], 0), seq: 1 });
+  await settle();
+  t.mock.timers.tick(500);
+  await settle();
+  assert.equal(transcriptCalls(), 2, 'the open transcript is fetched again from the new history');
+  assert.ok(availability > before);
+  assert.equal(store.getState().memoryReviews.get('s1')?.availability?.available, true, 'unchanged availability is still published to the fresh state');
+});

@@ -1,4 +1,4 @@
-import { type MemoryReviewSession, mergeHistory, mergeSnapshot, type Totals, type WindowedCollection } from '@pi-console/viewmodels';
+import { connectingState, type MemoryReviewSession, mergeHistory, mergeSnapshot, type Totals, type WindowedCollection } from '@pi-console/viewmodels';
 import type { AttentionItem, Event, Graph, Job, MemoryItem, Message, Question, Request, Reset, Session, SessionDetail, SessionMemory, Transcript, TranscriptEntry } from '@pi-console/contract';
 
 import { emptyProgress, transcriptPage, TRANSCRIPT_LIMIT, type TranscriptLoad, type TranscriptProgress } from './transcript-history.ts';
@@ -37,7 +37,7 @@ export interface Data {
 }
 
 const emptyData = (): Data => ({
-  loaded: false, connection: { connected: false, error: 'Connecting…', lastSeq: undefined, lastEventAt: undefined, eventsReceived: 0 }, repositories: 0,
+  loaded: false, connection: { connected: false, error: connectingState, lastSeq: undefined, lastEventAt: undefined, eventsReceived: 0 }, repositories: 0,
   graph: { nodes: [], edges: [] }, sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], totals: null, bounded: [], history: {}, needsYou: [], needsYouLoaded: false, needsYouError: false, needsYouCached: false, transcripts: new Map(), transcriptsTruncated: new Set(), transcriptHistory: new Map(), memory: new Map(), memoryItems: new Map(), memoryReviews: new Map(), memoryHistory: new Map(), fresh: new Map(),
 });
 

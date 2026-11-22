@@ -11,7 +11,7 @@ import { launch } from './view/renderer.ts';
 import { MemoryRefreshController, MemoryReviewController, type WindowedCollection } from '@pi-console/viewmodels';
 import { detectDepth, palette, themeFromEnv } from './view/theme.ts';
 
-export interface Runtime { store: Store; client: DaemonClient; loadTranscript: TranscriptLoader['load']; pageTranscript: TranscriptLoader['page']; focusTranscript: TranscriptLoader['focus']; reviews: MemoryReviewController; loadMemory: (id: string) => Promise<void>; loadMoreMemory: MemoryLoader['more']; retryNeedsYou: Refresher['request']; watchMemory: (id: string) => () => void; stop: () => void }
+export interface Runtime { store: Store; client: DaemonClient; loadTranscript: TranscriptLoader['load']; pageTranscript: TranscriptLoader['page']; focusTranscript: TranscriptLoader['focus']; reviews: Pick<MemoryReviewController, 'load' | 'request'>; loadMemory: (id: string) => Promise<void>; loadMoreMemory: MemoryLoader['more']; retryNeedsYou: Refresher['request']; watchMemory: (id: string) => () => void; stop: () => void }
 
 const NEEDS_YOU_REFRESH_MS = 2000;
 const NEEDS_YOU_POLL_MS = 60_000;
@@ -21,11 +21,14 @@ export function connect(credentials: Credentials): Runtime {
   const store = new Store();
   const client = new DaemonClient(credentials);
   let stopped = false;
-  const memoryLoader = new MemoryLoader(store, client);
+  // Loaders and the review controller cache per-daemon state; a reset replaces them (the old ones stop publishing) rather than patching each cache.
+  let memoryLoader = new MemoryLoader(store, client);
   const memory = new MemoryRefreshController(id => memoryLoader.refresh(id), id => reviews.load(id, { fresh: true }));
   const loadMemory = (id: string): Promise<void> => memory.refresh(id);
-  const loadMoreMemory = olderMemory(store, memoryLoader, memory);
-  const reviews = new MemoryReviewController(client, (id, review) => { if (!stopped) store.setMemoryReview(id, review); }, loadMemory);
+  const loadMoreMemory = olderMemory(store, () => memoryLoader, memory);
+  const newReviews = (): MemoryReviewController => new MemoryReviewController(client, (id, review) => { if (!stopped) store.setMemoryReview(id, review); }, loadMemory);
+  let current = newReviews();
+  const reviews: Runtime['reviews'] = { load: (id, options) => current.load(id, options), request: (id, itemId, action) => current.request(id, itemId, action) };
   const transcripts = new TranscriptLoader(store, client);
   const refresher = attentionRequests(store, client);
   const graph = graphRefresher(client, value => { store.setGraph(value); });
@@ -33,24 +36,31 @@ export function connect(credentials: Credentials): Runtime {
   void client.stream({
     onEvent: event => {
       store.apply(event);
-      if (event.type === 'snapshot') memory.invalidateVisible();
+      if (event.type === 'snapshot') { transcripts.resume(); memory.invalidateVisible(); }
       if (event.type === 'session.updated' && event.payload.memoryChanged) memory.invalidate(event.payload.id);
       if (event.type !== 'transcript.appended') refresh();
       graph.request(event.type);
     },
-    onReset: () => { store.reset(); },
+    onReset: () => {
+      store.reset();
+      transcripts.reset();
+      memoryLoader.stop();
+      memoryLoader = new MemoryLoader(store, client);
+      current.dispose();
+      current = newReviews();
+    },
     onState: state => { store.setConnection(state.connected, state.error); refresher.setConnected(state.connected); if (state.connected) graph.request(); },
   });
-  return { store, client, loadTranscript: transcripts.load, pageTranscript: transcripts.page, focusTranscript: transcripts.focus, reviews, loadMemory, loadMoreMemory, retryNeedsYou: refresh, watchMemory: id => memory.watch(id), stop: () => { stopped = true; transcripts.stop(); memoryLoader.stop(); memory.dispose(); reviews.dispose(); refresher.stop(); graph.stop(); client.stop(); store.dispose(); } };
+  return { store, client, loadTranscript: transcripts.load, pageTranscript: transcripts.page, focusTranscript: transcripts.focus, reviews, loadMemory, loadMoreMemory, retryNeedsYou: refresh, watchMemory: id => memory.watch(id), stop: () => { stopped = true; transcripts.stop(); memoryLoader.stop(); memory.dispose(); current.dispose(); refresher.stop(); graph.stop(); client.stop(); store.dispose(); } };
 }
 
-function olderMemory(store: Store, loader: MemoryLoader, refresh: MemoryRefreshController): Runtime['loadMoreMemory'] {
+function olderMemory(store: Store, loader: () => MemoryLoader, refresh: MemoryRefreshController): Runtime['loadMoreMemory'] {
   return id => {
     if (store.getSnapshot().memoryHistory.get(id)?.error === 'refresh') {
       refresh.invalidate(id);
       return refresh.refresh(id);
     }
-    return loader.more(id);
+    return loader().more(id);
   };
 }
 

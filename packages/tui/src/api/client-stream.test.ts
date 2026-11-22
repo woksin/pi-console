@@ -1,6 +1,6 @@
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
-import { tokenRejectedError } from '@pi-console/viewmodels';
+import { connectionBanner, tokenRejectedError } from '@pi-console/viewmodels';
 import { DaemonClient } from './client.ts';
 
 const flush = async () => { for (let turn = 0; turn < 30; turn++) await Promise.resolve(); };
@@ -117,4 +117,38 @@ test('a 401 reply reports the rejected token and retries slowly, not on the fast
   await stream.advance(30_000);
   assert.equal(stream.requests.length, 3);
   assert.equal(stream.states.at(-1)?.connected, true);
+});
+
+test('hostile token: an exception that echoes the credential never reaches the banner text', async t => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 1000 });
+  const secret = 'sekrit-token\nX-Injected: 1';
+  // Stand-in for undici, which rejects a bad header value with a message that contains it.
+  t.mock.method(globalThis, 'fetch', () => Promise.reject(new TypeError(`Headers.append: "Bearer ${secret}" is an invalid header value.`)));
+  const client = new DaemonClient({ baseUrl: 'http://127.0.0.1:1', token: secret, tokenSource: 'test' });
+  const states: { connected: boolean; error: string }[] = [];
+  const running = client.stream({ onState: state => { states.push(state); }, onEvent: () => undefined });
+  await flush();
+  client.stop();
+  t.mock.timers.tick(60_000);
+  await running;
+  assert.ok(states.length > 0);
+  for (const state of states) {
+    assert.equal(state.error, 'Daemon connection failed');
+    const banner = connectionBanner({ connected: false, lastEventAt: undefined, error: state.error }, 80) ?? '';
+    assert.ok(!/sekrit|Bearer|Injected/.test(`${state.error}${banner}`));
+  }
+});
+
+test('the real fetch rejects a control character in the token and the client reports only fixed text', async t => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 1000 });
+  const client = new DaemonClient({ baseUrl: 'http://127.0.0.1:1', token: 'abc\nsekrit', tokenSource: 'test' });
+  const errors: string[] = [];
+  const running = client.stream({ onState: state => { errors.push(state.error); }, onEvent: () => undefined });
+  await flush();
+  await new Promise(resolve => { setImmediate(resolve); });
+  client.stop();
+  t.mock.timers.tick(60_000);
+  await running;
+  assert.ok(errors.length > 0);
+  assert.ok(errors.every(error => !error.includes('sekrit') && !error.includes('abc')));
 });

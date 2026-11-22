@@ -72,6 +72,8 @@ export class ConsoleStore {
   #attempt = 0;
   #stopped = false;
   #generation = 0;
+  /** The next snapshot replaces a reset history: it advances `gapCount` even though no state precedes it. */
+  #reseeded = false;
   /** Read through methods: these flags change across awaits, which control-flow narrowing cannot see. */
   #active(generation: number): boolean { return !this.#stopped && this.#generation === generation; }
   #requestActive(requests: RequestGeneration): boolean { return !this.#stopped && this.#requests === requests; }
@@ -203,12 +205,24 @@ export class ConsoleStore {
     }
   }
 
+  /**
+   * One reset path for a daemon whose history was replaced: pending reads, the transcript reader and the review cache all belonged to the old
+   * history, so they are dropped with the mirrored state. The next snapshot counts as a gap, so every mounted view reloads what it shows.
+   */
+  #freshStart(): void {
+    this.#resetRequests();
+    this.#transcript.close();
+    this.#reviews.dispose();
+    this.#reviews = this.#createReviews();
+    this.#reseeded = true;
+    this.#set({ ...emptyState(), gapCount: this.#state.gapCount, connection: 'connecting' });
+  }
+
   /** A rejected token ends the loop; a refused resume sequence means the daemon's history was reset, so mirrored state is dropped and the stream reopens at once for a fresh snapshot. */
   #afterFailure(error: unknown): 'stop' | 'again' | 'backoff' {
     if (error instanceof Unauthorized) { this.#connection('unauthorized'); return 'stop'; }
     if (!(error instanceof StaleResume)) return 'backoff';
-    this.#resetRequests();
-    this.#set({ ...emptyState(), connection: 'connecting' });
+    this.#freshStart();
     return 'again';
   }
 
@@ -243,7 +257,7 @@ export class ConsoleStore {
     if (frame === 'heartbeat') { this.#heartbeat(); return; }
     const becameLive = this.#state.connection !== 'live';
     if (frame.type === 'snapshot') this.#resetRequests();
-    const next = applyEvent(this.#state, frame);
+    const next = this.#applyFrame(frame);
     if (frame.type === 'session.updated') this.#invalidateSessionDetail(frame.payload);
     if (frame.type !== 'snapshot') for (const name of next.bounded) if (next[name].length > this.#state[name].length) this.#requests.staleTotals.add(name);
     const liveAtReceivedAt = next.liveAt !== this.#state.liveAt ? now : this.#state.liveAtReceivedAt;
@@ -253,6 +267,13 @@ export class ConsoleStore {
     this.#pollWhileLive();
     if (becameLive || frame.type !== 'transcript.appended') this.#scheduleRefresh();
     this.#graphRefresh.request(becameLive ? undefined : frame.type);
+  }
+
+  #applyFrame(frame: ApiEvent): ConsoleState {
+    const applied = applyEvent(this.#state, frame);
+    if (frame.type !== 'snapshot' || !this.#reseeded) return applied;
+    this.#reseeded = false;
+    return { ...applied, gapCount: applied.gapCount + 1 };
   }
 
   #heartbeat(): void {

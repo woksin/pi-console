@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { connectionBanner, tokenRejectedError } from './connection.ts';
+import { connectingState, connectionBanner, tokenRejectedError } from './connection.ts';
 
 const lastEventAt = Date.parse('2026-11-20T12:00:03Z');
 
@@ -33,4 +33,8 @@ test('a rejected token says how to fix it instead of reporting an unreachable da
   assert.match(text ?? '', /^Token rejected · check PI_CONSOLE_TOKEN or --data-dir/);
   assert.doesNotMatch(text ?? '', /unreachable/);
   assert.ok(Array.from(text ?? '').length <= 64);
+});
+
+test('the initial Connecting placeholder is not shown as an error', () => {
+  assert.equal(connectionBanner({ connected: false, lastEventAt: undefined, error: connectingState }), 'Daemon unreachable · waiting for data · retrying');
 });

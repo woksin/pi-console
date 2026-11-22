@@ -13,10 +13,15 @@ export interface StreamHandlers {
   onReset?: () => void;
 }
 
+/** A failure whose message is fixed, secret-free text the banner may show. Anything else is reported as `connectionFailed`. */
+class StreamFailure extends Error {}
 /** The daemon refused `Last-Event-ID` as newer than its own sequence (HTTP 400). */
-class StaleResume extends Error {}
+class StaleResume extends StreamFailure {}
 /** The daemon rejected the bearer token (HTTP 401). */
-class TokenRejected extends Error {}
+class TokenRejected extends StreamFailure {}
+const connectionFailed = 'Daemon connection failed';
+/** Exception messages can echo request headers, including the token, so only our own fixed texts reach the UI. */
+const failureText = (error: unknown): string => (error instanceof StreamFailure ? error.message : connectionFailed);
 
 export interface StreamClock {
   now: () => number;
@@ -32,7 +37,7 @@ const rejectedRetryMs = 30_000;
 function assertStreamOpen(response: Response, resuming: boolean): asserts response is Response & { body: ReadableStream<Uint8Array> } {
   if (response.status === 401) throw new TokenRejected(tokenRejectedError);
   if (response.status === 400 && resuming) throw new StaleResume();
-  if (!response.ok || !response.body) throw new Error(`Daemon answered HTTP ${String(response.status)}`);
+  if (!response.ok || !response.body) throw new StreamFailure(`Daemon answered HTTP ${String(response.status)}`);
 }
 
 /** The daemon API client: bearer token, loopback only, SSE with resume from the last seen sequence. */
@@ -146,7 +151,7 @@ export class DaemonClient {
         if (this.abort.signal.aborted) return;
         if (error instanceof StaleResume) { this.lastSeq = undefined; handlers.onReset?.(); continue; }
         if (error instanceof TokenRejected) wait = rejectedRetryMs;
-        handlers.onState({ connected: false, error: (error as Error).message });
+        handlers.onState({ connected: false, error: failureText(error) });
       }
       await this.sleep(wait);
       delay = Math.min(delay * 2, 8000);
@@ -159,7 +164,7 @@ export class DaemonClient {
     let lastFrameAt = this.clock.now();
     let timer: ReturnType<typeof setTimeout>;
     const check = () => {
-      if (this.clock.now() - lastFrameAt > staleAfterMs) controller.abort(new Error('Stream freshness deadline exceeded'));
+      if (this.clock.now() - lastFrameAt > staleAfterMs) controller.abort(new StreamFailure('Stream freshness deadline exceeded'));
       else timer = this.clock.setTimeout(check, staleAfterMs / 3);
     };
     timer = this.clock.setTimeout(check, staleAfterMs / 3);
