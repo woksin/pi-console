@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { test } from 'node:test';
+import { test, type TestContext } from 'node:test';
 import type { Event, MemoryItem, SessionMemory, SessionUpdate, TranscriptEntry } from '@pi-console/contract';
-import { ConsoleStore, type Clock } from './store.ts';
+import { ConsoleStore, reconnectDelays, staleAfterMs, type Clock } from './store.ts';
 import type { Api } from './api.ts';
 
 const clock: Clock = { now: () => 0, setTimeout: () => 0, clearTimeout: () => undefined };
@@ -180,6 +180,176 @@ function lifecycleStream() {
   };
   return { stream, emitters, signals };
 }
+
+const settle = () => new Promise<void>(resolve => { setImmediate(resolve); });
+
+function streamingStore(context: TestContext, overrides: object = {}) {
+  context.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 0 });
+  const connection = lifecycleStream();
+  const api = { needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null), stream: connection.stream, ...overrides } as unknown as Api;
+  const store = new ConsoleStore(api, {
+    now: () => Date.now(),
+    setTimeout: (callback, ms) => setTimeout(callback, ms) as unknown as number,
+    clearTimeout: timer => { clearTimeout(timer); },
+  });
+  context.after(() => { store.stop(); });
+  store.start();
+  return { store, ...connection, tick: async (ms: number) => { context.mock.timers.tick(ms); await settle(); } };
+}
+
+test('a silent first connection is aborted and retried with backoff on every attempt', async t => {
+  const { store, signals, tick } = streamingStore(t);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await tick(staleAfterMs);
+    assert.equal(signals[attempt].aborted, false);
+    await tick(staleAfterMs / 3);
+    assert.equal(signals[attempt].aborted, true, 'even an attempt with no first frame must time out');
+    assert.equal(store.getState().connection, 'offline');
+    await tick(reconnectDelays[attempt] - 1);
+    assert.equal(signals.length, attempt + 1, 'the existing backoff is respected');
+    await tick(1);
+    assert.equal(signals.length, attempt + 2);
+    assert.equal(store.getState().connection, 'connecting');
+  }
+});
+
+test('every frame resets stream silence and a reconnect gets its own full silence window', async t => {
+  const { store, signals, emitters, tick } = streamingStore(t);
+  emitters[0]('heartbeat');
+  await tick(30_000);
+  emitters[0]('heartbeat');
+  await tick(30_000);
+  assert.equal(signals[0].aborted, false, 'recent frames extend the first attempt');
+  await tick(30_000);
+  assert.equal(signals[0].aborted, true);
+  await tick(reconnectDelays[0]);
+  const current = store.getState();
+  emitters[0]('heartbeat');
+  assert.equal(store.getState(), current, 'an aborted attempt cannot send late frames');
+  await tick(staleAfterMs);
+  assert.equal(signals[1].aborted, false, 'the previous attempt\'s last frame is not the new baseline');
+  await tick(staleAfterMs / 3);
+  assert.equal(signals[1].aborted, true);
+});
+
+test('a late history page cannot undo a newer snapshot or exhaust its paging', async t => {
+  const oldPage = Promise.withResolvers<Awaited<ReturnType<Api['page']>>>();
+  let calls = 0;
+  const { store, emitters } = streamingStore(t, { page: () => { calls++; return calls === 1 ? oldPage.promise : Promise.resolve({ ...emptyList, total: 2 }); } });
+  emitters[0](windowedSnapshot([], 1));
+  const pending = store.loadMore('jobs');
+  emitters[0]({ ...windowedSnapshot([], 2), seq: 9 });
+  oldPage.resolve({ ...emptyList, items: [job('obsolete', 'done', '2026-01-01T00:00:00Z')], total: 1 });
+  await pending;
+  assert.equal(store.getState().totals?.jobs, 2);
+  assert.equal(store.getState().history.jobs, undefined);
+  assert.deepEqual(store.getState().jobs, []);
+  await store.loadMore('jobs');
+  assert.equal(calls, 2, 'the recovered history remains loadable');
+});
+
+for (const boundary of ['snapshot', 'reconnect', 'restart'] as const) test(`old paging cleanup cannot remove the pending request after a ${boundary}`, async t => {
+  const pages = Array.from({ length: 3 }, () => Promise.withResolvers<Awaited<ReturnType<Api['page']>>>());
+  let calls = 0;
+  const { store, emitters, tick } = streamingStore(t, { page: () => pages[calls++].promise });
+  emitters[0](windowedSnapshot([], 1));
+  const old = store.loadMore('jobs');
+  if (boundary === 'snapshot') emitters[0]({ ...windowedSnapshot([], 2), seq: 9 });
+  if (boundary === 'restart') { store.stop(); store.start(); }
+  if (boundary === 'reconnect') { await tick(staleAfterMs + staleAfterMs / 3); await tick(reconnectDelays[0]); }
+  const current = store.loadMore('jobs');
+  assert.equal(calls, 2, 'a new generation never shares the old pending request');
+  const state = store.getState();
+  pages[0].resolve({ ...emptyList, total: 999 });
+  await old;
+  assert.equal(store.getState(), state, 'the old result is discarded');
+  assert.equal(store.loadMore('jobs'), current, 'old cleanup leaves the current request registered');
+  assert.equal(calls, 2);
+  pages[1].resolve({ ...emptyList, total: 2 });
+  await current;
+  assert.equal(store.getState().totals?.jobs, 2);
+});
+
+test('late transcript history is discarded and cannot issue another page after a resnapshot', async t => {
+  const oldPage = Promise.withResolvers<Awaited<ReturnType<Api['transcript']>>>();
+  let calls = 0;
+  const { store, emitters } = streamingStore(t, { transcript: () => { calls++; return calls === 1 ? oldPage.promise : Promise.resolve({ items: [entry(2)], nextCursor: 2, hasMore: false }); } });
+  emitters[0](windowedSnapshot([], 0));
+  const old = store.loadTranscript('s1');
+  emitters[0]({ ...windowedSnapshot([], 0), seq: 9 });
+  oldPage.resolve({ items: [entry(1)], nextCursor: 1, hasMore: true });
+  await old;
+  assert.equal(calls, 1, 'a stale pagination loop stops');
+  assert.deepEqual(store.getState().transcripts.s1 ?? [], []);
+  await store.loadTranscript('s1');
+  assert.deepEqual(store.getState().transcripts.s1, [entry(2)]);
+});
+
+test('old detail failures cannot uncache the current generation\'s session detail', async t => {
+  const details = Array.from({ length: 2 }, () => Promise.withResolvers<Awaited<ReturnType<Api['session']>>>());
+  let calls = 0;
+  const { store, emitters } = streamingStore(t, { session: () => details[calls++].promise });
+  emitters[0](windowedSnapshot([], 0));
+  const old = store.loadSessionDetail('s1');
+  store.stop(); store.start();
+  const current = store.loadSessionDetail('s1');
+  assert.equal(calls, 2);
+  details[0].reject(new Error('offline'));
+  await old;
+  assert.equal(store.loadSessionDetail('s1'), current);
+  details[1].resolve(null);
+  await current;
+});
+
+test('derived refreshes are scoped to the snapshot and old cleanup does not unlock a current refresh', async t => {
+  const reads = Array.from({ length: 3 }, () => Promise.withResolvers<Awaited<ReturnType<Api['needsYou']>>>());
+  let calls = 0;
+  const { store, emitters } = streamingStore(t, { needsYou: () => reads[calls++].promise });
+  emitters[0](windowedSnapshot([], 0));
+  const old = store.refresh();
+  emitters[0]({ ...windowedSnapshot([], 0), seq: 9 });
+  const current = store.refresh();
+  assert.equal(calls, 2, 'the new generation does not wait for a stale refresh');
+  const state = store.getState();
+  reads[0].reject(new Error('offline'));
+  await old;
+  assert.equal(store.getState(), state, 'a stale failure cannot change the attention baseline');
+  await store.refresh();
+  assert.equal(calls, 2, 'a current refresh is still in flight');
+  reads[1].resolve([]);
+  await settle();
+  assert.equal(calls, 3, 'the current generation keeps its trailing refresh');
+  reads[2].resolve([]);
+  await current;
+});
+
+test('late total refreshes cannot replace the totals of a resnapshot', async t => {
+  const page = Promise.withResolvers<Awaited<ReturnType<Api['page']>>>();
+  let calls = 0;
+  const { store, emitters } = streamingStore(t, { page: () => { calls++; return page.promise; } });
+  emitters[0](windowedSnapshot([], 1));
+  emitters[0]({ seq: 6, type: 'job.updated', occurredAt: '2026-01-01T00:00:00Z', payload: job('j1', 'running', '2026-01-01T00:00:00Z') });
+  const pending = store.refresh();
+  await settle();
+  assert.equal(calls, 1);
+  emitters[0]({ ...windowedSnapshot([], 2), seq: 9 });
+  const state = store.getState();
+  page.resolve({ ...emptyList, total: 999 });
+  await pending;
+  assert.equal(store.getState(), state);
+});
+
+test('a resnapshot also discards an in-flight canonical memory pair', async t => {
+  const summary = Promise.withResolvers<SessionMemory>();
+  const { store, emitters } = streamingStore(t, { sessionMemory: () => summary.promise, memoryItems: () => Promise.resolve([proposedItem]) });
+  emitters[0](windowedSnapshot([], 0));
+  const pending = store.loadSessionMemory('s1');
+  emitters[0]({ ...windowedSnapshot([], 0), seq: 9 });
+  const state = store.getState();
+  summary.resolve(memorySummary('s1'));
+  await pending;
+  assert.equal(store.getState(), state);
+});
 
 test('StrictMode start-stop-start recreates review tracking without replaying a POST or accepting stale frames', async () => {
   const { stream, emitters, signals } = lifecycleStream();
