@@ -14,6 +14,10 @@ export interface Connection { connected: boolean; error: string; lastSeq: number
 export interface Data {
   loaded: boolean; connection: Connection; repositories: number;
   graph: Graph;
+  /** The canonical graph has been read at least once; `graphError` is set while the latest read has failed (the last graph is kept). */
+  graphLoaded: boolean; graphError: boolean;
+  /** The daemon's own health record, flattened for Settings; `null` until the first read succeeds. */
+  health: Record<string, unknown> | null;
   sessions: Session[]; requests: Request[]; questions: Question[]; messages: Message[]; jobs: Job[]; resets: Reset[];
   /** Full collection sizes from a bounded snapshot; `null` when the daemon sent complete lists. */
   totals: Totals | null; bounded: readonly WindowedCollection[];
@@ -38,7 +42,7 @@ export interface Data {
 
 const emptyData = (): Data => ({
   loaded: false, connection: { connected: false, error: connectingState, lastSeq: undefined, lastEventAt: undefined, eventsReceived: 0 }, repositories: 0,
-  graph: { nodes: [], edges: [] }, sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], totals: null, bounded: [], history: {}, needsYou: [], needsYouLoaded: false, needsYouError: false, needsYouCached: false, transcripts: new Map(), transcriptsTruncated: new Set(), transcriptHistory: new Map(), memory: new Map(), memoryItems: new Map(), memoryReviews: new Map(), memoryHistory: new Map(), fresh: new Map(),
+  graph: { nodes: [], edges: [] }, graphLoaded: false, graphError: false, health: null, sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], totals: null, bounded: [], history: {}, needsYou: [], needsYouLoaded: false, needsYouError: false, needsYouCached: false, transcripts: new Map(), transcriptsTruncated: new Set(), transcriptHistory: new Map(), memory: new Map(), memoryItems: new Map(), memoryReviews: new Map(), memoryHistory: new Map(), fresh: new Map(),
 });
 
 /**
@@ -118,7 +122,11 @@ export class Store {
     this.schedule();
   }
 
-  setGraph(graph: Graph): void { this.data = { ...this.data, graph }; this.schedule(); }
+  setGraph(graph: Graph): void { this.data = { ...this.data, graph, graphLoaded: true, graphError: false }; this.schedule(); }
+
+  markGraphFailed(): void { this.data = { ...this.data, graphError: true }; this.schedule(); }
+
+  setHealth(health: Record<string, unknown>): void { this.data = { ...this.data, health }; this.schedule(); }
 
   setNeedsYou(needsYou: AttentionItem[]): void {
     this.data = { ...this.data, needsYou, needsYouLoaded: true, needsYouError: false, needsYouCached: true };

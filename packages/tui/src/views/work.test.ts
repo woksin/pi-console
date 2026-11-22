@@ -21,7 +21,7 @@ const jobs: Job[] = [
   { id: 'job-needle', sessionId: sessions[0].id, name: 'compile Alpha', kind: 'ci', status: 'failed', startedAt: base.updatedAt, exitCode: 9 },
 ];
 const store = new Store();
-const data = { ...store.getSnapshot(), jobs, sessions };
+const data = { ...store.getSnapshot(), loaded: true, jobs, sessions };
 store.dispose();
 const workUi: UiState = { ...initial, section: 'work' };
 const viewOf = (ui: UiState = workUi, width = 140) => workView({ data, ui, width, height: 24, now: Date.parse(base.updatedAt), phase: 0, click: () => undefined });

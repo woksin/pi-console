@@ -2,7 +2,7 @@ import { emptyStates, graphViewModel, filterMessageRows, messagesViewModel, pad,
 import { Column, Lines, Panel, Row, h, type Line } from '../view/renderer.ts';
 import { blank, fit, heading, selectable, split, t, windowOf } from '../view/parts.ts';
 import type { Color } from '../view/theme.ts';
-import { emptyLines, shownOf, type Env, type SectionView } from './common.ts';
+import { emptyLines, listBody, loadingLines, shownOf, type Env, type SectionView } from './common.ts';
 import { graphScrubber } from './graph-scrubber.ts';
 
 const deliveryColor: Record<MessageRow['delivery'], Color> = { sent: 'faint', delivered: 'amber', read: 'green' };
@@ -21,7 +21,7 @@ function listView(env: Env): SectionView {
     rowAt: index => ({ sessionId: rows[index]?.fromSessionId ?? null, groupId: null }),
     idAt: index => rows[index]?.id ?? null,
     render: () => h(Panel, { title: `Messages · ${String(rows.length)}${shownOf(env.data, 'messages', rows.length)} · v for graph`, focused: true, grow: 1 },
-      h(Lines, { lines: lines.length ? lines : emptyLines(emptyStates.messages, env.width - 4), grow: 1, onLineClick: index => { env.click(start + index); } })),
+      h(Lines, { lines: listBody({ loaded: env.data.loaded, lines, query: env.ui.filter, noun: 'message', anyRows: model.rows.length > 0, empty: () => emptyLines(emptyStates.messages, env.width - 4) }), grow: 1, onLineClick: index => { env.click(start + index); } })),
   };
 }
 
@@ -98,6 +98,15 @@ function conversation(env: Env, edge: DisplayEdge | undefined, width: number): L
   ];
 }
 
+/** The failed graph read, with how to retry it; says when the graph below is the last one that loaded. */
+const graphFailureLines = (stale: boolean): Line[] => [[t(' Could not load the graph', 'amber'), t(stale ? ' · showing the last loaded graph. ' : '. ', 'amber'), t('r', 'cyan'), t(' retry', 'muted')]];
+
+/** No edges to draw: still loading, failed, or genuinely nothing yet. */
+const graphEmptyLines = (env: Env, failed: boolean, width: number): Line[] => {
+  if (failed) return [];
+  return env.data.graphLoaded ? emptyLines(emptyStates.graph, width) : loadingLines();
+};
+
 function graphView(env: Env): SectionView {
   const scrubber = graphScrubber(env);
   const groups = graphGroups(env, scrubber.upTo);
@@ -108,8 +117,9 @@ function graphView(env: Env): SectionView {
   const cursor = clampCursor(env.ui.cursor.messages);
   const graph = graphLines(groups, cursor, env, width);
   const { edgeLine } = graph;
-  const lines = graph.lines.length ? graph.lines : emptyLines(emptyStates.graph, width);
-  const visible = Math.max(1, env.height - 4 - scrubber.lines.length);
+  const failure = env.data.graphError ? graphFailureLines(env.data.graph.nodes.length > 0 || env.data.graph.edges.length > 0) : [];
+  const lines = graph.lines.length ? graph.lines : graphEmptyLines(env, failure.length > 0, width);
+  const visible = Math.max(1, env.height - 4 - scrubber.lines.length - failure.length);
   const focusLine = edgeLine[cursor] ?? 0;
   const { start, end } = windowOf(lines.length, focusLine, visible);
   return {
@@ -120,7 +130,7 @@ function graphView(env: Env): SectionView {
     render: () => h(Column, { grow: 1 },
       h(Lines, { lines: scrubber.lines }),
       h(Row, { grow: 1, gap: 1 },
-        h(Panel, { title: 'Communication graph · v for list', focused: true, grow: 1, right: `${String(flat.length)} edges` }, h(Lines, { lines: lines.slice(start, end), grow: 1 })),
+        h(Panel, { title: 'Communication graph · v for list', focused: true, grow: 1, right: `${String(flat.length)} edges` }, h(Lines, { lines: failure }), h(Lines, { lines: lines.slice(start, end), grow: 1 })),
         ...(wide ? [h(Panel, { title: 'Conversation', width: 48 }, h(Lines, { lines: conversation(env, flat[cursor], 48) }))] : []))),
   };
 }

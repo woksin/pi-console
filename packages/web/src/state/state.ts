@@ -40,6 +40,8 @@ export interface ConsoleState {
   /** A successful attention fetch has supplied a cached count, including zero. */
   needsYouCached: boolean;
   graph: Graph | null;
+  /** The last canonical graph read failed; the previous graph, if any, is kept. */
+  graphError: boolean;
   health: HealthRecord | null;
   overview: Overview | null;
   /** Latest event time seen (epoch ms). Ages are measured against it so views are deterministic and replayable. */
@@ -64,13 +66,15 @@ export interface ConsoleState {
   bounded: readonly WindowedCollection[];
   /** Paging progress per windowed collection once its history has been requested: the next cursor and whether more remains. */
   history: Partial<Record<WindowedCollection, { cursor: string | null; more: boolean }>>;
+  /** A history page in flight or failed, per windowed collection; absent when idle. */
+  pageStatus: Partial<Record<WindowedCollection, 'loading' | 'failed'>>;
 }
 
 export function emptyState(): ConsoleState {
   return {
     repositories: [], sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], interventions: [],
-    transcripts: {}, memory: {}, memoryItems: {}, memoryStatus: {}, memoryReviews: new Map(), needsYou: [], needsYouLoaded: false, needsYouError: false, needsYouCached: false, graph: null, health: null, overview: null, liveAt: 0, liveAtReceivedAt: null, snapshotLoaded: false, seq: 0,
-    connection: 'connecting', lastFrameAt: 0, gapCount: 0, received: 0, transcriptHistory: {}, totals: null, bounded: [], history: {},
+    transcripts: {}, memory: {}, memoryItems: {}, memoryStatus: {}, memoryReviews: new Map(), needsYou: [], needsYouLoaded: false, needsYouError: false, needsYouCached: false, graph: null, graphError: false, health: null, overview: null, liveAt: 0, liveAtReceivedAt: null, snapshotLoaded: false, seq: 0,
+    connection: 'connecting', lastFrameAt: 0, gapCount: 0, received: 0, transcriptHistory: {}, totals: null, bounded: [], history: {}, pageStatus: {},
   };
 }
 

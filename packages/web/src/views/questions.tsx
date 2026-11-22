@@ -3,7 +3,7 @@ import { useMemo, useRef, useState } from 'react';
 import type { ViewProps } from '../app/view.tsx';
 import { navigate, useListNav, useSearchFocus } from '../app/hooks.ts';
 import { sessionHref } from '../app/routes.ts';
-import { SearchBox, StatusBadge } from '../ui/primitives.tsx';
+import { SearchBox, SkeletonRows, StatusBadge } from '../ui/primitives.tsx';
 import { EmptyList } from '../ui/empty.tsx';
 import { useScrollIntoView } from '../ui/hooks.ts';
 import { LoadOlder } from './load-older.tsx';
@@ -16,6 +16,7 @@ export function QuestionsView({ state, now }: ViewProps) {
   const view = { ...model, rows: filterQuestionRows(model.rows, query) };
   const rows = new Map(view.rows.map(row => [row.id, row]));
   const nav = useListNav(view.rows.map(row => row.id), { onOpen: id => { const row = rows.get(id); if (row) navigate(sessionHref(row.sessionId)); } });
+  if (!state.snapshotLoaded) return <div className="page questions"><SkeletonRows label="questions" /></div>;
   return (
     <div className="page questions">
       <div className="toolbar"><SearchBox value={query} onChange={setQuery} placeholder="Filter questions…" inputRef={search} /><span className="muted">{view.open} open · {view.blocking} blocking</span><span className="note">Read-only in this version: answer in the session itself.</span></div>

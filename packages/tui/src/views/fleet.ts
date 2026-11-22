@@ -1,7 +1,7 @@
 import { emptyStates, fleetColumns, fleetViewModel, pad, padStart, type FleetRow, type SessionRow } from '@pi-console/viewmodels';
 import { Lines, Panel, Row, h, type Line } from '../view/renderer.ts';
 import { pressureBar, blank, fit, heading, pressureTone, selectable, statusParts, t, windowOf } from '../view/parts.ts';
-import { checklistLines, emptyLines, type Env, type SectionView } from './common.ts';
+import { checklistLines, emptyLines, loadingLines, noMatchLines, type Env, type SectionView } from './common.ts';
 import { listFilter } from '../state/ui.ts';
 
 function groupLine(row: Extract<FleetRow, { kind: 'group' }>, width: number, selected: boolean) {
@@ -67,7 +67,7 @@ function rowLocation(row: FleetRow | undefined) {
 }
 
 const noRows = (query: string, env: Env, width: number): Line[] => query
-  ? [blank, [t('  No session matches ', 'muted'), t(`“${query}”`, 'amber'), t('. Esc clears the filter.', 'muted')]]
+  ? noMatchLines('session', query)
   : [...emptyLines(emptyStates.fleet, width), ...checklistLines({ connected: env.data.connection.connected, sessions: 0 }, width)];
 
 export function fleetView(env: Env): SectionView {
@@ -77,7 +77,7 @@ export function fleetView(env: Env): SectionView {
   const layout = columns((wide ? env.width - 40 : env.width) - 4);
   const cursor = Math.min(env.ui.cursor.fleet, Math.max(0, rows.length - 1));
   const { start, end } = windowOf(rows.length, cursor, Math.max(1, env.height - 5));
-  const lines = rows.length ? fleetLines(rows.slice(start, end), env, { layout, cursor, start }) : noRows(model.query, env, layout.width);
+  const lines = !env.data.loaded ? loadingLines() : rows.length ? fleetLines(rows.slice(start, end), env, { layout, cursor, start }) : noRows(model.query, env, layout.width);
   const selected = rows[cursor];
   const title = model.query ? `Fleet · filter “${model.query}” · ${String(model.matched)} of ${String(model.sessionCount)}` : `Fleet · ${String(model.sessionCount)} sessions`;
   return {

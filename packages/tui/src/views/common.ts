@@ -55,6 +55,25 @@ export const emptyLines = (model: EmptyStateModel, width: number): Line[] => [
   ...wrap(model.body, Math.max(10, width - 4)).map((text): Line => [t(`    ${text}`, 'muted')]),
 ];
 
+/** What a list shows before the first snapshot has arrived: not an empty state, because nothing is known yet. */
+export const loadingLines = (): Line[] => [blank, [t('  Loading…', 'muted')]];
+
+/** `lines()` once the first snapshot has arrived, `Loading…` before. */
+export const whenLoaded = (loaded: boolean, lines: () => Line[]): Line[] => loaded ? lines() : loadingLines();
+
+/** A filter that excludes every row; the same line on every list. */
+export const noMatchLines = (noun: string, query: string): Line[] =>
+  [blank, [t(`  No ${noun} matches `, 'muted'), t(`“${query}”`, 'amber'), t('. Esc clears the filter.', 'muted')]];
+
+interface ListBody { loaded: boolean; lines: Line[]; query: string; noun: string; anyRows: boolean; empty: () => Line[] }
+
+/** A list's body: loading until the first snapshot, its rows, a no-match line when the filter hides everything, or the view's empty state. */
+export function listBody(input: ListBody): Line[] {
+  if (!input.loaded) return loadingLines();
+  if (input.lines.length > 0) return input.lines;
+  return input.anyRows && input.query ? noMatchLines(input.noun, input.query) : input.empty();
+}
+
 /** The first-run checklist (daemon running, sources detected, extension optional), shown while there are no sessions. */
 export function checklistLines(input: { connected: boolean; sessions: number }, width: number): Line[] {
   const checklist = firstRunChecklist(input);

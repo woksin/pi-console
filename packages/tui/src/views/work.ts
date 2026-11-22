@@ -2,7 +2,7 @@ import { emptyStates, filterWorkRows, workViewModel, pad } from '@pi-console/vie
 import { Lines, Panel, h, type Line } from '../view/renderer.ts';
 import { listFilter } from '../state/ui.ts';
 import { selectable, split, statusParts, t, windowOf } from '../view/parts.ts';
-import { emptyLines, shownOf, type Env, type SectionView } from './common.ts';
+import { emptyLines, listBody, shownOf, type Env, type SectionView } from './common.ts';
 
 export function workView(env: Env): SectionView {
   const model = workViewModel({ jobs: env.data.jobs, sessions: env.data.sessions, now: env.now });
@@ -19,6 +19,6 @@ export function workView(env: Env): SectionView {
     rowAt: index => ({ sessionId: env.data.jobs.find(job => job.id === rows[clampCursor(index)]?.id)?.sessionId ?? null, groupId: null }),
     idAt: index => rows[clampCursor(index)]?.id ?? null,
     render: () => h(Panel, { title: `Work · ${String(model.running)} running · ${String(model.failed)} failed${shownOf(env.data, 'jobs', rows.length)}`, focused: true, grow: 1 },
-      h(Lines, { lines: lines.length ? lines : emptyLines(emptyStates.work, width), grow: 1, onLineClick: index => { env.click(start + index); } })),
+      h(Lines, { lines: listBody({ loaded: env.data.loaded, lines, query: listFilter(env.ui), noun: 'job', anyRows: model.rows.length > 0, empty: () => emptyLines(emptyStates.work, width) }), grow: 1, onLineClick: index => { env.click(start + index); } })),
   };
 }

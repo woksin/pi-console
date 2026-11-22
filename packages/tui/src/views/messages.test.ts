@@ -209,3 +209,30 @@ for (const width of [80, 112]) {
     } finally { ui.destroy(); store.dispose(); }
   });
 }
+
+test('lists show Loading… before the first snapshot and a no-match line for a filter that hides every row', async () => {
+  const store = new Store();
+  const render = async (data: Env['data'], filter: string) => {
+    const view = messagesView({ data, ui: { ...initial, section: 'messages', filter }, width: 100, height: 24, now: 0, phase: 0, click: () => undefined });
+    const ui = await mountHeadless(h(Screen, {}, view.render()), { width: 100, height: 24 });
+    try { await ui.settle(); return ui.frame(); } finally { ui.destroy(); }
+  };
+  try {
+    assert.match(await render(store.getSnapshot(), ''), /Loading…/);
+    const frame = await render({ ...store.getSnapshot(), loaded: true, messages: [{ id: 'm1', fromSessionId: 'a', toSessionId: 'b', kind: 'text', text: 'hello', sentAt: '2026-01-01T00:00:00Z' } as unknown as Env['data']['messages'][number]] }, 'zzz');
+    assert.match(frame, /No message matches/);
+  } finally { store.dispose(); }
+});
+
+test('a failed graph read says so, offers r to retry and keeps the last graph', async () => {
+  const store = new Store();
+  store.markGraphFailed();
+  const view = messagesView({ data: store.getSnapshot(), ui: { ...initial, section: 'messages', messagesGraph: true }, width: 100, height: 24, now: 0, phase: 0, click: () => undefined });
+  const ui = await mountHeadless(h(Screen, {}, view.render()), { width: 100, height: 24 });
+  try {
+    await ui.settle();
+    assert.match(ui.frame(), /Could not load the graph/);
+    assert.match(ui.frame(), /r retry/);
+    assert.doesNotMatch(ui.frame(), /Loading…/);
+  } finally { ui.destroy(); store.dispose(); }
+});

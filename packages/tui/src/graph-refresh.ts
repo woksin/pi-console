@@ -3,11 +3,13 @@ import type { DaemonClient } from './api/client.ts';
 import { throttled } from './refresh.ts';
 
 /** The graph is a canonical query, not a projection of the TUI's loaded message page. */
-export function graphRefresher(client: Pick<DaemonClient, 'graph'>, publish: (graph: Graph) => void) {
+export function graphRefresher(client: Pick<DaemonClient, 'graph'>, publish: (graph: Graph) => void, fail: () => void) {
   let stopped = false;
   const refresh = throttled(async () => {
-    const graph = await client.graph();
-    if (!stopped) publish(graph);
+    try {
+      const graph = await client.graph();
+      if (!stopped) publish(graph);
+    } catch { if (!stopped) fail(); }
   }, 2000);
   return {
     request(type?: Event['type']): void {

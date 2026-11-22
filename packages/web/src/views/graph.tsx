@@ -1,9 +1,10 @@
 import { useEffect, useId, useMemo, useState, type KeyboardEvent } from 'react';
+import type { ConsoleStore } from '../client/store.ts';
 import type { ConsoleState } from '../state/state.ts';
 import { useActions } from '../app/commands.ts';
 import { navigate, useStore } from '../app/hooks.ts';
 import { sessionHref } from '../app/routes.ts';
-import { Panel } from '../ui/primitives.tsx';
+import { Panel, SkeletonRows } from '../ui/primitives.tsx';
 import { EmptyFor } from '../ui/empty.tsx';
 import { graphSize as size, placeLabel, placeNodes as place, type NodePlace } from './graph-layout.ts';
 import { webGraphModel, type WebGraphGroup, type WebGraphNode } from './graph-model.ts';
@@ -12,6 +13,11 @@ import { webGraphModel, type WebGraphGroup, type WebGraphNode } from './graph-mo
 export function GraphView({ state }: { state: ConsoleState }) {
   const store = useStore();
   useEffect(() => { void store.refresh(); }, [store, state.connection]);
+  if (state.graph !== null) return <GraphBody state={state} store={store} />;
+  return <div className="graph-page">{state.graphError ? <GraphFailure store={store} stale={false} /> : <SkeletonRows label="graph" columns={3} />}</div>;
+}
+
+function GraphBody({ state, store }: { state: ConsoleState; store: ConsoleStore }) {
   const times = useMemo(() => (state.graph?.edges ?? []).map(edge => Date.parse(edge.lastAt)).filter(Number.isFinite).sort((a, b) => a - b), [state.graph]);
   const [scrub, setScrub] = useState<number | null>(null);
   const [scrubbing, setScrubbing] = useState(false);
@@ -20,6 +26,7 @@ export function GraphView({ state }: { state: ConsoleState }) {
   const view = useMemo(() => webGraphModel(state, upTo), [state.graph, state.sessions, upTo]);
   return (
     <div className="graph-page">
+      {state.graphError && <GraphFailure store={store} stale />}
       <div className="toolbar">
         <button type="button" className="btn" aria-pressed={scrubbing} onClick={() => { setScrubbing(value => !value); setScrub(null); }}>Time scrubber <kbd className="kbd">t</kbd></button>
         {scrubbing && times.length > 0 && <>
@@ -44,6 +51,11 @@ export function GraphView({ state }: { state: ConsoleState }) {
       </section>}
     </div>
   );
+}
+
+/** The graph read failed: say so, and offer a retry, instead of looking like an idle fleet. */
+function GraphFailure({ store, stale }: { store: ConsoleStore; stale: boolean }) {
+  return <div className="toolbar" role="alert"><span className="warn-text">Could not load the graph.{stale && ' Showing the last loaded graph.'}</span><button type="button" className="btn" onClick={() => { void store.refresh(); }}>Retry</button></div>;
 }
 
 function GroupGraph({ group }: { group: WebGraphGroup }) {

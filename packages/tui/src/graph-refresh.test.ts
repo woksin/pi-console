@@ -12,7 +12,7 @@ test('canonical graph refresh coalesces events, retains data on failure, and doe
   let reject: (error: Error) => void = () => undefined;
   let calls = 0;
   const published: Graph[] = [];
-  const refresh = graphRefresher({ graph: () => new Promise<Graph>((accept, fail) => { calls++; resolve = accept; reject = fail; }) }, value => { published.push(value); });
+  const refresh = graphRefresher({ graph: () => new Promise<Graph>((accept, fail) => { calls++; resolve = accept; reject = fail; }) }, value => { published.push(value); }, () => undefined);
   try {
     refresh.request('transcript.appended');
     assert.equal(calls, 0, 'transcript events do not change lane routing');
