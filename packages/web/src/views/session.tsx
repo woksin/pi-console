@@ -20,11 +20,13 @@ function detailOf(state: ViewProps['state'], id: string): SessionDetail | null {
 
 function DetailNotice({ status, retry }: { status: SessionDetailStatus | undefined; retry: () => void }) {
   if (status === 'not-found') return <EmptyState title="Session not found" mark="∅">It may not have been seen yet, or this link points at another daemon. <a href="#/fleet">Back to the fleet</a></EmptyState>;
-  if (status === 'failed') return <div className="toolbar" role="alert">
-    <span>Could not load session.</span>
-    <button type="button" className="btn" onClick={retry}>Retry</button>
+  const loading = status !== 'failed';
+  return <div className="toolbar">
+    <span className={loading ? 'muted' : undefined} role="status" aria-label={loading ? 'Loading session' : undefined} aria-busy={loading}>
+      {loading ? 'Loading session…' : 'Could not load session.'}
+    </span>
+    <button type="button" className="btn" aria-disabled={loading} aria-busy={loading} onClick={loading ? undefined : retry}>Retry</button>
   </div>;
-  return <div className="muted" role="status" aria-label="Loading session" aria-busy="true">Loading session…</div>;
 }
 
 export function SessionView({ state, now, id, entry }: ViewProps & { id: string; entry: string | null }) {
@@ -39,7 +41,7 @@ export function SessionView({ state, now, id, entry }: ViewProps & { id: string;
   const view = useMemo(() => detail ? sessionViewModel({ detail, transcript: transcript ?? [], now, search }) : null, [detail, transcript, now, search]);
   const status = store.getSessionDetailStatus(id);
   const notice = <DetailNotice status={status} retry={() => { void store.loadSessionDetail(id); }} />;
-  if (!view || status === 'not-found') return <div className="page">{notice}</div>;
+  if (!view) return <div className="page">{notice}</div>;
   return (
     <div className="page session">
       {(status === 'loading' || status === 'failed') && notice}

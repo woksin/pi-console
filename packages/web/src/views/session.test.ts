@@ -13,7 +13,14 @@ let server: ViteDevServer;
 let SessionView: ComponentType<ViewProps & { id: string; entry: string | null }>;
 let StoreContext: Context<ConsoleStore | null>;
 before(async () => {
-  server = await createServer({ configFile: false, root: resolve(import.meta.dirname, '../..'), server: { middlewareMode: true, watch: null, hmr: false }, appType: 'custom' });
+  server = await createServer({
+    configFile: false, root: resolve(import.meta.dirname, '../..'), server: { middlewareMode: true, watch: null, hmr: false }, appType: 'custom',
+    // Memory subscribes to its own external store; these server-rendered specs exercise only the session detail boundary.
+    plugins: [{
+      name: 'session-memory-stub', enforce: 'pre',
+      transform: (_source, id) => id.endsWith('/src/views/session-memory.tsx') ? 'export function SessionMemory() { return null; }' : null,
+    }],
+  });
   ({ SessionView } = await server.ssrLoadModule('/src/views/session.tsx'));
   ({ StoreContext } = await server.ssrLoadModule('/src/app/hooks.ts'));
 });
@@ -28,14 +35,15 @@ const detail: SessionDetail = {
   requests: [], questions: [], jobs: [], resets: [], subagents: [],
 };
 
-function render(store: ConsoleStore): string {
-  return renderToStaticMarkup(createElement(StoreContext.Provider, { value: store }, createElement(SessionView, { state: store.getState(), now: 0, id: 's1', entry: null })));
+function render(store: ConsoleStore, state = store.getState()): string {
+  return renderToStaticMarkup(createElement(StoreContext.Provider, { value: store }, createElement(SessionView, { state, now: 0, id: 's1', entry: null })));
 }
 
 function assertLoading(store: ConsoleStore): void {
   const html = render(store);
   assert.match(html, /role="status" aria-label="Loading session" aria-busy="true"/);
-  assert.doesNotMatch(html, /Session not found|role="alert"|>Retry</);
+  assert.doesNotMatch(html, /Session not found|role="alert"/);
+  assert.match(html, /<button type="button" class="btn" aria-disabled="true" aria-busy="true">Retry<\/button>/);
 }
 
 test('a missing snapshot row shows loading before and during the detail request, never not-found', async () => {
@@ -57,9 +65,9 @@ test('a detail failure shows a native Retry button and recovers through loading 
   pending.reject(new Error('daemon offline'));
   await load;
   const html = render(store);
-  assert.match(html, /role="alert"/);
+  assert.match(html, /role="status" aria-busy="false"/);
   assert.match(html, /Could not load session\./);
-  assert.match(html, /<button type="button" class="btn">Retry<\/button>/);
+  assert.match(html, /<button type="button" class="btn" aria-disabled="false" aria-busy="false">Retry<\/button>/);
   assert.doesNotMatch(html, /Session not found|Loading session/);
   pending = Promise.withResolvers<SessionDetail>();
   const retry = store.loadSessionDetail('s1');
@@ -68,6 +76,15 @@ test('a detail failure shows a native Retry button and recovers through loading 
   await retry;
   assert.equal(store.getSessionDetailStatus('s1'), 'loaded');
   assert.deepEqual(store.getState().sessions, [detail.session]);
+});
+
+test('live session data renders even if a stale not-found detail status is still present', async () => {
+  const store = new ConsoleStore({ session: () => Promise.resolve(null) } as unknown as Api, clock);
+  await store.loadSessionDetail('s1');
+  assert.equal(store.getSessionDetailStatus('s1'), 'not-found');
+  const html = render(store, { ...store.getState(), sessions: [detail.session] });
+  assert.match(html, /class="session-head"/);
+  assert.doesNotMatch(html, /Session not found|Could not load session|Loading session/);
 });
 
 test('only an explicit not-found response shows Session not found and the fleet link', async () => {

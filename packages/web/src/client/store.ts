@@ -164,6 +164,7 @@ export class ConsoleStore {
     const now = this.#clock.now();
     if (frame === 'heartbeat') { this.#set({ ...this.#state, lastFrameAt: now, connection: 'live', received: this.#state.received + 1 }); return; }
     const next = applyEvent(this.#state, frame);
+    if (frame.type === 'session.updated') this.#invalidateSessionDetail(frame.payload);
     if (frame.type !== 'snapshot') for (const name of next.bounded) if (next[name].length > this.#state[name].length) this.#staleTotals.add(name);
     this.#set({ ...next, lastFrameAt: now, connection: 'live', received: this.#state.received + 1 });
     if (frame.type === 'snapshot') this.#memoryRefresh.invalidateVisible();
@@ -226,21 +227,36 @@ export class ConsoleStore {
     return load?.gapCount === this.#state.gapCount ? load.status : undefined;
   }
 
+  #invalidateSessionDetail(session: { id: string }): void {
+    const load = this.#detailLoads.get(session.id);
+    if (load?.status === 'not-found' || load?.status === 'failed') this.#detailLoads.delete(session.id);
+  }
+
+  #clearSessionDetailStatus(load: SessionDetailLoad | undefined): void {
+    if (!load) return;
+    this.#detailLoads.delete(load.sessionId);
+    this.#set({ ...this.#state });
+  }
+
   #publishSessionDetail(load: SessionDetailLoad, state = this.#state): void {
     if (load.gapCount !== this.#state.gapCount) return;
-    this.#detailLoads.set(load.sessionId, load);
+    if (this.#detailLoads.get(load.sessionId) !== load) return;
     this.#set({ ...state });
   }
 
   /** Loads a session's complete jobs, requests, questions and subagents once per gap; missing sessions are checked even with an unbounded snapshot. Failed requests can be retried immediately. */
   loadSessionDetail(sessionId: string): Promise<void> {
-    if (this.#state.bounded.length === 0 && this.#state.sessions.some(session => session.id === sessionId)) return Promise.resolve();
     const existing = this.#detailLoads.get(sessionId);
+    if (this.#state.bounded.length === 0 && this.#state.sessions.some(session => session.id === sessionId)) {
+      this.#clearSessionDetailStatus(existing);
+      return Promise.resolve();
+    }
     if (existing?.gapCount === this.#state.gapCount) {
       if (existing.status === 'loading' || existing.status === 'loaded') return existing.task;
     }
     const load: SessionDetailLoad = { sessionId, gapCount: this.#state.gapCount, status: 'loading', task: Promise.resolve() };
     load.task = Promise.resolve().then(() => this.#fetchSessionDetail(load));
+    this.#detailLoads.set(sessionId, load);
     this.#publishSessionDetail(load);
     return load.task;
   }

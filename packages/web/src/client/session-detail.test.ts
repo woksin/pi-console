@@ -13,10 +13,10 @@ const detail: SessionDetail = {
   requests: [], questions: [], jobs: [], resets: [], subagents: [],
 };
 
-function windowedStore(session: Api['session'], sessions: SessionDetail['session'][] = []) {
+function windowedStore(session: Api['session'], sessions: SessionDetail['session'][] = [], bounded: 'sessions'[] = ['sessions']) {
   const snapshot: Extract<Event, { type: 'snapshot' }> = {
     seq: 1, type: 'snapshot', occurredAt: '2026-01-01T00:00:00Z', payload: {
-      version: 0, generatedAt: '2026-01-01T00:00:00Z', repositories: [], sessions, requests: [], questions: [], messages: [], jobs: [], resets: [], transcriptCursors: [], interventions: [], bounded: ['sessions'],
+      version: 0, generatedAt: '2026-01-01T00:00:00Z', repositories: [], sessions, requests: [], questions: [], messages: [], jobs: [], resets: [], transcriptCursors: [], interventions: [], bounded,
     },
   };
   let emit: (event: Event) => void = () => undefined;
@@ -25,7 +25,12 @@ function windowedStore(session: Api['session'], sessions: SessionDetail['session
     stream: (_seq, _signal, onFrame) => { emit = onFrame; onFrame(snapshot); return new Promise<void>(() => undefined); },
   } as Api, clock);
   store.start();
-  return { store, resnapshot: () => { emit({ ...snapshot, seq: 2 }); } };
+  let seq = 1;
+  return {
+    store,
+    resnapshot: () => { emit({ ...snapshot, seq: ++seq }); },
+    update: (session = detail.session) => { emit({ seq: ++seq, type: 'session.updated', occurredAt: session.updatedAt, payload: session }); },
+  };
 }
 
 test('detail loading is observable, shared by concurrent opens, and cached after success', async () => {
@@ -97,6 +102,51 @@ for (const status of [401, 404, 503]) test(`HTTP ${String(status)} is ${status =
   await store.loadSessionDetail('missing');
   assert.equal(store.getSessionDetailStatus('missing'), status === 404 ? 'not-found' : 'failed');
   assert.equal(store.getSessionDetailStatus('other'), undefined, 'detail statuses are per session');
+});
+
+for (const status of [404, 503]) for (const sessions of [[], [detail.session]]) test(`HTTP ${String(status)} is invalidated when a session ${sessions.length === 0 ? 'arrives' : 'changes'} over the stream`, async () => {
+  const api = createApi('token', '', async () => new Response(null, { status }));
+  const { store, update } = windowedStore(id => api.session(id), sessions);
+  await store.loadSessionDetail('s1');
+  assert.equal(store.getSessionDetailStatus('s1'), status === 404 ? 'not-found' : 'failed');
+  const gapCount = store.getState().gapCount;
+  update({ ...detail.session, name: 'Live session' });
+  assert.equal(store.getState().gapCount, gapCount, 'a delta does not require a resnapshot');
+  assert.equal(store.getSessionDetailStatus('s1'), undefined);
+  assert.equal(store.getState().sessions[0]?.name, 'Live session');
+  store.stop();
+});
+
+for (const status of [404, 503]) test(`a known complete-snapshot session clears a late HTTP ${String(status)} detail status without another request`, async () => {
+  const pending = Promise.withResolvers<Response>();
+  let calls = 0;
+  const api = createApi('token', '', () => { calls++; return pending.promise; });
+  const { store, update } = windowedStore(id => api.session(id), [], []);
+  const load = store.loadSessionDetail('s1');
+  update();
+  pending.resolve(new Response(null, { status }));
+  await load;
+  assert.equal(store.getSessionDetailStatus('s1'), status === 404 ? 'not-found' : 'failed');
+  let notifications = 0;
+  store.subscribe(() => { notifications++; });
+  await store.loadSessionDetail('s1');
+  assert.equal(store.getSessionDetailStatus('s1'), undefined);
+  assert.equal(notifications, 1, 'clearing the status notifies the view');
+  assert.equal(calls, 1);
+  store.stop();
+});
+
+test('clearing a pending status for a known session also discards its late response', async () => {
+  const pending = Promise.withResolvers<SessionDetail | null>();
+  const { store, update } = windowedStore(() => pending.promise, [], []);
+  const load = store.loadSessionDetail('s1');
+  update();
+  await store.loadSessionDetail('s1');
+  assert.equal(store.getSessionDetailStatus('s1'), undefined);
+  pending.resolve(null);
+  await load;
+  assert.equal(store.getSessionDetailStatus('s1'), undefined);
+  store.stop();
 });
 
 test('a known session in a complete snapshot still needs no detail request', async () => {

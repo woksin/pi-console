@@ -35,6 +35,7 @@ describe('web console e2e', () => {
     const page = await isolated.open('/fleet', { token: null });
     const first = Promise.withResolvers<undefined>();
     const retried = Promise.withResolvers<undefined>();
+    const recovered = Promise.withResolvers<undefined>();
     let attempts = 0;
     try {
       const response = await page.request.get(`${isolated.baseUrl}/api/v1/sessions/s2`, { headers: { Authorization: `Bearer ${isolated.daemon.token}` } });
@@ -44,7 +45,8 @@ describe('web console e2e', () => {
       await page.route('**/api/v1/sessions/detail-only', async route => {
         attempts++;
         if (attempts === 1) { await first.promise; await route.abort(); }
-        else { await retried.promise; await route.fulfill({ json: detail }); }
+        else if (attempts === 2) { await retried.promise; await route.fulfill({ status: 503, json: { error: 'offline' } }); }
+        else { await recovered.promise; await route.fulfill({ json: detail }); }
       });
       await page.getByLabel('Access token').fill(isolated.daemon.token);
       await page.getByRole('button', { name: 'Connect' }).click();
@@ -53,7 +55,7 @@ describe('web console e2e', () => {
       await page.getByRole('status', { name: 'Loading session', exact: true }).waitFor();
       assert.equal(await page.getByText('Session not found', { exact: true }).count(), 0);
       first.resolve(undefined);
-      await page.getByRole('alert').filter({ hasText: 'Could not load session.' }).waitFor();
+      await page.getByRole('status').filter({ hasText: 'Could not load session.' }).waitFor();
       assert.equal(await page.getByText('Session not found', { exact: true }).count(), 0);
       const retry = page.getByRole('button', { name: 'Retry', exact: true });
       await page.locator('#content').focus();
@@ -61,12 +63,44 @@ describe('web console e2e', () => {
       assert.equal(await retry.evaluate(node => node === document.activeElement), true, 'Retry is reachable by Tab');
       await page.keyboard.press('Enter');
       await page.getByRole('status', { name: 'Loading session', exact: true }).waitFor();
+      assert.equal(await retry.isDisabled(), true, 'Retry is guarded while busy');
+      assert.equal(await retry.evaluate(node => node === document.activeElement), true, 'Retry retains focus while loading');
       retried.resolve(undefined);
+      await page.getByRole('status').filter({ hasText: 'Could not load session.' }).waitFor();
+      assert.equal(await retry.evaluate(node => node === document.activeElement), true, 'Retry retains focus after another failure');
+      await page.keyboard.press('Enter');
+      await page.getByRole('status', { name: 'Loading session', exact: true }).waitFor();
+      assert.equal(await retry.evaluate(node => node === document.activeElement), true, 'a repeated keyboard Retry retains focus');
+      recovered.resolve(undefined);
       await page.locator('.session-head').waitFor();
-      assert.equal(attempts, 2, 'keyboard Retry issues a new detail request');
+      assert.equal(attempts, 3, 'both keyboard retries issue new detail requests');
       assert.equal(await page.getByRole('alert').count(), 0);
       assert.equal(await page.getByRole('status', { name: 'Loading session', exact: true }).count(), 0);
-    } finally { first.resolve(undefined); retried.resolve(undefined); await page.context().close(); await isolated.close(); }
+    } finally { first.resolve(undefined); retried.resolve(undefined); recovered.resolve(undefined); await page.context().close(); await isolated.close(); }
+  });
+
+  for (const status of [404, 503]) test(`a session arriving over the stream replaces HTTP ${String(status)} detail feedback`, async () => {
+    const isolated = await startRig({ speed: 1e-9 });
+    const page = await isolated.open('/fleet', { token: null });
+    try {
+      const response = await page.request.get(`${isolated.baseUrl}/api/v1/sessions/s2`, { headers: { Authorization: `Bearer ${isolated.daemon.token}` } });
+      assert.equal(response.status(), 200);
+      const detail = await response.json() as SessionDetail;
+      detail.session = { ...detail.session, id: 'streamed-session', name: 'Streamed session' };
+      await page.route('**/api/v1/sessions/streamed-session', route => route.fulfill({ status, json: { error: 'unavailable' } }));
+      await page.getByLabel('Access token').fill(isolated.daemon.token);
+      await page.getByRole('button', { name: 'Connect' }).click();
+      await page.locator('.conn[data-connection="live"]').waitFor();
+      await page.evaluate(() => { window.location.hash = '#/session/streamed-session'; });
+      if (status === 404) await page.getByRole('heading', { name: 'Session not found', exact: true }).waitFor();
+      else await page.getByRole('status').filter({ hasText: 'Could not load session.' }).waitFor();
+      isolated.daemon.store.publish('session.updated', detail.session);
+      await page.locator('.session-head').waitFor();
+      assert.match(await page.locator('.topbar h1').innerText(), /Streamed session/);
+      assert.equal(await page.getByText('Session not found', { exact: true }).count(), 0);
+      assert.equal(await page.getByText('Could not load session.', { exact: true }).count(), 0);
+      assert.equal(await page.getByRole('button', { name: 'Retry', exact: true }).count(), 0);
+    } finally { await page.context().close(); await isolated.close(); }
   });
 
   test('a real session 404 shows not-found without Retry', async () => {
