@@ -36,7 +36,7 @@ export class ReviewChannel {
   port(port: number): void { this.#port = port; }
   #checkUpgrade(request: IncomingMessage): void {
     checkSource(request, this.#port);
-    if (request.url !== reviewChannelPath || this.peers.size >= 32) throw new Error('Upgrade refused');
+    if (request.url !== reviewChannelPath) throw new Error('Upgrade refused');
     if (request.headers.cookie && !request.headers.origin) throw new Error('Origin required');
     this.#admitUpgrade();
   }

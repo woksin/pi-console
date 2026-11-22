@@ -150,6 +150,53 @@ test('Enter in narrow detail can open the question session', async () => {
   } finally { ui.destroy(); store.dispose(); }
 });
 
+for (const width of [80, 120, 160, 200]) {
+  test(`${String(width)} columns: v expands the full question and every wrapped option; v and Esc return to the list`, async () => {
+    const { ui, store, opened } = await setup(width);
+    try {
+      await ui.press('v');
+      assert.match(ui.frame(), /enter session/);
+      assert.match(ui.frame(), /Question-paragraph-00/);
+      let seen = ui.frame();
+      for (let page = 0; page < 10; page++) { await ui.press('\u001b[6~'); seen += ui.frame(); }
+      for (const paragraph of paragraphs) assert.ok(seen.includes(paragraph.split(' ')[0]), paragraph);
+      for (let index = 0; index < options.length; index++) {
+        assert.ok(seen.includes(`Option ${String(index).padStart(2, '0')}`));
+        assert.ok(seen.includes(`END-${String(index)}`));
+      }
+      assert.deepEqual(opened, []);
+      await ui.press('HOME');
+      assert.match(ui.frame(), /Question-paragraph-00/);
+      await ui.press('END');
+      assert.match(ui.frame(), /END-11/);
+      await ui.press('v');
+      assert.match(ui.frame(), /Questions · 1 open/);
+      await ui.press('v');
+      assert.match(ui.frame(), /Question-paragraph-00/, 'expanding resets scroll');
+      await ui.press('ESCAPE');
+      assert.match(ui.frame(), /Questions · 1 open/);
+    } finally { ui.destroy(); store.dispose(); }
+  });
+}
+
+test('explicit wide expansion survives resize and Help, and Enter still opens the question session', async () => {
+  const { ui, store, opened } = await setup(160);
+  try {
+    await ui.press('v');
+    await ui.press('\u001b[6~');
+    await ui.press('?');
+    await ui.press('ESCAPE');
+    assert.doesNotMatch(ui.frame(), /Question-paragraph-00/);
+    await ui.resize(120, 24);
+    assert.match(ui.frame(), /enter session/);
+    assert.doesNotMatch(ui.frame(), /Question-paragraph-00/);
+    await ui.press('RETURN');
+    assert.deepEqual(opened, [question.sessionId]);
+    await ui.press('ESCAPE');
+    assert.match(ui.frame(), /Questions · 1 open/);
+  } finally { ui.destroy(); store.dispose(); }
+});
+
 test('wide Questions keeps the side panel and Enter still opens the session', async () => {
   const { ui, store, opened } = await setup(140);
   try {

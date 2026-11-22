@@ -1,5 +1,5 @@
 import { type MemoryReviewSession, mergeHistory, mergeSnapshot, type Totals, type WindowedCollection } from '@pi-console/viewmodels';
-import type { AttentionItem, Event, Job, MemoryItem, Message, Question, Request, Reset, Session, SessionDetail, SessionMemory, TranscriptEntry } from '@pi-console/contract';
+import type { AttentionItem, Event, Graph, Job, MemoryItem, Message, Question, Request, Reset, Session, SessionDetail, SessionMemory, TranscriptEntry } from '@pi-console/contract';
 
 export const TRANSCRIPT_LIMIT = 2500;
 const upsert = <T extends { id: string }>(items: T[], item: T): T[] => {
@@ -10,12 +10,15 @@ const upsert = <T extends { id: string }>(items: T[], item: T): T[] => {
 export interface Connection { connected: boolean; error: string; lastSeq: number | undefined; lastEventAt: number | undefined; eventsReceived: number }
 export interface Data {
   loaded: boolean; connection: Connection; repositories: number;
+  graph: Graph;
   sessions: Session[]; requests: Request[]; questions: Question[]; messages: Message[]; jobs: Job[]; resets: Reset[];
   /** Full collection sizes from a bounded snapshot; `null` when the daemon sent complete lists. */
   totals: Totals | null; bounded: readonly WindowedCollection[];
   /** Paging progress per windowed collection once its history has been requested. */
-  history: Partial<Record<WindowedCollection, { cursor: string | null; more: boolean }>>;
+  history: Partial<Record<WindowedCollection, { cursor: string | null; more: boolean; error?: boolean }>>;
   needsYou: AttentionItem[]; transcripts: ReadonlyMap<string, TranscriptEntry[]>;
+  /** Sessions where backfill or live retention actually dropped older entries. */
+  transcriptsTruncated: ReadonlySet<string>;
   /** True after a successful attention fetch, until a fetch fails; `loaded` alone is too early. */
   needsYouLoaded: boolean; needsYouError: boolean;
   /** Read-only intent memory per session id, fetched when its session is opened. */
@@ -32,7 +35,7 @@ export interface Data {
 export class Store {
   private data: Data = {
     loaded: false, connection: { connected: false, error: 'Connecting…', lastSeq: undefined, lastEventAt: undefined, eventsReceived: 0 }, repositories: 0,
-    sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], totals: null, bounded: [], history: {}, needsYou: [], needsYouLoaded: false, needsYouError: false, transcripts: new Map(), memory: new Map(), memoryItems: new Map(), memoryReviews: new Map(), fresh: new Map(),
+    graph: { nodes: [], edges: [] }, sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], totals: null, bounded: [], history: {}, needsYou: [], needsYouLoaded: false, needsYouError: false, transcripts: new Map(), transcriptsTruncated: new Set(), memory: new Map(), memoryItems: new Map(), memoryReviews: new Map(), fresh: new Map(),
   };
   private readonly listeners = new Set<() => void>();
   private timer: ReturnType<typeof setTimeout> | undefined;
@@ -97,8 +100,17 @@ export class Store {
     this.schedule();
   }
 
+  setGraph(graph: Graph): void { this.data = { ...this.data, graph }; this.schedule(); }
+
   setNeedsYou(needsYou: AttentionItem[]): void {
     this.data = { ...this.data, needsYou, needsYouLoaded: true, needsYouError: false };
+    this.schedule();
+  }
+
+  /** Records a page failure without losing the cursor needed to retry it. */
+  setHistoryError(collection: WindowedCollection, error: boolean): void {
+    const progress = this.data.history[collection] ?? { cursor: null, more: true };
+    this.data = { ...this.data, history: { ...this.data.history, [collection]: { ...progress, error } } };
     this.schedule();
   }
 
@@ -126,7 +138,8 @@ export class Store {
   }
 
   /** Merges a backfill page with live entries by cursor, oldest first, bounded. */
-  mergeTranscript(sessionId: string, entries: readonly TranscriptEntry[]): void {
+  mergeTranscript(sessionId: string, entries: readonly TranscriptEntry[], truncated = false): void {
+    if (truncated) this.data = { ...this.data, transcriptsTruncated: new Set(this.data.transcriptsTruncated).add(sessionId) };
     this.appendTranscript(entries, sessionId);
     // An empty transcript is still a loaded one; without this the view would say "Loading" forever.
     if (!this.pendingTranscripts.has(sessionId)) this.pendingTranscripts.set(sessionId, [...(this.data.transcripts.get(sessionId) ?? [])]);
@@ -157,9 +170,13 @@ export class Store {
     this.timer = undefined;
     if (this.pendingTranscripts.size > 0) {
       const transcripts = new Map(this.data.transcripts);
-      for (const [key, list] of this.pendingTranscripts) transcripts.set(key, list.sort((a, b) => a.cursor - b.cursor).slice(-TRANSCRIPT_LIMIT));
+      const transcriptsTruncated = new Set(this.data.transcriptsTruncated);
+      for (const [key, list] of this.pendingTranscripts) {
+        if (list.length > TRANSCRIPT_LIMIT) transcriptsTruncated.add(key);
+        transcripts.set(key, list.sort((a, b) => a.cursor - b.cursor).slice(-TRANSCRIPT_LIMIT));
+      }
       this.pendingTranscripts.clear();
-      this.data = { ...this.data, transcripts };
+      this.data = { ...this.data, transcripts, transcriptsTruncated };
     }
     const cutoff = this.now() - 3000;
     const fresh = new Map([...this.data.fresh].filter(([, at]) => at > cutoff));

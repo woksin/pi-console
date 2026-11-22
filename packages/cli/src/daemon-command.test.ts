@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, resolve } from 'node:path';
+import { defaultDataDir } from '@pi-console/daemon';
 import { daemonUsage, parseDaemonArgs, runDaemon } from './daemon-command.ts';
 
 test('flags override only what they name', () => {
@@ -12,6 +13,21 @@ test('flags override only what they name', () => {
   assert.deepEqual(parseDaemonArgs([], {}).overrides, {});
   assert.throws(() => parseDaemonArgs(['--port', 'abc']), /--port/);
   assert.throws(() => parseDaemonArgs(['--bind', '0.0.0.0']), /bind/);
+});
+
+test('the data directory falls back to PI_CONSOLE_DATA_DIR and resolves relative paths', () => {
+  const parsed = parseDaemonArgs([], { PI_CONSOLE_DATA_DIR: 'console-data' });
+  assert.equal(parsed.dataDir, resolve('console-data'));
+  assert.deepEqual(parsed.overrides, {});
+});
+
+test('an explicit data directory takes precedence over PI_CONSOLE_DATA_DIR', () => {
+  assert.equal(parseDaemonArgs(['--data-dir', 'flag-data'], { PI_CONSOLE_DATA_DIR: '/env-data' }).dataDir, resolve('flag-data'));
+});
+
+test('the default data directory is used when neither flag nor environment names one', () => {
+  assert.equal(parseDaemonArgs([], {}).dataDir, resolve(defaultDataDir()));
+  assert.match(daemonUsage, /--data-dir.*flag > PI_CONSOLE_DATA_DIR > ~\/\.pi-console/);
 });
 
 test('source flags derive the roots, switch sources off and reject unknown ids', () => {
