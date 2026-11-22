@@ -13,8 +13,9 @@ interface Waiting { request: RequestModel; resetsSince: number }
  * carry the state: `waiting` (asked, not yet closed by an answer, abort or session end) and `lastAnswered` (the requests
  * whose final answer is the most recent answer: the supersession window, closed only by a prompt or an abort).
  */
-class Pairing {
+export class Pairing {
   readonly requests: RequestModel[] = [];
+  #changed = new Set<RequestModel>();
   #waiting: Waiting[] = [];
   #lastAnswered: RequestModel[] = [];
 
@@ -26,6 +27,19 @@ class Pairing {
     this.facts = facts;
   }
 
+  /** Continues the state machine, reporting only requests whose output this observation can change. */
+  apply(observation: Observation): ReadonlySet<RequestModel> {
+    this.#changed = new Set();
+    switch (observation.kind) {
+      case 'prompt': this.prompt(observation); break;
+      case 'answer': this.answer(observation); break;
+      case 'abort': this.abort(observation); break;
+      case 'reset': this.reset(observation); break;
+      case 'end': this.end(observation); break;
+    }
+    return this.#changed;
+  }
+
   /** Opens a request. The previous answer counts as seen, so the supersession window closes. */
   prompt(observation: PromptObservation): void {
     const request: RequestModel = {
@@ -35,7 +49,11 @@ class Pairing {
       withheld: observation.withheld, answerWithheld: false, answerPossiblyUnseen: false, uncertainReason: null,
       evidence: [evidence('prompt', observation)], derivedFrom: observation.derivedFrom,
     };
-    for (const earlier of this.#waiting) earlier.request.evidence?.push(evidence('later-prompt', observation));
+    for (const earlier of this.#waiting) {
+      earlier.request.evidence?.push(evidence('later-prompt', observation));
+      this.#changed.add(earlier.request);
+    }
+    this.#changed.add(request);
     this.requests.push(request);
     this.#waiting.push({ request, resetsSince: 0 });
     this.#lastAnswered = [];
@@ -49,12 +67,16 @@ class Pairing {
   answer(observation: AnswerObservation): void {
     const answer: AnswerModel = { id: observation.answerId, text: observation.text, at: observation.at, interim: false };
     if (this.#waiting.length === 0) {
-      for (const request of this.#lastAnswered) supersede(request, answer, observation);
+      for (const request of this.#lastAnswered) {
+        supersede(request, answer, observation);
+        this.#changed.add(request);
+      }
       return;
     }
     const newest = this.#waiting.at(-1)?.resetsSince ?? 0;
     for (const { request, resetsSince } of this.#waiting) {
       close(request, answer, observation);
+      this.#changed.add(request);
       if (resetsSince > newest) request.uncertainReason = 'reset-then-new-prompt';
       else if (this.#waiting.length > 1) request.uncertainReason ??= 'shared-answer';
     }
@@ -67,6 +89,7 @@ class Pairing {
     for (const { request } of this.#waiting) {
       request.status = 'interrupted';
       request.evidence?.push(evidence('abort', observation));
+      this.#changed.add(request);
     }
     this.#waiting = [];
     this.#lastAnswered = [];
@@ -82,10 +105,12 @@ class Pairing {
       waiting.resetsSince += 1;
       Object.assign(waiting.request, { status: 'interrupted', resetId: observation.resetId });
       waiting.request.evidence?.push(evidence('reset', observation, observation.resetId));
+      this.#changed.add(waiting.request);
     }
     for (const request of this.#lastAnswered) {
       request.answerPossiblyUnseen = true;
       request.evidence?.push(evidence('boundary', observation, observation.resetId));
+      this.#changed.add(request);
     }
   }
 
@@ -94,6 +119,7 @@ class Pairing {
     for (const { request } of this.#waiting) {
       if (request.status === 'open') request.status = 'unanswered';
       request.evidence?.push(evidence('session-end', observation));
+      this.#changed.add(request);
     }
     this.#waiting = [];
   }
@@ -113,14 +139,6 @@ function supersede(request: RequestModel, answer: AnswerModel, observation: Answ
 /** Pairs a session's raw observations (sorted by key) into requests. Pure: same observations, same requests. */
 export function pairSession(sessionId: string, facts: SessionFacts, observations: readonly Observation[]): RequestModel[] {
   const pairing = new Pairing(sessionId, facts);
-  for (const observation of observations) {
-    switch (observation.kind) {
-      case 'prompt': pairing.prompt(observation); break;
-      case 'answer': pairing.answer(observation); break;
-      case 'abort': pairing.abort(observation); break;
-      case 'reset': pairing.reset(observation); break;
-      case 'end': pairing.end(observation); break;
-    }
-  }
+  for (const observation of observations) pairing.apply(observation);
   return pairing.requests;
 }
