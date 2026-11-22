@@ -65,21 +65,30 @@ function helpContent({ width }: { width: number }): Line[] {
   return Array.from({ length: Math.max(left.length, right.length) }, (_, index) => [...fit(left[index] ?? [], column), gap(2), ...fit(right[index] ?? [], column)]);
 }
 
-export function helpViewport(size: { width: number; height: number }) {
-  const wanted = Math.min(116, size.width - 2);
-  const lines = helpContent({ width: wanted });
-  const box = frame(size.width, size.height, { width: wanted, height: lines.length + 5 });
-  const page = Math.max(1, box.height - 5);
+function overlayViewport(size: { width: number; height: number }, lines: Line[], wanted: { width: number; height: number }, reserved = 2) {
+  const box = frame(size.width, size.height, wanted);
+  const page = Math.max(1, box.height - reserved);
   return { lines, box, bounds: { page, max: Math.max(0, lines.length - page) } };
 }
 
-export function Help(props: { width: number; height: number; scroll?: number }) {
-  const { lines, box, bounds } = helpViewport(props);
-  const start = Math.min(props.scroll ?? 0, bounds.max);
+function visibleViewport({ lines, bounds }: ReturnType<typeof overlayViewport>, scroll = 0) {
+  const start = Math.max(0, Math.min(scroll, bounds.max));
   const position = bounds.max > 0 ? `${String(start + 1)}–${String(Math.min(lines.length, start + bounds.page))} of ${String(lines.length)} · ↑↓ PgUp/PgDn Home/End · ` : '';
-  return h(Overlay, box, h(Panel, { title: 'Help', right: `${position}? or esc closes`, focused: true, grow: 1, background: 'raised' },
+  return { lines: lines.slice(start, start + bounds.page), position };
+}
+
+export function helpViewport(size: { width: number; height: number }) {
+  const wanted = Math.min(116, size.width - 2);
+  const lines = helpContent({ width: wanted });
+  return overlayViewport(size, lines, { width: wanted, height: lines.length + 5 }, 5);
+}
+
+export function Help(props: { width: number; height: number; scroll?: number }) {
+  const viewport = helpViewport(props);
+  const { lines, position } = visibleViewport(viewport, props.scroll);
+  return h(Overlay, viewport.box, h(Panel, { title: 'Help', right: `${position}? or esc closes`, focused: true, grow: 1, background: 'raised' },
     h(Lines, { lines: [heading('Keyboard map (shared with the web console)'), blank], height: 2 }),
-    h(Lines, { lines: lines.slice(start, start + bounds.page), grow: 1 }),
+    h(Lines, { lines, grow: 1 }),
     h(Lines, { lines: [[t('Read-only: nothing here can change a session.', 'faint')]], height: 1 })));
 }
 
@@ -96,9 +105,14 @@ function themeLines(): Line[] {
     blank];
 }
 
-export function Settings(props: { input: SettingsInput; width: number; height: number }) {
-  const box = frame(props.width, props.height, { width: 76, height: 27 });
-  const model = settingsViewModel(props.input);
+export function settingsViewport(size: { width: number; height: number }, input: SettingsInput) {
+  const model = settingsViewModel(input);
   const lines = [...section('Health', model.health), ...section('Data', model.data), ...section('Sources', model.sources), ...themeLines()];
-  return h(Overlay, box, h(Panel, { title: 'Settings', right: 'esc closes', focused: true, grow: 1, background: 'raised' }, h(Lines, { lines, grow: 1 })));
+  return overlayViewport(size, lines, { width: 76, height: 27 });
+}
+
+export function Settings(props: { input: SettingsInput; width: number; height: number; scroll?: number }) {
+  const viewport = settingsViewport(props, props.input);
+  const { lines, position } = visibleViewport(viewport, props.scroll);
+  return h(Overlay, viewport.box, h(Panel, { title: 'Settings', right: `${position}esc closes`, focused: true, grow: 1, background: 'raised' }, h(Lines, { lines, grow: 1 })));
 }
