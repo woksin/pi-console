@@ -145,6 +145,8 @@ Memory review is a narrow opt-in exception: with daemon review enabled, a separa
 
 `pi-console daemon --help` lists the data directory, port and source options. Interventions (answering, steering, pausing) are milestone M2; there is no global install yet.
 
+CLI errors print a short message to stderr and exit non-zero. Set `PI_CONSOLE_DEBUG=1` to include a stack trace for diagnosis (for example, `PI_CONSOLE_DEBUG=1 pi-console daemon --port banana`).
+
 ## Architecture
 
 ```mermaid
