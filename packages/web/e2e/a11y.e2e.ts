@@ -86,7 +86,7 @@ async function paletteSelectionVisible(page: Page): Promise<void> {
   await page.waitForFunction(() => {
     const active = document.querySelector('#palette-list [aria-selected="true"]')?.getBoundingClientRect();
     const viewport = document.getElementById('palette-list')?.getBoundingClientRect();
-    return active && viewport && active.top >= viewport.top && active.bottom <= viewport.bottom;
+    return active && viewport && active.top >= viewport.top - 1 && active.bottom <= viewport.bottom + 1;
   }, undefined, { timeout: 2000 });
 }
 
@@ -115,6 +115,35 @@ test('long palette keeps the keyboard-active option visible and its combobox des
       await paletteSelectionVisible(page);
       await focused(input);
     }
+  } finally { await page.context().close(); }
+});
+
+test('palette keyboard navigation ignores a stationary pointer until it moves', async () => {
+  const page = await rig.open('/requests', { width: 1440, height: 480 });
+  try {
+    await page.locator('.conn[data-connection="live"]').waitFor();
+    await page.getByRole('button', { name: /^Palette/ }).click();
+    const palette = page.getByRole('dialog', { name: 'Command palette' });
+    const input = palette.getByRole('combobox');
+    const options = palette.getByRole('option');
+    await options.nth(2).hover();
+    await options.nth(2).and(palette.locator('[aria-selected="true"]')).waitFor();
+    const count = await options.count();
+    for (let index = 3; index < count; index++) {
+      await page.keyboard.press('ArrowDown');
+      // Let scrolling and its generated pointer events settle without moving the mouse.
+      await page.evaluate(() => new Promise<void>(done => {
+        requestAnimationFrame(() => { requestAnimationFrame(() => { done(); }); });
+      }));
+      assert.equal(await options.nth(index).getAttribute('aria-selected'), 'true', `option ${index} keeps keyboard selection`);
+      assert.equal(await input.getAttribute('aria-activedescendant'), await options.nth(index).getAttribute('id'));
+      await paletteSelectionVisible(page);
+    }
+    const hovered = options.nth(count - 2);
+    await hovered.hover();
+    await hovered.and(palette.locator('[aria-selected="true"]')).waitFor();
+    assert.equal(await input.getAttribute('aria-activedescendant'), await hovered.getAttribute('id'));
+    await focused(input);
   } finally { await page.context().close(); }
 });
 

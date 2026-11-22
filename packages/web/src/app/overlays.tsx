@@ -29,8 +29,12 @@ function Highlighted({ segments }: { segments: readonly MatchSegment[] }) {
 
 function PaletteRow({ item, active, onHover, onPick }: { item: PaletteItem; active: boolean; onHover: () => void; onPick: () => void }) {
   const ref = useScrollIntoView<HTMLLIElement>(active);
+  const onMove = (event: React.MouseEvent): void => {
+    // Scrolling rows under a stationary pointer must not change keyboard selection.
+    if (event.movementX !== 0 || event.movementY !== 0) onHover();
+  };
   return (
-    <li ref={ref} id={`pal-${item.id}`} role="option" aria-selected={active} className={active ? 'pal-row active' : 'pal-row'} onMouseEnter={onHover} onMouseDown={event => { event.preventDefault(); onPick(); }}>
+    <li ref={ref} id={`pal-${item.id}`} role="option" aria-selected={active} className={active ? 'pal-row active' : 'pal-row'} onMouseMove={onMove} onMouseDown={event => { event.preventDefault(); onPick(); }}>
       <span className="pal-glyph" style={{ '--tone': `var(--${item.tone})` } as React.CSSProperties} role="img" aria-label={item.status} title={item.status}>{item.glyph}</span>
       <span className="pal-label truncate"><Highlighted segments={item.segments} /></span>
       <span className="pal-detail truncate">{item.detail}</span>{item.key && <Kbd>{item.key}</Kbd>}
