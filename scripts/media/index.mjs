@@ -76,7 +76,7 @@ const work = { dir: join(root, '.ai-work/media-work'), only };
 rmSync(work.dir, { recursive: true, force: true });
 mkdirSync(work.dir, { recursive: true });
 // Exit is synchronous even on encoder/preflight failures: never retain the large intermediate frames.
-process.once('exit', () => { rmSync(work.dir, { recursive: true, force: true }); });
+process.once('exit', rmSync.bind(null, work.dir, { recursive: true, force: true }));
 await capture(work);
 encode(work);
 if (only === undefined) { prune(); verify(); }
