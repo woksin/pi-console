@@ -60,7 +60,7 @@ test('the documented follow shortcut resolves in session detail even when a butt
   assert.equal(resolveWebKey('detail', 'f'), 'follow.toggle');
   assert.equal(resolveWebKey('detail', 'Enter'), undefined);
   assert.equal(nativeActivation('Enter', button), true);
-  assert.equal(resolveWebKey('detail', 'Tab'), 'pane.next');
+  assert.equal(resolveWebKey('detail', 'Tab'), undefined);
   assert.equal(resolveWebKey('help', 'f'), undefined);
   assert.equal(resolveWebKey('palette', 'f'), undefined);
   assert.equal(resolveWebKey('fleet', 'f'), undefined);
@@ -75,4 +75,8 @@ test('web list contexts follow the route; overlays and graph take precedence', (
   }
   assert.equal(contextFor({ route: parseRoute('#/messages?view=graph'), palette: false, help: false }), 'graph');
   assert.equal(contextFor({ route: parseRoute('#/session/s2'), palette: false, help: false }), 'detail');
+});
+
+test('Escape resolves to back in every list context, so a key pressed just after navigating into a session still goes back', () => {
+  for (const context of ['overview', 'fleet', 'requests', 'questions', 'messages', 'work', 'detail', 'timeline', 'graph'] as const) assert.equal(resolveWebKey(context, 'Esc'), 'back', context);
 });

@@ -17,7 +17,7 @@ export function Transcript({ lines, focusEntry, searching, progress, onPage, onL
   const scroll = useTranscriptScroll(lines, focusEntry, onResume, onFollow);
   const history = useTranscriptHistoryPaging(scroll, progress, searching, onPage);
   const nav = useListNav(lines.map(line => String(line.key)), {
-    initial: focusKey(lines, focusEntry), fallback: String(lines.at(-1)?.key),
+    initial: focusKey(lines, focusEntry), fallback: String(lines.at(-1)?.key), copy: false,
     onMove: key => { scroll.pause(); document.getElementById(`line-${key}`)?.scrollIntoView({ block: 'nearest' }); scroll.remember(); },
   });
   return (

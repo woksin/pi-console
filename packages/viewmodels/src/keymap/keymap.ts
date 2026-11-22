@@ -27,6 +27,8 @@ export interface Binding {
   /** Bindings for intervention keys exist so the map is complete, but resolve nothing until their milestone ships. */
   availableFrom?: 'M4';
   clients?: readonly KeyClient[];
+  /** Contexts where the binding exists only in the TUI; the web client has no handler there, so it neither resolves nor lists it. */
+  tuiOnlyContexts?: readonly KeyContext[];
 }
 
 const lists = [...listContexts, 'detail'] as const;
@@ -42,22 +44,22 @@ export const bindings: readonly Binding[] = [
   { keys: [','], action: 'settings.open', label: 'Settings', contexts: ['global'] },
   { keys: ['?'], action: 'help.toggle', label: 'Help', hint: '? help', contexts: ['global'] },
   { keys: ['Ctrl+C', 'q'], action: 'quit', label: 'Quit the TUI (never aborts a session)', contexts: ['global'], clients: ['tui'] },
-  { keys: ['j', 'ArrowDown'], action: 'move.down', label: 'Move down', hint: 'j/k move', contexts: [...lists, 'transcript', 'timeline', 'graph', 'palette'] },
-  { keys: ['k', 'ArrowUp'], action: 'move.up', label: 'Move up', contexts: [...lists, 'transcript', 'timeline', 'graph', 'palette'] },
+  { keys: ['j', 'ArrowDown'], action: 'move.down', label: 'Move down', hint: 'j/k move', contexts: [...lists, 'transcript', 'timeline', 'graph', 'palette'], tuiOnlyContexts: ['graph'] },
+  { keys: ['k', 'ArrowUp'], action: 'move.up', label: 'Move up', contexts: [...lists, 'transcript', 'timeline', 'graph', 'palette'], tuiOnlyContexts: ['graph'] },
   { keys: ['g', 'Home'], action: 'move.top', label: 'Top', contexts: [...lists, 'transcript'] },
   { keys: ['G', 'End'], action: 'move.bottom', label: 'Bottom', contexts: [...lists, 'transcript'] },
   { keys: ['PageUp'], action: 'page.up', label: 'Page up', contexts: [...lists, 'transcript'] },
   { keys: ['PageDown'], action: 'page.down', label: 'Page down', contexts: [...lists, 'transcript'] },
   { keys: ['r'], action: 'attention.retry', label: 'Retry needs you after a failed load', hint: 'r retry', contexts: ['overview'], clients: ['tui'] },
-  { keys: ['Enter'], action: 'open', label: 'Open', hint: '⏎ open', contexts: [...listContexts, 'timeline', 'graph', 'palette', 'filter'] },
+  { keys: ['Enter'], action: 'open', label: 'Open', hint: '⏎ open', contexts: [...listContexts, 'timeline', 'graph', 'palette', 'filter'], tuiOnlyContexts: ['timeline', 'graph'] },
   { keys: ['Esc'], action: 'back', label: 'Close, cancel, back', hint: 'esc back', contexts: [...lists, 'transcript', 'graph', 'timeline', 'palette', 'filter', 'help'] },
-  { keys: ['Tab'], action: 'pane.next', label: 'Next pane', hint: 'tab pane', contexts: ['detail', 'transcript'] },
-  { keys: ['Shift+Tab'], action: 'pane.previous', label: 'Previous pane', contexts: ['detail', 'transcript'] },
+  { keys: ['Tab'], action: 'pane.next', label: 'Next pane', hint: 'tab pane', contexts: ['detail', 'transcript'], clients: ['tui'] },
+  { keys: ['Shift+Tab'], action: 'pane.previous', label: 'Previous pane', contexts: ['detail', 'transcript'], clients: ['tui'] },
   { keys: ['f'], action: 'follow.toggle', label: 'Toggle follow-tail in a transcript', hint: 'f follow', contexts: ['transcript'] },
   { keys: ['y'], action: 'copy.id', label: 'Copy id', hint: 'y copy id', contexts: [...lists, 'transcript'] },
   { keys: ['v'], action: 'view.toggle', label: 'Toggle list and graph', hint: 'v graph', contexts: ['messages', 'graph'] },
   { keys: ['v'], action: 'view.toggle', label: 'Expand or collapse question detail', hint: 'v expand', contexts: ['questions'], clients: ['tui'] },
-  { keys: ['t'], action: 'time.scrub', label: 'Toggle time scrubber (graph, timeline)', contexts: ['graph', 'timeline'] },
+  { keys: ['t'], action: 'time.scrub', label: 'Toggle time scrubber', contexts: ['graph', 'timeline'], tuiOnlyContexts: ['timeline'] },
   { keys: ['+', '='], action: 'time.zoomIn', label: 'Zoom the timeline in', hint: '+/- zoom', contexts: ['timeline'] },
   { keys: ['-'], action: 'time.zoomOut', label: 'Zoom the timeline out', contexts: ['timeline'] },
   { keys: ['h', 'ArrowLeft'], action: 'time.left', label: 'Pan earlier', hint: 'h/l pan', contexts: ['timeline'] },
@@ -103,7 +105,15 @@ const keyLabels: Readonly<Record<string, string>> = { ArrowUp: '↑', ArrowDown:
 export const keyLabel = (key: string): string => keyLabels[key] ?? key;
 
 /** Resolves a neutral key name in a context; `global` bindings apply everywhere unless the context text-captures keys. */
-export const bindingsFor = (client: KeyClient): readonly Binding[] => activeBindings.filter(binding => !binding.clients || binding.clients.includes(client));
+export const bindingsFor = (client: KeyClient): readonly Binding[] => activeBindings
+  .filter(binding => !binding.clients || binding.clients.includes(client))
+  .flatMap(binding => (client === 'web' ? forWeb(binding) : [binding]));
+
+function forWeb(binding: Binding): Binding[] {
+  if (!binding.tuiOnlyContexts) return [binding];
+  const contexts = binding.contexts.filter(context => !binding.tuiOnlyContexts?.includes(context));
+  return contexts.length === 0 ? [] : [{ ...binding, contexts }];
+}
 
 export function resolve(context: KeyContext, key: string, client: KeyClient = 'tui'): Action | undefined {
   const active = bindingsFor(client);

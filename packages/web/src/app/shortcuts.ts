@@ -53,7 +53,7 @@ const backable: readonly string[] = ['session', 'settings'];
 
 /** Esc in a session or settings goes back to where the user came from. */
 /** Reads the live hash, not React state: a key pressed in the instant after a navigation must act on where the user really is. */
-function goBack(action: Action): boolean {
+export function goBack(action: Action): boolean {
   if (action !== 'back' || !backable.includes(parseRoute(window.location.hash).view)) return false;
   if (window.history.length > 1) window.history.back(); else navigate(hrefFor('fleet'));
   return true;

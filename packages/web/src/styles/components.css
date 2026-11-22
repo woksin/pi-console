@@ -73,3 +73,6 @@
 .sw-pink { background: var(--pink); }
 .sw-select { background: var(--select); }
 .sw-flash { background: var(--flash); }
+
+.copy-notice { position: fixed; right: var(--space-4, 16px); bottom: var(--space-4, 16px); z-index: 20; background: var(--raised); border: 1px solid var(--border); border-radius: 8px; padding: 6px 12px; color: var(--text); pointer-events: none; }
+.copy-notice:empty { padding: 0; border: 0; }
