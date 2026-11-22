@@ -23,7 +23,7 @@ export const gifFps = 12;
 /** A fixed wall clock for every capture; the fixture itself is dated 2026-11-20. */
 export const fixedNow = '2026-11-20T12:00:00Z';
 
-export const budget = { totalKb: 4096, fileKb: 600, heroKb: 400 } as const;
+export const budget = { totalKb: 6144, fileKb: 600, heroKb: 400 } as const;
 
 const web = (id: string, what: string, theme: Shot['theme'] = 'dark', width: number = stillWidth): Shot =>
   ({ id: `web-${id}${theme === 'light' ? '-light' : ''}`, file: `web-${id}${theme === 'light' ? '-light' : ''}.webp`, kind: 'still', client: 'web', width, theme, what });
@@ -38,10 +38,11 @@ export const webViews = [
   { id: 'requests', route: '/requests', what: 'Requests and answers' },
   { id: 'questions', route: '/questions', what: 'Questions and decisions' },
   { id: 'messages', route: '/messages', what: 'Messages list' },
-  { id: 'graph', route: '/messages?view=graph', what: 'Messages graph' },
-  { id: 'timeline', route: '/timeline', what: 'Timeline of sessions, jobs and resets' },
+  { id: 'graph', route: '/messages?view=graph', what: 'Lane-to-lane message edges and separate session spawn relationships' },
+  { id: 'timeline', route: '/timeline', what: 'Timeline of requests, answers, resets, questions and messages' },
   { id: 'work', route: '/work', what: 'Work: jobs, phases and CI' },
-  { id: 'session', route: '/session/s2', what: 'Session detail with requests and transcript' },
+  { id: 'session', route: '/session/s2', what: 'Session transcript at the tail with producer-owned memory review controls' },
+  { id: 'transcript-history', route: '/session/s2', what: 'Transcript opened at the live tail, then paused while loading older entries' },
   { id: 'settings', route: '/settings', what: 'Settings: connection, data and appearance' },
 ] as const;
 
@@ -53,10 +54,19 @@ export const shots: readonly Shot[] = [
   web('session-resets', 'Session transcript scrolled to a ⟲ reset divider with what was carried over and interrupted'),
   web('session-resets', 'Reset divider on the dawn theme', 'light'),
   web('themes', 'Theme preview cards in Settings: midnight, dawn, high contrast', 'dark', 1100),
+  ...(['dark', 'light'] as const).flatMap(theme => [
+    web('timeline-history', 'Timeline with explicit loaded/total counts and older-message history controls', theme),
+    web('attention-retry', 'Attention unavailable state with an explicit Retry action', theme),
+  ]),
   tui('overview', 'TUI Overview (midnight)'),
   tui('session-resets', 'TUI transcript at a reset divider'),
   tui('palette', 'TUI command palette with typed groups'),
   tui('mono', 'TUI in the mono theme (NO_COLOR-safe)'),
+  tui('question-expanded', 'Expanded question with wrapped text and options at a wide terminal size'),
+  tui('memory-paging', 'Memory loaded/total progress and older-item navigation'),
+  tui('memory-review', 'An older proposed memory item after backfill, with interactive-pi review commands'),
+  tui('attention-retry', 'Attention unavailable header and retry hint without claiming an all-clear'),
+  tui('settings-scroll', 'Short-terminal Settings scrolled to the final rows with position and keyboard hints'),
   gif('web-palette', 'web', 'Ctrl+P, type "aur", the palette ranks matches by group, Enter opens the session'),
   gif('web-tour', 'web', 'Keyboard tour: Overview, Fleet, a session at its reset divider, Timeline'),
   gif('tui-tour', 'tui', 'TUI tour: Overview, Fleet, a session, the command palette, Timeline'),

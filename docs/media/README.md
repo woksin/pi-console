@@ -17,17 +17,18 @@ The committed [tui.tape](../../scripts/media/tui.tape) records the real TUI agai
 
 ## Data and determinism
 
-- Only synthetic data: the mock daemon replays the checked-in fixture (`packages/testkit/src/fixture`) with a throwaway data directory. The VHS runner instead seeds the real demo daemon with generated synthetic events and disables all source ingestion. Nothing is read from `~/.pi`.
+- Only synthetic data: the mock daemon replays the checked-in fixture (`packages/testkit/src/fixture`) with a throwaway data directory. Gallery-only adaptations put that fixture's memory in its transcript session, extend a question and its options, advertise a synthetic live pi review provider for the web controls, and temporarily add 100 completed memory items so an older proposal requires backfill. The unavailable-attention scenes return a synthetic HTTP 503; the timeline-history scenes bound the initial message window to 10 of 40 rows. The VHS runner instead seeds the real demo daemon with generated synthetic events and disables all source ingestion. Nothing is read from `~/.pi`.
 - For Playwright/PTY captures, the daemon stream is frozen (`speed: 1e-9`), the clock is fixed (`2026-11-20T12:00:00Z`, also `PI_CONSOLE_NOW` for the TUI), `/api/v1/health` is mocked and motion is reduced. Animation frames have fixed holds.
-- VHS records wall-clock terminal rendering with scripted waits, not held screenshots; its timing and daemon health values can vary. Settings captures also show ephemeral loopback ports. Fonts differ by OS. Regenerate on macOS and inspect the result; byte-identical output is not promised for these captures.
+- VHS records wall-clock terminal rendering with scripted waits, not held screenshots; its timing and daemon health values can vary. Settings captures also show ephemeral loopback ports. The scripted `web-palette.gif` and `web-tour.gif` have also varied in byte-level comparisons across otherwise identical runs; their fixed fixture clock does not promise identical animation bytes. Fonts differ by OS. Regenerate on macOS and inspect the result; byte-identical output is not promised for these captures.
+- Raw PNG/GIF frames in `.ai-work/media-work/` are disposable and are removed on command exit, including failures. Only the encoded showcase files belong in `docs/media/`.
 
 ## Budget
 
-Total ≤ 4 MB, no file over 600 KB, heroes ≤ 400 KB. `npm run media` fails when over budget. Git history still holds the larger media of earlier revisions.
+Total ≤ 6 MB (6144 KiB), no file over 600 KiB, heroes ≤ 400 KiB. The total allowance includes the additional dark/light history and retry scenes plus the TUI detail captures. `npm run media` fails when over budget. Git history still holds the larger media of earlier revisions.
 
 ## Shot list
 
-The list below is `scripts/media/scenes.ts`; the README, this page and the checks all read it.
+The list below mirrors `scripts/media/scenes.ts`, which drives capture, encoding and orphan checks.
 
 | File | Client | What it shows |
 |---|---|---|
@@ -39,16 +40,25 @@ The list below is `scripts/media/scenes.ts`; the README, this page and the check
 | `web-questions.webp`, `web-questions-light.webp` | web | Questions and decisions, midnight and dawn |
 | `web-messages.webp`, `web-messages-light.webp` | web | Messages list, midnight and dawn |
 | `web-work.webp`, `web-work-light.webp` | web | Jobs, phases and CI, midnight and dawn |
-| `web-session.webp`, `web-session-light.webp` | web | Session detail, midnight and dawn |
+| `web-session.webp`, `web-session-light.webp` | web | Transcript tail and producer-owned native pi review controls, midnight and dawn |
+| `web-transcript-history.webp`, `web-transcript-history-light.webp` | web | Load older from the live tail, paused history mode and Return to live |
+| `web-timeline-history.webp`, `web-timeline-history-light.webp` | web | Loaded/total counts and Load older messages, midnight and dawn |
+| `web-attention-retry.webp`, `web-attention-retry-light.webp` | web | Attention unavailable with Retry, midnight and dawn |
 | `web-settings.webp`, `web-settings-light.webp` | web | Settings, midnight and dawn |
 | `web-session-resets.webp`, `web-session-resets-light.webp` | web | Transcript at a ⟲ reset divider |
-| `web-graph.webp`, `web-graph-light.webp` | web | Messages graph, midnight and dawn |
+| `web-graph.webp`, `web-graph-light.webp` | web | Lane communication edges and separate session spawn relationships, midnight and dawn |
 | `web-timeline.webp`, `web-timeline-light.webp` | web | Timeline, midnight and dawn |
 | `web-themes.webp` | web | Theme preview cards (midnight, dawn, contrast) |
 | `web-palette.gif`, `web-tour.gif` | web | Palette typing `aur`; keyboard tour of four views |
 | `tui-overview.webp`, `tui-palette.webp`, `tui-session-resets.webp`, `tui-mono.webp` | tui | TUI stills, including the mono theme |
+| `tui-question-expanded.webp` | tui | Wide-terminal expanded question with wrapped text and options |
+| `tui-memory-paging.webp`, `tui-memory-review.webp` | tui | 100/107 loaded; backfill to 107/107 and an older proposed item's review commands |
+| `tui-attention-retry.webp` | tui | Attention unavailable and retry hint, without a false all-clear |
+| `tui-settings-scroll.webp` | tui | Short-terminal Settings scrolled to the final rows with navigation hints |
 | `tui-tour.gif` | tui | TUI tour: Overview, Fleet, session at a reset, palette, Timeline |
 | `tui-vhs.gif` | tui | VHS: Overview, Fleet, Requests, Settings against the real demo daemon |
+
+Web view and history/retry stills are paired in midnight/dawn. The TUI has midnight and mono, not a dawn theme; its detail scenes use midnight.
 
 ## How it is made
 
