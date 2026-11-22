@@ -45,7 +45,7 @@ export function questionsView(env: Env): SectionView {
     detail: viewport,
     rowAt: index => ({ sessionId: rows[index]?.sessionId ?? null, groupId: null }),
     idAt: index => rows[index]?.id ?? null,
-    render: questionDetailShown(env.ui, { width: env.width, detail: viewport }) ? full.render : () => h(Row, { grow: 1, gap: 1 },
+    render: questionDetailShown(env.ui) ? full.render : () => h(Row, { grow: 1, gap: 1 },
       h(Panel, { title: `Questions · ${String(model.open)} open · ${String(model.blocking)} blocking${shownOf(env.data, 'questions', rows.length)}`, focused: true, grow: 1 }, h(Lines, { lines: lines.length ? lines : emptyLines(emptyStates.questions, env.width - 4), grow: 1, onLineClick: index => { env.click(start + index); } })),
       ...(wide ? [h(Panel, { title: 'Question', width: 48 }, h(Lines, { lines: detail(rows[cursor], 48) }))] : [])),
   };

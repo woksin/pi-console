@@ -22,6 +22,18 @@ async function setup(width: number, questions = [question]) {
   return { ui, store, opened };
 }
 
+async function withScrolledDetail(check: (ui: Awaited<ReturnType<typeof setup>>['ui'], frame: string) => Promise<void>) {
+  const { ui, store } = await setup(80);
+  try {
+    await ui.press('RETURN');
+    await ui.press('\u001b[6~');
+    const frame = ui.frame();
+    assert.match(frame, /enter session/);
+    assert.doesNotMatch(frame, /Question-paragraph-00/);
+    await check(ui, frame);
+  } finally { ui.destroy(); store.dispose(); }
+}
+
 test('80x24: Enter opens full-width question detail; scrolling reaches every paragraph and option; Esc returns', async () => {
   const { ui, store, opened } = await setup(80);
   try {
@@ -45,6 +57,54 @@ test('80x24: Enter opens full-width question detail; scrolling reaches every par
     assert.match(ui.frame(), /Question-paragraph-00/, 'reopening resets scroll');
   } finally { ui.destroy(); store.dispose(); }
 });
+
+test('palette open and Esc preserve narrow question detail and its scroll position', () => withScrolledDetail(async (ui, scrolled) => {
+  await ui.press(':');
+  assert.match(ui.frame(), /Command palette/);
+  await ui.type('not-a-palette-match');
+  await ui.press('ESCAPE');
+  assert.equal(ui.frame(), scrolled);
+  await ui.press('ARROW_DOWN');
+  assert.notEqual(ui.frame(), scrolled, 'detail remains scrollable');
+}));
+
+test('Help open and close preserve narrow question detail and its scroll position', () => withScrolledDetail(async (ui, scrolled) => {
+  for (const close of ['ESCAPE', '?']) {
+    await ui.press('?');
+    assert.match(ui.frame(), /keyboard map/i);
+    await ui.press('ARROW_DOWN');
+    await ui.press(close);
+    assert.equal(ui.frame(), scrolled);
+  }
+  await ui.press('ARROW_UP');
+  assert.notEqual(ui.frame(), scrolled, 'detail remains scrollable');
+}));
+
+test('a Help action dispatched through the palette preserves the underlying question detail', () => withScrolledDetail(async (ui, scrolled) => {
+  await ui.press(':');
+  await ui.type('help');
+  await ui.press('RETURN');
+  assert.match(ui.frame(), /keyboard map/i);
+  await ui.press('ESCAPE');
+  assert.equal(ui.frame(), scrolled);
+}));
+
+test('filter typing and Escape preserve narrow detail even when the draft matches no question', () => withScrolledDetail(async (ui, scrolled) => {
+  await ui.press('/');
+  await ui.type('not-a-question-match');
+  await ui.press('ESCAPE');
+  assert.equal(ui.frame(), scrolled);
+}));
+
+test('resizing wide while the palette is open dismisses detail and narrowing again does not restore it', () => withScrolledDetail(async ui => {
+  await ui.press(':');
+  await ui.resize(140, 42);
+  await ui.press('ESCAPE');
+  assert.match(ui.frame(), /Questions · 1 open/);
+  await ui.resize(80, 24);
+  assert.match(ui.frame(), /Questions · 1 open/);
+  assert.doesNotMatch(ui.frame(), /enter session/);
+}));
 
 test('resizing an open narrow detail to wide restores list navigation and Enter targets the moved cursor', async () => {
   const second = { ...question, id: 'q-second', sessionId: demoSnapshot.sessions[1].id, text: 'Second question' };

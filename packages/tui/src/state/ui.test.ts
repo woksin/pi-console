@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { activeBindings } from '@pi-console/viewmodels';
-import { commit, contextOf, handleKey, initial, reduce, typing, type Bounds } from './ui.ts';
+import { commit, contextOf, handleKey, initial, questionDetailShown, reduce, resizeUi, typing, type Bounds } from './ui.ts';
 import type { TranscriptLayout } from './transcript-window.ts';
 import { neutralKey, typedCharacter } from './keys.ts';
 
@@ -29,8 +29,9 @@ test('number keys switch sections and the cursor stays within the list', () => {
 const staleQuestionDetail = { ...initial, section: 'questions' as const, questionDetail: true, detailScroll: 20, filter: 'needle' };
 const questionBounds = { ...bounds, detail: { max: 100, page: 10 } };
 const hiddenDetails = [
-  { name: 'wide Questions', state: staleQuestionDetail, bounds: { ...bounds, width: 138 } },
-  { name: 'wide Questions with stale detail bounds', state: staleQuestionDetail, bounds: { ...questionBounds, width: 138 } },
+  { name: 'wide Questions', state: { ...staleQuestionDetail, terminalWidth: 140 }, bounds: { ...bounds, width: 138 } },
+  { name: 'wide Questions with stale detail bounds', state: { ...staleQuestionDetail, terminalWidth: 140 }, bounds: { ...questionBounds, width: 138 } },
+  { name: 'wide Questions with narrow action bounds', state: { ...staleQuestionDetail, terminalWidth: 140 }, bounds: questionBounds },
   { name: 'another section', state: { ...staleQuestionDetail, section: 'requests' as const }, bounds: questionBounds },
   { name: 'an open session', state: { ...staleQuestionDetail, sessionId: 's1' }, bounds },
   { name: 'a session with stale detail bounds', state: { ...staleQuestionDetail, sessionId: 's1' }, bounds: questionBounds },
@@ -40,11 +41,41 @@ for (const scenario of hiddenDetails) {
     const cleared = { ...scenario.state, questionDetail: false, detailScroll: 0 };
     for (const action of ['move.up', 'move.down', 'page.up', 'page.down', 'move.top', 'move.bottom', 'back', 'open'] as const) {
       const next = reduce(scenario.state, action, scenario.bounds);
-      assert.deepEqual(next, reduce(cleared, action, scenario.bounds), action);
-      assert.equal(next.questionDetail, false, action);
+      assert.deepEqual({ ...next, questionDetail: false, detailScroll: 0 }, reduce(cleared, action, scenario.bounds), action);
+      assert.equal(questionDetailShown(next), false, action);
     }
   });
 }
+
+test('detail visibility and overlay Escape depend on durable layout, not action bounds', () => {
+  const detail = { ...staleQuestionDetail, filter: '' };
+  const sparse = { ...bounds, length: 0, width: 200, detail: undefined };
+  for (const action of ['palette.open', 'help.toggle', 'settings.open', 'filter.open'] as const) {
+    const overlay = reduce(detail, action, sparse);
+    assert.equal(questionDetailShown(overlay), true, action);
+    assert.deepEqual(reduce(overlay, 'back', sparse), detail, action);
+  }
+  assert.equal(reduce(detail, 'move.down', sparse), detail, 'missing scroll geometry must not reset or move detail');
+  assert.deepEqual(reduce(detail, 'back', sparse), { ...detail, questionDetail: false, detailScroll: 0 });
+});
+
+test('only real layout, section and session transitions dismiss question detail', () => {
+  const detail = { ...staleQuestionDetail, filter: '' };
+  assert.equal(resizeUi(detail, 80), detail);
+  const stillNarrow = resizeUi(detail, 111);
+  assert.equal(questionDetailShown(stillNarrow), true);
+  assert.equal(stillNarrow.detailScroll, 20);
+  const wide = resizeUi(stillNarrow, 112);
+  assert.equal(wide.questionDetail, false);
+  assert.equal(wide.detailScroll, 0);
+  assert.equal(resizeUi(wide, 80).questionDetail, false, 'narrowing again does not resurrect dismissed detail');
+  const section = reduce(detail, 'section.3', bounds);
+  assert.equal(section.questionDetail, false);
+  assert.equal(section.detailScroll, 0);
+  const session = reduce(detail, 'open', questionBounds);
+  assert.equal(session.questionDetail, false);
+  assert.equal(reduce({ ...detail, sessionId: 's1' }, 'back', bounds).questionDetail, false);
+});
 
 test('Enter in a displayed narrow question detail opens its session', () => {
   const detail = reduce({ ...initial, section: 'questions' }, 'open', questionBounds);

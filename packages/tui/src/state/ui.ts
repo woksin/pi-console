@@ -1,6 +1,7 @@
 import { cycleRequestFilter, requestFilterAction, resolve, type Action, type KeyContext, type RequestsFilter } from '@pi-console/viewmodels';
 import { zoom, pan, type TimeWindow } from '@pi-console/viewmodels';
 import { pauseTranscript, resumeTranscript, scrollTranscript, type TranscriptAnchor, type TranscriptLayout, type TranscriptMotion } from './transcript-window.ts';
+import { terminalContentWidth } from './session-layout.ts';
 
 export type Section = 'overview' | 'fleet' | 'requests' | 'questions' | 'messages' | 'timeline' | 'work';
 export const sections: readonly Section[] = ['overview', 'fleet', 'requests', 'questions', 'messages', 'timeline', 'work'];
@@ -9,6 +10,8 @@ export type SidePane = 'requests' | 'questions' | 'jobs' | 'resets' | 'memory';
 export const sidePanes: readonly SidePane[] = ['requests', 'questions', 'jobs', 'resets', 'memory'];
 
 export interface UiState {
+  /** Durable terminal layout, shared by rendering and every reducer entry point. */
+  terminalWidth: number;
   section: Section;
   /** The open session, shown as a full-screen detail over the current section. */
   sessionId: string | null;
@@ -44,7 +47,7 @@ export interface UiState {
 }
 
 export const initial: UiState = {
-  section: 'overview', sessionId: null, overlay: 'none', helpScroll: 0, input: '', paletteIndex: 0, recents: [], filter: '',
+  terminalWidth: 80, section: 'overview', sessionId: null, overlay: 'none', helpScroll: 0, input: '', paletteIndex: 0, recents: [], filter: '',
   cursor: { overview: 0, fleet: 0, requests: 0, questions: 0, messages: 0, timeline: 0, work: 0 },
   collapsed: [], follow: true, anchor: null, requestFilter: { state: 'all', origin: 'all', sessionId: null }, focusEntry: null, search: '', questionDetail: false, detailScroll: 0, pane: 'requests', memoryIndex: 0, messagesGraph: false, window: null, scrub: false, scrubColumn: 0, quit: false, notice: '',
 };
@@ -54,10 +57,16 @@ export interface Bounds { length: number; page: number; fit: TimeWindow; width: 
 
 interface ActionBounds extends Bounds { questionDetailShown: boolean }
 
-/** Detail bounds are supplied only by the narrow Questions layout. */
-const questionDetailAvailable = (state: UiState, layout: Pick<Bounds, 'width' | 'detail'>): boolean => state.sessionId === null && state.section === 'questions' && layout.width < 110 && layout.detail !== undefined;
-export const questionDetailShown = (state: UiState, layout: Pick<Bounds, 'width' | 'detail'>): boolean => state.questionDetail && questionDetailAvailable(state, layout);
+const questionDetailAvailable = (state: UiState): boolean => state.sessionId === null && state.section === 'questions' && terminalContentWidth(state.terminalWidth) < 110;
+export const questionDetailShown = (state: UiState): boolean => state.questionDetail && questionDetailAvailable(state);
 const withoutQuestionDetail = (state: UiState): UiState => state.questionDetail ? { ...state, questionDetail: false, detailScroll: 0 } : state;
+
+/** A real width transition, not missing per-action geometry, can dismiss narrow detail. */
+export function resizeUi(state: UiState, terminalWidth: number): UiState {
+  if (state.terminalWidth === terminalWidth) return state;
+  const resized = { ...state, terminalWidth };
+  return terminalContentWidth(terminalWidth) < 110 ? resized : withoutQuestionDetail(resized);
+}
 
 const contextRules: readonly (readonly [(state: UiState) => boolean, KeyContext])[] = [
   [state => state.overlay === 'palette', 'palette'],
@@ -92,7 +101,7 @@ function moveTranscript(state: UiState, action: Action, bounds: Bounds): UiState
 
 const goto = (state: UiState, section: Section): UiState => ({ ...state, section, sessionId: null, focusEntry: null, overlay: 'none', filter: '', scrub: false, questionDetail: false, detailScroll: 0 });
 
-const opensQuestionDetail = (state: UiState, bounds: ActionBounds): boolean => questionDetailAvailable(state, bounds) && !bounds.questionDetailShown && bounds.length > 0;
+const opensQuestionDetail = (state: UiState, bounds: ActionBounds): boolean => questionDetailAvailable(state) && !bounds.questionDetailShown && bounds.length > 0;
 
 function open(state: UiState, bounds: ActionBounds): UiState {
   if (opensQuestionDetail(state, bounds)) return { ...state, questionDetail: true, detailScroll: 0 };
@@ -106,7 +115,7 @@ function back(state: UiState, bounds: ActionBounds): UiState {
   if (state.overlay !== 'none') return { ...state, overlay: 'none', input: '' };
   if (bounds.questionDetailShown) return { ...state, questionDetail: false, detailScroll: 0 };
   if (state.scrub) return { ...state, scrub: false };
-  if (state.sessionId) return { ...state, sessionId: null, search: '', focusEntry: null };
+  if (state.sessionId) return { ...state, sessionId: null, search: '', focusEntry: null, questionDetail: false, detailScroll: 0 };
   return state.filter ? { ...state, filter: '' } : state;
 }
 
@@ -188,18 +197,18 @@ function scrollDetail(state: UiState, action: Action, bounds: ActionBounds): UiS
   }
   if (!bounds.questionDetailShown || state.overlay !== 'none') return undefined;
   const position = detailPosition(state.detailScroll, action, bounds.detail);
-  return position === undefined ? undefined : { ...state, detailScroll: position };
+  if (position === undefined) return undefined;
+  return bounds.detail ? { ...state, detailScroll: position } : state;
 }
 
 /** Applies a resolved keymap action. Returns the same state object when nothing changed. */
 export function reduce(state: UiState, action: Action, bounds: Bounds): UiState {
-  const context: ActionBounds = { ...bounds, questionDetailShown: questionDetailShown(state, bounds) };
-  const current = context.questionDetailShown ? state : withoutQuestionDetail(state);
-  const scrolled = scrollDetail(current, action, context);
+  const context: ActionBounds = { ...bounds, questionDetailShown: questionDetailShown(state) };
+  const scrolled = scrollDetail(state, action, context);
   if (scrolled) return scrolled;
   const target = sectionActions[action];
-  if (target) return goto(current, target);
-  return handlers[action]?.(current, context, action) ?? current;
+  if (target) return goto(state, target);
+  return handlers[action]?.(state, context, action) ?? state;
 }
 
 function toggleGroup(state: UiState, bounds: Bounds): UiState {
