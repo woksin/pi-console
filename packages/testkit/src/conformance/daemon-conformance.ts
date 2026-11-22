@@ -137,26 +137,42 @@ function security(harness: ConformanceHarness): void {
       conforms(await overview({ Authorization: bearer, Host: `localhost:${target.port}`, Origin: `http://localhost:${target.port}` }), 'overview');
     });
 
-    test('token exchange sets an HttpOnly SameSite=Strict API cookie and strips the token from the URL', async () => {
-      const reply = await call(target.port, `/api/v1/overview?token=${target.token}&x=1`);
-      assert.equal(reply.status, 303);
-      assert.equal(reply.headers.location, '/api/v1/overview?x=1');
-      const cookie = String(reply.headers['set-cookie']);
-      for (const part of ['HttpOnly', 'SameSite=Strict', 'Path=/api/v1']) assert.ok(cookie.includes(part), part);
-      assert.equal(reply.text.includes(target.token), false);
+    test('query tokens never authenticate reads or SSE, redirect, or set a cookie', async () => {
+      for (const path of ['overview', 'stream']) {
+        const reply = await call(target.port, `/api/v1/${path}?token=${target.token}&x=1`);
+        conforms(reply, 'error', 401);
+        assert.equal(reply.headers['set-cookie'], undefined);
+        assert.equal(reply.headers.location, undefined);
+        assert.equal(reply.text.includes(target.token), false);
+      }
       conforms(await call(target.port, `/api/v1/overview?token=${'0'.repeat(64)}`), 'error', 401);
     });
 
-    test('the cookie authenticates browser reads, but never a stream without Origin', async () => {
-      const cookie = `piConsoleToken=${target.token}`;
-      conforms(await overview({ Cookie: cookie, Origin: origin }), 'overview');
-      const withoutOrigin = await openStream(target.port, { Cookie: cookie });
-      assert.equal(withoutOrigin.status, 403);
-      const foreign = await openStream(target.port, { Cookie: cookie, Origin: 'http://evil.example' });
-      assert.equal(foreign.status, 403);
-      const browser = await openStream(target.port, { Cookie: cookie, Origin: origin });
-      assert.equal(browser.status, 200);
-      browser.close();
+    test('the former cookie alone never authenticates reads or SSE, even with an allowed Origin', async () => {
+      const cookie = { Cookie: `piConsoleToken=${target.token}` };
+      for (const headers of [cookie, { ...cookie, Origin: origin }]) {
+        conforms(await overview(headers), 'error', 401);
+        const stream = await openStream(target.port, headers);
+        try {
+          assert.equal(stream.status, 401);
+          assert.equal(stream.headers['set-cookie'], undefined);
+        } finally { stream.close(); }
+      }
+      const foreign = await openStream(target.port, { ...cookie, Origin: 'http://evil.example' });
+      try { assert.equal(foreign.status, 403); } finally { foreign.close(); }
+    });
+
+    test('bearer auth still works and ignores query tokens and former cookies', async () => {
+      const headers = { Authorization: `Bearer ${target.token}`, Cookie: `piConsoleToken=${'0'.repeat(64)}` };
+      const reply = await call(target.port, `/api/v1/overview?token=${'0'.repeat(64)}`, { headers });
+      conforms(reply, 'overview');
+      assert.equal(reply.headers['set-cookie'], undefined);
+      assert.equal(reply.headers.location, undefined);
+      const stream = await openStream(target.port, headers);
+      try {
+        assert.equal(stream.status, 200);
+        assert.equal(stream.headers['set-cookie'], undefined);
+      } finally { stream.close(); }
     });
   });
 }

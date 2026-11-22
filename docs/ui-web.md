@@ -59,6 +59,9 @@ The bindings are defined once in `packages/viewmodels/src/keymap` (press `?` for
 | `t` | Last-activity time scrubber (messages graph) |
 | `+` `-`, `h` `l` | Zoom, pan (timeline) |
 | `Space` | Fold a fleet group |
+| `[` `]` | Requests: previous / next state filter (all, open, answered, unanswered, interrupted, uncertain, possibly unseen; wraps) |
+| `o` | Requests: next origin filter (all, human, launch, unproven) |
+| `S` | Requests: next session filter (all, then each session that has requests) |
 
 The messages graph reads canonical lane nodes and directed, counted edges from `/graph`, including lanes without sessions. Session spawn relationships appear separately; only session nodes open session detail. The graph's time scrubber filters edges by their latest activity, retaining all-time counts (not historical message replay). Zoom and pan are timeline-only; the web timeline has no `t` scrubber.
 

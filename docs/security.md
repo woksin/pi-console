@@ -4,8 +4,9 @@
 
 `config.json` may opt in with `"memoryActions": true` (default false). This creates a separate 0600
 `memory-control-token` in the daemon's 0700 data directory. The existing `token` remains read-only.
-The control credential authorises a review request, never a claim of human presence. Cookie-authenticated browser
-mutations require same-Origin and `x-pi-console-csrf: 1`; native bearer requests require neither browser-only header. Never place either token in URLs or logs.
+The control credential authorises a review request, never a claim of human presence. Supply it as
+`Authorization: Bearer <memory-control-token>`; query parameters and cookies never authenticate. Bearer requests
+require neither the browser-only Origin nor CSRF header. Never place either token in URLs or logs.
 
 Load `packages/extension/src/index.ts` with pi's extension loader (or the package's `pi.extensions` manifest),
 set `PI_CONSOLE_MEMORY_REVIEW=1`, and optionally set `PI_CONSOLE_URL` (default `http://127.0.0.1:4777`) and
@@ -61,8 +62,8 @@ Decisions are in [ADR-0006](adr/0006-security-model.md). This page lists assets,
 | # | Threat | Controls |
 |---|---|---|
 | T1 | DNS rebinding makes a web page talk to `127.0.0.1` | Loopback bind; Host allowlist; token required on every request including SSE and WebSocket |
-| T2 | Cross-site request forges a steer or abort | Origin check on state-changing and upgrade requests; CSRF header; SameSite=Strict cookie; no permissive CORS |
-| T3 | Token theft | 256-bit random token; 0600 file; token removed from URL after exchange; HttpOnly cookie; rotation; scoped read-only tokens; no token in logs |
+| T2 | Cross-site request forges a steer or abort | Bearer authentication; Origin check on state-changing and upgrade requests; cross-site fetch refusal; no permissive CORS |
+| T3 | Token theft | 256-bit random token; 0600 file; web launch token in a scrubbed `#token=` fragment, kept only in tab-scoped sessionStorage; no query-token or cookie authentication; manual rotation (delete the file, restart); a separate opt-in memory-review token, with the normal token read-only; no token in logs |
 | T4 | Remote exposure by mistake | Off by default; explicit opt-in; persistent banner; Tailscale Serve or TLS proxy with trusted-proxy list; Funnel documented as not recommended |
 | T5 | Secrets in stored or displayed content | Redact at ingestion; fail closed if scanning fails; credential files on a deny list; redact again at the point of return; pointers instead of copies |
 | T6 | Prompt injection through transcripts, messages, questions or MCP text | Rendered as text or sanitised Markdown; control sequences stripped; links not auto-followed; console-delivered text carries a provenance prefix; interventions are typed commands, never "execute this text" |
@@ -123,7 +124,7 @@ stored in projections, SQLite or SSE deltas.
 
 ## Specs required
 
-Every milestone includes hostile-case specs: wrong or missing token, wrong Host, foreign Origin (also on SSE and WebSocket), no Origin with cookie only, missing CSRF header, read-only token attempting a command, forged extension connect, oversized and malformed frames, a transcript containing terminal escape sequences and script tags, a fixture with known secret shapes, a scan failure (must withhold), and a replayed intervention (must not run twice).
+Every milestone includes hostile-case specs: wrong or missing token, wrong Host, foreign Origin (also on SSE and WebSocket), query tokens or former cookies attempting reads and SSE, missing CSRF header, read-only token attempting a command, forged extension connect, oversized and malformed frames, a transcript containing terminal escape sequences and script tags, a fixture with known secret shapes, a scan failure (must withhold), and a replayed intervention (must not run twice).
 
 ## Reporting
 

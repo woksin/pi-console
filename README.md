@@ -63,7 +63,7 @@ Every context reset is an inline `⟲` divider in the transcript: what kind it w
 
 ### Keyboard tour
 
-Everything is reachable from the keyboard: `1`-`7` switch views, `j`/`k` move, `Enter` opens, `Esc` goes back, `?` shows the map.
+Everything is reachable from the keyboard: `1`-`7` switch views, `j`/`k` move, `Enter` opens, `Esc` goes back, `?` shows the map. In Requests, `[` / `]` step the state filter back and forward, `o` cycles the origin filter and `S` cycles the session filter.
 
 <img src="docs/media/web-tour.gif" alt="Animation: Overview, then Fleet, then a session scrolled to its reset divider, then the Timeline, all switched with number keys" width="900">
 
@@ -185,11 +185,11 @@ Everything is derived from the append-only event log, so every screen can be reb
 
 pi sessions can run shell commands and hold credentials, so the console treats its own surface as hostile territory. The full threat model is in [docs/security.md](docs/security.md) and [ADR-0006](docs/adr/0006-security-model.md).
 
-- **Loopback only.** The daemon binds `127.0.0.1`; a Host allowlist and an Origin check (plus a CSRF header for writes) defend against DNS rebinding and cross-site requests.
-- **Token on every request.** A 256-bit random token in an owner-only (0600) file, removed from the URL after exchange, `HttpOnly` cookie, rotation and scoped read-only tokens.
+- **Loopback only.** The daemon binds `127.0.0.1`. Every request must carry an allowed loopback `Host` (`127.0.0.1:<port>` or `localhost:<port>`), an `Origin` (when sent) that matches exactly, and no `Sec-Fetch-Site: cross-site`; otherwise it is refused. This defends against DNS rebinding and cross-site requests.
+- **Token on every API request.** A 256-bit random token in an owner-only (0600) file in an owner-only (0700) data directory, created on first start and reused. The web and terminal clients send it as `Authorization: Bearer`. The web client reads it from the launch link's `#token=` fragment (which never reaches a server) or a paste, scrubs it from the address bar and keeps it in tab-scoped `sessionStorage`; it never uses a cookie or `localStorage`. There is no automatic rotation: to rotate, stop the daemon, delete the token file and start it again. Tokens in a URL query string and cookies do not authenticate.
 - **Strict CSP.** The web bundle is served with a strict Content-Security-Policy and no external network.
 - **Transcripts are untrusted text.** Model and attacker-written content is rendered as text, never HTML; control sequences are stripped in the TUI.
-- **Read-only in M1.** No intervention path exists yet; later writes are typed commands with an audit trail.
+- **Read-only except memory review.** The ordinary token cannot change anything. With daemon review enabled, a separate `memory-control-token` lets the consoles POST a memory review request (**Confirm…** / **Reject…**) for a native human confirmation in pi; the console never writes memory itself. Answering, steering, pausing and other interventions do not exist yet; later writes are typed commands with an audit trail.
 - **Secrets are redacted** at ingestion (fail closed) and again on return.
 
 ## Demo data and regenerating the media
