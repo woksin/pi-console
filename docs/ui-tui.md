@@ -31,7 +31,7 @@ Number keys jump, clicks work on tabs and rows. Everything except explicit memor
 | `:` `Ctrl+P` | Palette | Commands, and `@` finds a session |
 | `?` `,` | Help, Settings | The shared keymap; connection health, data counts and sources |
 
-Help scrolls with arrows, PgUp/PgDn and Home/End, including on short terminals; `?` or Esc closes it.
+Help and Settings scroll with arrows or `j`/`k`, PgUp/PgDn and Home/End (or `g`/`G`), including on short terminals, and show the visible row range. Esc closes either overlay; `?` also closes Help.
 
 Fleet, Requests, Questions, Messages and Work load older history when you reach the last loaded row; Timeline also loads older resets. If a history page fails, press `r` to retry, or try moving forward again at the end of the list.
 
