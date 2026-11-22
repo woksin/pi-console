@@ -224,7 +224,7 @@ test('lists show Loading… before the first snapshot and a no-match line for a 
   } finally { store.dispose(); }
 });
 
-test('a failed graph read says so, offers r to retry and keeps the last graph', async () => {
+test('a failed graph read says so, offers r to retry', async () => {
   const store = new Store();
   store.markGraphFailed();
   const view = messagesView({ data: store.getSnapshot(), ui: { ...initial, section: 'messages', messagesGraph: true }, width: 100, height: 24, now: 0, phase: 0, click: () => undefined });

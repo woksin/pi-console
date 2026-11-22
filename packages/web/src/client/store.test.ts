@@ -1149,3 +1149,27 @@ test('a graph route the daemon does not have (404, null) is an empty graph, not 
   assert.equal(store.getState().graphError, true);
   assert.deepEqual(store.getState().graph, { nodes: [], edges: [] }, 'the last graph is kept');
 });
+
+test('a snapshot that voids a pending history page does not leave Load older stuck loading', async () => {
+  let emit: (frame: unknown) => void = () => undefined;
+  let release: (page: unknown) => void = () => undefined;
+  const api = {
+    graph: () => Promise.resolve(null),
+    page: () => new Promise(resolve => { release = resolve; }),
+    stream: (_seq: number, _signal: AbortSignal, onFrame: (frame: unknown) => void) => { emit = onFrame; onFrame(windowedSnapshot([job('j4', 'running', '2026-01-04T00:00:00Z')], 2)); return new Promise<void>(() => undefined); },
+    needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null),
+  } as unknown as Api;
+  const store = new ConsoleStore(api, clock);
+  store.start();
+  const stale = store.loadMore('jobs');
+  assert.equal(store.getState().pageStatus.jobs, 'loading');
+  emit({ ...windowedSnapshot([job('j5', 'running', '2026-01-05T00:00:00Z')], 2), seq: 9 });
+  release({ ...emptyList, items: [job('j1', 'done', '2026-01-01T00:00:00Z')], total: 2 });
+  await stale;
+  assert.equal(store.getState().pageStatus.jobs, undefined, 'the voided page no longer holds the loading state');
+  const next = store.loadMore('jobs');
+  release({ ...emptyList, items: [job('j1', 'done', '2026-01-01T00:00:00Z')], total: 2 });
+  await next;
+  assert.ok(store.getState().jobs.some(item => item.id === 'j1'), 'Load older works again');
+  store.stop();
+});

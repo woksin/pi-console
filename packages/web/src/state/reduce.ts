@@ -69,6 +69,7 @@ function fromSnapshot(state: ConsoleState, snapshot: SnapshotPayload): ConsoleSt
     totals: snapshot.totals ?? null, bounded,
     // A resnapshot drops rows that stopped being active, so exhausted paging progress is void: history is reloadable again.
     history: {},
+    pageStatus: {},
     liveAt: Math.max(state.liveAt, latest(...times)),
     gapCount: state.gapCount + (known ? 1 : 0),
   };
