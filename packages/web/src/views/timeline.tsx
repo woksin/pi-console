@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import type { ViewProps } from '../app/view.tsx';
 import { useActions } from '../app/commands.ts';
 import { useListNav } from '../app/hooks.ts';
-import { LoadOlder } from './load-older.tsx';
+import { TimelineHistory } from './timeline-history.tsx';
 import { EmptyFor } from '../ui/empty.tsx';
 import { groupHeight, laneHeight, timelineGroups } from './timeline-groups.ts';
 import { indexMarkers } from './timeline-markers.ts';
@@ -36,7 +36,7 @@ export function TimelineView({ state, now }: ViewProps) {
   const ticks = timelineTicks(view.window, columns);
   const nowColumn = columnOf(now, view.window, columns);
   const names = new Map(state.sessions.map(session => [session.id, laneLabel(session.repositoryId, session.laneId)]));
-  const history = <LoadOlder state={state} collection="resets" shown={state.resets.length} noun="resets" />;
+  const history = <TimelineHistory state={state} />;
   if (view.lanes.length === 0) return <><EmptyFor view="timeline" />{history}</>;
   const height = view.lanes.length * laneHeight + groups.length * groupHeight + 44;
   return (
