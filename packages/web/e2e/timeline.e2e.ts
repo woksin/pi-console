@@ -57,7 +57,7 @@ function isHistoryPage(address: string, collection: Collection): boolean {
   return url.pathname === `/api/v1/${collection}` && url.searchParams.get('limit') !== '1';
 }
 
-async function routePages(page: Page, failedRequest?: Promise<void>): Promise<Map<Collection, string[]>> {
+async function routePages(page: Page, failedRequest?: { released: Promise<void>; started: () => void }): Promise<Map<Collection, string[]>> {
   const seen = new Map<Collection, string[]>();
   const current = snapshot('New');
   const old = snapshot('Old');
@@ -72,7 +72,8 @@ async function routePages(page: Page, failedRequest?: Promise<void>): Promise<Ma
       assert.equal(url.searchParams.get('order'), 'desc');
       calls.push(url.searchParams.get('after') ?? '');
       if (calls.length === 1 && failure) {
-        await failure;
+        failure.started();
+        await failure.released;
         await route.fulfill({ status: 503, json: { error: 'try again' } });
         return;
       }
@@ -105,15 +106,19 @@ test('Timeline independently pages five collections, retries failure, dedupes li
   try {
     let release: () => void = () => undefined;
     const pendingFailure = new Promise<void>(resolve => { release = resolve; });
-    const seen = await routePages(page, pendingFailure);
+    let signalStarted: () => void = () => undefined;
+    const started = new Promise<void>(resolve => { signalStarted = resolve; });
+    const seen = await routePages(page, { released: pendingFailure, started: signalStarted });
     await connect(page, snapshot('New'));
     for (const collection of collections) assert.ok((await group(page, collection).innerText()).includes(`Showing 1 of 2 ${collection}`));
     const failed = page.waitForResponse(response => response.status() === 503 && new URL(response.url()).pathname === '/api/v1/requests');
-    const started = page.waitForRequest(request => isHistoryPage(request.url(), 'requests'));
-    await button(page, 'requests').dblclick();
-    await started;
-    assert.equal(seen.get('requests')?.length, 1, 'in-flight double activation shares one page request');
-    release();
+    // A failed assertion closes the page; handle that waiter rejection without masking the assertion.
+    void failed.catch(() => undefined);
+    try {
+      await button(page, 'requests').dblclick();
+      await started;
+      assert.equal(seen.get('requests')?.length, 1, 'in-flight double activation shares one page request');
+    } finally { release(); }
     await failed;
     await button(page, 'requests').waitFor();
     assert.match(await group(page, 'requests').innerText(), /Showing 1 of 2 requests/);
