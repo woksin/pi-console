@@ -164,3 +164,27 @@ test('empty narrow Timeline exposes all history controls and can load a missing 
     assert.equal(await history.evaluate(node => node.scrollWidth <= node.clientWidth), true);
   } finally { await page.context().close(); }
 });
+
+test('clicking adjacent Timeline glyphs selects the clicked event, not a neighbouring hit box', async () => {
+  const page = await rig.open('/timeline', { token: null });
+  try {
+    const initial = snapshot('New');
+    const request = initial.requests[0];
+    initial.requests = [0, 32, 64, 3600].map((seconds, index) => ({
+      ...request, id: `adjacent-${String(index)}`, text: `Adjacent event ${String(index)}`,
+      createdAt: new Date(Date.parse(request.createdAt) + seconds * 1000).toISOString(),
+    }));
+    initial.questions = []; initial.messages = []; initial.resets = [];
+    initial.bounded = ['requests'];
+    initial.totals = { sessions: 1, requests: 5, questions: 0, messages: 0, resets: 0, jobs: 0 };
+    await connect(page, initial);
+    for (const index of [0, 1, 2, 0]) {
+      const event = page.getByRole('button', { name: new RegExp(`Adjacent event ${String(index)}$`) });
+      await event.click();
+      await page.getByRole('region', { name: 'Timeline event detail' }).getByText(`Adjacent event ${String(index)}`, { exact: true }).waitFor();
+      assert.equal(await event.getAttribute('aria-pressed'), 'true');
+      assert.equal(await event.locator('.marker-ring').evaluate(node => getComputedStyle(node).pointerEvents), 'none');
+      assert.equal(await event.locator('.marker-ring').evaluate(node => getComputedStyle(node).fill), 'none');
+    }
+  } finally { await page.context().close(); }
+});

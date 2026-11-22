@@ -61,7 +61,7 @@ export function TimelineView({ state, now }: ViewProps) {
             <line className="lane-line" x1={labelWidth} x2={labelWidth + plotWidth} y1={15} y2={15} />
             {lane.cells.map(cell => {
               const marker = markersById.get(cell.markerId);
-              return marker && <TimelineMarker key={cell.markerId} marker={marker} lane={names.get(lane.sessionId) ?? lane.label} x={x(cell.column)} selected={selectedMarkerId === marker.id} onSelect={() => { setSelectedMarkerId(marker.id); rows.select(lane.sessionId); }} />;
+              return marker && <TimelineMarker key={cell.markerId} marker={marker} lane={names.get(lane.sessionId) ?? lane.label} x={x(cell.column)} cellWidth={plotWidth / (columns - 1)} selected={selectedMarkerId === marker.id} onSelect={() => { setSelectedMarkerId(marker.id); rows.select(lane.sessionId); }} />;
             })}
           </g>))}
         </g>)}
