@@ -20,7 +20,7 @@ Options:
   --backfill-days <n>   Days of session history read on first start (default 14)
   -h, --help            Show this help
 
-The token is in <data-dir>/token (owner-only). Open the web UI once with http://127.0.0.1:<port>/?token=<token>.`;
+The token is in <data-dir>/token (owner-only). Open the web UI once with http://127.0.0.1:<port>/#token=<token>.`;
 
 export const daemonUsage = usage();
 

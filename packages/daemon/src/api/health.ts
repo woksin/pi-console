@@ -40,13 +40,14 @@ export function healthOf(parts: HealthParts): Health {
   const queueDepth = Math.max(0, lastSeq - projector.position) + parts.batcher.pending;
   const skipped = Object.values(projector.skipped.counts).reduce((total, count) => total + count, 0);
   const memory = process.memoryUsage();
+  const statuses = [ingestion.status, ...sources.statuses()];
   return {
-    status: ingestion.status.errors > 0 ? 'degraded' : backfillComplete ? 'ok' : 'starting', startedAt: parts.startedAt,
+    status: statuses.some(source => source.errors > 0) ? 'degraded' : backfillComplete ? 'ok' : 'starting', startedAt: parts.startedAt,
     eventLog: { lastSeq, dbBytes: databaseBytes(parts.dataDir) },
     projection: { position: projector.position, queueDepth, skipped },
     eventLoop: parts.eventLoop,
     stream: { seq: stream.seq, clients: stream.clients, retained: stream.retained },
-    sources: [ingestion.status, ...sources.statuses()],
+    sources: statuses,
     backfill: { complete: backfillComplete, windowDays: parts.backfillWindowDays },
     memory: { rssBytes: memory.rss, heapUsedBytes: memory.heapUsed },
   };

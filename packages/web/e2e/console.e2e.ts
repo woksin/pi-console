@@ -181,7 +181,11 @@ describe('web console e2e', () => {
     await page.keyboard.press('2');
     await page.waitForFunction(() => window.location.hash === '#/fleet');
     await page.keyboard.press('?');
-    await page.getByRole('dialog', { name: 'Keyboard help' }).waitFor();
+    const help = page.getByRole('dialog', { name: 'Keyboard help' });
+    await help.waitFor();
+    const close = help.getByRole('button', { name: /^Close/ });
+    await close.focus();
+    assert.equal(await close.evaluate(node => node === document.activeElement), true, 'Help Close has keyboard focus');
     await page.keyboard.press('Escape');
     await page.getByRole('dialog').waitFor({ state: 'detached' });
     await page.locator('tr.row').first().waitFor();
@@ -205,6 +209,37 @@ describe('web console e2e', () => {
     await page.waitForFunction(() => document.querySelector('input[type=search]') === null, undefined, { timeout: 10000 });
     await page.keyboard.press('/');
     assert.equal(await page.evaluate(() => document.activeElement?.tagName), 'BODY', 'a view without a search box ignores the filter key');
+    await page.context().close();
+  });
+
+  test('focused links and buttons activate natively instead of opening the selected row', async () => {
+    const page = await rig.open('/fleet');
+    await page.locator('.conn[data-connection="live"]').waitFor();
+    await page.locator('tr.row').first().waitFor();
+    await page.keyboard.press('j');
+    await page.locator('tr.row.selected').waitFor();
+    await page.evaluate(() => {
+      const controls = document.createElement('div');
+      controls.innerHTML = '<a href="#/work" aria-label="Native link"><span>Work</span></a><button aria-label="Native button"><span>Press</span></button>';
+      controls.querySelector('button')?.addEventListener('click', () => { controls.setAttribute('data-activated', 'yes'); });
+      controls.id = 'native-controls';
+      document.body.append(controls);
+    });
+    for (const key of ['Enter', 'Space']) {
+      await page.getByRole('button', { name: 'Native button' }).focus();
+      await page.keyboard.press(key);
+      assert.equal(await page.locator('#native-controls').getAttribute('data-activated'), 'yes');
+      assert.equal(await page.evaluate(() => window.location.hash), '#/fleet');
+      await page.locator('#native-controls').evaluate(node => { node.removeAttribute('data-activated'); });
+    }
+    await page.getByRole('button', { name: 'Native button' }).focus();
+    await page.keyboard.press('?');
+    await page.getByRole('dialog', { name: 'Keyboard help' }).waitFor();
+    await page.keyboard.press('Escape');
+    await page.getByRole('dialog').waitFor({ state: 'detached' });
+    await page.getByRole('link', { name: 'Native link' }).focus();
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => window.location.hash === '#/work');
     await page.context().close();
   });
 
