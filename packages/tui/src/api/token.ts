@@ -1,5 +1,5 @@
+import { defaultDataDir, readDaemonPort } from '@pi-console/contract/daemon-config';
 import { readFileSync, statSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 
 export interface Credentials { baseUrl: string; token: string; tokenSource: string }
@@ -35,9 +35,10 @@ function daemonOrigin(endpoint: string): string {
 
 /** Resolution order: PI_CONSOLE_TOKEN, PI_CONSOLE_TOKEN_FILE, `<data dir>/token`. The URL is always loopback HTTP. */
 export function resolveCredentials(env: NodeJS.ProcessEnv = process.env): Credentials {
-  const baseUrl = daemonOrigin(env.PI_CONSOLE_URL ?? 'http://127.0.0.1:4777');
+  const dataDir = resolve(env.PI_CONSOLE_DATA_DIR ?? defaultDataDir());
+  const baseUrl = daemonOrigin(env.PI_CONSOLE_URL ?? `http://127.0.0.1:${String(readDaemonPort(dataDir))}`);
   if (env.PI_CONSOLE_TOKEN) return { baseUrl, token: env.PI_CONSOLE_TOKEN.trim(), tokenSource: 'PI_CONSOLE_TOKEN' };
-  const file = env.PI_CONSOLE_TOKEN_FILE ?? resolve(env.PI_CONSOLE_DATA_DIR ?? resolve(homedir(), '.pi-console'), 'token');
+  const file = env.PI_CONSOLE_TOKEN_FILE ?? resolve(dataDir, 'token');
   try {
     return { baseUrl, token: readTokenFile(file), tokenSource: file };
   } catch (error) {

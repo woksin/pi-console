@@ -80,10 +80,11 @@ export function pulseLine(pulse: PulseViewModel, width: number): Line {
 const cells = (line: readonly Part[]): number => line.reduce((sum, part) => sum + Array.from(part.text).length, 0);
 
 /** One-line banner while the stream is down; the client reconnects on its own with capped backoff. */
-export function banner(connection: Connection, width: number): Line | undefined {
+export function banner(connection: Connection, width: number, endpoint?: string): Line | undefined {
   const text = connectionBanner(connection);
   if (!text) return undefined;
-  return fit([t(' ⚠ ', 'bg', { background: 'amber', bold: true }), t(` ${text}`, 'amber')], width, 'raised');
+  const message = endpoint ? `${endpoint} · ${text}` : text;
+  return fit([t(' ⚠ ', 'bg', { background: 'amber', bold: true }), t(` ${message}`, 'amber')], width, 'raised');
 }
 
 /** The footer: the text being typed while a field is open, otherwise the shared keymap's hints for the context. */

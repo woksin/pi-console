@@ -7,15 +7,18 @@ export const tuiUsage = `Usage: pi-console tui [options]
 Open the terminal console against a running daemon.
 
 Options:
-  -h, --help  Show this help
+  --url <url>       Daemon URL (overrides PI_CONSOLE_URL and config.json)
+  --data-dir <dir>  Daemon data directory (overrides PI_CONSOLE_DATA_DIR)
+  -h, --help        Show this help
 
 Connection settings: PI_CONSOLE_URL, PI_CONSOLE_TOKEN, PI_CONSOLE_TOKEN_FILE,
-PI_CONSOLE_DATA_DIR (default ~/.pi-console).`;
+PI_CONSOLE_DATA_DIR (default ~/.pi-console).
+URL fallback: port in <data-dir>/config.json, then http://127.0.0.1:4777.`;
 
 interface TuiCommandIo {
   out: (line: string) => void;
   err: (line: string) => void;
-  launch: () => Promise<number>;
+  launch: (env: NodeJS.ProcessEnv) => Promise<number>;
 }
 
 /** Parse arguments before launching the interactive console. */
@@ -25,9 +28,13 @@ export async function runTuiCommand(args: string[], io: TuiCommandIo = {
   launch: runTui,
 }): Promise<number> {
   let help: boolean;
+  let env: NodeJS.ProcessEnv;
   try {
-    const { values } = parseArgs({ args, strict: true, allowPositionals: false, options: { help: { type: 'boolean', short: 'h' } } });
+    const { values } = parseArgs({ args, strict: true, allowPositionals: false, options: {
+      help: { type: 'boolean', short: 'h' }, url: { type: 'string' }, 'data-dir': { type: 'string' },
+    } });
     help = values.help === true;
+    env = { ...process.env, ...(values.url !== undefined ? { PI_CONSOLE_URL: values.url } : {}), ...(values['data-dir'] !== undefined ? { PI_CONSOLE_DATA_DIR: values['data-dir'] } : {}) };
   } catch (error: unknown) {
     io.err(`${error instanceof Error ? error.message : String(error)}\nRun "pi-console tui --help" for usage.`);
     return 2;
@@ -36,7 +43,7 @@ export async function runTuiCommand(args: string[], io: TuiCommandIo = {
     io.out(tuiUsage);
     return 0;
   }
-  return await io.launch();
+  return await io.launch(env);
 }
 
 const entry = fileURLToPath(import.meta.resolve('@pi-console/tui/main'));

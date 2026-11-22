@@ -150,4 +150,5 @@ test('daemon going away shows the reconnect banner', async () => {
   await harness.ui.settle();
   await harness.ui.waitFor('retrying');
   assert.match(harness.ui.frame(), /offline/);
+  assert.ok(harness.ui.frame().includes(`http://127.0.0.1:${String(harness.daemon.port)}`));
 });
