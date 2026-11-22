@@ -56,6 +56,7 @@ export const bindings: readonly Binding[] = [
   { keys: ['f'], action: 'follow.toggle', label: 'Toggle follow-tail in a transcript', hint: 'f follow', contexts: ['transcript'] },
   { keys: ['y'], action: 'copy.id', label: 'Copy id', hint: 'y copy id', contexts: [...lists, 'transcript'] },
   { keys: ['v'], action: 'view.toggle', label: 'Toggle list and graph', hint: 'v graph', contexts: ['messages', 'graph'] },
+  { keys: ['v'], action: 'view.toggle', label: 'Expand or collapse question detail', hint: 'v expand', contexts: ['questions'], clients: ['tui'] },
   { keys: ['t'], action: 'time.scrub', label: 'Toggle time scrubber (graph, timeline)', contexts: ['graph', 'timeline'] },
   { keys: ['+', '='], action: 'time.zoomIn', label: 'Zoom the timeline in', hint: '+/- zoom', contexts: ['timeline'] },
   { keys: ['-'], action: 'time.zoomOut', label: 'Zoom the timeline out', contexts: ['timeline'] },

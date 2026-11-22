@@ -3,6 +3,7 @@ import { TranscriptLoader } from './transcript-loader.ts';
 import { DaemonClient } from './api/client.ts';
 import { resolveCredentials, type Credentials } from './api/token.ts';
 import { pollWhileConnected, throttled, type ConnectedRefresher, type Refresher } from './refresh.ts';
+import { graphRefresher } from './graph-refresh.ts';
 import { Store } from './store/store.ts';
 import { App } from './app.ts';
 import { launch } from './view/renderer.ts';
@@ -27,6 +28,7 @@ export function connect(credentials: Credentials): Runtime {
   const reviews = new MemoryReviewController(client, (id, review) => { if (!stopped) store.setMemoryReview(id, review); }, loadMemory);
   const transcripts = new TranscriptLoader(store, client);
   const refresher = attentionRequests(store, client);
+  const graph = graphRefresher(client, value => { store.setGraph(value); });
   const refresh = refresher.request;
   void client.stream({
     onEvent: event => {
@@ -34,10 +36,11 @@ export function connect(credentials: Credentials): Runtime {
       if (event.type === 'snapshot') memory.invalidateVisible();
       if (event.type === 'session.updated' && event.payload.memoryChanged) memory.invalidate(event.payload.id);
       if (event.type !== 'transcript.appended') refresh();
+      graph.request(event.type);
     },
-    onState: state => { store.setConnection(state.connected, state.error); refresher.setConnected(state.connected); },
+    onState: state => { store.setConnection(state.connected, state.error); refresher.setConnected(state.connected); if (state.connected) graph.request(); },
   });
-  return { store, client, loadTranscript: transcripts.load, reviews, loadMemory, retryNeedsYou: refresh, watchMemory: id => memory.watch(id), stop: () => { stopped = true; transcripts.stop(); memory.dispose(); reviews.dispose(); refresher.stop(); client.stop(); store.dispose(); } };
+  return { store, client, loadTranscript: transcripts.load, reviews, loadMemory, retryNeedsYou: refresh, watchMemory: id => memory.watch(id), stop: () => { stopped = true; transcripts.stop(); memory.dispose(); reviews.dispose(); refresher.stop(); graph.stop(); client.stop(); store.dispose(); } };
 }
 
 function attentionRequests(store: Store, client: DaemonClient): ConnectedRefresher {
