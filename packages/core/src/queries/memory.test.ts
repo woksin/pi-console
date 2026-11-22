@@ -20,7 +20,7 @@ test('proposals group by scoped or cited session and unlinked bucket using the o
     item('assumed', { statusBasis: 'assumed' }), item('unrecorded', { recorded: false }),
   ];
   models.memory.items = Object.fromEntries(rows.map(row => [row.id, row]));
-  models.memory.messages.message = { id: 'message', recorded: true, sessionId: 's1', origin: 'injected', at: at(0), classified: false, itemIds: [] };
+  models.memory.messages.message = { id: 'message', recorded: true, sessionId: 's1', origin: 'injected', at: at(0), classified: false, itemIds: [], stamps: {} };
   const before = structuredClone(models);
   assert.deepEqual(proposedMemoryAttention(models), [
     { id: 'memory:s1', reason: 'proposed-memory', sessionId: 's1', laneId: null, text: '2 proposed memory items waiting for /memory confirm', since: at(1), pointer: null },

@@ -1,11 +1,13 @@
 import { emptyStates, workViewModel, pad } from '@pi-console/viewmodels';
 import { Lines, Panel, h, type Line } from '../view/renderer.ts';
+import { listFilter } from '../state/ui.ts';
 import { selectable, split, statusParts, t, windowOf } from '../view/parts.ts';
 import { emptyLines, shownOf, type Env, type SectionView } from './common.ts';
 
 export function workView(env: Env): SectionView {
   const model = workViewModel({ jobs: env.data.jobs, sessions: env.data.sessions, now: env.now });
-  const rows = model.rows;
+  const query = listFilter(env.ui).trim().toLowerCase();
+  const rows = model.rows.filter(row => [row.id, row.sessionId, row.session, row.kind, row.name, row.status.label, row.exit].join(' ').toLowerCase().includes(query));
   const width = env.width - 4;
   const cursor = Math.min(env.ui.cursor.work, Math.max(0, rows.length - 1));
   const { start, end } = windowOf(rows.length, cursor, Math.max(1, env.height - 4));
