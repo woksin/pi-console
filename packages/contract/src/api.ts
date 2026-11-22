@@ -124,6 +124,8 @@ const v1Defs: Record<string, Schema> = {
   snapshot, sessionPage: pageOf('session'), requestPage: pageOf('request'), questionPage: pageOf('question'),
   messagePage: pageOf('message'), jobPage: pageOf('job'), memoryItemPage: pageOf('memoryItem'), memoryItems: strict({ items: array(ref('memoryItem')) }), resetPage: pageOf('reset'), resets: strict({ items: array(ref('reset')) }),
   memoryStatus, memoryItem, memoryHandoff, sessionMemory, toolResult, sourcePointer, attentionReason, attentionItem, graphNode, graphEdge, requestEvidence, requestUncertainty, request,
+  transcriptQuery: strict({ after: int, limit: { type: 'integer', minimum: 1, maximum: 1000 }, order: { enum: ['asc', 'desc'] }, around: str }, []),
+  transcript: strict({ items: array(ref('transcriptEntry')), nextCursor: int, hasMore: bool, hasOlder: bool }, ['items', 'nextCursor', 'hasMore']),
   transcriptEntry: strict({
     id, cursor: int, sessionId: id, at: time,
     kind: oneOf('user', 'thinking', 'assistant.delta', 'assistant', 'tool.call', 'tool.result', 'diff', 'reset'),

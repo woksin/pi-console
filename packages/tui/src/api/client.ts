@@ -2,9 +2,9 @@ import type { WindowedCollection } from '@pi-console/viewmodels';
 import type { MemoryActionAvailability, MemoryActionReceipt, MemoryActionRequest, Event, MemoryItem, SessionDetail, SessionMemory, TranscriptEntry, Transcript, NeedsYou, AttentionItem } from '@pi-console/contract';
 import { FrameParser } from './sse.ts';
 import type { Credentials } from './token.ts';
-import { TRANSCRIPT_LIMIT } from '../store/store.ts';
 
-export interface TranscriptTail { entries: TranscriptEntry[]; truncated: boolean }
+export interface TranscriptTail { entries: TranscriptEntry[]; truncated: boolean; nextCursor?: number; hasMore?: boolean }
+export interface TranscriptQuery { sessionId: string; after?: number; order?: 'asc' | 'desc'; around?: string; signal?: AbortSignal }
 
 export interface StreamHandlers {
   onEvent: (event: Event) => void;
@@ -91,22 +91,21 @@ export class DaemonClient {
     return (await this.transcriptTail({ sessionId, signal })).entries;
   }
 
-  /** Pages forward with bounded retention and per-load cancellation. The daemon has no tail/reverse option; cursors are exclusive byte offsets, not entry counts. */
-  async transcriptTail({ sessionId, signal }: { sessionId: string; signal?: AbortSignal }): Promise<TranscriptTail> {
+  /** One newest-first request; retained entries are normalized oldest-first for rendering. */
+  async transcriptTail({ sessionId, signal }: TranscriptQuery): Promise<TranscriptTail> {
+    const body = await this.transcriptPage({ sessionId, order: 'desc', signal });
+    return { entries: [...body.items].reverse(), truncated: false, nextCursor: body.nextCursor, hasMore: body.hasMore };
+  }
+
+  async transcriptPage({ sessionId, signal, after, order = 'asc', around }: TranscriptQuery): Promise<Transcript> {
     const active = signal ? AbortSignal.any([signal, this.abort.signal]) : this.abort.signal;
-    let entries: TranscriptEntry[] = [];
-    let cursor = 0;
-    let truncated = false;
-    for (;;) {
-      active.throwIfAborted();
-      const body = await this.json<Transcript>(`/sessions/${encodeURIComponent(sessionId)}/transcript?after=${String(cursor)}&limit=1000`, active);
-      active.throwIfAborted();
-      truncated ||= entries.length + body.items.length > TRANSCRIPT_LIMIT;
-      entries = [...entries, ...body.items].slice(-TRANSCRIPT_LIMIT);
-      if (!body.hasMore) return { entries, truncated };
-      if (body.nextCursor <= cursor) throw new Error('Transcript paging did not advance');
-      cursor = body.nextCursor;
-    }
+    active.throwIfAborted();
+    const query = new URLSearchParams({ limit: '1000', order });
+    if (after !== undefined) query.set('after', String(after));
+    if (around !== undefined) query.set('around', around);
+    const page = await this.json<Transcript>(`/sessions/${encodeURIComponent(sessionId)}/transcript?${query.toString()}`, active);
+    active.throwIfAborted();
+    return page;
   }
 
   /** Runs until `stop()`. Reconnects with capped backoff and resumes through `Last-Event-ID`. */

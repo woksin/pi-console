@@ -49,10 +49,13 @@ export class FileTranscriptReader implements TranscriptReader {
     this.#scanner = scanner;
   }
 
-  page(sessionId: string, after: number, limit: number): Promise<Transcript> {
+  page(sessionId: string, after: number, limit: number, order: 'asc' | 'desc' = 'asc'): Promise<Transcript> {
     return this.#read(sessionId, empty(after), async source => {
       const items: TranscriptEntry[] = [];
-      for await (const item of this.#entries(source, sessionId, after, true)) {
+      const reverse = order === 'desc';
+      const start = reverse ? Math.max(0, after - 1) : after;
+      for await (const item of this.#entries(source, sessionId, { start, seekAfter: true, reverse })) {
+        if (reverse && item.cursor >= after) continue;
         if (items.length === limit) return pageOf(items, after, true);
         items.push(item);
       }
@@ -67,7 +70,7 @@ export class FileTranscriptReader implements TranscriptReader {
       const before: TranscriptEntry[] = [];
       const following: TranscriptEntry[] = [];
       let found = false;
-      for await (const item of this.#entries(source, sessionId, start, false)) {
+      for await (const item of this.#entries(source, sessionId, { start })) {
         if (item.id === entryId) found = true;
         if (found) following.push(item);
         else {
@@ -82,7 +85,8 @@ export class FileTranscriptReader implements TranscriptReader {
       if (first) this.#remember(key, first.cursor - 1);
       const preceding = Math.min(before.length, Math.max(Math.floor((limit - 1) / 2), limit - following.length));
       const items = [...before.slice(before.length - preceding), ...following].slice(0, limit);
-      return pageOf(items, 0, following.length > limit - preceding);
+      const hasOlder = await this.#hasOlder(source, sessionId, items[0]);
+      return { ...pageOf(items, 0, following.length > limit - preceding), hasOlder };
     });
   }
 
@@ -98,20 +102,26 @@ export class FileTranscriptReader implements TranscriptReader {
     });
   }
 
-  async *#entries(source: TranscriptSource, sessionId: string, start: number, seekAfter: boolean): AsyncGenerator<TranscriptEntry> {
-    let offset = start;
+  async #hasOlder(source: TranscriptSource, sessionId: string, first?: TranscriptEntry): Promise<boolean> {
+    if (!first) return false;
+    const entries = this.#entries(source, sessionId, { start: first.cursor - 1, reverse: true });
+    return (await entries.next()).done !== true;
+  }
+
+  async *#entries(source: TranscriptSource, sessionId: string, { start = 0, seekAfter = false, reverse = false }: { start?: number; seekAfter?: boolean; reverse?: boolean } = {}): AsyncGenerator<TranscriptEntry> {
+    let offset = reverse ? Math.min(start, source.version.size) : start;
     do {
       const page = await readTranscriptFrames({ path: source.path, roots: [], resolvedRoots: source.roots, expected: source.version,
-        offset, seekAfter, endOffset: source.version.size, scanner: this.#scanner });
+        offset, seekAfter, reverse, endOffset: source.version.size, scanner: this.#scanner });
       for (const frame of page.entries) {
         const entry = transcriptEntry(frame.value, sessionId, frame.start);
         if (entry) yield entry;
       }
-      if (page.nextOffset <= offset) return;
+      if (reverse ? page.nextOffset >= offset : page.nextOffset <= offset) return;
       offset = page.nextOffset;
       seekAfter = false;
       await yieldToLoop();
-    } while (offset < source.version.size);
+    } while (reverse ? offset > 0 : offset < source.version.size);
   }
 
   #remember(key: string, offset: number): void {

@@ -7,7 +7,6 @@ import { sessionSideWidth } from '../state/session-layout.ts';
 import { transcriptViewport, transcriptWindow, type TranscriptAnchor, type TranscriptLayout } from '../state/transcript-window.ts';
 import type { Env, SectionView } from './common.ts';
 import { memoryLines } from './session-memory.ts';
-import { TRANSCRIPT_LIMIT } from '../store/store.ts';
 
 const LIMITS: Record<TranscriptLine['kind'], number> = { user: 8, thinking: 2, assistant: 14, tool: 1, result: 3, diff: 12, reset: 1 };
 
@@ -140,7 +139,7 @@ const unavailableView: SectionView = {
   render: () => h(Panel, { title: 'Session', focused: true, grow: 1 }, h(Lines, { lines: [[t('This session is no longer available.', 'muted')]] })),
 };
 
-const droppedMarker: Line = [t('⋯ older lines dropped (transcript cap reached)', 'amber')];
+const droppedMarker: Line = [t('⋯ view moved to the retained window edge', 'amber')];
 
 function visibleLines(rendered: Rendered, ui: UiState, viewport: number): { padded: Line[]; below: number; paused: boolean } {
   const window = transcriptWindow(rendered.layout, ui, viewport);
@@ -148,9 +147,9 @@ function visibleLines(rendered: Rendered, ui: UiState, viewport: number): { padd
   return { padded: [...Array.from({ length: viewport - shown.length }, () => blank), ...shown], below: window.below, paused: window.paused };
 }
 
-function statusText(search: string, paused: boolean, entries: number, above: number): string {
+function statusText({ search, paused, entries, above, newer }: { search: string; paused: boolean; entries: number; above: number; newer: boolean }): string {
   if (search) return `matching “${search}” · ${String(entries)} entries`;
-  return !paused ? '● following tail' : `⏸ paused · ${String(above)} lines above live · f to follow`;
+  return !paused ? '● following tail' : newer ? '⏸ paused · f to follow' : `⏸ paused · ${String(above)} lines above live · f to follow`;
 }
 
 const contextPanel = (model: SessionViewModel, pane: SidePane, side: number, memory: () => Line[]) => (side ? [h(Panel, { title: 'Context', width: side }, h(Lines, { lines: sideLines(model, pane, side, memory) }))] : []);
@@ -161,6 +160,30 @@ function focusAnchor(entryId: string | null, lines: readonly TranscriptLine[], l
   return found ? { key: found.key, offset: 0, limit: layout.keys.at(-1) ?? 0 } : undefined;
 }
 
+function transcriptEdges(env: Env, width: number): { above: Line[]; below: Line[] } {
+  const progress = env.data.transcriptHistory.get(env.ui.sessionId ?? '');
+  if (!progress) return { above: [], below: [] };
+  const above: Line[] = [];
+  if (progress.older) above.push(fit([t('older entries above — scroll up to load', 'muted')], width));
+  if (progress.loading) above.push(fit([t('Loading transcript…', 'muted')], width));
+  if (progress.error) above.push(fit([t('Could not load transcript · r retry', 'amber')], width));
+  const below = progress.newer ? [fit([t('newer entries below', 'muted')], width)] : [];
+  return { above, below };
+}
+
+function transcriptContent(env: Env, model: SessionViewModel, rendered: Rendered, width: number) {
+  const progress = env.data.transcriptHistory.get(model.id);
+  const edges = transcriptEdges(env, width);
+  const viewport = Math.max(1, transcriptViewport(env.height) - edges.above.length - edges.below.length);
+  const newer = progress?.newer === true;
+  const following = env.ui.follow && !newer;
+  const { padded, below } = visibleLines(rendered, { ...env.ui, follow: following }, viewport);
+  const status = statusText({ search: env.ui.search, paused: !following, entries: model.transcript.length, above: below, newer });
+  const loading = !env.data.transcripts.has(model.id) && !progress;
+  const body = loading ? [[t('Loading transcript…', 'muted')]] : padded;
+  return { viewport, following, status, lines: [...edges.above, ...body, ...edges.below] };
+}
+
 export function sessionView(env: Env): SectionView {
   const { data, ui } = env;
   const detail = ui.sessionId ? buildDetail(env) : undefined;
@@ -169,22 +192,18 @@ export function sessionView(env: Env): SectionView {
   const side = sessionSideWidth(env.width);
   const transcriptWidth = env.width - side - 4;
   const rendered = transcriptLines(env, model, entries, transcriptWidth);
-  const { padded, below, paused } = visibleLines(rendered, ui, transcriptViewport(env.height));
-  const following = ui.follow;
-  const cap = data.transcriptsTruncated.has(model.id) ? `capped at newest ${String(TRANSCRIPT_LIMIT)}` : '';
-  const status = statusText(ui.search, paused, model.transcript.length, below);
-  const loading = !data.transcripts.has(model.id) && model.transcript.length === 0;
+  const { viewport, following, status, lines } = transcriptContent(env, model, rendered, transcriptWidth);
   return {
     length: rendered.lines.length,
-    transcript: rendered.layout,
+    transcript: rendered.layout, transcriptRows: viewport,
     focus: () => focusAnchor(ui.focusEntry, model.transcript, rendered.layout),
     rowAt: () => ({ sessionId: null, groupId: null }),
     idAt: () => model.id,
     render: () => h(Column, { grow: 1 },
-      h(Panel, { height: 4, focused: false, right: cap }, h(Lines, { lines: header(model, env.width - 4, env.phase) })),
+      h(Panel, { height: 4, focused: false }, h(Lines, { lines: header(model, env.width - 4, env.phase) })),
       h(Row, { grow: 1, gap: 1 },
         h(Panel, { title: 'Transcript', right: status, grow: 1, focused: true, accent: following ? 'green' : 'amber' },
-          h(Lines, { lines: loading ? [[t('Loading transcript…', 'muted')]] : padded, grow: 1 })),
+          h(Lines, { lines, grow: 1 })),
         ...contextPanel(model, ui.pane, side, () => memoryLines(memoryPanelViewModel({ memory: data.memory.get(model.id) ?? null, items: data.memoryItems.get(model.id) ?? [], now: env.now, review: data.memoryReviews.get(model.id) }), side - 4, ui.memoryIndex)))),
   };
 }

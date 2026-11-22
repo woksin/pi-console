@@ -25,6 +25,8 @@ export interface TranscriptRequest {
   endOffset?: number;
   /** Seek past the record containing offset-1, without parsing any fragment. */
   seekAfter?: boolean;
+  /** Read complete records backwards, ending before offset (or at captured EOF). */
+  reverse?: boolean;
 }
 export interface TranscriptPage { entries: unknown[]; nextOffset: number; partial: boolean }
 export interface TranscriptFrame { value: unknown; start: number; end: number }
@@ -56,8 +58,11 @@ export async function validateTranscriptSource(handle: FileHandle, stat: Stats, 
 function validateVersion(stat: Stats, expected: TranscriptVersion): void {
   if (stat.nlink !== 1) throw new TranscriptSourceChanged();
   if (`${stat.dev}:${stat.ino}:${stat.birthtimeMs}` !== expected.identity) throw new TranscriptSourceChanged();
-  if (stat.size < expected.size) throw new TranscriptSourceChanged();
-  if (stat.size === expected.size && stat.mtimeMs !== expected.mtimeMs) throw new TranscriptSourceChanged();
+  if (rewritten(stat, expected)) throw new TranscriptSourceChanged();
+}
+
+function rewritten(stat: Stats, expected: TranscriptVersion): boolean {
+  return stat.size < expected.size || (stat.size === expected.size && stat.mtimeMs !== expected.mtimeMs);
 }
 
 /** Source paths come only from the daemon's checkpoint index, never browser input. */
@@ -77,6 +82,11 @@ export async function readTranscriptFrames(request: TranscriptRequest): Promise<
     const size = Math.min(stat.size, request.endOffset ?? stat.size);
     const bytes = Buffer.alloc(limit);
     const batch = { offset, size, bytes };
+    if (request.reverse) {
+      batch.offset = Math.min(request.offset ?? size, size);
+      if (request.seekAfter && batch.offset < size) batch.offset = await startOf(handle, batch, request);
+      return await readReverseFrames(handle, batch, request.scanner);
+    }
     batch.offset = await startOf(handle, batch, request);
     return await readFrames(handle, batch, request.scanner);
   } finally { await handle.close(); }
@@ -95,6 +105,24 @@ async function validateBoundary(handle: FileHandle, offset: number, bytes: Buffe
 }
 
 interface Batch { offset: number; size: number; bytes: Buffer }
+
+async function readReverseFrames(handle: FileHandle, batch: Batch, scanner?: Scanner): Promise<FramedTranscriptPage> {
+  const start = Math.max(0, batch.offset - batch.bytes.length);
+  const { bytesRead } = await handle.read(batch.bytes, 0, batch.offset - start, start);
+  const bytes = batch.bytes.subarray(0, bytesRead);
+  const previous = Buffer.alloc(1);
+  await handle.read(previous, 0, 1, Math.max(0, start - 1));
+  const boundary = start === 0 || previous[0] === 10;
+  const first = boundary ? 0 : bytes.indexOf(10) + 1;
+  const entries: TranscriptFrame[] = [];
+  for (const span of recordSpans(bytes.subarray(first))) {
+    const line = bytes.subarray(first + span.start, first + span.end - 1).toString('utf8');
+    if (line.trim()) entries.push({ value: decodeLine(line, scanner), start: start + first + span.start, end: start + first + span.end });
+  }
+  // Re-read a leading fragment next time. With no complete record, skip an oversized fragment.
+  const nextOffset = first > 0 && first < bytesRead ? start + first : start;
+  return { entries: entries.reverse(), nextOffset, partial: false };
+}
 
 async function readFrames(handle: FileHandle, batch: Batch, scanner?: Scanner): Promise<FramedTranscriptPage> {
   const { offset, size, bytes } = batch;

@@ -60,6 +60,17 @@ async function stream(lastId?: number) {
   };
 }
 
+test('newest-first transcript pages and around-window edges conform', async () => {
+  const tail = await conform(await api('/sessions/s2/transcript?order=desc&limit=2'), 'transcript');
+  assert.equal(tail.items.length, 2);
+  assert.ok(tail.items[0].cursor > tail.items[1].cursor);
+  const older = await conform(await api(`/sessions/s2/transcript?order=desc&after=${tail.nextCursor}&limit=2`), 'transcript');
+  assert.ok(older.items.every((item: { cursor: number }) => item.cursor < tail.nextCursor));
+  const around = await conform(await api(`/sessions/s2/transcript?around=${tail.items[0].id}&limit=2`), 'transcript');
+  assert.equal(around.hasOlder, true);
+  await conform(await api('/sessions/s2/transcript?order=invalid'), 'error', 400);
+});
+
 test('every GET endpoint conforms, with filtering and transcript cursor pagination', async () => {
   for (const [path, name] of [
     ['/overview', 'overview'], ['/needs-you', 'needsYou'], ['/sessions', 'sessions'], ['/sessions/s2', 'sessionDetail'],

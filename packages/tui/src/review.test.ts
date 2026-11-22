@@ -82,41 +82,41 @@ test('Ctrl+C quits even while a text overlay is open', async () => {
   assert.equal(harness.quit.requested, true);
 });
 
-test('transcript backfill reaches the tail beyond 50 pages using exclusive, non-contiguous cursors', async () => {
+test('transcript opens beyond 50 pages in one tail request with sparse byte cursors', async () => {
   const total = 51_000;
   let pages = 0;
   const server: Server = createServer((request, response) => {
     pages++;
-    const after = Number(new URL(request.url ?? '', 'http://x').searchParams.get('after')) / 17;
-    const items = Array.from({ length: Math.min(1000, total - after) }, (_, index) => ({ id: `e${String(after + index + 1)}`, cursor: (after + index + 1) * 17 }));
+    assert.equal(new URL(request.url ?? '', 'http://x').searchParams.get('order'), 'desc');
+    const items = Array.from({ length: 1000 }, (_, index) => ({ id: `e${String(total - index)}`, cursor: (total - index) * 17 }));
     response.setHeader('content-type', 'application/json');
-    response.end(JSON.stringify({ items, nextCursor: (after + items.length) * 17, hasMore: after + items.length < total }));
+    response.end(JSON.stringify({ items, nextCursor: items.at(-1)?.cursor, hasMore: true }));
   });
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   try {
     const port = (server.address() as { port: number }).port;
     const { entries, truncated } = await new DaemonClient({ baseUrl: `http://127.0.0.1:${String(port)}`, token: 'x', tokenSource: 'test' }).transcriptTail({ sessionId: 's1' });
-    assert.equal(truncated, true);
-    assert.equal(entries.length, TRANSCRIPT_LIMIT);
-    assert.equal(entries[0].cursor, (total - TRANSCRIPT_LIMIT + 1) * 17);
+    assert.equal(truncated, false);
+    assert.equal(entries.length, 1000);
+    assert.equal(entries[0].cursor, (total - 999) * 17);
     assert.equal(entries[entries.length - 1].cursor, total * 17);
-    assert.equal(pages, 51);
+    assert.equal(pages, 1);
   } finally { server.close(); }
 });
 
-test('a capped transcript explicitly labels the retained newest entries, including in search', async () => {
+test('a capped transcript labels available older history, including in search', async () => {
   const session = harness.runtime.store.getSnapshot().sessions[0];
   const entries: TranscriptEntry[] = Array.from({ length: TRANSCRIPT_LIMIT }, (_, index) => ({
     id: `cap-${String(index)}`, cursor: index + 1, sessionId: session.id, at: '2026-11-20T09:31:00.000Z',
     kind: 'assistant', text: `tail ${String(index)}`, toolCallId: null, resetId: null, requestId: null, toolResult: null,
   }));
-  const data = { ...new Store().getSnapshot(), sessions: [session], transcripts: new Map([[session.id, entries]]), transcriptsTruncated: new Set([session.id]) };
-  for (const width of [80, 150]) {
+  const data = { ...new Store().getSnapshot(), sessions: [session], transcripts: new Map([[session.id, entries]]), transcriptsTruncated: new Set([session.id]), transcriptHistory: new Map([[session.id, { older: true, newer: false, revision: 0 }]]) };
+  for (const width of [80, 112, 150]) {
     const view = sessionView({ data, ui: { ...initial, sessionId: session.id, search: 'tail' }, width, height: 30, now: 0, phase: 0, click: () => undefined });
     const ui = await mountHeadless(h(Screen, {}, view.render()), { width, height: 30 });
     try {
       await ui.settle();
-      assert.match(ui.frame(), /capped at newest 2500/);
+      assert.match(ui.frame(), /older entries above — scroll up to load/);
       assert.match(ui.frame(), /tail 2499/);
     } finally { ui.destroy(); }
   }
