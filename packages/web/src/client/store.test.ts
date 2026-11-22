@@ -3,6 +3,7 @@ import { test, type TestContext } from 'node:test';
 import type { Event, Graph, MemoryItem, SessionMemory, SessionUpdate, TranscriptEntry } from '@pi-console/contract';
 import { generate } from '@pi-console/testkit';
 import { clockNow } from '../app/hooks.ts';
+import { attentionPresentation } from '../app/attention.ts';
 import { ConsoleStore, reconnectDelays, staleAfterMs, type Clock } from './store.ts';
 import { createApi, type Api } from './api.ts';
 
@@ -112,11 +113,13 @@ test('the attention list counts as loaded only once a fetch of it succeeds, so "
   } as unknown as Api;
   const store = new ConsoleStore(api, clock);
   assert.equal(store.getState().needsYouLoaded, false);
+  assert.equal(store.getState().needsYouCached, false);
   const first = store.refresh();
   assert.equal(store.getState().needsYouError, false, 'pending is not a failure');
   pending.reject(new Error('offline'));
   await first;
   assert.equal(store.getState().needsYouLoaded, false, 'a failed fetch is not a loaded list');
+  assert.equal(store.getState().needsYouCached, false);
   assert.equal(store.getState().needsYouError, true);
   pending = Promise.withResolvers<[]>();
   const retry = store.refresh();
@@ -126,11 +129,13 @@ test('the attention list counts as loaded only once a fetch of it succeeds, so "
   pending.resolve([]);
   await retry;
   assert.equal(store.getState().needsYouLoaded, true);
+  assert.equal(store.getState().needsYouCached, true);
   pending = Promise.withResolvers<[]>();
   const refresh = store.refresh();
   pending.reject(new Error('offline again'));
   await refresh;
   assert.equal(store.getState().needsYouLoaded, false, 'a later failure invalidates the calm state');
+  assert.equal(store.getState().needsYouCached, true, 'a failed refresh retains the successful zero baseline');
   assert.equal(store.getState().needsYouError, true);
   store.stop();
 });
@@ -197,7 +202,7 @@ const settle = () => new Promise<void>(resolve => { setImmediate(resolve); });
 function streamingStore(context: TestContext, overrides: object = {}) {
   context.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 0 });
   const connection = lifecycleStream();
-  const api = { needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null), graph: () => Promise.resolve(null), stream: connection.stream, ...overrides } as unknown as Api;
+  const api = { needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null), graph: () => Promise.resolve(null), page: () => Promise.resolve(emptyList), stream: connection.stream, ...overrides } as unknown as Api;
   const store = new ConsoleStore(api, {
     now: () => Date.now(),
     setTimeout: (callback, ms) => setTimeout(callback, ms) as unknown as number,
@@ -386,8 +391,8 @@ test('heartbeat-only resumes retry failed attention and health reads exactly onc
     assert.equal(store.getState().connection, 'reconnecting');
     emitters[transition]('heartbeat');
     assert.equal(store.getState().connection, 'live');
-    await tick(349);
-    assert.deepEqual(calls, { attention: transition + 1, health: transition + 1 }, 'resume refresh is debounced');
+    await tick(2000 - reconnectDelays[0] - (transition === 1 ? 0 : 1000) - 1);
+    assert.deepEqual(calls, { attention: transition + 1, health: transition + 1 }, 'resume refresh is throttled');
     emitters[transition]('heartbeat');
     await tick(1);
     assert.deepEqual(calls, { attention: transition + 2, health: transition + 2 });
@@ -518,7 +523,142 @@ test('pending history stays deduplicated and completes across a resumable reconn
   assert.equal(store.getState().history.jobs?.more, false);
 });
 
-test('dirty totals and their debounced derived refresh survive a disconnect and snapshot-free resume', async t => {
+test('needs-you polls every 60 seconds while live, even without model updates', async t => {
+  const reads: number[] = [];
+  const { emitters, tick } = streamingStore(t, { needsYou: () => { reads.push(Date.now()); return Promise.resolve([]); } });
+  emitters[0](windowedSnapshot([], 0));
+  await tick(350);
+  for (const delay of [19_650, 20_000]) { await tick(delay); emitters[0]('heartbeat'); }
+  await tick(19_999);
+  assert.deepEqual(reads, [350]);
+  await tick(1); await tick(0);
+  assert.deepEqual(reads, [350, 60_000]);
+  for (let i = 0; i < 3; i++) { emitters[0]('heartbeat'); await tick(20_000); }
+  await tick(0);
+  assert.deepEqual(reads, [350, 60_000, 120_000]);
+});
+
+test('the needs-you poll is suspended without a live stream', async t => {
+  let calls = 0;
+  const { store, emitters, disconnects, tick } = streamingStore(t, { needsYou: () => { calls++; return Promise.resolve([]); } });
+  emitters[0](windowedSnapshot([], 0)); await tick(350);
+  disconnects[0](); await settle();
+  await tick(reconnectDelays[0]);
+  assert.equal(store.getState().connection, 'reconnecting');
+  await tick(60_000);
+  assert.equal(calls, 1, 'offline time cannot poll needs-you');
+});
+
+test('disconnecting after a successful zero read makes attention stale, not all clear', async t => {
+  const { store, emitters, disconnects, tick } = streamingStore(t);
+  emitters[0](windowedSnapshot([], 0)); await tick(350);
+  assert.equal(attentionPresentation(store.getState()).status, 'ready');
+  disconnects[0](); await settle();
+  assert.equal(store.getState().needsYouLoaded, true, 'the last fetch succeeded');
+  assert.equal(store.getState().connection, 'offline');
+  assert.deepEqual(attentionPresentation(store.getState()), { status: 'stale', count: 0, label: '0 need you · stale', badge: '0 stale' });
+  await tick(reconnectDelays[0]);
+  assert.equal(store.getState().connection, 'reconnecting');
+  assert.equal(attentionPresentation(store.getState()).status, 'stale');
+});
+
+test('a reconnect starting with a transcript append refreshes once within the throttle', async t => {
+  const reads: number[] = [];
+  let healthCalls = 0;
+  const { store, emitters, disconnects, lastEventIds, tick } = streamingStore(t, {
+    needsYou: () => { reads.push(Date.now()); return Promise.resolve([]); },
+    health: () => { healthCalls++; return Promise.resolve(null); },
+  });
+  emitters[0](windowedSnapshot([], 0)); await tick(350);
+  disconnects[0](); await settle(); await tick(reconnectDelays[0]);
+  assert.deepEqual(lastEventIds, [0, 5]);
+  emitters[1]({ seq: 6, type: 'transcript.appended', occurredAt: entry(1).at, payload: entry(1) });
+  assert.equal(store.getState().connection, 'live');
+  await tick(1999 - reconnectDelays[0]);
+  assert.deepEqual(reads, [350], 'the reconnect refresh respects the two-second throttle');
+  await tick(1);
+  assert.deepEqual(reads, [350, 2350], 'the first replayed append revalidates derived reads');
+  assert.equal(healthCalls, 2);
+  emitters[1]('heartbeat'); emitters[1]('heartbeat');
+  emitters[1]({ seq: 7, type: 'transcript.appended', occurredAt: entry(2).at, payload: entry(2) });
+  await tick(2000);
+  assert.deepEqual(reads, [350, 2350], 'routine appends and heartbeats do not refresh again');
+  assert.equal(healthCalls, 2);
+});
+
+test('transcript appends do not refresh derived models, but other events still do', async t => {
+  let calls = 0;
+  let healthCalls = 0;
+  const { emitters, tick } = streamingStore(t, {
+    needsYou: () => { calls++; return Promise.resolve([]); },
+    health: () => { healthCalls++; return Promise.resolve(null); },
+  });
+  emitters[0](windowedSnapshot([], 0)); await tick(350);
+  for (let cursor = 1; cursor <= 3; cursor++) {
+    emitters[0]({ seq: cursor + 5, type: 'transcript.appended', occurredAt: entry(cursor).at, payload: entry(cursor) });
+    await tick(2500);
+  }
+  assert.equal(calls, 1);
+  assert.equal(healthCalls, 1);
+  emitters[0]({ seq: 9, type: 'job.updated', occurredAt: entry(1).at, payload: job('j1', 'running', entry(1).at) });
+  await tick(350);
+  assert.equal(calls, 2);
+  assert.equal(healthCalls, 2);
+});
+
+test('event refreshes wait at least two seconds and keep the trailing update', async t => {
+  const reads: number[] = [];
+  const { emitters, tick } = streamingStore(t, { needsYou: () => { reads.push(Date.now()); return Promise.resolve([]); } });
+  emitters[0](windowedSnapshot([], 0)); await tick(350);
+  for (let seq = 6; seq <= 8; seq++) {
+    emitters[0]({ seq, type: 'job.updated', occurredAt: entry(1).at, payload: job('j1', 'running', entry(1).at) });
+    await tick(500);
+  }
+  assert.deepEqual(reads, [350]);
+  await tick(499); assert.deepEqual(reads, [350]);
+  await tick(1); assert.deepEqual(reads, [350, 2350]);
+});
+
+test('an event during a slow derived read queues one throttled trailing refresh', async t => {
+  const first = Promise.withResolvers<Awaited<ReturnType<Api['needsYou']>>>();
+  let calls = 0;
+  const { emitters, tick } = streamingStore(t, { needsYou: () => ++calls === 1 ? first.promise : Promise.resolve([]) });
+  emitters[0](windowedSnapshot([], 0)); await tick(350);
+  emitters[0]({ seq: 6, type: 'job.updated', occurredAt: entry(1).at, payload: job('j1', 'running', entry(1).at) });
+  await tick(5000);
+  assert.equal(calls, 1);
+  first.resolve([]); await settle();
+  await tick(1999); assert.equal(calls, 1);
+  await tick(1); assert.equal(calls, 2);
+});
+
+test('stopping clears poll, debounce, graph, watchdog and reconnect timers', async t => {
+  t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 0 });
+  const pending = new Set<number>();
+  const trackedClock: Clock = {
+    now: () => Date.now(),
+    setTimeout: (callback, ms) => {
+      const id = setTimeout(() => { pending.delete(id); callback(); }, ms) as unknown as number;
+      pending.add(id); return id;
+    },
+    clearTimeout: id => { clearTimeout(id); pending.delete(id); },
+  };
+  const connection = lifecycleStream();
+  const api = { stream: connection.stream, needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null), graph: () => Promise.resolve(null) } as unknown as Api;
+  const store = new ConsoleStore(api, trackedClock);
+  t.after(() => { store.stop(); });
+  store.start(); connection.emitters[0](windowedSnapshot([], 0));
+  assert.ok(pending.size > 0);
+  store.stop(); assert.equal(pending.size, 0);
+  await settle();
+  store.start(); connection.disconnects[1](); await settle();
+  assert.ok(pending.size > 0, 'a disconnected stream has a reconnect timer');
+  store.stop(); assert.equal(pending.size, 0);
+  t.mock.timers.tick(120_000); await settle();
+  assert.equal(connection.emitters.length, 2, 'stop cannot reopen the stream');
+});
+
+test('dirty totals and their throttled derived refresh survive a disconnect and snapshot-free resume', async t => {
   const page = Promise.withResolvers<Awaited<ReturnType<Api['page']>>>();
   const pageParams: unknown[] = [];
   let attentionCalls = 0;
@@ -533,12 +673,13 @@ test('dirty totals and their debounced derived refresh survive a disconnect and 
   const gapCount = store.getState().gapCount;
   disconnects[0]();
   await settle();
-  await tick(349);
-  assert.equal(attentionCalls, 1, 'the pending refresh is still debounced');
+  await tick(reconnectDelays[0]);
+  emitters[1]('heartbeat');
+  await tick(2000 - reconnectDelays[0] - 1);
+  assert.equal(attentionCalls, 1, 'the pending refresh is still throttled');
+  assert.deepEqual(pageParams, []);
   await tick(1);
   assert.deepEqual(pageParams, [{ limit: 1 }], 'the dirty total still causes a request');
-  await tick(reconnectDelays[0] - 350);
-  emitters[1]('heartbeat');
   assert.deepEqual(lastEventIds, [0, 6]);
   assert.equal(store.getState().gapCount, gapCount);
   page.resolve({ ...emptyList, total: 1 });

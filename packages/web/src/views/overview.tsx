@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import type { ViewProps } from '../app/view.tsx';
 import { navigate, useListNav, useStore } from '../app/hooks.ts';
 import { sessionHref } from '../app/routes.ts';
+import { attentionPresentation } from '../app/attention.ts';
 import { SkeletonRows, Sparkline, StatusBadge } from '../ui/primitives.tsx';
 import { EmptyFor, FirstRun } from '../ui/empty.tsx';
 import { useScrollIntoView } from '../ui/hooks.ts';
@@ -11,13 +12,13 @@ import { useNewSince, useStatusFlash } from './overview-changes.ts';
 
 export function OverviewView({ state, now }: ViewProps) {
   const view = useMemo(() => overviewViewModel({ needsYou: state.needsYou, sessions: state.sessions, repositories: state.repositories.length, now }), [state.needsYou, state.sessions, state.repositories.length, now]);
-  const ready = state.needsYouLoaded && !state.needsYouError;
+  const ready = attentionPresentation(state).status === 'ready';
   const histogram = useMemo(() => pressureHistogram(state.sessions), [state.sessions]);
   const byId = new Map(view.cards.map(card => [card.id, card]));
   const sections = groupAttentionCards(view.cards);
   const fresh = useNewSince(view.cards.map(card => card.id), state.snapshotLoaded && state.needsYouLoaded);
   const nav = useListNav(sections.flatMap(section => section.cards.map(card => card.id)), { onOpen: id => { const card = byId.get(id); if (card?.sessionId) navigate(sessionHref(card.sessionId, card.pointer?.entryId)); } });
-  if (!state.snapshotLoaded) return <div className="page"><SkeletonRows label="overview" /></div>;
+  if (!state.snapshotLoaded) return <div className="page"><AttentionSummary state={state} headline={view.headline} /><SkeletonRows label="overview" /></div>;
   return (
     <div className="page overview">
       <section className={`hero${ready && view.cards.length === 0 ? ' clear' : ''}`} aria-labelledby="needs-you">
@@ -48,12 +49,12 @@ function AttentionEmpty({ state, ready, empty, working }: { state: ViewProps['st
 
 function AttentionSummary({ state, headline }: { state: ViewProps['state']; headline: string }) {
   const store = useStore();
-  if (state.needsYouError) return <div role="alert">
-    <h2 id="needs-you" className="hero-title">Could not load needs you.</h2>
-    <button onClick={() => { void store.refresh(); }}>Retry</button>
+  const attention = attentionPresentation(state);
+  if (attention.status === 'ready') return <h2 id="needs-you" className="hero-title">{headline}</h2>;
+  return <div role={state.needsYouError ? 'alert' : 'status'} data-attention={attention.status}>
+    <h2 id="needs-you" className="hero-title">{attention.label}</h2>
+    {state.needsYouError && <button onClick={() => { void store.refresh(); }}>Retry</button>}
   </div>;
-  if (!state.needsYouLoaded) return <h2 id="needs-you" className="hero-title" role="status">Loading…</h2>;
-  return <h2 id="needs-you" className="hero-title">{headline}</h2>;
 }
 
 /** Sessions per context-pressure bin; each bar takes its colour from its place on the shared pressure ramp, with the 60 and 80 % ticks. */

@@ -37,6 +37,8 @@ export interface ConsoleState {
   /** True after a successful attention fetch, until a fetch fails; `snapshotLoaded` alone is too early. */
   needsYouLoaded: boolean;
   needsYouError: boolean;
+  /** A successful attention fetch has supplied a cached count, including zero. */
+  needsYouCached: boolean;
   graph: Graph | null;
   health: HealthRecord | null;
   overview: Overview | null;
@@ -67,7 +69,7 @@ export interface ConsoleState {
 export function emptyState(): ConsoleState {
   return {
     repositories: [], sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], interventions: [],
-    transcripts: {}, memory: {}, memoryItems: {}, memoryStatus: {}, memoryReviews: new Map(), needsYou: [], needsYouLoaded: false, needsYouError: false, graph: null, health: null, overview: null, liveAt: 0, liveAtReceivedAt: null, snapshotLoaded: false, seq: 0,
+    transcripts: {}, memory: {}, memoryItems: {}, memoryStatus: {}, memoryReviews: new Map(), needsYou: [], needsYouLoaded: false, needsYouError: false, needsYouCached: false, graph: null, health: null, overview: null, liveAt: 0, liveAtReceivedAt: null, snapshotLoaded: false, seq: 0,
     connection: 'connecting', lastFrameAt: 0, gapCount: 0, received: 0, transcriptHistory: {}, totals: null, bounded: [], history: {},
   };
 }

@@ -3,12 +3,12 @@ import { clock, sanitize, statusCell } from '@pi-console/viewmodels';
 import type { ConsoleState } from '../state/state.ts';
 import { Kbd, StatusBadge } from '../ui/primitives.tsx';
 import { FleetPulse } from './pulse.tsx';
+import { attentionPresentation, type AttentionPresentation } from './attention.ts';
 import { hrefFor, sectionIds, sectionMeta, type SectionId } from './routes.ts';
 
-interface SidebarProps { active: SectionId | null; settings: boolean; attention: number; questions: number; collapsed: boolean; onCollapse: () => void }
+interface SidebarProps { active: SectionId | null; settings: boolean; attention: AttentionPresentation; questions: number; collapsed: boolean; onCollapse: () => void }
 
 export function Sidebar({ active, settings, attention, questions, collapsed, onCollapse }: SidebarProps) {
-  const badge = (id: SectionId): number => (id === 'overview' ? attention : id === 'questions' ? questions : 0);
   return (
     <nav className={`sidebar${collapsed ? ' collapsed' : ''}`} aria-label="Sections">
       <div className="brand"><span className="logo" aria-hidden="true">π</span><span className="brand-name">pi console</span></div>
@@ -18,7 +18,8 @@ export function Sidebar({ active, settings, attention, questions, collapsed, onC
             <a href={hrefFor(id)} aria-label={sectionMeta[id].label} aria-current={active === id ? 'page' : undefined} title={sectionMeta[id].hint}>
               <span className="nav-icon" aria-hidden="true">{sectionMeta[id].icon}</span>
               <span className="nav-label">{sectionMeta[id].label}</span>
-              {badge(id) > 0 && <span className={`nav-badge${id === 'overview' ? ' hot' : ''}`} aria-label={`${String(badge(id))} waiting`}>{badge(id)}</span>}
+              {id === 'overview' && attention.badge && <span className={`nav-badge${attention.status === 'ready' ? ' hot' : ''}`} aria-label={attention.label} data-attention={attention.status}>{attention.badge}</span>}
+              {id === 'questions' && questions > 0 && <span className="nav-badge" aria-label={`${String(questions)} waiting`}>{questions}</span>}
               <Kbd>{index + 1}</Kbd>
             </a>
           </li>
@@ -46,7 +47,7 @@ export function TopBar({ title, hint, state, wall, session, onPalette, onHelp }:
       {session && <StatusBadge cell={statusCell(session.status)} />}
       {hint && <span className="muted">{hint}</span>}
       <span className="grow" />
-      <FleetPulse sessions={state.sessions} needsYou={state.needsYou.length} />
+      <FleetPulse sessions={state.sessions} attention={attentionPresentation(state)} />
       {staleData(state, wall) && <time className="stale-asof muted" dateTime={new Date(state.lastFrameAt).toISOString()}>As of {clock(new Date(state.lastFrameAt).toISOString())}</time>}
       <span className={`conn tone-${connectionTone[state.connection]}`} role="status" data-connection={state.connection}><span className="dot" />{state.connection}</span>
       <button type="button" className="btn ghost" onClick={onPalette}>Palette <Kbd>:</Kbd></button>
