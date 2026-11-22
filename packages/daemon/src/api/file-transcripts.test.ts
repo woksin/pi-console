@@ -54,6 +54,49 @@ test('exclusive byte cursors traverse metadata, malformed, oversized, UTF-8, CRL
   assert.equal((await reader.page('s', next.nextCursor, 2)).items[0]?.id, 'torn');
 });
 
+test('descending pages traverse sparse byte cursors from the tail without duplicates', async t => {
+  const skipped = '\n{broken}\n' + line({ type: 'metadata' }) + line({ huge: 'x'.repeat(600_000) });
+  const { reader, path } = fixture(t, line(message('first')) + skipped + line(message('last')).replace('\n', '\r\n') + JSON.stringify(message('torn')));
+  const before = statSync(path);
+  const tail = await reader.page('s', Number.MAX_SAFE_INTEGER, 1, 'desc');
+  assert.deepEqual(tail.items.map(item => item.id), ['last']);
+  assert.equal(tail.hasMore, true);
+  const older = await reader.page('s', tail.nextCursor, 1, 'desc');
+  assert.deepEqual(older.items.map(item => item.id), ['first']);
+  assert.equal(older.hasMore, false);
+  assert.ok(older.nextCursor < tail.nextCursor);
+  assert.deepEqual(await reader.page('s', 0, 1, 'desc'), { items: [], nextCursor: 0, hasMore: false });
+  assert.deepEqual((await reader.page('s', older.nextCursor, 1, 'desc')).items, []);
+  assert.equal(statSync(path).mtimeMs, before.mtimeMs);
+  assert.equal(statSync(path).size, before.size);
+});
+
+for (const count of [0, 1, 4, 10_000]) test(`descending ${String(count)}-entry transcripts have exact page boundaries`, async t => {
+  let scanned = 0;
+  const { reader } = fixture(t, Array.from({ length: count }, (_, i) => line(message(String(i)))).join(''), value => { if (/^\d+$/.test(value)) scanned++; return value; });
+  const tail = await reader.page('s', Number.MAX_SAFE_INTEGER, 4, 'desc');
+  validate(tail, apiV1Schema.$defs.transcript, apiV1Schema);
+  assert.deepEqual(tail.items.map(item => item.id), Array.from({ length: Math.min(count, 4) }, (_, i) => String(count - 1 - i)));
+  assert.equal(tail.hasMore, count > 4);
+  if (count === 10_000) {
+    assert.ok(scanned < 3000, `tail must skip the prefix, scanned ${String(scanned)} records`);
+    const found = tail.items.map(item => item.id);
+    let page = tail;
+    while (page.hasMore) {
+      page = await reader.page('s', page.nextCursor, 1000, 'desc');
+      found.push(...page.items.map(item => item.id));
+    }
+    assert.deepEqual(found, Array.from({ length: count }, (_, i) => String(count - i - 1)));
+  }
+});
+
+test('around reports older history independently of newer history', async t => {
+  const { reader } = fixture(t, Array.from({ length: 9 }, (_, i) => line(message(String(i)))).join(''));
+  assert.equal((await reader.around('s', '0', 4))?.hasOlder, false);
+  assert.equal((await reader.around('s', '4', 4))?.hasOlder, true);
+  assert.equal((await reader.around('s', '8', 4))?.hasOlder, true);
+});
+
 test('around centers, fills at both ends and revalidates cached offsets on rewrite', async t => {
   const { reader, path, checkpoint } = fixture(t, Array.from({ length: 9 }, (_, i) => line(message(String(i)))).join(''));
   for (const [anchor, ids, more] of [['0', ['0', '1', '2', '3'], true], ['4', ['3', '4', '5', '6'], true], ['8', ['5', '6', '7', '8'], false]] as const) {

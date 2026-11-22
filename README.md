@@ -63,16 +63,22 @@ Every context reset is an inline `⟲` divider in the transcript: what kind it w
 
 ### Keyboard tour
 
-Everything is reachable from the keyboard: `1`-`7` switch views, `j`/`k` move, `Enter` opens, `Esc` goes back, `?` shows the map.
+Everything is reachable from the keyboard: `1`-`7` switch views, `j`/`k` move, `Enter` opens, `Esc` goes back, `?` shows the map. In Requests, `[` / `]` step the state filter back and forward, `o` cycles the origin filter and `S` cycles the session filter.
 
 <img src="docs/media/web-tour.gif" alt="Animation: Overview, then Fleet, then a session scrolled to its reset divider, then the Timeline, all switched with number keys" width="900">
 
 ### Timeline and graph
 
-One time axis for requests, answers, resets, questions and messages; and a messages graph of who talked to whom, nodes coloured by status.
+One time axis for requests, answers, resets, questions and messages. The messages graph connects **lanes to lanes**; session spawn relationships are shown separately. History controls say how much is loaded instead of implying that a bounded window is complete.
 
-<img src="docs/media/web-timeline.webp" alt="Timeline of lanes grouped by repository with request, answer, reset, question and message markers on one time axis" width="900">
-<img src="docs/media/web-graph.webp" alt="Messages graph for two repositories: orchestrator and subagent nodes coloured by status, with message and spawn edges" width="900">
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/media/web-timeline-light.webp">
+  <img src="docs/media/web-timeline.webp" alt="Timeline of lanes grouped by repository with request, answer, reset, question and message markers on one time axis" width="900">
+</picture>
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/media/web-graph-light.webp">
+  <img src="docs/media/web-graph.webp" alt="Lane-to-lane communication edges above a separate session spawn graph, with status glyphs and colours" width="900">
+</picture>
 
 ### Themes
 
@@ -92,12 +98,17 @@ Midnight (default), dawn and high contrast, with a live preview in Settings. Sta
 | Messages graph | [Screenshot](docs/media/web-graph.webp) | [Screenshot](docs/media/web-graph-light.webp) |
 | Timeline | [Screenshot](docs/media/web-timeline.webp) | [Screenshot](docs/media/web-timeline-light.webp) |
 | Work | [Screenshot](docs/media/web-work.webp) | [Screenshot](docs/media/web-work-light.webp) |
-| Session detail | [Screenshot](docs/media/web-session.webp) | [Screenshot](docs/media/web-session-light.webp) |
+| Session detail and native pi memory review controls | [Screenshot](docs/media/web-session.webp) | [Screenshot](docs/media/web-session-light.webp) |
+| Transcript older-history mode | [Screenshot](docs/media/web-transcript-history.webp) | [Screenshot](docs/media/web-transcript-history-light.webp) |
+| Timeline loaded/total history controls | [Screenshot](docs/media/web-timeline-history.webp) | [Screenshot](docs/media/web-timeline-history-light.webp) |
+| Attention unavailable with Retry | [Screenshot](docs/media/web-attention-retry.webp) | [Screenshot](docs/media/web-attention-retry-light.webp) |
 | Settings | [Screenshot](docs/media/web-settings.webp) | [Screenshot](docs/media/web-settings-light.webp) |
 
 ### The terminal UI
 
 The same views, models and keymap in a terminal. It runs on [OpenTUI](https://github.com/sst/opentui) and talks to the daemon over the same loopback API.
+
+The TUI also shows [expanded, wrapped questions](docs/media/tui-question-expanded.webp), [memory paging progress](docs/media/tui-memory-paging.webp), [an older memory proposal with review commands](docs/media/tui-memory-review.webp), [attention unavailable with a retry hint](docs/media/tui-attention-retry.webp), and [Settings scrolled in a short terminal](docs/media/tui-settings-scroll.webp). These terminal captures use midnight; the web gallery above pairs midnight and dawn.
 
 <img src="docs/media/tui-tour.gif" alt="Animation of the terminal UI: Overview, Fleet, a session filtered to its reset divider, the command palette and the Timeline" width="900">
 
@@ -174,16 +185,16 @@ Everything is derived from the append-only event log, so every screen can be reb
 
 pi sessions can run shell commands and hold credentials, so the console treats its own surface as hostile territory. The full threat model is in [docs/security.md](docs/security.md) and [ADR-0006](docs/adr/0006-security-model.md).
 
-- **Loopback only.** The daemon binds `127.0.0.1`; a Host allowlist and an Origin check (plus a CSRF header for writes) defend against DNS rebinding and cross-site requests.
-- **Token on every request.** A 256-bit random token in an owner-only (0600) file, removed from the URL after exchange, `HttpOnly` cookie, rotation and scoped read-only tokens.
+- **Loopback only.** The daemon binds `127.0.0.1`. Every request must carry an allowed loopback `Host` (`127.0.0.1:<port>` or `localhost:<port>`), an `Origin` (when sent) that matches exactly, and no `Sec-Fetch-Site: cross-site`; otherwise it is refused. This defends against DNS rebinding and cross-site requests.
+- **Token on every API request.** A 256-bit random token in an owner-only (0600) file in an owner-only (0700) data directory, created on first start and reused. The web and terminal clients send it as `Authorization: Bearer`. The web client reads it from the launch link's `#token=` fragment (which never reaches a server) or a paste, scrubs it from the address bar and keeps it in tab-scoped `sessionStorage`; it never uses a cookie or `localStorage`. There is no automatic rotation: to rotate, stop the daemon, delete the token file and start it again. Tokens in a URL query string and cookies do not authenticate.
 - **Strict CSP.** The web bundle is served with a strict Content-Security-Policy and no external network.
 - **Transcripts are untrusted text.** Model and attacker-written content is rendered as text, never HTML; control sequences are stripped in the TUI.
-- **Read-only in M1.** No intervention path exists yet; later writes are typed commands with an audit trail.
+- **Read-only except memory review.** The ordinary token cannot change anything. With daemon review enabled, a separate `memory-control-token` lets the consoles POST a memory review request (**Confirm…** / **Reject…**) for a native human confirmation in pi; the console never writes memory itself. Answering, steering, pausing and other interventions do not exist yet; later writes are typed commands with an audit trail.
 - **Secrets are redacted** at ingestion (fail closed) and again on return.
 
 ## Demo data and regenerating the media
 
-All demo data is synthetic: `npm run generate` rebuilds the fixture used by the media pipeline and demo launcher. `npm run media` regenerates `docs/media/`, including every main web view in midnight and dawn and the [VHS terminal recording](scripts/media/tui.tape). It needs Chromium, `ffmpeg` and `cwebp`; VHS additionally needs `vhs` and `ttyd`. Without VHS, the terminal recording falls back to the existing PTY frame capture and says so. See [docs/media/README.md](docs/media/README.md) for commands, the shot list, budget and determinism notes. Media generation is manual, not part of CI.
+All demo data is synthetic: `npm run generate` rebuilds the fixture used by the media pipeline and demo launcher. Gallery-only extensions of that fixture demonstrate long questions, memory backfill and unavailable attention without reading local pi data. `npm run media` regenerates `docs/media/`, including every main web view and its history/retry scenes in midnight and dawn and the [VHS terminal recording](scripts/media/tui.tape). Intermediate frames are removed when the command exits. It needs Chromium, `ffmpeg` and `cwebp`; VHS additionally needs `vhs` and `ttyd`. Without VHS, the terminal recording falls back to the existing PTY frame capture and says so. See [docs/media/README.md](docs/media/README.md) for commands, the shot list, budget and determinism notes. Media generation is manual, not part of CI.
 
 ## Status
 

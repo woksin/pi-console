@@ -86,11 +86,16 @@ test('requests show uncertain and possibly-unseen labels, filter with the shared
   assert.ok(frame.includes('origin all'));
   await harness.ui.press('[');
   await harness.ui.waitFor('state all');
-  for (let step = 0; step < 12 && !flat(harness.ui.frame()).includes('opens the transcript'); step++) await harness.ui.press('j');
+  for (let step = 0; step < 12 && !flat(await harness.ui.waitFor(() => true)).includes('opens the transcript'); step++) await harness.ui.press('j');
   await harness.ui.waitFor('opens the transcript');
   await harness.ui.press('RETURN');
-  for (let wait = 0; wait < 40 && !harness.ui.frame().includes('paused'); wait++) { await new Promise(resolve => setTimeout(resolve, 100)); await harness.ui.settle(); }
-  frame = flat(harness.ui.frame());
+  frame = await harness.ui.waitFor(() => true);
+  for (let wait = 0; wait < 40 && !frame.includes('paused'); wait++) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    await harness.ui.settle();
+    frame = await harness.ui.waitFor(() => true);
+  }
+  frame = flat(frame);
   assert.ok(frame.includes('paused'), 'paused at the prompt once the transcript has loaded');
   assert.ok(!frame.includes('following tail'), 'opened scrolled to the prompt, not following the tail');
   await harness.ui.press('ESCAPE');

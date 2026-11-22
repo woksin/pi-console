@@ -23,8 +23,9 @@ Checks: `npm test -w @pi-console/web` (unit), `npm run e2e -w @pi-console/web` (
 ## Behaviour worth knowing
 
 - **Live and honest**: an SSE stream with resume (`Last-Event-ID`), a snapshot refetch on a gap, and backoff. When the daemon goes away the last data stays on screen under a banner (see `offline.png`) and the UI reconnects by itself. Needs-you/health refreshes are debounced with a trailing refresh, never dropped while one is in flight.
-- **Jump to the exact line**: "Open in session" on an attention item pages the transcript history until the entry is present (retention is 2,500 lines, raised to 20,000 for a deliberate jump), scrolls once, and highlights it.
-- **Follow / pause**: the transcript follows the tail. Scrolling up (wheel, touch, PageUp/↑/Home) or `f` pauses it, and while paused the viewport is pinned to a line id, so evicted or merged history never shifts what you are reading.
+- **Newest entries first**: opening or reopening a session fetches one 500-entry tail page, without scanning its history. Scroll to the top or choose **Load older** to page back; **Load newer** moves forward through history. The movable window retains at most 2,500 entries. Loading and error states keep navigation honest; **Retry** is keyboard reachable.
+- **Jump to the exact line**: "Open in session" on an attention item fetches a window around the entry, scrolls to it and highlights it. Reopening the same jump works again; a missing entry or failed jump falls back to the newest window.
+- **Follow / pause**: the transcript follows the live tail. Scrolling up (wheel, touch, PageUp/↑/Home) or `f` pauses it. While paused the viewport is pinned to a line id across page merges, clamping to the nearest retained edge if that line is evicted. Historical windows never splice in live entries across an unloaded gap. **Return to live** fetches a fresh tail window. Resuming follow (`f`) refreshes only a detached historical window and preserves the search filter. A gap reconnect preserves a paused window and offers **Return to live**; following readers refresh their tail without blanking the pane.
 - **Timeline details**: click a marker, or focus it and press `Enter` / `Space`, to read its kind, lane, session id, timestamp and full text below the timeline.
 - **Timeline history**: bounded collections show loaded/total counts for sessions, requests, questions, messages and resets, independent of zoom. Each collection has a **Load older** button until its history is complete; a limited-history notice warns when older data may be missing.
 - Long transcripts use `content-visibility` rather than virtualization (accepted for M1).
@@ -54,8 +55,14 @@ The bindings are defined once in `packages/viewmodels/src/keymap` (press `?` for
 | `f` | Toggle follow-tail |
 | `y` | Copy id |
 | `v` | List ↔ graph (messages) |
-| `t`, `+` `-`, `h` `l` | Time scrubber, zoom, pan (graph, timeline) |
+| `t` | Last-activity time scrubber (messages graph) |
+| `+` `-`, `h` `l` | Zoom, pan (timeline) |
 | `Space` | Fold a fleet group |
+| `[` `]` | Requests: previous / next state filter (all, open, answered, unanswered, interrupted, uncertain, possibly unseen; wraps) |
+| `o` | Requests: next origin filter (all, human, launch, unproven) |
+| `S` | Requests: next session filter (all, then each session that has requests) |
+
+The messages graph reads canonical lane nodes and directed, counted edges from `/graph`, including lanes without sessions. Session spawn relationships appear separately; only session nodes open session detail. The graph's time scrubber filters edges by their latest activity, retaining all-time counts (not historical message replay). Zoom and pan are timeline-only; the web timeline has no `t` scrubber.
 
 ## Screenshots
 

@@ -100,8 +100,7 @@ export class SessionIngestion {
     const since = now.getTime() - this.#options.backfillWindowDays * 86_400_000;
     const totals: FileStatus = { lagBytes: 0, errors: 0 };
     try {
-      const roots = this.#roots.flatMap(root => root.available() ?? []);
-      const paths = roots.flatMap(root => discover(root, since));
+      const paths = this.#discover(since, totals);
       const saved = new Map((await this.#log.checkpoints(source)).map(checkpoint => [checkpoint.identity, checkpoint]));
       let skipped = 0;
       for (const path of paths) {
@@ -120,6 +119,19 @@ export class SessionIngestion {
       this.#polls++; // An unreadable directory is a finished attempt too: it must not hold the other sources back forever.
       this.#status = { source: 'session-jsonl', files: this.#files.size, ...totals, lastPollAt: now.toISOString() };
     }
+  }
+
+  /** Every failed root or subtree (including unexpected errors) is reported through the source's health counter. */
+  #discover(since: number, totals: FileStatus): string[] {
+    const failed = (): void => { totals.errors++; };
+    return this.#roots.flatMap(root => {
+      const path = root.available();
+      if (path === undefined) {
+        failed();
+        return [];
+      }
+      return discover(path, since, failed);
+    });
   }
 
   /** Unread bytes and failures, or `undefined` when the file was already caught up without being opened. */

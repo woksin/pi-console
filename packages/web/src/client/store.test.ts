@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { test, type TestContext } from 'node:test';
-import type { Event, MemoryItem, SessionMemory, SessionUpdate, TranscriptEntry } from '@pi-console/contract';
+import type { Event, Graph, MemoryItem, SessionMemory, SessionUpdate, TranscriptEntry } from '@pi-console/contract';
+import { generate } from '@pi-console/testkit';
 import { clockNow } from '../app/hooks.ts';
 import { ConsoleStore, reconnectDelays, staleAfterMs, type Clock } from './store.ts';
-import type { Api } from './api.ts';
+import { createApi, type Api } from './api.ts';
 
 const clock: Clock = { now: () => 0, setTimeout: () => 0, clearTimeout: () => undefined };
 
@@ -16,24 +17,28 @@ const entry = (cursor: number): TranscriptEntry => ({
 function history(total: number, failFirst = 0): { api: Api; calls: () => number } {
   let calls = 0;
   const api = {
-    transcript: (_session: string, after: number, limit: number) => {
+    transcript: (_session: string, after: number | undefined, limit: number, options?: { order?: string }) => {
       calls++;
       if (calls <= failFirst) return Promise.reject(new Error('unreachable'));
-      const items = Array.from({ length: Math.max(0, Math.min(limit, total - after)) }, (_, index) => entry(after + index + 1));
-      const nextCursor = after + items.length;
-      return Promise.resolve({ items, nextCursor, hasMore: nextCursor < total });
+      const descending = options?.order === 'desc';
+      const end = descending ? (after ?? total + 1) - 1 : Math.min(total, (after ?? 0) + limit);
+      const start = descending ? Math.max(1, end - limit + 1) : (after ?? 0) + 1;
+      const items = Array.from({ length: Math.max(0, end - start + 1) }, (_, index) => entry(start + index));
+      return Promise.resolve({ items, nextCursor: descending ? start : end, hasMore: descending ? start > 1 : end < total });
     },
   } as unknown as Api;
   return { api, calls: () => calls };
 }
 
-test('opening a long session loads the newest history, not the oldest: it pages to the end and keeps the last 2,500', async () => {
-  const store = new ConsoleStore(history(6000).api, clock);
+test('opening a long session fetches just one descending tail page', async () => {
+  const { api, calls } = history(6000);
+  const store = new ConsoleStore(api, clock);
   await store.loadTranscript('s1');
   const loaded = store.getState().transcripts.s1 ?? [];
-  assert.equal(loaded.length, 2500);
+  assert.equal(calls(), 1);
+  assert.equal(loaded.length, 500);
   assert.equal(loaded.at(-1)?.cursor, 6000, 'the tail is present');
-  assert.equal(loaded[0]?.cursor, 3501);
+  assert.equal(loaded[0]?.cursor, 5501);
 });
 
 test('a failed history load is retried on the next open instead of being cached', async () => {
@@ -62,6 +67,7 @@ test('a windowed snapshot is paged older-ward on request; pages merge without du
   const calls: unknown[] = [];
   const snapshot = windowedSnapshot([job('j4', 'running', '2026-01-04T00:00:00Z'), job('j3', 'done', '2026-01-03T00:00:00Z')], 4);
   const api = {
+    graph: () => Promise.resolve(null),
     page: (_name: string, params: unknown) => { calls.push(params); return Promise.resolve({ ...emptyList, items: older, total: 4 }); },
     stream: snapshotStream(snapshot),
     needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null),
@@ -80,6 +86,7 @@ test('a resnapshot voids exhausted paging so dropped rows can be reloaded', asyn
   let emit: (frame: unknown) => void = () => undefined;
   let pages = 0;
   const api = {
+    graph: () => Promise.resolve(null),
     page: () => { pages++; return Promise.resolve({ ...emptyList, items: [job('j1', 'done', '2026-01-01T00:00:00Z')], total: 2 }); },
     stream: (_seq: number, _signal: AbortSignal, onFrame: (frame: unknown) => void) => { emit = onFrame; onFrame(windowedSnapshot([job('j4', 'running', '2026-01-04T00:00:00Z')], 2)); return new Promise<void>(() => undefined); },
     needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null),
@@ -101,7 +108,7 @@ test('the attention list counts as loaded only once a fetch of it succeeds, so "
   let pending = Promise.withResolvers<[]>();
   let calls = 0;
   const api = {
-    needsYou: () => { calls++; return pending.promise; }, health: () => Promise.resolve(null),
+    needsYou: () => { calls++; return pending.promise; }, health: () => Promise.resolve(null), graph: () => Promise.resolve(null),
   } as unknown as Api;
   const store = new ConsoleStore(api, clock);
   assert.equal(store.getState().needsYouLoaded, false);
@@ -190,7 +197,7 @@ const settle = () => new Promise<void>(resolve => { setImmediate(resolve); });
 function streamingStore(context: TestContext, overrides: object = {}) {
   context.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 0 });
   const connection = lifecycleStream();
-  const api = { needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null), stream: connection.stream, ...overrides } as unknown as Api;
+  const api = { needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null), graph: () => Promise.resolve(null), stream: connection.stream, ...overrides } as unknown as Api;
   const store = new ConsoleStore(api, {
     now: () => Date.now(),
     setTimeout: (callback, ms) => setTimeout(callback, ms) as unknown as number,
@@ -200,6 +207,77 @@ function streamingStore(context: TestContext, overrides: object = {}) {
   store.start();
   return { store, ...connection, tick: async (ms: number) => { context.mock.timers.tick(ms); await settle(); } };
 }
+
+test('manual graph refresh bypasses the event throttle; snapshots and session updates retain the last good graph on failure', async t => {
+  let calls = 0;
+  let fail = false;
+  const graph: Graph = { nodes: [{ laneId: 'L192', label: 'Worker', repositoryId: null }], edges: [] };
+  const { store, emitters, tick } = streamingStore(t, { graph: () => { calls++; return fail ? Promise.reject(new Error('offline')) : Promise.resolve(graph); } });
+  await store.refresh();
+  assert.deepEqual(store.getState().graph, graph);
+  await store.refresh();
+  assert.equal(calls, 2, 'explicit refresh does not wait for the event throttle');
+  emitters[0](windowedSnapshot([], 0));
+  await tick(1999); assert.equal(calls, 2);
+  await tick(1); assert.equal(calls, 3, 'a snapshot refreshes the canonical graph');
+  fail = true;
+  const session = generate().fixture.sessions[0];
+  emitters[0]({ seq: 6, type: 'session.updated', occurredAt: session.updatedAt, payload: session });
+  await tick(2000);
+  assert.equal(calls, 4);
+  assert.deepEqual(store.getState().graph, graph, 'a failed read does not erase the graph');
+});
+
+test('transcript floods never refetch the graph; message bursts get one trailing read after two seconds', async t => {
+  let calls = 0;
+  const { store, emitters, tick } = streamingStore(t, { graph: () => { calls++; return Promise.resolve({ nodes: [], edges: [] }); } });
+  emitters[0](windowedSnapshot([], 0)); await settle();
+  assert.equal(calls, 1);
+  for (let cursor = 1; cursor <= 50; cursor++) {
+    emitters[0]({ seq: cursor + 5, type: 'transcript.appended', occurredAt: entry(cursor).at, payload: entry(cursor) });
+    await tick(100);
+  }
+  assert.equal(calls, 1, 'transcript-driven derived refreshes do not read the graph');
+  const message = generate().fixture.messages[0];
+  emitters[0]({ seq: 56, type: 'message.sent', occurredAt: message.sentAt, payload: message }); await settle();
+  assert.equal(calls, 2, 'a message triggers an immediate read when outside the throttle');
+  for (let seq = 57; seq < 77; seq++) emitters[0]({ seq, type: 'message.sent', occurredAt: message.sentAt, payload: message });
+  await tick(1999); assert.equal(calls, 2);
+  await tick(1); assert.equal(calls, 3, 'one trailing read covers the burst');
+  emitters[0]({ seq: 77, type: 'message.sent', occurredAt: message.sentAt, payload: message });
+  store.stop(); await tick(2000);
+  assert.equal(calls, 3, 'stop cancels the pending read');
+});
+
+test('reconnect refreshes the graph, but subsequent live heartbeats do not', async t => {
+  let calls = 0;
+  const { emitters, disconnects, tick } = streamingStore(t, { graph: () => { calls++; return Promise.resolve({ nodes: [], edges: [] }); } });
+  emitters[0](windowedSnapshot([], 0)); await settle();
+  disconnects[0](); await settle(); await tick(reconnectDelays[0]);
+  emitters[1]('heartbeat'); await tick(2000);
+  assert.equal(calls, 2, 'the first live frame on a reconnected stream requests the graph');
+  emitters[1]('heartbeat'); await tick(2000);
+  assert.equal(calls, 2);
+});
+
+test('late graph reads cannot overwrite a resnapshot or a stopped store', async t => {
+  const reads = [Promise.withResolvers<Graph>(), Promise.withResolvers<Graph>(), Promise.withResolvers<Graph>()];
+  let calls = 0;
+  const { store, emitters, tick } = streamingStore(t, { graph: () => reads[calls++].promise });
+  const old = store.refresh();
+  emitters[0](windowedSnapshot([], 0)); await tick(350);
+  assert.equal(calls, 1, 'resnapshot does not overlap an in-flight graph read');
+  reads[0].resolve({ nodes: [], edges: [] }); await old;
+  assert.equal(store.getState().graph, null, 'the old snapshot response is ignored');
+  await tick(1999); assert.equal(calls, 1);
+  await tick(1); assert.equal(calls, 2);
+  const current: Graph = { nodes: [{ laneId: 'current', label: 'Current', repositoryId: null }], edges: [] };
+  reads[1].resolve(current); await settle();
+  assert.deepEqual(store.getState().graph, current);
+  const pending = store.refresh(); store.stop();
+  reads[2].resolve({ nodes: [], edges: [] }); await pending;
+  assert.deepEqual(store.getState().graph, current);
+});
 
 test('a silent first connection is aborted and retried with backoff on every attempt', async t => {
   const { store, signals, tick } = streamingStore(t);
@@ -325,37 +403,101 @@ test('heartbeat-only resumes retry failed attention and health reads exactly onc
   }
 });
 
-test('pending session detail, transcript and memory finish after a snapshot-free stalled reconnect', async t => {
+test('pending detail, tail and memory finish after a resumable reconnect; older transcript pages stay explicit', async t => {
   const detail = Promise.withResolvers<Awaited<ReturnType<Api['session']>>>();
   const transcript = Promise.withResolvers<Awaited<ReturnType<Api['transcript']>>>();
+  const transcriptQueries: Parameters<Api['transcript']>[] = [];
   const memory = Promise.withResolvers<SessionMemory>();
   const calls = { detail: 0, transcript: 0, memory: 0 };
   const session = { id: 's1', repositoryId: 'r', name: '', laneId: 'l', role: 'main' as const, parentSessionId: null, orchestratorSessionId: 's1',
     branch: '', cwd: '', model: '', status: 'idle' as const, startedAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', contextPercent: 0, samples: [] };
   const { store, emitters, lastEventIds, tick } = streamingStore(t, {
     session: () => { calls.detail++; return detail.promise; },
-    transcript: () => { calls.transcript++; return calls.transcript === 1 ? transcript.promise : Promise.resolve({ items: [entry(2)], nextCursor: 2, hasMore: false }); },
+    transcript: (...params: Parameters<Api['transcript']>) => {
+      transcriptQueries.push(params); calls.transcript++;
+      return calls.transcript === 1 ? transcript.promise : Promise.resolve({ items: [entry(1)], nextCursor: 1, hasMore: false });
+    },
     sessionMemory: () => { calls.memory++; return memory.promise; }, memoryItems: () => Promise.resolve([proposedItem]),
   });
   const snapshot = windowedSnapshot([], 0);
   emitters[0]({ ...snapshot, payload: { ...snapshot.payload, sessions: [session] } });
   const gapCount = store.getState().gapCount;
   const pending = [store.loadSessionDetail('s1'), store.loadTranscript('s1'), store.loadSessionMemory('s1')];
+  const clockAnchor = store.getState().liveAtReceivedAt;
   await tick(staleAfterMs + staleAfterMs / 3);
   assert.equal(store.getState().connection, 'offline');
   await tick(reconnectDelays[0]);
+  const beforeResume = clockNow(store.getState(), Date.now());
   emitters[1]('heartbeat');
+  assert.equal(store.getState().liveAtReceivedAt, clockAnchor, 'resume does not reset the event-time anchor');
+  assert.equal(clockNow(store.getState(), Date.now()), beforeResume, 'resume does not rewind the displayed clock');
   assert.deepEqual(lastEventIds, [0, snapshot.seq]);
   assert.equal(store.getState().gapCount, gapCount, 'a resumed stream does not retrigger the session view effects');
+  assert.equal(transcriptQueries[0][3]?.signal?.aborted, false, 'the in-flight tail read survives resume');
   detail.resolve({ session, jobs: [job('older', 'done', session.startedAt)], requests: [], questions: [], resets: [], subagents: [] });
-  transcript.resolve({ items: [entry(1)], nextCursor: 1, hasMore: true });
+  transcript.resolve({ items: [entry(2)], nextCursor: 2, hasMore: true });
   memory.resolve(memorySummary('s1'));
   await Promise.all(pending);
   assert.deepEqual(store.getState().jobs.map(item => item.id), ['older']);
-  assert.deepEqual(store.getState().transcripts.s1, [entry(1), entry(2)], 'pagination continues after the resume');
+  assert.deepEqual(store.getState().transcripts.s1, [entry(2)], 'the pending tail page completes without scanning older history');
+  assert.equal(store.getState().transcriptHistory.s1?.older, true, 'descending hasMore means older history is available');
+  assert.deepEqual(transcriptQueries[0].slice(0, 3), ['s1', undefined, 500]);
+  assert.equal(transcriptQueries[0][3]?.order, 'desc');
   assert.deepEqual(store.getState().memory.s1, memorySummary('s1'));
   assert.deepEqual(store.getState().memoryItems.s1, [proposedItem]);
-  assert.deepEqual(calls, { detail: 1, transcript: 2, memory: 1 }, 'the original reads complete without another view load');
+  assert.deepEqual(calls, { detail: 1, transcript: 1, memory: 1 }, 'the original reads complete without another view load');
+  await store.pageTranscript('s1', 'older');
+  assert.deepEqual(store.getState().transcripts.s1, [entry(1), entry(2)], 'older navigation still works after resume');
+  assert.equal(transcriptQueries[1][1], 2);
+  assert.equal(transcriptQueries[1][3]?.order, 'desc');
+  assert.deepEqual(calls, { detail: 1, transcript: 2, memory: 1 }, 'only explicit navigation fetches another transcript page');
+});
+
+test('a gap resnapshot preserves a paused transcript window and revision until return to live', async t => {
+  const { api, calls } = history(6000);
+  const { store, emitters } = streamingStore(t, { transcript: api.transcript.bind(api) });
+  const snapshot = windowedSnapshot([], 0);
+  emitters[0](snapshot);
+  await store.loadTranscript('s1');
+  await store.pageTranscript('s1', 'older');
+  store.transcriptReader.following({ sessionId: 's1', following: false });
+  const before = store.getState();
+  const progress = before.transcriptHistory.s1;
+  assert.ok(progress);
+  emitters[0]({ ...snapshot, seq: snapshot.seq + 1 });
+  await store.transcriptReader.refresh({ sessionId: 's1' });
+  assert.equal(store.getState().transcripts.s1, before.transcripts.s1, 'the reader keeps the same anchored lines');
+  assert.equal(store.getState().transcriptHistory.s1?.revision, progress.revision, 'the transcript must not remount');
+  assert.equal(store.getState().transcriptHistory.s1?.newer, true, 'return to live is offered without discarding history');
+  assert.equal(calls(), 2, 'a paused gap does not fetch or clear the tail');
+  await store.transcriptReader.resume({ sessionId: 's1' });
+  assert.equal(calls(), 3);
+  assert.equal(store.getState().transcripts.s1?.at(-1)?.cursor, 6000);
+  assert.equal(store.getState().transcripts.s1?.length, 500);
+});
+
+test('a gap while following refreshes the tail without blanking or remounting and keeps concurrent arrivals', async t => {
+  const tail = Promise.withResolvers<Awaited<ReturnType<Api['transcript']>>>();
+  let calls = 0;
+  const { store, emitters } = streamingStore(t, {
+    transcript: () => ++calls === 1 ? Promise.resolve({ items: [entry(1)], nextCursor: 1, hasMore: false }) : tail.promise,
+  });
+  const snapshot = windowedSnapshot([], 0);
+  emitters[0](snapshot);
+  await store.loadTranscript('s1');
+  const before = store.getState();
+  const progress = before.transcriptHistory.s1;
+  assert.ok(progress);
+  emitters[0]({ ...snapshot, seq: snapshot.seq + 1 });
+  const refresh = store.transcriptReader.refresh({ sessionId: 's1' });
+  assert.equal(store.getState().transcripts.s1, before.transcripts.s1, 'the old tail remains visible while refreshing');
+  assert.equal(store.getState().transcriptHistory.s1?.revision, progress.revision);
+  emitters[0]({ seq: snapshot.seq + 2, type: 'transcript.appended', occurredAt: entry(3).at, payload: entry(3) });
+  tail.resolve({ items: [entry(1), entry(2)], nextCursor: 1, hasMore: true });
+  await refresh;
+  assert.deepEqual(store.getState().transcripts.s1, [entry(1), entry(2), entry(3)]);
+  assert.equal(store.getState().transcriptHistory.s1?.revision, progress.revision, 'a fresh tail does not reset follow state');
+  assert.equal(calls, 2);
 });
 
 test('pending history stays deduplicated and completes across a resumable reconnect', async t => {
@@ -383,7 +525,7 @@ test('dirty totals and their debounced derived refresh survive a disconnect and 
   let healthCalls = 0;
   const { store, emitters, disconnects, lastEventIds, tick } = streamingStore(t, {
     page: (_name: string, params: unknown) => { pageParams.push(params); return page.promise; },
-    needsYou: () => { attentionCalls++; return Promise.resolve([]); }, health: () => { healthCalls++; return Promise.resolve(null); },
+    needsYou: () => { attentionCalls++; return Promise.resolve([]); }, health: () => { healthCalls++; return Promise.resolve(null); }, graph: () => Promise.resolve(null),
   });
   emitters[0](windowedSnapshot([], 0));
   await tick(350);
@@ -563,7 +705,7 @@ test('a resnapshot invalidates visible memory without touching hidden sessions',
     stream: (_seq: number, _signal: AbortSignal, onFrame: (frame: unknown) => void) => { emit = onFrame; onFrame(windowedSnapshot([], 0)); return new Promise<void>(() => undefined); },
     sessionMemory: () => { calls++; return Promise.resolve(memorySummary('s1')); },
     memoryItems: () => Promise.resolve([proposedItem]),
-    needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null),
+    needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null), graph: () => Promise.resolve(null),
   } as unknown as Api;
   const timers = new Map<number, () => void>();
   let key = 0;
@@ -593,9 +735,12 @@ for (const cached of [false, true]) test(`an items failure preserves the ${cache
   now = 5000;
   fail = true;
   await store.loadSessionMemory('s1');
-  assert.equal(store.getState(), good);
+  assert.deepEqual(store.getState().memoryStatus.s1, { status: 'error', message: 'unreachable' });
+  assert.equal(store.getState().memory.s1, good.memory.s1);
+  assert.equal(store.getState().memoryItems.s1, good.memoryItems.s1);
   fail = false;
   await store.loadSessionMemory('s1');
+  assert.deepEqual(store.getState().memoryStatus.s1, { status: 'loaded' });
   assert.equal(calls, cached ? 3 : 2);
   assert.deepEqual(store.getState().memory.s1, memorySummary('s1'));
   assert.deepEqual(store.getState().memoryItems.s1, [proposedItem]);
@@ -616,11 +761,75 @@ test('a failed session memory refresh preserves the last good copy and retries i
   const good = store.getState();
   now = 5000;
   await store.loadSessionMemory('s1');
-  assert.equal(store.getState(), good);
+  assert.deepEqual(store.getState().memoryStatus.s1, { status: 'error', message: 'unreachable' });
+  assert.equal(store.getState().memory.s1, good.memory.s1);
+  assert.equal(store.getState().memoryItems.s1, good.memoryItems.s1);
   await store.loadSessionMemory('s1');
+  assert.deepEqual(store.getState().memoryStatus.s1, { status: 'loaded' });
   assert.equal(calls, 3);
   assert.deepEqual(store.getState().memory.s1, memorySummary('s1'));
   assert.deepEqual(store.getState().memoryItems.s1, [proposedItem]);
+});
+
+for (const endpoint of ['summary', 'items']) test(`a delayed ${endpoint} failure is loading, then error, and a successful retry replaces it`, async () => {
+  const pending = Promise.withResolvers<Response>();
+  let fail = true;
+  const api = createApi('token', '', url => {
+    const summary = typeof url === 'string' && url.includes('/sessions/');
+    if (fail && summary === (endpoint === 'summary')) return pending.promise;
+    return Promise.resolve(Response.json(summary ? memorySummary('s1') : { items: [proposedItem] }));
+  });
+  const store = new ConsoleStore(api, clock);
+  const first = store.loadSessionMemory('s1');
+  assert.deepEqual(store.getState().memoryStatus.s1, { status: 'loading' });
+  pending.resolve(new Response(null, { status: 503 }));
+  await first;
+  const status = store.getState().memoryStatus.s1;
+  assert.equal(status?.status, 'error');
+  assert.match(status?.status === 'error' ? status.message : '', /503/);
+  assert.equal(store.getState().memory.s1, undefined);
+  assert.equal(store.getState().memoryItems.s1, undefined);
+  fail = false;
+  const retry = store.loadSessionMemory('s1');
+  assert.deepEqual(store.getState().memoryStatus.s1, { status: 'loading' });
+  await retry;
+  assert.deepEqual(store.getState().memoryStatus.s1, { status: 'loaded' });
+  assert.deepEqual(store.getState().memory.s1, memorySummary('s1'));
+  assert.deepEqual(store.getState().memoryItems.s1, [proposedItem]);
+});
+
+test('only a successful canonical read with storeDetected false confirms absence', async () => {
+  const absent = { ...memorySummary('s1'), storeDetected: false };
+  const api = { sessionMemory: () => Promise.resolve(absent), memoryItems: () => Promise.resolve([]) } as unknown as Api;
+  const store = new ConsoleStore(api, clock);
+  await store.loadSessionMemory('s1');
+  assert.deepEqual(store.getState().memoryStatus.s1, { status: 'absent' });
+  assert.deepEqual(store.getState().memory.s1, absent);
+  assert.deepEqual(store.getState().memoryItems.s1, []);
+});
+
+for (const endpoint of ['summary', 'items']) test(`a missing ${endpoint} endpoint is an error, not a confirmed absent store`, async () => {
+  const api = createApi('token', '', url => {
+    const summary = typeof url === 'string' && url.includes('/sessions/');
+    return Promise.resolve(summary === (endpoint === 'summary') ? new Response(null, { status: 404 }) : Response.json(summary ? memorySummary('s1') : { items: [] }));
+  });
+  const store = new ConsoleStore(api, clock);
+  await store.loadSessionMemory('s1');
+  assert.deepEqual(store.getState().memoryStatus.s1, { status: 'error', message: 'Memory endpoints unavailable.' });
+});
+
+test('a synchronous memory transport failure is recorded and retryable', async () => {
+  let fail = true;
+  const api = {
+    sessionMemory: () => { if (fail) throw new Error('offline'); return Promise.resolve(memorySummary('s1')); },
+    memoryItems: () => Promise.resolve([]),
+  } as unknown as Api;
+  const store = new ConsoleStore(api, clock);
+  await store.loadSessionMemory('s1');
+  assert.deepEqual(store.getState().memoryStatus.s1, { status: 'error', message: 'offline' });
+  fail = false;
+  await store.loadSessionMemory('s1');
+  assert.deepEqual(store.getState().memoryStatus.s1, { status: 'loaded' });
 });
 
 test('only marked visible session updates refetch; replacement clears stale rows and marker never persists', async () => {
@@ -630,7 +839,7 @@ test('only marked visible session updates refetch; replacement clears stale rows
   const timers = new Map<number, () => void>(); let key = 0;
   const api = {
     stream: (_seq: Event['seq'], _signal: AbortSignal, event: (frame: Event) => void) => { emit = event; return new Promise(() => undefined); },
-    needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null),
+    needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null), graph: () => Promise.resolve(null),
     sessionMemory: (id: SessionMemory['sessionId']) => { calls++; return Promise.resolve(memorySummary(id)); },
     memoryItems: () => Promise.resolve(items), memoryAvailability: () => Promise.reject(new Error('unavailable')),
   } as unknown as Api;
@@ -662,7 +871,7 @@ test('stop and restart generations reject late memory responses', async () => {
   let calls = 0;
   const api = {
     sessionMemory: () => { calls++; return calls === 1 ? new Promise<SessionMemory>(done => { resolve = done; }) : Promise.resolve(memorySummary('s1')); },
-    memoryItems: () => Promise.resolve([proposedItem]), needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null),
+    memoryItems: () => Promise.resolve([proposedItem]), needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null), graph: () => Promise.resolve(null),
     stream: () => new Promise(() => undefined),
   } as unknown as Api;
   const store = new ConsoleStore(api, clock);

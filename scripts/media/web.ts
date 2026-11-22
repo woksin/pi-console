@@ -1,6 +1,7 @@
 // Web captures: the real built bundle against the mock daemon with a frozen stream, so every run draws the same pixels.
 import type { Page } from 'playwright-core';
 import { startRig, type Rig } from '../../packages/web/e2e/harness.ts';
+import { memoryItems } from '../../packages/testkit/src/mock-daemon/memory.ts';
 import { fixedNow, shots, webViews } from './scenes.ts';
 import { FrameSet, wanted, writeStill, type Work } from './capture.ts';
 
@@ -12,14 +13,30 @@ const health = {
 };
 
 /** A frozen-stream rig: speed ≈ 0 publishes only the t=0 events. */
-export const startFrozenRig = (): Promise<Rig> => startRig({ speed: 1e-9 });
+export async function startFrozenRig(): Promise<Rig> {
+  // Co-locate the checked-in memory and transcript fixtures in the session used by the gallery.
+  for (const item of memoryItems()) if (item.sessionId === 's1') {
+    item.sessionId = 's2';
+    item.scope = { kind: 'session', key: 's2' };
+  }
+  const rig = await startRig({ speed: 1e-9 });
+  const question = rig.daemon.store.fixture.questions[0];
+  question.text += '\n\nKeep the cache bounded while preserving enough history to inspect a completed checkpoint. The selected window must apply consistently to the worker queue and its retry budget.\n\nWhich option should the synthetic coordinator use before the next migration checkpoint?';
+  question.options = question.options.map(option => `${option} — retain completed checkpoint metadata for this window, then expire the synthetic cache entries without changing pending decisions or the worker retry budget.`);
+  return rig;
+}
 
-async function openConsole(rig: Rig, options: { theme: Theme; scale: number; route: string }): Promise<Page> {
+async function openConsole(rig: Rig, options: { theme: Theme; scale: number; route: string; before?: (page: Page) => Promise<void> }): Promise<Page> {
   const context = await rig.browser.newContext({ viewport: size, deviceScaleFactor: options.scale, reducedMotion: 'reduce', colorScheme: options.theme === 'dawn' ? 'light' : 'dark' });
   await context.addInitScript(prefs => { localStorage.setItem('pi-console.prefs', prefs); }, JSON.stringify({ theme: options.theme, reducedMotion: true, sidebarCollapsed: false }));
   const page = await context.newPage();
   await page.route('**/api/v1/health', route => route.fulfill({ json: health }));
+  // Synthetic provider capability: the controls request a native pi review, never mutate memory here.
+  await page.route('**/api/v1/sessions/s2/memory-actions', route => route.fulfill({ json: {
+    version: 1, available: true, providerVersion: 1, generation: 'gallery-s2', reason: 'available',
+  } }));
   await page.clock.setFixedTime(new Date(fixedNow));
+  await options.before?.(page);
   await page.goto(`${rig.baseUrl}/#${options.route}?token=${rig.daemon.token}`);
   await page.locator('.conn[data-connection="live"]').waitFor();
   await settle(page);
@@ -52,6 +69,8 @@ async function showTranscriptTail(page: Page): Promise<void> {
 
 /** Scrolls the transcript so the first ⟲ reset divider sits in the middle of the pane, then lets the layout settle. */
 async function showResetDivider(page: Page): Promise<void> {
+  // Session readers now open at the tail; the fixture reset is in older history.
+  await go(page, '/session/s2?entry=entry101');
   await page.locator('.reset-marker').first().waitFor();
   await page.locator('.reset-marker').first().evaluate(marker => {
     let pane = marker.parentElement;
@@ -68,8 +87,60 @@ async function captureWebViews(page: Page, work: Work, suffix: string): Promise<
     const id = `web-${view.id}${suffix}`;
     if (!wanted(work, id)) continue;
     await go(page, view.route);
-    if (view.id === 'session') await showTranscriptTail(page);
+    if (view.id === 'session') {
+      await showTranscriptTail(page);
+      await page.locator('.memory-panel').scrollIntoViewIfNeeded();
+      await page.evaluate(() => { window.scrollTo(0, 0); });
+    }
+    if (view.id === 'transcript-history') await showOlderTranscript(page);
+    if (view.id === 'graph') await page.locator('[aria-label="Lane communication"] .edge.message').first().waitFor({ state: 'attached' });
     writeStill(work, id, await png(page));
+  }
+}
+
+async function showOlderTranscript(page: Page): Promise<void> {
+  await showTranscriptTail(page);
+  await page.getByRole('button', { name: 'Load older', exact: true }).click();
+  await page.getByRole('button', { name: 'Return to live', exact: true }).waitFor();
+  await settle(page);
+}
+
+async function boundedTimeline(page: Page, rig: Rig): Promise<void> {
+  const snapshot = rig.daemon.store.snapshot();
+  snapshot.messages = snapshot.messages.slice(-10);
+  snapshot.bounded.push('messages');
+  // Keep the SSE response open, as in the history e2e fixture, without reconnect races.
+  await page.addInitScript(payload => {
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = (input, init) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+      if (!url.includes('/api/v1/stream')) return nativeFetch(input, init);
+      const stream = new ReadableStream<Uint8Array>({ start(controller) {
+        controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify({ seq: 1, type: 'snapshot', occurredAt: '2026-11-20T12:00:00Z', payload })}\n\n`));
+      } });
+      return Promise.resolve(new Response(stream, { headers: { 'Content-Type': 'text/event-stream' } }));
+    };
+  }, snapshot);
+}
+
+async function historyStills(rig: Rig, work: Work, theme: Theme): Promise<void> {
+  const suffix = theme === 'dawn' ? '-light' : '';
+  const scenes = [
+    { id: 'timeline-history', route: '/timeline', before: (page: Page) => boundedTimeline(page, rig) },
+    { id: 'attention-retry', route: '/overview', before: async (page: Page) => {
+      await page.route('**/api/v1/needs-you', route => route.fulfill({ status: 503, json: { error: 'Synthetic outage' } }));
+    } },
+  ];
+  for (const scene of scenes) {
+    const id = `web-${scene.id}${suffix}`;
+    if (!wanted(work, id)) continue;
+    const page = await openConsole(rig, { theme, scale: 2, route: scene.route, before: scene.before });
+    if (scene.id === 'timeline-history') {
+      await page.getByText('Showing 10 of 40 messages', { exact: true }).waitFor();
+      await page.getByRole('region', { name: 'Timeline history', exact: true }).scrollIntoViewIfNeeded();
+    } else await page.getByRole('button', { name: 'Retry', exact: true }).waitFor();
+    writeStill(work, id, await png(page));
+    await page.context().close();
   }
 }
 
@@ -84,6 +155,7 @@ async function stillsFor(rig: Rig, work: Work, theme: Theme): Promise<void> {
   await showResetDivider(page);
   if (wanted(work, `web-session-resets${suffix}`)) writeStill(work, `web-session-resets${suffix}`, await png(page));
   await page.context().close();
+  await historyStills(rig, work, theme);
 }
 
 async function darkOnlyStills(page: Page, work: Work): Promise<void> {

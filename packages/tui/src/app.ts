@@ -1,15 +1,16 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type EffectCallback, type ReactElement } from 'react';
 import { FlashTracker, LookTracker, paletteItems, pulseViewModel, rememberPick, resolve, type Action, type PaletteInput, type WindowedCollection } from '@pi-console/viewmodels';
 import { Column, Screen, Text, h, useClipboard, useKeys, useSize, useTerminalTitle, useTick } from './view/renderer.ts';
-import type { Store } from './store/store.ts';
+import type { Data, Store } from './store/store.ts';
 import { commit, contextOf, handleKey, initial, reduce, resizeUi, typing, type Bounds, type Section, type UiState } from './state/ui.ts';
 import { terminalContentWidth } from './state/session-layout.ts';
 import { emptyLayout, resumeTranscript, transcriptViewport } from './state/transcript-window.ts';
 import { neutralKey, typedCharacter, type KeyInput } from './state/keys.ts';
 import { Header, banner, footerLine, pulseLine, terminalTitle } from './shell/chrome.ts';
-import { Help, Palette, Settings, helpViewport } from './shell/overlays.ts';
+import { Help, Palette, Settings, helpViewport, settingsViewport } from './shell/overlays.ts';
 import { collectionToLoad, countsOf, historyError, memoryInput, retryHistory, type RequestMemoryAction } from './app-input.ts';
 import { fit, t } from './view/parts.ts';
+import { keepHistorical, transcriptNavigation, useTranscriptLoads, useTranscriptWindow, type PageTranscript } from './transcript-controls.ts';
 import type { Env, SectionView } from './views/common.ts';
 import { overviewView } from './views/overview.ts';
 import { fleetView } from './views/fleet.ts';
@@ -27,7 +28,9 @@ const sectionViews: Record<Section, (env: Env) => SectionView> = {
 export interface AppProps {
   store: Store; endpoint: string; tokenSource: string;
   /** Backfills a session's transcript when it is opened; cleanup cancels the load on close or switch. */
-  loadTranscript: (sessionId: string) => ReturnType<EffectCallback>;
+  loadTranscript: (sessionId: string, entryId?: string) => ReturnType<EffectCallback>;
+  pageTranscript?: PageTranscript;
+  focusTranscript?: (sessionId: string, entryId: string) => void;
   /** Fetches the session's read-only memory summary and items. */
   loadMemory: (sessionId: string) => void;
   loadMoreMemory?: (sessionId: string) => void;
@@ -45,7 +48,7 @@ export interface AppProps {
 }
 
 const boundsOf = (view: SectionView, height: number): Bounds => ({
-  length: view.length, page: Math.max(1, height - 6), fit: view.time?.fit ?? { start: 0, span: 1 }, width: view.time?.width ?? 0, rowAt: view.rowAt, sessionIds: view.sessionIds, transcript: view.transcript ?? emptyLayout, viewport: transcriptViewport(height), detail: view.detail,
+  length: view.length, page: Math.max(1, height - 6), fit: view.time?.fit ?? { start: 0, span: 1 }, width: view.time?.width ?? 0, rowAt: view.rowAt, sessionIds: view.sessionIds, transcript: view.transcript ?? emptyLayout, viewport: view.transcriptRows ?? transcriptViewport(height), detail: view.detail,
 });
 
 const isVerticalArrow = (name: string): boolean => name === 'ArrowDown' || name === 'ArrowUp';
@@ -98,20 +101,15 @@ export function App(props: AppProps): ReactElement {
   const atEnd = ui.cursor[ui.section] >= view.length - 1;
   useEffect(() => { const collection = collectionToLoad(ui, atEnd); if (collection) props.loadMore?.(collection); }, [ui.section, ui.sessionId, atEnd, view.length]);
   useUiEffects(ui, props, uiRef, apply);
+  useTranscriptLoads(ui, props);
+  useTranscriptWindow({ ref: uiRef, apply, data, layout: view.transcript ?? emptyLayout, viewport: boundsOf(view, bodyHeight).viewport });
   useFocusJump(ui, uiRef, viewRef, apply);
   const dataRef = useRef(data);
   dataRef.current = data;
   const heightRef = useRef(bodyHeight);
   heightRef.current = bodyHeight;
 
-  useKeys(key => {
-    retryHistory({ ui: uiRef.current, data: dataRef.current, key: neutralKey(key), length: viewRef.current.length, loadMore: props.loadMore });
-    const memory = memoryInput(uiRef.current, neutralKey(key), dataRef.current, size.width, { request: props.requestMemoryAction, loadMore: props.loadMoreMemory });
-    if (memory) { apply(memory); return; }
-    const current = viewRef.current;
-    const bounds = { ...boundsOf(current, heightRef.current), help: helpViewport(size).bounds };
-    apply(nextState(uiRef.current, key, { palette: dataRef.current, view: current, bounds, copy, needsYouError: dataRef.current.needsYouError, retryNeedsYou: props.retryNeedsYou }));
-  }, text => { apply(pasteInto(uiRef.current, text)); });
+  useAppKeys({ props, uiRef, dataRef, viewRef, heightRef, size, copy, apply });
 
   useTerminalTitle(terminalTitle(ui, data));
   const connectionBanner = banner(data.connection, size.width);
@@ -120,13 +118,31 @@ export function App(props: AppProps): ReactElement {
   const selectSection = (section: Section) => { apply(reduce(uiRef.current, `section.${String(sectionOrder.indexOf(section) + 1)}` as Action, boundsOf(viewRef.current, heightRef.current))); };
 
   return h(Screen, {},
-    h(Header, { ui, width: size.width, attention: data.needsYou.length, connection: data.connection, select: selectSection }),
+    h(Header, { ui, width: size.width, attention: data, connection: data.connection, select: selectSection }),
     ...(showPulse ? [h(Text, { line: pulseLine(pulse, size.width) })] : []),
     ...(connectionBanner ? [h(Text, { line: connectionBanner })] : []),
     h(HistoryError, { collection: failure, width: size.width }),
     h(Column, { grow: 1, paddingX: 1 }, view.render()),
     h(Text, { line: footerLine(ui, size.width) }),
     ...overlays(ui, data, input, size));
+}
+
+interface AppKeys {
+  props: AppProps; uiRef: { current: UiState }; dataRef: { current: Data }; viewRef: { current: SectionView }; heightRef: { current: number };
+  size: ReturnType<typeof useSize>; copy: ReturnType<typeof useClipboard>; apply: (ui: UiState) => void;
+}
+function useAppKeys({ props, uiRef, dataRef, viewRef, heightRef, size, copy, apply }: AppKeys): void {
+  useKeys(key => {
+    retryHistory({ ui: uiRef.current, data: dataRef.current, key: neutralKey(key), length: viewRef.current.length, loadMore: props.loadMore });
+    const memory = memoryInput(uiRef.current, neutralKey(key), dataRef.current, size.width, { request: props.requestMemoryAction, loadMore: props.loadMoreMemory });
+    if (memory) { apply(memory); return; }
+    const current = viewRef.current;
+    const settingsInput = { endpoint: props.endpoint, tokenSource: props.tokenSource, ...dataRef.current.connection, now: (props.clock ?? Date.now)(), counts: countsOf(dataRef.current) };
+    const bounds = { ...boundsOf(current, heightRef.current), help: helpViewport(size).bounds, settings: settingsViewport(size, settingsInput).bounds };
+    const paging = transcriptNavigation({ ui: uiRef.current, data: dataRef.current, key: neutralKey(key), layout: bounds.transcript, viewport: bounds.viewport, load: props.pageTranscript });
+    const next = paging ?? nextState(uiRef.current, key, { palette: dataRef.current, view: current, bounds, copy, needsYouError: dataRef.current.needsYouError, retryNeedsYou: props.retryNeedsYou });
+    apply(keepHistorical(next, dataRef.current, bounds.transcript, bounds.viewport));
+  }, text => { apply(pasteInto(uiRef.current, text)); });
 }
 
 function retryAttention(ui: UiState, key: KeyInput, ctx: KeyContext): boolean {
@@ -151,7 +167,7 @@ interface Size { width: number; height: number }
 function overlays(ui: UiState, data: ReturnType<Store['getSnapshot']>, input: Parameters<typeof Settings>[0]['input'], size: Size): ReactElement[] {
   if (ui.overlay === 'palette') return [h(Palette, { ui, data, width: size.width, height: size.height })];
   if (ui.overlay === 'help') return [h(Help, { width: size.width, height: size.height, scroll: ui.helpScroll })];
-  if (ui.overlay === 'settings') return [h(Settings, { input, width: size.width, height: size.height })];
+  if (ui.overlay === 'settings') return [h(Settings, { input, width: size.width, height: size.height, scroll: ui.settingsScroll })];
   return [];
 }
 
@@ -201,7 +217,6 @@ function useFocusJump(ui: UiState, uiRef: { current: UiState }, viewRef: { curre
 }
 
 function useUiEffects(ui: UiState, props: AppProps, uiRef: { current: UiState }, apply: (next: UiState) => void): void {
-  useEffect(() => { if (ui.sessionId) return props.loadTranscript(ui.sessionId); }, [ui.sessionId]);
   useEffect(() => {
     if (!ui.sessionId || ui.pane !== 'memory') return;
     if (props.watchMemory) return props.watchMemory(ui.sessionId);

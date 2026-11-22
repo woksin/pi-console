@@ -55,10 +55,18 @@ function transcriptResponse(store: Store, sessionId: string, url: URL) {
   if (limit === 0) throw new HttpError(400, 'Invalid limit');
   const around = url.searchParams.get('around');
   if (around !== null) return transcriptAround(store, sessionId, around, limit);
-  const after = queryInteger(url, 'after', 0, Number.MAX_SAFE_INTEGER);
-  const available = store.fixture.transcript.filter(entry => entry.sessionId === sessionId && entry.cursor > after);
+  const reverse = transcriptOrder(url) === 'desc';
+  const after = queryInteger(url, 'after', reverse ? Number.MAX_SAFE_INTEGER : 0, Number.MAX_SAFE_INTEGER);
+  const own = store.fixture.transcript.filter(entry => entry.sessionId === sessionId);
+  const available = own.filter(entry => reverse ? entry.cursor < after : entry.cursor > after);
+  if (reverse) available.reverse();
   const items = available.slice(0, limit);
   return { items, nextCursor: items.at(-1)?.cursor ?? after, hasMore: available.length > items.length };
+}
+function transcriptOrder(url: URL): string {
+  const order = url.searchParams.get('order') ?? 'asc';
+  if (order !== 'asc' && order !== 'desc') throw new HttpError(400, 'Invalid order');
+  return order;
 }
 function sessionDetail(store: Store, session: Store['fixture']['sessions'][number]) {
   const belongs = (item: { sessionId: string }) => item.sessionId === session.id;

@@ -1,6 +1,6 @@
 import { test, type TestContext } from 'node:test';
 import assert from 'node:assert/strict';
-import { contextFor, isTyping, nativeActivation } from './keys.ts';
+import { contextFor, isTyping, nativeActivation, resolveWebKey } from './keys.ts';
 import { parseRoute } from './routes.ts';
 
 function elementsFor(t: TestContext) {
@@ -50,6 +50,20 @@ test('only Enter and Space defer to interactive controls and HTML or SVG descend
   assert.equal(nativeActivation('Enter', new HtmlElement('div')), false);
   assert.equal(nativeActivation('Space', null), false);
   assert.equal(nativeActivation('Enter', new EventTarget()), false);
+});
+
+test('the documented follow shortcut resolves in session detail even when a button owns focus', t => {
+  const { HtmlElement } = elementsFor(t);
+  const button = new HtmlElement('button');
+  assert.equal(isTyping(button), false);
+  assert.equal(nativeActivation('f', button), false);
+  assert.equal(resolveWebKey('detail', 'f'), 'follow.toggle');
+  assert.equal(resolveWebKey('detail', 'Enter'), undefined);
+  assert.equal(nativeActivation('Enter', button), true);
+  assert.equal(resolveWebKey('detail', 'Tab'), 'pane.next');
+  assert.equal(resolveWebKey('help', 'f'), undefined);
+  assert.equal(resolveWebKey('palette', 'f'), undefined);
+  assert.equal(resolveWebKey('fleet', 'f'), undefined);
 });
 
 test('web list contexts follow the route; overlays and graph take precedence', () => {

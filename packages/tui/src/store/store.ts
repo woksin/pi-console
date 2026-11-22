@@ -1,7 +1,8 @@
 import { type MemoryReviewSession, mergeHistory, mergeSnapshot, type Totals, type WindowedCollection } from '@pi-console/viewmodels';
-import type { AttentionItem, Event, Graph, Job, MemoryItem, Message, Question, Request, Reset, Session, SessionDetail, SessionMemory, TranscriptEntry } from '@pi-console/contract';
+import type { AttentionItem, Event, Graph, Job, MemoryItem, Message, Question, Request, Reset, Session, SessionDetail, SessionMemory, Transcript, TranscriptEntry } from '@pi-console/contract';
 
-export const TRANSCRIPT_LIMIT = 2500;
+import { emptyProgress, transcriptPage, TRANSCRIPT_LIMIT, type TranscriptLoad, type TranscriptProgress } from './transcript-history.ts';
+export { TRANSCRIPT_LIMIT } from './transcript-history.ts';
 const upsert = <T extends { id: string }>(items: T[], item: T): T[] => {
   const index = items.findIndex(existing => existing.id === item.id);
   return index < 0 ? [...items, item] : items.map((existing, position) => (position === index ? item : existing));
@@ -21,8 +22,11 @@ export interface Data {
   needsYou: AttentionItem[]; transcripts: ReadonlyMap<string, TranscriptEntry[]>;
   /** Sessions where backfill or live retention actually dropped older entries. */
   transcriptsTruncated: ReadonlySet<string>;
+  transcriptHistory: ReadonlyMap<string, TranscriptProgress>;
   /** True after a successful attention fetch, until a fetch fails; `loaded` alone is too early. */
   needsYouLoaded: boolean; needsYouError: boolean;
+  /** True after any successful attention fetch, including an empty list; retained across refresh failures. */
+  needsYouCached: boolean;
   /** Read-only intent memory per session id, fetched when its session is opened. */
   memory: ReadonlyMap<string, SessionMemory>; memoryItems: ReadonlyMap<string, MemoryItem[]>;
   memoryReviews: ReadonlyMap<string, MemoryReviewSession>;
@@ -39,7 +43,7 @@ export interface Data {
 export class Store {
   private data: Data = {
     loaded: false, connection: { connected: false, error: 'Connecting…', lastSeq: undefined, lastEventAt: undefined, eventsReceived: 0 }, repositories: 0,
-    graph: { nodes: [], edges: [] }, sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], totals: null, bounded: [], history: {}, needsYou: [], needsYouLoaded: false, needsYouError: false, transcripts: new Map(), transcriptsTruncated: new Set(), memory: new Map(), memoryItems: new Map(), memoryReviews: new Map(), memoryHistory: new Map(), fresh: new Map(),
+    graph: { nodes: [], edges: [] }, sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], totals: null, bounded: [], history: {}, needsYou: [], needsYouLoaded: false, needsYouError: false, needsYouCached: false, transcripts: new Map(), transcriptsTruncated: new Set(), transcriptHistory: new Map(), memory: new Map(), memoryItems: new Map(), memoryReviews: new Map(), memoryHistory: new Map(), fresh: new Map(),
   };
   private readonly listeners = new Set<() => void>();
   private timer: ReturnType<typeof setTimeout> | undefined;
@@ -107,7 +111,7 @@ export class Store {
   setGraph(graph: Graph): void { this.data = { ...this.data, graph }; this.schedule(); }
 
   setNeedsYou(needsYou: AttentionItem[]): void {
-    this.data = { ...this.data, needsYou, needsYouLoaded: true, needsYouError: false };
+    this.data = { ...this.data, needsYou, needsYouLoaded: true, needsYouError: false, needsYouCached: true };
     this.schedule();
   }
 
@@ -146,9 +150,40 @@ export class Store {
     this.schedule();
   }
 
+  /** A fresh open must not inherit a previously browsed window or its pending arrivals. */
+  resetTranscript(sessionId: Session['id']): void {
+    const transcripts = new Map(this.data.transcripts);
+    const transcriptHistory = new Map(this.data.transcriptHistory);
+    const transcriptsTruncated = new Set(this.data.transcriptsTruncated);
+    transcripts.delete(sessionId);
+    transcriptHistory.delete(sessionId);
+    transcriptsTruncated.delete(sessionId);
+    this.pendingTranscripts.delete(sessionId);
+    this.data = { ...this.data, transcripts, transcriptHistory, transcriptsTruncated };
+    this.schedule();
+  }
+
+  setTranscriptProgress(sessionId: Session['id'], change: Partial<TranscriptProgress>): void {
+    const progress = this.data.transcriptHistory.get(sessionId) ?? emptyProgress;
+    this.data = { ...this.data, transcriptHistory: new Map(this.data.transcriptHistory).set(sessionId, { ...progress, ...change }) };
+    this.schedule();
+  }
+
+  /** Publishes a page without allowing pending live arrivals to displace a historical window. */
+  setTranscriptPage(sessionId: Session['id'], page: Transcript, direction: TranscriptLoad): void {
+    const current = this.pendingTranscripts.get(sessionId) ?? this.data.transcripts.get(sessionId) ?? [];
+    const window = transcriptPage(current, this.data.transcriptHistory.get(sessionId) ?? emptyProgress, page, direction);
+    this.pendingTranscripts.delete(sessionId);
+    this.data = { ...this.data, transcripts: new Map(this.data.transcripts).set(sessionId, window.entries), transcriptHistory: new Map(this.data.transcriptHistory).set(sessionId, window.progress) };
+    this.schedule();
+  }
+
   /** Merges a backfill page with live entries by cursor, oldest first, bounded. */
   mergeTranscript(sessionId: string, entries: readonly TranscriptEntry[], truncated = false): void {
-    if (truncated) this.data = { ...this.data, transcriptsTruncated: new Set(this.data.transcriptsTruncated).add(sessionId) };
+    if (truncated) {
+      this.data = { ...this.data, transcriptsTruncated: new Set(this.data.transcriptsTruncated).add(sessionId) };
+      this.setTranscriptProgress(sessionId, { older: true });
+    }
     this.appendTranscript(entries, sessionId);
     // An empty transcript is still a loaded one; without this the view would say "Loading" forever.
     if (!this.pendingTranscripts.has(sessionId)) this.pendingTranscripts.set(sessionId, [...(this.data.transcripts.get(sessionId) ?? [])]);
@@ -158,10 +193,17 @@ export class Store {
   private appendTranscript(entries: readonly TranscriptEntry[], only?: string): void {
     for (const entry of entries) {
       const key = only ?? entry.sessionId;
-      const list = this.pendingTranscripts.get(key) ?? [...(this.data.transcripts.get(key) ?? [])];
-      if (!list.some(existing => existing.id === entry.id)) list.push(entry);
-      this.pendingTranscripts.set(key, list);
+      const progress = this.data.transcriptHistory.get(key) ?? emptyProgress;
+      this.setTranscriptProgress(key, { observedTail: Math.max(progress.observedTail ?? 0, entry.cursor) });
+      if (progress.newer) continue;
+      this.appendWindowEntry(key, entry);
     }
+  }
+
+  private appendWindowEntry(sessionId: Session['id'], entry: TranscriptEntry): void {
+    const list = this.pendingTranscripts.get(sessionId) ?? [...(this.data.transcripts.get(sessionId) ?? [])];
+    if (!list.some(existing => existing.id === entry.id)) list.push(entry);
+    this.pendingTranscripts.set(sessionId, list);
   }
 
   detail(sessionId: string): SessionDetail | undefined {
@@ -180,12 +222,16 @@ export class Store {
     if (this.pendingTranscripts.size > 0) {
       const transcripts = new Map(this.data.transcripts);
       const transcriptsTruncated = new Set(this.data.transcriptsTruncated);
+      const transcriptHistory = new Map(this.data.transcriptHistory);
       for (const [key, list] of this.pendingTranscripts) {
-        if (list.length > TRANSCRIPT_LIMIT) transcriptsTruncated.add(key);
+        if (list.length > TRANSCRIPT_LIMIT) {
+          transcriptsTruncated.add(key);
+          transcriptHistory.set(key, { ...transcriptHistory.get(key) ?? emptyProgress, older: true });
+        }
         transcripts.set(key, list.sort((a, b) => a.cursor - b.cursor).slice(-TRANSCRIPT_LIMIT));
       }
       this.pendingTranscripts.clear();
-      this.data = { ...this.data, transcripts, transcriptsTruncated };
+      this.data = { ...this.data, transcripts, transcriptsTruncated, transcriptHistory };
     }
     const cutoff = this.now() - 3000;
     const fresh = new Map([...this.data.fresh].filter(([, at]) => at > cutoff));

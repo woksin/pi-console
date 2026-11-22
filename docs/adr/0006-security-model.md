@@ -24,9 +24,9 @@ Option 3.
 
 1. Bind `127.0.0.1` by default. Never `0.0.0.0` by default.
 2. A per-install 256-bit random token in a 0600 file under the data directory; constant-time compare; `pi-console token` shows, rotates and creates scoped tokens.
-3. Browser login: `?token=` is exchanged once for an HttpOnly, SameSite=Strict cookie and then removed from the URL.
+3. Browser login: the launch token is read from a URL fragment, immediately scrubbed, and kept only in tab session storage. API reads and SSE use `Authorization: Bearer <token>`; query tokens and cookies never authenticate.
 4. **Host allowlist** on every request (DNS rebinding), configurable for remote hostnames.
-5. **Origin check** on every state-changing request and on every SSE and WebSocket request. A request that carries an `Origin` header must match the allowlist (the daemon's own origins plus configured remote hostnames), otherwise it is refused with 403. A request with no `Origin` header (curl, the TUI, MCP clients, EventSource from the same origin on some browsers) is accepted only with a valid bearer token, never with the cookie alone, and `Sec-Fetch-Site: cross-site` is refused. SSE streams are authenticated per connection and closed on token revocation. Specs: SSE and WebSocket with a foreign Origin, with no Origin and cookie only, with no Origin and a bearer token, and after token revoke.
+5. **Origin check** on every state-changing request and on every SSE and WebSocket request. A request that carries an `Origin` header must match the allowlist (the daemon's own origins plus configured remote hostnames), otherwise it is refused with 403. A request with no `Origin` header (curl, the TUI, MCP clients, same-origin browser fetches) is accepted only with a valid bearer token, and `Sec-Fetch-Site: cross-site` is refused. SSE streams are authenticated per connection and closed on token revocation. Specs: SSE and WebSocket with a foreign Origin, former cookies refused with or without Origin, with no Origin and a bearer token, and after token revoke.
 6. **CSRF header** required on state-changing requests from the browser.
 7. **No permissive CORS.** No wildcard.
 8. **Scopes**: a read-only token and a control token. The TUI and MCP clients receive the scope they need. The extension channel uses its own secret ([ADR-0005](0005-live-session-integration-via-pi-extension.md)).

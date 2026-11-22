@@ -1,3 +1,4 @@
+import './transcript-history.e2e.ts';
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 import type { Page, Response } from 'playwright-core';

@@ -1,26 +1,50 @@
 // API v1 routes the M0 mock did not have: /graph, /health, /settings and transcript `around` windows.
 import type { ELDHistogram } from 'node:perf_hooks';
+import type { Graph, GraphEdge } from '@pi-console/contract';
 import { HttpError } from './security.ts';
 import type { Store } from './store.ts';
 
 type Fixture = Store['fixture'];
 
-/** Lane nodes and message edges between lanes, aggregated with count and last time. No layout data. */
-export function graph(fixture: Fixture) {
+/** Lane nodes, counted messages and synthetic status dependencies. No layout data. */
+export function graph(fixture: Fixture): Graph {
   const laneOf = new Map(fixture.sessions.map(session => [session.id, session]));
-  const nodes = [...new Map(fixture.sessions.map(session => [session.laneId, { laneId: session.laneId, label: session.laneId, repositoryId: session.repositoryId }])).values()];
-  const edges = new Map<string, { fromLane: string; toLane: string; kind: 'message'; lastAt: string; count: number }>();
+  const nodes = new Map<string, Graph['nodes'][number]>(fixture.sessions.map(session => [session.laneId, { laneId: session.laneId, label: session.laneId, repositoryId: session.repositoryId }]));
+  const endpoint = (id: string): string => {
+    const laneId = laneOf.get(id)?.laneId ?? id;
+    if (!nodes.has(laneId)) nodes.set(laneId, { laneId, label: laneId, repositoryId: null });
+    return laneId;
+  };
+  const edges = [...messageEdges(fixture, endpoint), ...statusEdges(fixture, laneOf)];
+  return { nodes: [...nodes.values()], edges };
+}
+
+function messageEdges(fixture: Fixture, endpoint: (id: string) => string): GraphEdge[] {
+  const edges = new Map<string, GraphEdge>();
   for (const message of fixture.messages) {
-    const from = laneOf.get(message.fromSessionId)?.laneId;
-    const to = laneOf.get(message.toSessionId)?.laneId;
-    if (!from || !to) continue;
+    const from = endpoint(message.fromSessionId);
+    const to = endpoint(message.toSessionId);
     const key = `${from}>${to}`;
     const edge = edges.get(key) ?? { fromLane: from, toLane: to, kind: 'message' as const, lastAt: message.sentAt, count: 0 };
     edge.count++;
     if (message.sentAt > edge.lastAt) edge.lastAt = message.sentAt;
     edges.set(key, edge);
   }
-  return { nodes, edges: [...edges.values()] };
+  return [...edges.values()];
+}
+
+/** Waiting/blocked synthetic sessions name their parent or coordinator as the known dependency lane. */
+function statusEdges(fixture: Fixture, sessions: Map<string, Fixture['sessions'][number]>): GraphEdge[] {
+  const edges = new Map<string, GraphEdge>();
+  for (const session of fixture.sessions) {
+    const kind = session.status === 'waiting' ? 'waiting-on' : session.status === 'blocked' ? 'barred-by' : null;
+    if (!kind) continue;
+    const target = sessions.get(session.parentSessionId ?? session.orchestratorSessionId);
+    if (!target || target.laneId === session.laneId) continue;
+    const edge: GraphEdge = { fromLane: session.laneId, toLane: target.laneId, kind, lastAt: session.updatedAt, count: 1 };
+    edges.set(`${kind}:${session.laneId}>${target.laneId}`, edge);
+  }
+  return [...edges.values()];
 }
 
 export function health(store: Store, startedAt: string, replayWindow: number, histogram: ELDHistogram) {
@@ -48,7 +72,7 @@ export function transcriptAround(store: Store, sessionId: string, entryId: strin
   if (index < 0) throw new HttpError(404, 'Transcript entry not found');
   const start = Math.max(0, index - Math.floor(limit / 2));
   const items = entries.slice(start, start + limit);
-  return { items, nextCursor: items.at(-1)?.cursor ?? 0, hasMore: start + limit < entries.length };
+  return { items, nextCursor: items.at(-1)?.cursor ?? 0, hasMore: start + limit < entries.length, hasOlder: start > 0 };
 }
 
 export interface MockInfo { port: number; startedAt: string; replayWindow: number; eventLoop: ELDHistogram }

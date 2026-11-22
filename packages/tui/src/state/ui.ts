@@ -1,11 +1,14 @@
 import { cycleRequestFilter, requestFilterAction, resolve, type Action, type KeyContext, type RequestsFilter } from '@pi-console/viewmodels';
-import { zoom, pan, type TimeWindow } from '@pi-console/viewmodels';
+import type { TimeWindow } from '@pi-console/viewmodels';
+import { scrubKey, timeControl } from './time-controls.ts';
 import { pauseTranscript, resumeTranscript, scrollTranscript, type TranscriptAnchor, type TranscriptLayout, type TranscriptMotion } from './transcript-window.ts';
 import { terminalContentWidth } from './session-layout.ts';
 
 export type Section = 'overview' | 'fleet' | 'requests' | 'questions' | 'messages' | 'timeline' | 'work';
 export const sections: readonly Section[] = ['overview', 'fleet', 'requests', 'questions', 'messages', 'timeline', 'work'];
 export type Overlay = 'none' | 'palette' | 'filter' | 'help' | 'settings' | 'search';
+const scrollableOverlay = (overlay: Overlay): overlay is 'help' | 'settings' => overlay === 'help' || overlay === 'settings';
+const overlayScroll = { help: 'helpScroll', settings: 'settingsScroll' } as const;
 export type SidePane = 'requests' | 'questions' | 'jobs' | 'resets' | 'memory';
 export const sidePanes: readonly SidePane[] = ['requests', 'questions', 'jobs', 'resets', 'memory'];
 
@@ -17,6 +20,7 @@ export interface UiState {
   sessionId: string | null;
   overlay: Overlay;
   helpScroll: number;
+  settingsScroll: number;
   /** The text being typed in the palette, filter or transcript search. */
   input: string;
   paletteIndex: number;
@@ -49,13 +53,13 @@ export interface UiState {
 }
 
 export const initial: UiState = {
-  terminalWidth: 80, section: 'overview', sessionId: null, overlay: 'none', helpScroll: 0, input: '', paletteIndex: 0, recents: [], filter: '',
+  terminalWidth: 80, section: 'overview', sessionId: null, overlay: 'none', helpScroll: 0, settingsScroll: 0, input: '', paletteIndex: 0, recents: [], filter: '',
   cursor: { overview: 0, fleet: 0, requests: 0, questions: 0, messages: 0, timeline: 0, work: 0 },
   collapsed: [], follow: true, anchor: null, requestFilter: { state: 'all', origin: 'all', sessionId: null }, focusEntry: null, search: '', questionDetail: false, questionExpanded: false, detailScroll: 0, pane: 'requests', memoryIndex: 0, messagesGraph: false, window: null, scrub: false, scrubColumn: 0, quit: false, notice: '',
 };
 
 /** What the reducer needs to know about the rendered world; supplied by the view layer. */
-export interface Bounds { length: number; page: number; fit: TimeWindow; width: number; rowAt: (index: number) => { sessionId: string | null; groupId: string | null; entryId?: string | null }; sessionIds?: readonly string[]; transcript: TranscriptLayout; viewport: number; detail?: { max: number; page: number }; help?: { max: number; page: number } }
+export interface Bounds { length: number; page: number; fit: TimeWindow; width: number; rowAt: (index: number) => { sessionId: string | null; groupId: string | null; entryId?: string | null }; sessionIds?: readonly string[]; transcript: TranscriptLayout; viewport: number; detail?: { max: number; page: number }; help?: { max: number; page: number }; settings?: { max: number; page: number } }
 
 interface ActionBounds extends Bounds { questionDetailShown: boolean }
 
@@ -74,7 +78,7 @@ export function resizeUi(state: UiState, terminalWidth: number): UiState {
 const contextRules: readonly (readonly [(state: UiState) => boolean, KeyContext])[] = [
   [state => state.overlay === 'palette', 'palette'],
   [state => state.overlay === 'filter' || state.overlay === 'search', 'filter'],
-  [state => state.overlay === 'help' || state.overlay === 'settings', 'help'],
+  [state => scrollableOverlay(state.overlay), 'help'],
   [state => state.sessionId !== null, 'transcript'],
   [state => state.section === 'timeline', 'timeline'],
   [state => state.section === 'messages' && state.messagesGraph, 'graph'],
@@ -122,25 +126,6 @@ function back(state: UiState, bounds: ActionBounds): UiState {
   return state.filter ? { ...state, filter: '' } : state;
 }
 
-const windowMoves: Partial<Record<Action, (window: TimeWindow) => TimeWindow>> = {
-  'time.left': window => pan(window, -1),
-  'time.right': window => pan(window, 1),
-  'time.zoomIn': window => zoom(window, 0.6),
-  'time.zoomOut': window => zoom(window, 1 / 0.6),
-};
-
-function scrubStep(state: UiState, action: Action, bounds: Bounds): UiState {
-  const step = (action === 'time.left' ? -1 : 1) * Math.max(1, Math.round(bounds.width / 40));
-  return { ...state, scrubColumn: Math.max(0, Math.min(bounds.width - 1, state.scrubColumn + step)) };
-}
-
-function timeline(state: UiState, action: Action, bounds: Bounds): UiState {
-  if (state.scrub && (action === 'time.left' || action === 'time.right')) return scrubStep(state, action, bounds);
-  const move = windowMoves[action];
-  if (move) return { ...state, window: move(state.window ?? bounds.fit) };
-  return { ...state, scrub: !state.scrub, scrubColumn: state.scrub ? state.scrubColumn : Math.floor(bounds.width / 2) };
-}
-
 const sectionActions: Partial<Record<Action, Section>> = {
   'section.1': 'overview', 'section.2': 'fleet', 'section.3': 'requests', 'section.4': 'questions', 'section.5': 'messages', 'section.6': 'timeline', 'section.7': 'work',
 };
@@ -174,7 +159,7 @@ const handlers: Partial<Record<Action, Handler>> = {
   'quit': state => ({ ...state, quit: true }),
   'palette.open': state => ({ ...state, overlay: 'palette', input: '', paletteIndex: 0 }),
   'filter.open': state => (state.sessionId ? { ...state, overlay: 'search', input: state.search } : { ...state, overlay: 'filter', input: state.filter }),
-  'settings.open': state => ({ ...state, overlay: 'settings' }),
+  'settings.open': state => ({ ...state, overlay: 'settings', settingsScroll: 0 }),
   'help.toggle': state => ({ ...state, overlay: state.overlay === 'help' ? 'none' : 'help', helpScroll: 0 }),
   'back': (state, bounds) => back(state, bounds),
   'open': (state, bounds) => open(state, bounds),
@@ -184,11 +169,11 @@ const handlers: Partial<Record<Action, Handler>> = {
   'group.toggle': (state, bounds) => toggleGroup(state, bounds),
   'pane.next': state => cyclePane(state, 1),
   'pane.previous': state => cyclePane(state, -1),
-  'time.scrub': (state, bounds, action) => timeline(state, action, bounds),
-  'time.zoomIn': (state, bounds, action) => timeline(state, action, bounds),
-  'time.zoomOut': (state, bounds, action) => timeline(state, action, bounds),
-  'time.left': (state, bounds, action) => timeline(state, action, bounds),
-  'time.right': (state, bounds, action) => timeline(state, action, bounds),
+  'time.scrub': timeControl,
+  'time.zoomIn': timeControl,
+  'time.zoomOut': timeControl,
+  'time.left': timeControl,
+  'time.right': timeControl,
   'move.up': moveHandler, 'move.down': moveHandler, 'move.top': moveHandler, 'move.bottom': moveHandler, 'page.up': moveHandler, 'page.down': moveHandler,
 };
 
@@ -200,9 +185,11 @@ function detailPosition(position: number, action: Action, bounds: Bounds['detail
 }
 
 function scrollDetail(state: UiState, action: Action, bounds: ActionBounds): UiState | undefined {
-  if (state.overlay === 'help') {
-    const position = detailPosition(state.helpScroll, action, bounds.help);
-    return position === undefined ? undefined : { ...state, helpScroll: position };
+  if (scrollableOverlay(state.overlay)) {
+    const field = overlayScroll[state.overlay];
+    const viewport = bounds[state.overlay];
+    const position = detailPosition(Math.min(state[field], viewport?.max ?? 0), action, viewport);
+    return position === undefined ? undefined : { ...state, [field]: position };
   }
   if (!bounds.questionDetailShown || state.overlay !== 'none') return undefined;
   const position = detailPosition(state.detailScroll, action, bounds.detail);
@@ -228,10 +215,10 @@ function toggleGroup(state: UiState, bounds: Bounds): UiState {
 }
 
 /** Resolves a neutral key in the current state, then reduces; text fields are handled by `typing`. */
-const helpKeys: Record<string, Action> = { ArrowUp: 'move.up', k: 'move.up', ArrowDown: 'move.down', j: 'move.down', PageUp: 'page.up', PageDown: 'page.down', Home: 'move.top', g: 'move.top', End: 'move.bottom', G: 'move.bottom' };
+const overlayKeys: Record<string, Action> = { ArrowUp: 'move.up', k: 'move.up', ArrowDown: 'move.down', j: 'move.down', PageUp: 'page.up', PageDown: 'page.down', Home: 'move.top', g: 'move.top', End: 'move.bottom', G: 'move.bottom' };
 
 export function handleKey(state: UiState, key: string, bounds: Bounds): UiState {
-  const action = state.overlay === 'help' ? helpKeys[key] ?? resolve('help', key) : resolve(contextOf(state), key);
+  const action = scrollableOverlay(state.overlay) ? overlayKeys[key] ?? resolve('help', key) : scrubKey(contextOf(state), key, state.scrub) ?? resolve(contextOf(state), key);
   return action ? reduce(state, action, bounds) : state;
 }
 

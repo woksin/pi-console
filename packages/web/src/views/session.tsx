@@ -7,6 +7,7 @@ import { EmptyState, SearchBox } from '../ui/primitives.tsx';
 import type { SessionDetailStatus } from '../client/store.ts';
 import { SessionHeader, SessionRail } from './session-rail.tsx';
 import { Transcript } from './transcript.tsx';
+import { useSessionTranscript } from './session-transcript.ts';
 
 function detailOf(state: ViewProps['state'], id: string): SessionDetail | null {
   const session = state.sessions.find(item => item.id === id);
@@ -34,7 +35,7 @@ export function SessionView({ state, now, id, entry }: ViewProps & { id: string;
   const [search, setSearch] = useState('');
   const box = useRef<HTMLInputElement>(null);
   useSearchFocus(box);
-  useEffect(() => { void store.loadTranscript(id, entry); }, [store, id, entry, state.gapCount]);
+  useSessionTranscript(store, id, entry, state);
   useEffect(() => { void store.loadSessionDetail(id); }, [store, id, state.gapCount]);
   const detail = useMemo(() => detailOf(state, id), [state, id]);
   const transcript = state.transcripts[id];
@@ -49,7 +50,7 @@ export function SessionView({ state, now, id, entry }: ViewProps & { id: string;
       <div className="session-body">
         <section className="transcript-pane" aria-label="Transcript">
           <div className="toolbar"><SearchBox value={search} onChange={setSearch} placeholder="Search this transcript…" inputRef={box} /><span className="muted small">{view.transcript.length} lines</span></div>
-          <Transcript lines={view.transcript} focusEntry={entry} searching={search !== ''} />
+          <Transcript key={`${id}:${entry ?? ''}:${String(state.transcriptHistory[id]?.revision)}`} lines={view.transcript} focusEntry={state.transcriptHistory[id]?.focusEntry ?? null} searching={search !== ''} progress={state.transcriptHistory[id]} onPage={direction => { void store.pageTranscript(id, direction); }} onLive={() => { setSearch(''); void store.returnToLiveTranscript(id); }} onResume={() => { void store.transcriptReader.resume({ sessionId: id }); }} onFollow={following => { store.transcriptReader.following({ sessionId: id, following }); }} />
         </section>
         <SessionRail view={view} />
       </div>

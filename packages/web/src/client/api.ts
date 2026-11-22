@@ -1,4 +1,4 @@
-import type { MemoryActionAvailability, MemoryActionReceipt, MemoryActionRequest, Event as ApiEvent, AttentionItem, Job, MemoryItem, Message, NeedsYou, Question, Request, Reset, Session, SessionDetail, SessionMemory, Transcript, TranscriptEntry } from '@pi-console/contract';
+import type { Graph, MemoryActionAvailability, MemoryActionReceipt, MemoryActionRequest, Event as ApiEvent, AttentionItem, Job, MemoryItem, Message, NeedsYou, Question, Request, Reset, Session, SessionDetail, SessionMemory, Transcript, TranscriptEntry } from '@pi-console/contract';
 import type { WindowedCollection } from '@pi-console/viewmodels';
 import type { HealthRecord } from '../state/state.ts';
 import { SseParser } from './sse.ts';
@@ -13,7 +13,8 @@ export interface PageParams { limit: number; after?: string | null; order?: 'asc
 export interface Api {
   needsYou(): Promise<AttentionItem[]>;
   health(): Promise<HealthRecord | null>;
-  transcript(sessionId: string, after: number, limit: number): Promise<Transcript>;
+  graph(): Promise<Graph | null>;
+  transcript(sessionId: string, after: number | undefined, limit: number, options?: { order?: 'asc' | 'desc'; around?: string; signal?: AbortSignal }): Promise<Transcript>;
   /** A page of one list, in order; `null` when the daemon does not know the route. */
   page<C extends WindowedCollection>(collection: C, params: PageParams): Promise<ListPage<C> | null>;
   /** Complete per-session detail (its jobs, requests, questions, resets, subagents). */
@@ -32,8 +33,8 @@ export interface Api {
 export function createApi(token: string, base = '', fetcher: typeof fetch = (...args) => fetch(...args)): Api {
   const headers = (extra: Record<string, string> = {}): Record<string, string> => ({ Authorization: `Bearer ${token}`, Accept: 'application/json', ...extra });
 
-  async function get<T>(path: string): Promise<T | null> {
-    const response = await fetcher(`${base}/api/v1${path}`, { headers: headers(), cache: 'no-store' });
+  async function get<T>(path: string, signal?: AbortSignal): Promise<T | null> {
+    const response = await fetcher(`${base}/api/v1${path}`, { headers: headers(), cache: 'no-store', signal });
     if (response.status === 401) throw new Unauthorized();
     if (response.status === 404) return null;
     if (!response.ok) throw new Error(`GET ${path} failed: ${String(response.status)}`);
@@ -55,9 +56,15 @@ export function createApi(token: string, base = '', fetcher: typeof fetch = (...
     memoryActionReceipt: (id, signal) => reviewJson(`/memory-actions/${encodeURIComponent(id)}`, { signal }),
     async needsYou() { return (await get<NeedsYou>('/needs-you'))?.items ?? []; },
     async health() { return await get<HealthRecord>('/health'); },
-    async transcript(sessionId, after, limit) {
-      const page = await get<Transcript>(`/sessions/${encodeURIComponent(sessionId)}/transcript?after=${String(after)}&limit=${String(limit)}`);
-      return page ?? { items: [] as TranscriptEntry[], nextCursor: after, hasMore: false };
+    async graph() { return await get<Graph>('/graph'); },
+    async transcript(sessionId, after, limit, options = {}) {
+      const query = new URLSearchParams({ limit: String(limit) });
+      if (after !== undefined) query.set('after', String(after));
+      if (options.order) query.set('order', options.order);
+      if (options.around) query.set('around', options.around);
+      const page = await get<Transcript>(`/sessions/${encodeURIComponent(sessionId)}/transcript?${query.toString()}`, options.signal);
+      if (!page && options.around) throw new Error('Transcript entry not found.');
+      return page ?? { items: [] as TranscriptEntry[], nextCursor: after ?? 0, hasMore: false };
     },
     async page(collection, params) {
       const query = new URLSearchParams({ limit: String(params.limit), order: params.order ?? 'asc' });

@@ -23,21 +23,23 @@ Number keys jump, clicks work on tabs and rows. Everything except explicit memor
 | `1` | Overview | "Needs you" cards from `/needs-you` plus a fleet summary: status bars, context sparkline, tokens, cost |
 | `2` | Fleet | Repositories, then sessions by lane with status glyph, context bar, age, cost; `/` filters, `space` folds a group, `Enter` opens a session |
 | (Enter) | Session | Transcript with tool calls, diffs and reset markers; `f` follows the tail, `/` searches; right rail cycles requests, questions, jobs, resets (`Tab`) |
-| `3` | Requests | Requests with origin evidence, answer state and partial-answer flags |
+| `3` | Requests | Requests with origin evidence, answer state and partial-answer flags; `[` / `]` step the state filter, `o` the origin filter and `S` the session filter (each wraps, and the header line shows what is on) |
 | `4` | Questions | Open, blocking and urgent questions with options; `v` expands the selected question at any width, with full text and wrapped options; arrows/PgUp/PgDn/Home/End scroll, `v` or Esc returns |
-| `5` | Messages | Inter-agent messages with delivery state; `v` switches to the canonical lane communication graph, with session spawn relationships in a separate section |
+| `5` | Messages | Inter-agent messages with delivery state; `v` switches to the canonical lane communication graph, with session spawn relationships in a separate section; `t` shows a last-activity scrubber, `h`/`l` or left/right arrows move the cutoff, Esc hides it |
 | `6` | Timeline | Per-session lanes with request, answer and message markers; `+`/`-` zoom, `h`/`l` pan, `t` scrubs |
 | `7` | Work | Jobs (phases, ci, watchers) with state, exit code and owning session |
 | `:` `Ctrl+P` | Palette | Commands, and `@` finds a session |
 | `?` `,` | Help, Settings | The shared keymap; connection health, data counts and sources |
 
-Help scrolls with arrows, PgUp/PgDn and Home/End, including on short terminals; `?` or Esc closes it.
+The graph scrubber starts at the newest lane-edge activity and shows edges whose last activity is at or before the cutoff. Counts remain all-time; session spawn relationships are not filtered. At wide widths, selecting a lane edge shows known messages between its sessions in the Conversation panel's Recent list.
+
+Help and Settings scroll with arrows or `j`/`k`, PgUp/PgDn and Home/End (or `g`/`G`), including on short terminals, and show the visible row range. Esc closes either overlay; `?` also closes Help.
 
 Fleet, Requests, Questions, Messages and Work load older history when you reach the last loaded row; Timeline also loads older resets. If a history page fails, press `r` to retry, or try moving forward again at the end of the list.
 
 "Needs you" also refreshes every 60 seconds while connected, even without new stream events. After a failed load, press `r` in Overview to retry.
 
-Header: brand, tabs, a "N need you" pill and the live/offline link. Footer: the keymap's hints for the current context (so a new binding appears here without TUI changes). While the stream is down a banner shows the error and the sequence number it will resume from; the client reconnects with capped backoff and resumes through `Last-Event-ID`. Below 112 columns the tab labels collapse to numbers and side panels drop; transcript text is sanitised, so terminal escapes in a session cannot reach the screen.
+Header: brand, tabs, a "N need you" pill and the live/offline link. Attention shows "checking…" before the first load and "attention unavailable" if it fails ("unavailable" at compact widths). Cached counts after a failed refresh are marked "stale" in the header and Overview; only a successful empty load shows a current "all clear". Footer: the keymap's hints for the current context (so a new binding appears here without TUI changes). While the stream is down a banner shows the error and the sequence number it will resume from; the client reconnects with capped backoff and resumes through `Last-Event-ID`. Below 112 columns the tab labels collapse to numbers and side panels drop; the header also collapses tabs when its status text needs the room; transcript text is sanitised, so terminal escapes in a session cannot reach the screen.
 
 Screenshots and a tour, captured from the real TUI on a pty against the mock daemon's synthetic fixture by `npm run media` ([docs/media/README.md](media/README.md)). `npm run media -w @pi-console/tui` still writes a full per-view SVG and plain-text capture into `docs/media/tui/` as scratch output (not committed).
 

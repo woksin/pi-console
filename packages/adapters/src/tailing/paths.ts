@@ -32,15 +32,41 @@ export function sourceFile(path: string, roots: readonly string[]): string {
   return canonical;
 }
 
-/** No symlink traversal, including the root. Archives are bounded by mtime, not file size. */
-export function discover(directory: string, since = Date.now() - 14 * 86400_000): string[] {
-  if (pathDenied(directory) || lstatSync(directory).isSymbolicLink()) return [];
+type DiscoveryErrorHandler = (path: string, error: unknown) => void;
+interface DiscoveryLocation { path: string; onError?: DiscoveryErrorHandler }
+
+/**
+ * No symlink traversal, including the root. Archives are bounded by mtime, not file size.
+ * With an error handler, report each failed location and continue its siblings; otherwise errors still throw.
+ */
+export function discover(directory: string, since = Date.now() - 14 * 86400_000, onError?: DiscoveryErrorHandler): string[] {
   const paths: string[] = [];
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+  for (const entry of directoryEntries({ path: directory, onError })) {
     const path = join(directory, entry.name);
     if (pathDenied(path) || entry.isSymbolicLink()) continue;
-    if (entry.isDirectory()) paths.push(...discover(path, since));
-    if (entry.isFile() && path.endsWith('.jsonl') && statSync(path).mtimeMs >= since) paths.push(path);
+    if (entry.isDirectory()) paths.push(...discover(path, since, onError));
+    if (entry.isFile() && path.endsWith('.jsonl') && modifiedSince({ path, onError }, since)) paths.push(path);
   }
   return paths.sort();
+}
+
+function directoryEntries({ path: directory, onError }: DiscoveryLocation) {
+  try {
+    if (pathDenied(directory) || lstatSync(directory).isSymbolicLink()) return [];
+    return readdirSync(directory, { withFileTypes: true });
+  } catch (error) {
+    if (!onError) throw error;
+    onError(directory, error);
+    return [];
+  }
+}
+
+function modifiedSince({ path, onError }: DiscoveryLocation, since: number): boolean {
+  try {
+    return statSync(path).mtimeMs >= since;
+  } catch (error) {
+    if (!onError) throw error;
+    onError(path, error);
+    return false;
+  }
 }

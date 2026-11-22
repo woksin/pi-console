@@ -24,9 +24,9 @@ test('superseded backfills abort and cannot merge late success or failure; close
   } as unknown as DaemonClient;
   const store = new Store();
   const mergedDetails: string[] = [];
-  const mergedTranscripts: { id: string; entries: readonly TranscriptEntry[]; truncated: boolean | undefined }[] = [];
+  const mergedTranscripts: { id: string; entries: readonly TranscriptEntry[] }[] = [];
   store.mergeDetail = value => { mergedDetails.push(value.session.id); };
-  store.mergeTranscript = (id, entries, truncated) => { mergedTranscripts.push({ id, entries, truncated }); };
+  store.setTranscriptPage = (id, page) => { mergedTranscripts.push({ id, entries: page.items }); };
   const loader = new TranscriptLoader(store, client);
   try {
     loader.load('a');
@@ -40,8 +40,9 @@ test('superseded backfills abort and cannot merge late success or failure; close
     b.detail.resolve(detail('b'));
     b.tail.resolve({ entries: [], truncated: true });
     await Promise.all([a.detail.promise, a.tail.promise, b.detail.promise, b.tail.promise]);
+    await new Promise(resolve => setImmediate(resolve));
     assert.deepEqual(mergedDetails, ['b']);
-    assert.deepEqual(mergedTranscripts, [{ id: 'b', entries: [], truncated: true }]);
+    assert.deepEqual(mergedTranscripts, [{ id: 'b', entries: [] }]);
     closeB();
     const closeC = loader.load('c');
     closeC();

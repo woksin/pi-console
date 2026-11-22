@@ -72,7 +72,7 @@ test('disabled and offline stay read-only; read scope, forged provenance and bro
   const spec = await setup(t);
   assert.equal((await spec.call('', 'POST', { requestId: 'r1', itemId: 'i1', action: 'confirm' }, spec.readToken)).status, 403);
   assert.equal((await spec.call('', 'POST', { requestId: 'r1', itemId: 'i1', action: 'confirm' }, spec.token, { Origin: 'https://evil.test' })).status, 403);
-  assert.equal((await spec.call('', 'POST', {}, spec.token, { Authorization: '', Cookie: `piConsoleToken=${spec.token}`, 'x-pi-console-csrf': '0' })).status, 403);
+  assert.equal((await spec.call('', 'POST', {}, spec.token, { Authorization: '', Cookie: `piConsoleToken=${spec.token}`, 'x-pi-console-csrf': '0' })).status, 401);
   assert.equal((await spec.call('', 'POST', { requestId: 'r1', itemId: 'i1', action: 'confirm', actor: 'human' })).status, 400);
   assert.equal((await spec.call('', 'POST', { requestId: 'r1', itemId: 'i1', action: 'confirm' })).status, 503);
   const noOrigin = await fetch(`http://127.0.0.1:${spec.daemon.port}/api/v1/sessions/s1/memory-actions`, { method: 'POST', headers: { Authorization: `Bearer ${spec.token}`, 'content-type': 'application/json' }, body: JSON.stringify({ requestId: 'native', itemId: 'i1', action: 'confirm' }) });

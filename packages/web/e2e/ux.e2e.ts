@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import './memory-live.e2e.ts';
 import './timeline.e2e.ts';
+import './graph.e2e.ts';
 import { after, before, test } from 'node:test';
 import type { AttentionItem, MemoryItem } from '@pi-console/contract';
 import type { Page } from 'playwright-core';
@@ -172,7 +173,8 @@ test('repository lane labels, readable timeline ticks and selected row survive z
   assert.ok((await page.getByRole('list', { name: 'Messages', exact: true }).innerText()).includes('/L0'));
   await page.getByRole('button', { name: /^Graph/ }).click();
   await page.locator('.node .label').first().waitFor();
-  assert.ok((await page.locator('.node .label').allTextContents()).every(label => label.includes('/L')));
+  assert.ok((await page.getByRole('region', { name: 'Lane communication' }).locator('.node .label').allTextContents()).every(label => /^L\d+$/.test(label)));
+  assert.ok((await page.getByRole('region', { name: 'Session relationships' }).locator('.node .label').allTextContents()).every(label => label.includes('/L')));
   await page.evaluate(() => { location.hash = '/timeline'; });
   await page.locator('.lane.selected').waitFor();
   assert.ok((await page.locator('.lane-label').allTextContents()).every(label => label.includes('/L')));
