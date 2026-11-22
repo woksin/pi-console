@@ -77,11 +77,13 @@ export class SourceIngestion implements AdapterWorker {
     const now = (this.#options.now ?? (() => new Date()))();
     const since = now.getTime() - this.#options.backfillWindowDays * 86_400_000;
     const totals = { files: 0, lagBytes: 0, errors: 0 };
+    const discovered = new Set<string>();
     for (const feed of this.#options.feeds.map(availableFeed).filter((feed): feed is Feed => feed !== undefined)) {
       const files = await filesFor(feed, since);
       totals.files += files.length;
       for (const file of files) {
         if (this.#aborted) return;
+        discovered.add(file);
         try {
           totals.lagBytes += await this.#pollFile(feed, file, since);
         } catch {
@@ -91,7 +93,13 @@ export class SourceIngestion implements AdapterWorker {
         await yieldToLoop();
       }
     }
+    if (this.#aborted) return;
+    this.#forgetMissing(discovered);
     this.#status = { source: this.#options.id, ...totals, lastPollAt: now.toISOString() };
+  }
+
+  #forgetMissing(discovered: ReadonlySet<string>): void {
+    for (const file of this.#seen.keys()) if (!discovered.has(file)) this.#seen.delete(file);
   }
 
   async #pollFile(feed: Feed, file: string, since: number): Promise<number> {
