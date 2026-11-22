@@ -261,7 +261,8 @@ test('stopping during a long backfill returns once the in-flight append is relea
     await log.entered.promise; // The backfill is blocked inside an append.
     const stopping = set.stop();
     release.resolve(undefined);
-    await Promise.race([stopping, wait(10_000).then(() => { throw new Error('stop did not resolve within the watchdog'); })]);
+    const watchdog = setTimeout(() => { throw new Error('stop did not resolve within the watchdog'); }, 10_000);
+    try { await stopping; } finally { clearTimeout(watchdog); }
     const processed = log.events.length;
     await wait(100);
     assert.equal(log.events.length, processed, 'no rows are processed after stop resolved');
