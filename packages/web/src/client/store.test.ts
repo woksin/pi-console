@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test, type TestContext } from 'node:test';
 import type { Event, MemoryItem, SessionMemory, SessionUpdate, TranscriptEntry } from '@pi-console/contract';
+import { clockNow } from '../app/hooks.ts';
 import { ConsoleStore, reconnectDelays, staleAfterMs, type Clock } from './store.ts';
 import type { Api } from './api.ts';
 
@@ -233,6 +234,95 @@ test('every frame resets stream silence and a reconnect gets its own full silenc
   assert.equal(signals[1].aborted, false, 'the previous attempt\'s last frame is not the new baseline');
   await tick(staleAfterMs / 3);
   assert.equal(signals[1].aborted, true);
+});
+
+test('snapshot time keeps advancing without rewinding when only heartbeats arrive', async t => {
+  const { store, emitters, tick } = streamingStore(t);
+  await tick(1000);
+  emitters[0](windowedSnapshot([], 0));
+  const started = clockNow(store.getState(), Date.now());
+  const eventTime = store.getState().liveAt;
+  let previous = started;
+  for (let heartbeat = 1; heartbeat <= 3; heartbeat++) {
+    await tick(10_000);
+    const before = clockNow(store.getState(), Date.now());
+    emitters[0]('heartbeat');
+    const after = clockNow(store.getState(), Date.now());
+    assert.equal(after, before, 'a heartbeat must not rewind the displayed time');
+    assert.equal(after, started + heartbeat * 10_000);
+    assert.ok(after > previous, 'ages advance on a quiet stream');
+    assert.equal(store.getState().liveAt, eventTime, 'transport activity does not advance event time');
+    assert.equal(store.getState().lastFrameAt, Date.now(), 'heartbeats still update transport liveness');
+    previous = after;
+  }
+});
+
+test('the event-time clock anchors at wall time zero and untimed deltas do not reset it', async t => {
+  const { store, emitters, tick } = streamingStore(t, { page: () => Promise.resolve({ ...emptyList, total: 1 }) });
+  const snapshot = windowedSnapshot([], 0);
+  assert.equal(clockNow(store.getState(), Date.now()), 0, 'before an event, use wall time');
+  emitters[0](snapshot);
+  const eventTime = Date.parse(snapshot.payload.generatedAt);
+  assert.equal(clockNow(store.getState(), Date.now()), eventTime);
+  await tick(1000);
+  emitters[0]({ seq: 6, type: 'job.updated', occurredAt: snapshot.occurredAt, payload: job('j1', 'running', snapshot.occurredAt) });
+  assert.equal(clockNow(store.getState(), Date.now()), eventTime + 1000);
+  await tick(1000);
+  emitters[0]({ seq: 7, type: 'transcript.appended', occurredAt: snapshot.occurredAt, payload: entry(1) });
+  assert.equal(clockNow(store.getState(), Date.now()), eventTime + 2000, 'an older entity timestamp is not a new clock anchor');
+  const later = { ...entry(2), at: new Date(eventTime + 10_000).toISOString() };
+  emitters[0]({ seq: 8, type: 'transcript.appended', occurredAt: later.at, payload: later });
+  assert.equal(clockNow(store.getState(), Date.now()), eventTime + 10_000, 'a newer event establishes a new anchor');
+  await tick(1000);
+  assert.equal(clockNow(store.getState(), Date.now()), eventTime + 11_000);
+});
+
+test('heartbeat-only resumes retry failed attention and health reads exactly once per live transition', async t => {
+  const attention = (id: string): Awaited<ReturnType<Api['needsYou']>> => [{ id, reason: 'blocking-question', sessionId: 's1', laneId: null, text: id, since: '2026-01-01T00:00:00Z', pointer: null }];
+  let needsYou = attention('old');
+  let health = { status: 'old' };
+  let fail = false;
+  const calls = { attention: 0, health: 0 };
+  const { store, emitters, disconnects, lastEventIds, tick } = streamingStore(t, {
+    needsYou: () => { calls.attention++; return fail ? Promise.reject(new Error('offline')) : Promise.resolve(needsYou); },
+    health: () => { calls.health++; return fail ? Promise.reject(new Error('offline')) : Promise.resolve(health); },
+  });
+  const snapshot = windowedSnapshot([], 0);
+  emitters[0](snapshot);
+  await tick(350);
+  assert.deepEqual(calls, { attention: 1, health: 1 });
+  fail = true;
+  await store.refresh();
+  assert.equal(store.getState().needsYouError, true);
+  assert.deepEqual(store.getState().needsYou, needsYou, 'failed reads keep the old attention list');
+  assert.deepEqual(store.getState().health, health, 'failed reads keep the old health');
+  fail = false;
+  const gapCount = store.getState().gapCount;
+  for (let transition = 1; transition <= 2; transition++) {
+    needsYou = attention(`fresh-${String(transition)}`);
+    health = { status: `fresh-${String(transition)}` };
+    disconnects[transition - 1]();
+    await settle();
+    assert.equal(store.getState().connection, 'offline');
+    await tick(reconnectDelays[0]);
+    assert.equal(store.getState().connection, 'reconnecting');
+    emitters[transition]('heartbeat');
+    assert.equal(store.getState().connection, 'live');
+    await tick(349);
+    assert.deepEqual(calls, { attention: transition + 1, health: transition + 1 }, 'resume refresh is debounced');
+    emitters[transition]('heartbeat');
+    await tick(1);
+    assert.deepEqual(calls, { attention: transition + 2, health: transition + 2 });
+    assert.deepEqual(store.getState().needsYou, needsYou);
+    assert.deepEqual(store.getState().health, health);
+    assert.equal(store.getState().needsYouLoaded, true);
+    assert.equal(store.getState().needsYouError, false);
+    emitters[transition]('heartbeat');
+    await tick(1000);
+    assert.deepEqual(calls, { attention: transition + 2, health: transition + 2 }, 'live heartbeats do not refresh again');
+    assert.equal(lastEventIds[transition], snapshot.seq);
+    assert.equal(store.getState().gapCount, gapCount, 'recovery does not need another snapshot');
+  }
 });
 
 test('pending session detail, transcript and memory finish after a snapshot-free stalled reconnect', async t => {
