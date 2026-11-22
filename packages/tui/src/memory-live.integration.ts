@@ -61,6 +61,10 @@ test('visible headless memory panel follows real producer appends; hidden pane c
   try {
     await waitFor('◉ live');
     await ui.press('2'); await waitFor('Fleet ·');
+    // Fleet initially selects the repository header, not its session.
+    if (ui.frame().includes('Space expands the repository.')) await ui.press('RETURN');
+    await waitFor(frame => /\s+synthetic\s+/.test(frame));
+    await ui.press('j');
     await ui.press('RETURN'); await waitFor('Transcript');
     for (let n = 0; n < 4; n++) await ui.press('TAB');
     await waitFor('No intent-memory store seen');
