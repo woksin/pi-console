@@ -1,7 +1,7 @@
 import type { Event as ApiEvent } from '@pi-console/contract';
 import { MemoryRefreshController, MemoryReviewController, type WindowedCollection } from '@pi-console/viewmodels';
 import { applyEvent, mergePage, mergeSessionDetail, mergeTranscript } from '../state/reduce.ts';
-import { emptyState, type Connection, type ConsoleState } from '../state/state.ts';
+import { emptyState, type Connection, type ConsoleState, type MemoryReadStatus } from '../state/state.ts';
 import { Unauthorized, type Api } from './api.ts';
 
 export interface Clock { now(): number; setTimeout(callback: () => void, ms: number): number; clearTimeout(id: number): void }
@@ -16,6 +16,7 @@ export const reconnectDelays = [400, 800, 1600, 3200, 5000] as const;
 export const staleAfterMs = 45_000;
 const refreshDebounceMs = 350;
 const memoryItemLimit = 100;
+const memoryReadError = (error: unknown): string => error instanceof Error ? error.message : 'Memory read failed.';
 const historyPageSize = 1000;
 /** Rows per history page: newest first, so the first page mostly repeats the snapshot window and later pages go back in time. */
 const listPageSize = 500;
@@ -24,6 +25,7 @@ const windowedNames: readonly WindowedCollection[] = ['sessions', 'requests', 'q
 const maxHistoryPages = 60;
 
 type Listener = () => void;
+interface MemoryRead { sessionId: string }
 export type SessionDetailStatus = 'loading' | 'loaded' | 'failed' | 'not-found';
 interface SessionDetailLoad {
   sessionId: string;
@@ -86,7 +88,7 @@ export class ConsoleStore {
   }
 
   #createMemoryRefresh(): MemoryRefreshController {
-    return new MemoryRefreshController(id => this.#fetchMemory(id), id => this.#reviews.load(id, { fresh: true }), {
+    return new MemoryRefreshController(id => this.#fetchMemory({ sessionId: id }), id => this.#reviews.load(id, { fresh: true }), {
       set: (callback, ms = 350) => this.#clock.setTimeout(callback, ms),
       clear: timer => { this.#clock.clearTimeout(timer as number); },
     });
@@ -319,12 +321,25 @@ export class ConsoleStore {
   /** Explicit canonical read, serialized with background invalidations and receipt completion. */
   loadSessionMemory(sessionId: string): Promise<void> { return this.#memoryRefresh.refresh(sessionId); }
 
-  async #fetchMemory(sessionId: string): Promise<void> {
+  #setMemoryStatus({ sessionId, status }: MemoryRead & { status: MemoryReadStatus }): void {
+    this.#set({ ...this.#state, memoryStatus: { ...this.#state.memoryStatus, [sessionId]: status } });
+  }
+
+  async #fetchMemory({ sessionId }: MemoryRead): Promise<void> {
     const requests = this.#requests;
-    const [memory, items] = await Promise.all([this.#api.sessionMemory(sessionId).catch(() => null), this.#api.memoryItems(sessionId, memoryItemLimit).catch(() => null)]);
-    if (!this.#requestActive(requests)) return;
-    if (!memory || !items) return;
-    this.#set({ ...this.#state, memory: { ...this.#state.memory, [sessionId]: memory }, memoryItems: { ...this.#state.memoryItems, [sessionId]: items } });
+    this.#setMemoryStatus({ sessionId, status: { status: 'loading' } });
+    try {
+      const [memory, items] = await Promise.all([this.#api.sessionMemory(sessionId), this.#api.memoryItems(sessionId, memoryItemLimit)]);
+      if (!this.#requestActive(requests)) return;
+      if (!memory || !items) throw new Error('Memory endpoints unavailable.');
+      this.#set({
+        ...this.#state, memory: { ...this.#state.memory, [sessionId]: memory }, memoryItems: { ...this.#state.memoryItems, [sessionId]: items },
+        memoryStatus: { ...this.#state.memoryStatus, [sessionId]: { status: memory.storeDetected ? 'loaded' : 'absent' } },
+      });
+    } catch (error) {
+      if (!this.#requestActive(requests)) return;
+      this.#setMemoryStatus({ sessionId, status: { status: 'error', message: memoryReadError(error) } });
+    }
   }
 
   /** Loads a session's transcript history once per gap; the live tail arrives over the stream. History is paged to its end (only the newest entries are kept), or, with `focus`, until that entry is present. A failed load is forgotten so the next open retries it. */

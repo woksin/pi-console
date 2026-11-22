@@ -1,7 +1,8 @@
 import { memoryPanelViewModel, type MemoryPanelItem } from '@pi-console/viewmodels';
-import { useEffect } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { clockNow, copyText, useConsole, useStore } from '../app/hooks.ts';
 import { Panel } from '../ui/primitives.tsx';
+import type { MemoryReadStatus } from '../state/state.ts';
 
 function MemoryItemView({ item, request }: { item: MemoryPanelItem; request: (action: 'confirm' | 'reject') => void }) {
   return <li className="memory-item" data-memory-item={item.id}>
@@ -17,6 +18,25 @@ function MemoryItemView({ item, request }: { item: MemoryPanelItem; request: (ac
   </li>;
 }
 
+function MemoryNotice({ status, stale, retry }: { status: MemoryReadStatus | undefined; stale: boolean; retry: () => void }) {
+  if (status?.status === 'loaded' || status?.status === 'absent') return null;
+  const loading = status?.status !== 'error';
+  return <div className="toolbar">
+    <span role="status" aria-label="Memory read status" aria-busy={loading}>
+      {loading ? 'Loading memory…' : `Could not load memory. ${status.message}`}
+      {stale && ' Showing previously loaded memory.'}
+    </span>
+    <button type="button" className="btn" aria-disabled={loading} aria-busy={loading} onClick={loading ? undefined : retry}>Retry</button>
+  </div>;
+}
+
+function UnavailableMemory({ title, status, notice }: { title: string; status: MemoryReadStatus | undefined; notice: ReactNode }) {
+  const absent = status?.status === 'absent';
+  return <Panel title={title} aside={absent ? 'none seen' : undefined}>
+    {absent ? <span className="faint">No intent-memory store seen for this session</span> : notice}
+  </Panel>;
+}
+
 /** Memory stays producer-owned; these controls only request a native human review in pi. */
 export function SessionMemory({ id }: { id: string }) {
   const store = useStore();
@@ -25,9 +45,12 @@ export function SessionMemory({ id }: { id: string }) {
   useEffect(() => store.watchSessionMemory(id), [store, id]);
   const memory = state.memory[id] ?? null;
   const view = memoryPanelViewModel({ memory, items: state.memoryItems[id] ?? [], now, review: state.memoryReviews.get(id) });
-  if (!view.available) return <Panel title={view.title} aside="none seen"><span className="faint">No intent-memory store seen for this session</span></Panel>;
+  const status = state.memoryStatus[id];
+  const notice = <MemoryNotice status={status} stale={view.available} retry={() => { void store.loadSessionMemory(id); }} />;
+  if (!view.available) return <UnavailableMemory title={view.title} status={status} notice={notice} />;
   return (
     <Panel title={view.title} aside={memory?.counts.proposed ? `${String(memory.counts.proposed)} proposed` : undefined} className="memory-panel">
+      {notice}
       <p className="small muted">{view.counts.filter(cell => cell.count > 0).map(cell => `${String(cell.count)} ${cell.label}`).join(' · ') || 'no items'}</p>
       <p className="small muted">{view.unresolved.text}</p>
       <ul className="mini-list stacked">

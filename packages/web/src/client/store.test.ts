@@ -3,7 +3,7 @@ import { test, type TestContext } from 'node:test';
 import type { Event, MemoryItem, SessionMemory, SessionUpdate, TranscriptEntry } from '@pi-console/contract';
 import { clockNow } from '../app/hooks.ts';
 import { ConsoleStore, reconnectDelays, staleAfterMs, type Clock } from './store.ts';
-import type { Api } from './api.ts';
+import { createApi, type Api } from './api.ts';
 
 const clock: Clock = { now: () => 0, setTimeout: () => 0, clearTimeout: () => undefined };
 
@@ -593,9 +593,12 @@ for (const cached of [false, true]) test(`an items failure preserves the ${cache
   now = 5000;
   fail = true;
   await store.loadSessionMemory('s1');
-  assert.equal(store.getState(), good);
+  assert.deepEqual(store.getState().memoryStatus.s1, { status: 'error', message: 'unreachable' });
+  assert.equal(store.getState().memory.s1, good.memory.s1);
+  assert.equal(store.getState().memoryItems.s1, good.memoryItems.s1);
   fail = false;
   await store.loadSessionMemory('s1');
+  assert.deepEqual(store.getState().memoryStatus.s1, { status: 'loaded' });
   assert.equal(calls, cached ? 3 : 2);
   assert.deepEqual(store.getState().memory.s1, memorySummary('s1'));
   assert.deepEqual(store.getState().memoryItems.s1, [proposedItem]);
@@ -616,11 +619,75 @@ test('a failed session memory refresh preserves the last good copy and retries i
   const good = store.getState();
   now = 5000;
   await store.loadSessionMemory('s1');
-  assert.equal(store.getState(), good);
+  assert.deepEqual(store.getState().memoryStatus.s1, { status: 'error', message: 'unreachable' });
+  assert.equal(store.getState().memory.s1, good.memory.s1);
+  assert.equal(store.getState().memoryItems.s1, good.memoryItems.s1);
   await store.loadSessionMemory('s1');
+  assert.deepEqual(store.getState().memoryStatus.s1, { status: 'loaded' });
   assert.equal(calls, 3);
   assert.deepEqual(store.getState().memory.s1, memorySummary('s1'));
   assert.deepEqual(store.getState().memoryItems.s1, [proposedItem]);
+});
+
+for (const endpoint of ['summary', 'items']) test(`a delayed ${endpoint} failure is loading, then error, and a successful retry replaces it`, async () => {
+  const pending = Promise.withResolvers<Response>();
+  let fail = true;
+  const api = createApi('token', '', url => {
+    const summary = typeof url === 'string' && url.includes('/sessions/');
+    if (fail && summary === (endpoint === 'summary')) return pending.promise;
+    return Promise.resolve(Response.json(summary ? memorySummary('s1') : { items: [proposedItem] }));
+  });
+  const store = new ConsoleStore(api, clock);
+  const first = store.loadSessionMemory('s1');
+  assert.deepEqual(store.getState().memoryStatus.s1, { status: 'loading' });
+  pending.resolve(new Response(null, { status: 503 }));
+  await first;
+  const status = store.getState().memoryStatus.s1;
+  assert.equal(status?.status, 'error');
+  assert.match(status?.status === 'error' ? status.message : '', /503/);
+  assert.equal(store.getState().memory.s1, undefined);
+  assert.equal(store.getState().memoryItems.s1, undefined);
+  fail = false;
+  const retry = store.loadSessionMemory('s1');
+  assert.deepEqual(store.getState().memoryStatus.s1, { status: 'loading' });
+  await retry;
+  assert.deepEqual(store.getState().memoryStatus.s1, { status: 'loaded' });
+  assert.deepEqual(store.getState().memory.s1, memorySummary('s1'));
+  assert.deepEqual(store.getState().memoryItems.s1, [proposedItem]);
+});
+
+test('only a successful canonical read with storeDetected false confirms absence', async () => {
+  const absent = { ...memorySummary('s1'), storeDetected: false };
+  const api = { sessionMemory: () => Promise.resolve(absent), memoryItems: () => Promise.resolve([]) } as unknown as Api;
+  const store = new ConsoleStore(api, clock);
+  await store.loadSessionMemory('s1');
+  assert.deepEqual(store.getState().memoryStatus.s1, { status: 'absent' });
+  assert.deepEqual(store.getState().memory.s1, absent);
+  assert.deepEqual(store.getState().memoryItems.s1, []);
+});
+
+for (const endpoint of ['summary', 'items']) test(`a missing ${endpoint} endpoint is an error, not a confirmed absent store`, async () => {
+  const api = createApi('token', '', url => {
+    const summary = typeof url === 'string' && url.includes('/sessions/');
+    return Promise.resolve(summary === (endpoint === 'summary') ? new Response(null, { status: 404 }) : Response.json(summary ? memorySummary('s1') : { items: [] }));
+  });
+  const store = new ConsoleStore(api, clock);
+  await store.loadSessionMemory('s1');
+  assert.deepEqual(store.getState().memoryStatus.s1, { status: 'error', message: 'Memory endpoints unavailable.' });
+});
+
+test('a synchronous memory transport failure is recorded and retryable', async () => {
+  let fail = true;
+  const api = {
+    sessionMemory: () => { if (fail) throw new Error('offline'); return Promise.resolve(memorySummary('s1')); },
+    memoryItems: () => Promise.resolve([]),
+  } as unknown as Api;
+  const store = new ConsoleStore(api, clock);
+  await store.loadSessionMemory('s1');
+  assert.deepEqual(store.getState().memoryStatus.s1, { status: 'error', message: 'offline' });
+  fail = false;
+  await store.loadSessionMemory('s1');
+  assert.deepEqual(store.getState().memoryStatus.s1, { status: 'loaded' });
 });
 
 test('only marked visible session updates refetch; replacement clears stale rows and marker never persists', async () => {
