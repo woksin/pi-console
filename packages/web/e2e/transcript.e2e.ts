@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
-import type { Page } from 'playwright-core';
+import type { Page, Response } from 'playwright-core';
 import { startRig, type Rig } from './harness.ts';
 
 let rig: Rig;
@@ -31,10 +31,32 @@ const behindTail = (page: Page): Promise<number> => page.evaluate(() => {
 });
 
 const openSession = async (): Promise<Page> => {
-  const page = await rig.open('/session/s2');
+  let historyLoaded: Promise<Response> | undefined;
+  const page = await rig.open('/session/s2', {
+    beforeNavigate: page => {
+      historyLoaded = page.waitForResponse(async response => {
+        if (new URL(response.url()).pathname !== '/api/v1/sessions/s2/transcript' || !response.ok()) return false;
+        const history = await response.json() as { hasMore: boolean };
+        return history.hasMore === false;
+      });
+    },
+  });
+  await historyLoaded;
   await page.getByRole('button', { name: /Following/ }).waitFor();
   await page.locator('.tline').nth(30).waitFor();
   return page;
+};
+
+/** History responses can finish before React's tail scroll; sample a stable bottom across two frames. */
+const waitForSettledTail = async (page: Page): Promise<void> => {
+  await page.waitForFunction(async () => {
+    const pane = document.querySelector('.transcript');
+    if (!pane) return false;
+    const top = pane.scrollTop;
+    const height = pane.scrollHeight;
+    await new Promise<void>(done => { requestAnimationFrame(() => { requestAnimationFrame(() => { done(); }); }); });
+    return pane.scrollTop === top && pane.scrollHeight === height && Math.abs(pane.scrollHeight - pane.clientHeight - pane.scrollTop) <= 1;
+  });
 };
 
 describe('transcript scrolling', () => {
@@ -80,13 +102,18 @@ describe('transcript scrolling', () => {
       return Boolean(pane && line && line.bottom > pane.top && line.top < pane.bottom);
     });
     const scrollTop = (): Promise<number> => page.evaluate(() => document.querySelector('.transcript')?.scrollTop ?? -1);
+    await waitForSettledTail(page);
     const atTail = await scrollTop();
+    const tailSelection = await page.locator('.tline.selected').getAttribute('id');
+    const firstLine = await page.locator('.transcript [id^="line-"]').first().getAttribute('id');
     await page.keyboard.press('PageUp');
     await page.getByRole('button', { name: /Follow tail/ }).waitFor();
+    assert.notEqual(await page.locator('.tline.selected').getAttribute('id'), tailSelection, 'PageUp moves the selection');
     assert.ok(await selectedInView(), 'the selected line is visible after PageUp');
     assert.ok(await scrollTop() < atTail, 'the pane scrolled up');
     await page.keyboard.press('Home');
-    await page.waitForTimeout(300);
+    await page.waitForFunction(id => document.querySelector('.tline.selected')?.id === id, firstLine);
+    assert.equal(await page.locator('.tline.selected').getAttribute('id'), firstLine, 'Home selects the first line');
     assert.ok(await selectedInView(), 'the selected line is visible after Home');
     assert.ok(await scrollTop() < 80, 'Home reaches the top');
     await page.context().close();
