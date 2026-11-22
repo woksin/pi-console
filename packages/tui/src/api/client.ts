@@ -85,17 +85,17 @@ export class DaemonClient {
     return (await this.json<{ items: MemoryItem[] }>(`/memory-items?limit=${String(limit)}&order=desc&sessionId=${encodeURIComponent(sessionId)}`)).items;
   }
 
-  /** Backfills the newest `TRANSCRIPT_LIMIT` entries: pages forward to the end (so the tail is never the part that is missing), keeping only the tail. Bounded to `pages` pages. */
-  async transcript(sessionId: string, pages = 50): Promise<TranscriptEntry[]> {
+  /** Pages forward to the end, retaining only the newest `TRANSCRIPT_LIMIT` entries. The daemon has no tail/reverse option; cursors are exclusive byte offsets, not entry counts. */
+  async transcript(sessionId: string): Promise<TranscriptEntry[]> {
     let entries: TranscriptEntry[] = [];
     let cursor = 0;
-    for (let page = 0; page < pages; page++) {
+    for (;;) {
       const body = await this.json<Transcript>(`/sessions/${encodeURIComponent(sessionId)}/transcript?after=${String(cursor)}&limit=1000`);
       entries = [...entries, ...body.items].slice(-TRANSCRIPT_LIMIT);
+      if (!body.hasMore) return entries;
+      if (body.nextCursor <= cursor) throw new Error('Transcript paging did not advance');
       cursor = body.nextCursor;
-      if (!body.hasMore) break;
     }
-    return entries;
   }
 
   /** Runs until `stop()`. Reconnects with capped backoff and resumes through `Last-Event-ID`. */

@@ -7,6 +7,7 @@ import { sessionSideWidth } from '../state/session-layout.ts';
 import { transcriptViewport, transcriptWindow, type TranscriptAnchor, type TranscriptLayout } from '../state/transcript-window.ts';
 import type { Env, SectionView } from './common.ts';
 import { memoryLines } from './session-memory.ts';
+import { TRANSCRIPT_LIMIT } from '../store/store.ts';
 
 const LIMITS: Record<TranscriptLine['kind'], number> = { user: 8, thinking: 2, assistant: 14, tool: 1, result: 3, diff: 12, reset: 1 };
 
@@ -170,7 +171,8 @@ export function sessionView(env: Env): SectionView {
   const rendered = transcriptLines(env, model, entries, transcriptWidth);
   const { padded, below, paused } = visibleLines(rendered, ui, transcriptViewport(env.height));
   const following = ui.follow;
-  const status = statusText(ui.search, paused, model.transcript.length, below);
+  const cap = (data.transcripts.get(model.id)?.length ?? 0) >= TRANSCRIPT_LIMIT ? `capped at newest ${String(TRANSCRIPT_LIMIT)} · ` : '';
+  const status = cap + statusText(ui.search, paused, model.transcript.length, below);
   const loading = !data.transcripts.has(model.id) && model.transcript.length === 0;
   return {
     length: rendered.lines.length,
