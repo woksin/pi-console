@@ -30,7 +30,7 @@ export interface SectionView {
   /** Session view only: where to scroll for `ui.focusEntry`; undefined until the entry is in the transcript. */
   focus?: () => TranscriptAnchor | undefined;
   render: () => ReactElement;
-  /** Timeline only: the fitted window and the grid width, which the reducer needs to pan, zoom and scrub. */
+  /** Timeline or graph: the fitted time range and grid width used for time controls. */
   time?: { fit: TimeWindow; width: number };
   /** Session view only: the rendered shape of the transcript, which the reducer scrolls through. */
   transcript?: TranscriptLayout;

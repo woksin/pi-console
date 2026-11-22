@@ -1,8 +1,9 @@
 import { emptyStates, graphViewModel, messagesViewModel, pad, wrap, age, type LaneGraphEdgeView, type MessageRow } from '@pi-console/viewmodels';
-import { Lines, Panel, Row, h, type Line } from '../view/renderer.ts';
+import { Column, Lines, Panel, Row, h, type Line } from '../view/renderer.ts';
 import { blank, fit, heading, selectable, split, t, windowOf } from '../view/parts.ts';
 import type { Color } from '../view/theme.ts';
 import { emptyLines, shownOf, type Env, type SectionView } from './common.ts';
+import { graphScrubber } from './graph-scrubber.ts';
 
 const deliveryColor: Record<MessageRow['delivery'], Color> = { sent: 'faint', delivered: 'amber', read: 'green' };
 
@@ -31,8 +32,9 @@ interface DisplayEdge {
 }
 interface DisplayGroup { title: string; nodes: Map<string, { label: string; color: Color }>; edges: DisplayEdge[] }
 
-function graphGroups(env: Env): DisplayGroup[] {
-  const lanes = graphViewModel({ graph: env.data.graph }).groups.filter(group => group.edges.length > 0).map((group): DisplayGroup => ({
+function graphGroups(env: Env, upTo: number): DisplayGroup[] {
+  const graph = { ...env.data.graph, edges: env.data.graph.edges.filter(edge => Date.parse(edge.lastAt) <= upTo) };
+  const lanes = graphViewModel({ graph }).groups.filter(group => group.edges.length > 0).map((group): DisplayGroup => ({
     title: `${group.repositoryId ?? 'Unassigned lanes'} · ${String(group.messages)} messages · ${String(group.nodes.length)} lanes`,
     nodes: new Map(group.nodes.map(node => [node.laneId, { label: node.label, color: 'cyan' }])),
     edges: group.edges.map(edge => ({ from: edge.fromLane, to: edge.toLane, kind: edge.kind, count: edge.count, lastAt: edge.lastAt, thickness: edge.thickness, sessionId: null })),
@@ -86,7 +88,10 @@ function conversation(env: Env, edge: DisplayEdge | undefined, width: number): L
   if (!edge) return [[t('Select an edge', 'faint')]];
   if (edge.kind === 'spawn') return [[t('Spawn edge', 'violet', { bold: true })], [t('The parent started this subagent.', 'muted')]];
   const lanes = new Map(env.data.graph.nodes.map(node => [node.laneId, node.label]));
-  const messages = env.data.messages.filter(message => message.fromSessionId === edge.from && message.toSessionId === edge.to).sort((a, b) => Date.parse(b.sentAt) - Date.parse(a.sentAt)).slice(0, 8);
+  const sessionLanes = new Map(env.data.sessions.map(session => [session.id, session.laneId]));
+  // Daemon messages carry lane IDs; session-based sources need their endpoints mapped to lanes.
+  const laneOf = (endpoint: string) => sessionLanes.get(endpoint) ?? (lanes.has(endpoint) ? endpoint : undefined);
+  const messages = env.data.messages.filter(message => laneOf(message.fromSessionId) === edge.from && laneOf(message.toSessionId) === edge.to).sort((a, b) => Date.parse(b.sentAt) - Date.parse(a.sentAt)).slice(0, 8);
   return [
     [t(`${lanes.get(edge.from) ?? edge.from} → ${lanes.get(edge.to) ?? edge.to}`, 'text', { bold: true })], [t(`${String(edge.count)} ${edge.kind === 'message' ? 'messages' : edge.kind}`, 'muted')], blank, heading('Recent'),
     ...messages.flatMap((message): Line[] => [[t(`${message.sentAt.slice(11, 19)} `, 'faint'), t(message.status, deliveryColor[message.status])], ...wrap(message.text, width - 4, 2).map((text): Line => [t('  ' + text, 'text')])]),
@@ -94,24 +99,29 @@ function conversation(env: Env, edge: DisplayEdge | undefined, width: number): L
 }
 
 function graphView(env: Env): SectionView {
-  const groups = graphGroups(env);
+  const scrubber = graphScrubber(env);
+  const groups = graphGroups(env, scrubber.upTo);
   const flat = groups.flatMap(group => group.edges);
   const wide = env.width >= 110;
   const width = (wide ? env.width - 48 : env.width) - 4;
-  const cursor = Math.min(env.ui.cursor.messages, Math.max(0, flat.length - 1));
+  const clampCursor = (index: number) => Math.max(0, Math.min(index, flat.length - 1));
+  const cursor = clampCursor(env.ui.cursor.messages);
   const graph = graphLines(groups, cursor, env, width);
   const { edgeLine } = graph;
   const lines = graph.lines.length ? graph.lines : emptyLines(emptyStates.graph, width);
-  const visible = Math.max(1, env.height - 4);
+  const visible = Math.max(1, env.height - 4 - scrubber.lines.length);
   const focusLine = edgeLine[cursor] ?? 0;
   const { start, end } = windowOf(lines.length, focusLine, visible);
   return {
     length: flat.length,
-    rowAt: index => ({ sessionId: flat[index]?.sessionId ?? null, groupId: null }),
-    idAt: index => flat[index]?.from ?? null,
-    render: () => h(Row, { grow: 1, gap: 1 },
-      h(Panel, { title: 'Communication graph · v for list', focused: true, grow: 1, right: `${String(flat.length)} edges` }, h(Lines, { lines: lines.slice(start, end), grow: 1 })),
-      ...(wide ? [h(Panel, { title: 'Conversation', width: 48 }, h(Lines, { lines: conversation(env, flat[cursor], 48) }))] : [])),
+    time: scrubber.time,
+    rowAt: index => ({ sessionId: flat[clampCursor(index)]?.sessionId ?? null, groupId: null }),
+    idAt: index => flat[clampCursor(index)]?.from ?? null,
+    render: () => h(Column, { grow: 1 },
+      h(Lines, { lines: scrubber.lines }),
+      h(Row, { grow: 1, gap: 1 },
+        h(Panel, { title: 'Communication graph · v for list', focused: true, grow: 1, right: `${String(flat.length)} edges` }, h(Lines, { lines: lines.slice(start, end), grow: 1 })),
+        ...(wide ? [h(Panel, { title: 'Conversation', width: 48 }, h(Lines, { lines: conversation(env, flat[cursor], 48) }))] : []))),
   };
 }
 

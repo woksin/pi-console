@@ -1,5 +1,6 @@
 import { cycleRequestFilter, requestFilterAction, resolve, type Action, type KeyContext, type RequestsFilter } from '@pi-console/viewmodels';
-import { zoom, pan, type TimeWindow } from '@pi-console/viewmodels';
+import type { TimeWindow } from '@pi-console/viewmodels';
+import { scrubKey, timeControl } from './time-controls.ts';
 import { pauseTranscript, resumeTranscript, scrollTranscript, type TranscriptAnchor, type TranscriptLayout, type TranscriptMotion } from './transcript-window.ts';
 import { terminalContentWidth } from './session-layout.ts';
 
@@ -125,25 +126,6 @@ function back(state: UiState, bounds: ActionBounds): UiState {
   return state.filter ? { ...state, filter: '' } : state;
 }
 
-const windowMoves: Partial<Record<Action, (window: TimeWindow) => TimeWindow>> = {
-  'time.left': window => pan(window, -1),
-  'time.right': window => pan(window, 1),
-  'time.zoomIn': window => zoom(window, 0.6),
-  'time.zoomOut': window => zoom(window, 1 / 0.6),
-};
-
-function scrubStep(state: UiState, action: Action, bounds: Bounds): UiState {
-  const step = (action === 'time.left' ? -1 : 1) * Math.max(1, Math.round(bounds.width / 40));
-  return { ...state, scrubColumn: Math.max(0, Math.min(bounds.width - 1, state.scrubColumn + step)) };
-}
-
-function timeline(state: UiState, action: Action, bounds: Bounds): UiState {
-  if (state.scrub && (action === 'time.left' || action === 'time.right')) return scrubStep(state, action, bounds);
-  const move = windowMoves[action];
-  if (move) return { ...state, window: move(state.window ?? bounds.fit) };
-  return { ...state, scrub: !state.scrub, scrubColumn: state.scrub ? state.scrubColumn : Math.floor(bounds.width / 2) };
-}
-
 const sectionActions: Partial<Record<Action, Section>> = {
   'section.1': 'overview', 'section.2': 'fleet', 'section.3': 'requests', 'section.4': 'questions', 'section.5': 'messages', 'section.6': 'timeline', 'section.7': 'work',
 };
@@ -187,11 +169,11 @@ const handlers: Partial<Record<Action, Handler>> = {
   'group.toggle': (state, bounds) => toggleGroup(state, bounds),
   'pane.next': state => cyclePane(state, 1),
   'pane.previous': state => cyclePane(state, -1),
-  'time.scrub': (state, bounds, action) => timeline(state, action, bounds),
-  'time.zoomIn': (state, bounds, action) => timeline(state, action, bounds),
-  'time.zoomOut': (state, bounds, action) => timeline(state, action, bounds),
-  'time.left': (state, bounds, action) => timeline(state, action, bounds),
-  'time.right': (state, bounds, action) => timeline(state, action, bounds),
+  'time.scrub': timeControl,
+  'time.zoomIn': timeControl,
+  'time.zoomOut': timeControl,
+  'time.left': timeControl,
+  'time.right': timeControl,
   'move.up': moveHandler, 'move.down': moveHandler, 'move.top': moveHandler, 'move.bottom': moveHandler, 'page.up': moveHandler, 'page.down': moveHandler,
 };
 
@@ -236,7 +218,7 @@ function toggleGroup(state: UiState, bounds: Bounds): UiState {
 const overlayKeys: Record<string, Action> = { ArrowUp: 'move.up', k: 'move.up', ArrowDown: 'move.down', j: 'move.down', PageUp: 'page.up', PageDown: 'page.down', Home: 'move.top', g: 'move.top', End: 'move.bottom', G: 'move.bottom' };
 
 export function handleKey(state: UiState, key: string, bounds: Bounds): UiState {
-  const action = scrollableOverlay(state.overlay) ? overlayKeys[key] ?? resolve('help', key) : resolve(contextOf(state), key);
+  const action = scrollableOverlay(state.overlay) ? overlayKeys[key] ?? resolve('help', key) : scrubKey(contextOf(state), key, state.scrub) ?? resolve(contextOf(state), key);
   return action ? reduce(state, action, bounds) : state;
 }
 
