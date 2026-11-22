@@ -60,7 +60,7 @@ test('the documented follow shortcut resolves in session detail even when a butt
   assert.equal(resolveWebKey('detail', 'f'), 'follow.toggle');
   assert.equal(resolveWebKey('detail', 'Enter'), undefined);
   assert.equal(nativeActivation('Enter', button), true);
-  assert.equal(resolveWebKey('detail', 'Tab'), 'pane.next');
+  assert.equal(resolveWebKey('detail', 'Tab'), undefined);
   assert.equal(resolveWebKey('help', 'f'), undefined);
   assert.equal(resolveWebKey('palette', 'f'), undefined);
   assert.equal(resolveWebKey('fleet', 'f'), undefined);

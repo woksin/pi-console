@@ -62,3 +62,15 @@ test('hints are context-specific and de-duplicated', () => {
   assert.equal(new Set(list).size, list.length);
   assert.ok(!hints('palette').includes('? help'));
 });
+
+test('pane cycling and the timeline scrubber are TUI-only; the graph scrubber stays shared', () => {
+  for (const context of ['detail', 'transcript'] as const) for (const key of ['Tab', 'Shift+Tab']) {
+    assert.equal(resolve(context, key, 'web'), undefined);
+    assert.ok(resolve(context, key, 'tui'));
+  }
+  assert.equal(resolve('timeline', 't', 'web'), undefined);
+  assert.equal(resolve('timeline', 't', 'tui'), 'time.scrub');
+  assert.equal(resolve('graph', 't', 'web'), 'time.scrub');
+  assert.ok(!hints('detail', 'web').includes('tab pane'));
+  assert.ok(hints('detail', 'tui').includes('tab pane'));
+});

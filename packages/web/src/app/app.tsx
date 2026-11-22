@@ -11,6 +11,7 @@ import { faviconHref, setFavicon } from './favicon.ts';
 import { attentionPresentation, attentionTitle } from './attention.ts';
 import { setPrefs, usePrefs } from './prefs.ts';
 import { View } from './view.tsx';
+import { CopyNotice } from './copy-notice-view.tsx';
 import { useTick } from '../ui/hooks.ts';
 
 export function App() {
@@ -41,6 +42,7 @@ export function App() {
         <TopBar title={route.view === 'session' ? 'Session' : titleFor(route.view)} hint={sectionFor(route.view) ? sectionMeta[sectionFor(route.view) ?? 'overview'].hint : ''} state={state} wall={wall} session={route.view === 'session' ? state.sessions.find(session => session.id === route.id) : undefined} onPalette={() => { setOverlay('palette'); }} onHelp={() => { setOverlay('help'); }} />
         <Banner state={state} wall={wall} />
         <main className={`content${staleData(state, wall) ? ' stale' : ''}`} data-stale={staleData(state, wall)} id="content" tabIndex={-1}><View route={route} state={state} now={now} /></main>
+        <CopyNotice />
         <Hints items={hints(context, 'web')} />
       </div>
       {overlay === 'palette' && <Palette data={state} recents={recents} onClose={() => { setOverlay(null); }} onPick={pick} />}

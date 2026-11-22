@@ -2,6 +2,7 @@ import type { Action } from '@pi-console/viewmodels';
 import { createContext, useContext, useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import type { ConsoleStore } from '../client/store.ts';
 import type { ConsoleState } from '../state/state.ts';
+import { copyWithNotice } from './copy-notice.ts';
 import { useActions } from './commands.ts';
 import { parseRoute, type Route } from './routes.ts';
 
@@ -57,8 +58,11 @@ function resolveSelection(ids: readonly string[], picked: string | null, fallbac
   return fallback && ids.includes(fallback) ? fallback : ids.at(0) ?? null;
 }
 
+/** `y` copies the selected id unless the list opts out (a transcript copies its session id instead). */
+const copies = (action: Action, options: { copy?: boolean }): boolean => action === 'copy.id' && options.copy !== false;
+
 /** Keyboard selection over an ordered id list, bound to the shared move/open/copy actions. */
-export function useListNav(ids: readonly string[], options: { onOpen?: (id: string) => void; initial?: string | null; fallback?: string | null; enabled?: boolean; onMove?: (id: string) => void } = {}): ListNav {
+export function useListNav(ids: readonly string[], options: { onOpen?: (id: string) => void; initial?: string | null; fallback?: string | null; enabled?: boolean; onMove?: (id: string) => void; copy?: boolean } = {}): ListNav {
   const [picked, setPicked] = useState<string | null>(options.initial ?? null);
   const selected = resolveSelection(ids, picked, options.fallback);
   useActions(action => {
@@ -66,7 +70,7 @@ export function useListNav(ids: readonly string[], options: { onOpen?: (id: stri
     if (target !== null) { if (ids.length > 0) { setPicked(ids[target]); options.onMove?.(ids[target]); } return true; }
     if (selected === null) return false;
     if (action === 'open' && options.onOpen) { options.onOpen(selected); return true; }
-    if (action === 'copy.id') { void copyText(selected); return true; }
+    if (copies(action, options)) { void copyWithNotice(selected, 'id'); return true; }
     return false;
   }, options.enabled ?? true);
   return { selected, select: setPicked };

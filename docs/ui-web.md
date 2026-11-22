@@ -52,11 +52,10 @@ The bindings are defined once in `packages/viewmodels/src/keymap` (press `?` for
 | `Enter` | Open the selected item (on a fleet group: fold/unfold it) |
 | `Esc` | Close, cancel, back |
 | `/` | Filter the list or search the transcript |
-| `Tab` / `Shift+Tab` | Next / previous pane in a session |
 | `f` | Toggle follow-tail |
-| `y` | Copy id |
+| `y` | Copy the id of the selected row; in a session, the session id. A short "Copied" notice confirms it (or reports that the clipboard is unavailable) |
 | `v` | List ↔ graph (messages) |
-| `t` | Last-activity time scrubber (messages graph) |
+| `t` | Last-activity time scrubber (messages graph; the TUI also has it on the timeline) |
 | `+` `-`, `h` `l` | Zoom, pan (timeline) |
 | `Space` | Fold a fleet group |
 | `[` `]` | Requests: previous / next state filter (all, open, answered, unanswered, interrupted, uncertain, possibly unseen; wraps) |
