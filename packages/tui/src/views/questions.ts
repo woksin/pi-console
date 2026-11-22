@@ -21,7 +21,7 @@ function detail(row: QuestionRow | undefined, width: number, full = false): Line
 
 const filteredRows = (rows: QuestionRow[], filter: string) => rows.filter(row => !filter || `${row.text} ${row.session}`.toLowerCase().includes(filter.toLowerCase()));
 
-function narrowDetail(row: QuestionRow | undefined, env: Env) {
+function fullDetail(row: QuestionRow | undefined, env: Env) {
   const lines = detail(row, env.width, true);
   const page = Math.max(1, env.height - 2), max = Math.max(0, lines.length - page);
   const start = Math.min(env.ui.detailScroll, max);
@@ -34,8 +34,8 @@ export function questionsView(env: Env): SectionView {
   const wide = env.width >= 110;
   const width = (wide ? env.width - 48 : env.width) - 4;
   const cursor = Math.min(env.ui.cursor.questions, Math.max(0, rows.length - 1));
-  const full = narrowDetail(rows[cursor], env);
-  const viewport = wide ? undefined : full.bounds;
+  const full = fullDetail(rows[cursor], env);
+  const viewport = wide && !questionDetailShown(env.ui) ? undefined : full.bounds;
   const { start, end } = windowOf(rows.length, cursor, Math.max(1, env.height - 4));
   const lines = rows.slice(start, end).map((row, offset): Line => selectable(split(
     [...statusParts(row.status, env.phase, false), t(row.urgent ? ' ‼ ' : '   ', 'red'), t(row.text, row.status.status === 'done' ? 'muted' : 'text')],
@@ -47,6 +47,6 @@ export function questionsView(env: Env): SectionView {
     idAt: index => rows[index]?.id ?? null,
     render: questionDetailShown(env.ui) ? full.render : () => h(Row, { grow: 1, gap: 1 },
       h(Panel, { title: `Questions · ${String(model.open)} open · ${String(model.blocking)} blocking${shownOf(env.data, 'questions', rows.length)}`, focused: true, grow: 1 }, h(Lines, { lines: lines.length ? lines : emptyLines(emptyStates.questions, env.width - 4), grow: 1, onLineClick: index => { env.click(start + index); } })),
-      ...(wide ? [h(Panel, { title: 'Question', width: 48 }, h(Lines, { lines: detail(rows[cursor], 48) }))] : [])),
+      ...(wide ? [h(Panel, { title: 'Question · v expand', width: 48 }, h(Lines, { lines: detail(rows[cursor], 48) }))] : [])),
   };
 }

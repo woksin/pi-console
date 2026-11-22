@@ -1,5 +1,5 @@
 import type { WindowedCollection } from '@pi-console/viewmodels';
-import type { MemoryActionAvailability, MemoryActionReceipt, MemoryActionRequest, Event, MemoryItem, SessionDetail, SessionMemory, TranscriptEntry, Transcript, NeedsYou, AttentionItem } from '@pi-console/contract';
+import type { Graph, MemoryActionAvailability, MemoryActionReceipt, MemoryActionRequest, Event, MemoryItem, SessionDetail, SessionMemory, TranscriptEntry, Transcript, NeedsYou, AttentionItem } from '@pi-console/contract';
 import { FrameParser } from './sse.ts';
 import type { Credentials } from './token.ts';
 
@@ -46,6 +46,8 @@ export class DaemonClient {
   async needsYou(): Promise<AttentionItem[]> {
     return (await this.json<NeedsYou>('/needs-you')).items;
   }
+
+  async graph(): Promise<Graph> { return await this.json<Graph>('/graph'); }
 
   /** One page of a list endpoint, newest first when `order` is `desc`. */
   async page(collection: WindowedCollection, after: string | null, limit = 500): Promise<{ items: { id: string }[]; nextCursor: string | null; hasMore: boolean; total: number }> {

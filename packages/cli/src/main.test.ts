@@ -36,6 +36,24 @@ for (const entry of [installed, direct]) {
     assert.equal(result.stderr.trim().split('\n').length, 1);
   });
 
+  for (const flag of ['--help', '-h']) {
+    test(`${entry}: tui ${flag} prints usage without launching the terminal`, () => {
+      const result = invoke(entry, ['tui', flag]);
+      assert.equal(result.status, 0);
+      assert.match(result.stdout, /^Usage: pi-console tui \[options\]/);
+      assert.match(result.stdout, /PI_CONSOLE_DATA_DIR/);
+      assert.equal(result.stderr, '');
+    });
+  }
+
+  test(`${entry}: an unsupported TUI option exits two with a usage hint`, () => {
+    const result = invoke(entry, ['tui', '--not-an-option']);
+    assert.equal(result.status, 2);
+    assert.equal(result.stdout, '');
+    assert.match(result.stderr, /^Unknown option '--not-an-option'/);
+    assert.match(result.stderr, /pi-console tui --help/);
+  });
+
   test(`${entry}: PI_CONSOLE_DEBUG=1 includes the stack for diagnosis`, () => {
     const result = invoke(entry, ['daemon', '--port', 'banana'], '1');
     assert.equal(result.status, 1);

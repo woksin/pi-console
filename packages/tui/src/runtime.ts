@@ -2,7 +2,8 @@ import { createElement } from 'react';
 import { TranscriptLoader } from './transcript-loader.ts';
 import { DaemonClient } from './api/client.ts';
 import { resolveCredentials, type Credentials } from './api/token.ts';
-import { throttled, type Refresher } from './refresh.ts';
+import { pollWhileConnected, throttled, type ConnectedRefresher, type Refresher } from './refresh.ts';
+import { graphRefresher } from './graph-refresh.ts';
 import { Store } from './store/store.ts';
 import { App } from './app.ts';
 import { launch } from './view/renderer.ts';
@@ -12,6 +13,7 @@ import { detectDepth, palette, themeFromEnv } from './view/theme.ts';
 export interface Runtime { store: Store; client: DaemonClient; loadTranscript: TranscriptLoader['load']; pageTranscript: TranscriptLoader['page']; focusTranscript: TranscriptLoader['focus']; reviews: MemoryReviewController; loadMemory: (id: string) => Promise<void>; retryNeedsYou: Refresher['request']; watchMemory: (id: string) => () => void; stop: () => void }
 
 const NEEDS_YOU_REFRESH_MS = 2000;
+const NEEDS_YOU_POLL_MS = 60_000;
 
 /** Connects the client to the store: the stream feeds events, "needs you" is refreshed at most every two seconds. */
 export function connect(credentials: Credentials): Runtime {
@@ -26,6 +28,7 @@ export function connect(credentials: Credentials): Runtime {
   const reviews = new MemoryReviewController(client, (id, review) => { if (!stopped) store.setMemoryReview(id, review); }, loadMemory);
   const transcripts = new TranscriptLoader(store, client);
   const refresher = attentionRequests(store, client);
+  const graph = graphRefresher(client, value => { store.setGraph(value); });
   const refresh = refresher.request;
   void client.stream({
     onEvent: event => {
@@ -33,13 +36,14 @@ export function connect(credentials: Credentials): Runtime {
       if (event.type === 'snapshot') memory.invalidateVisible();
       if (event.type === 'session.updated' && event.payload.memoryChanged) memory.invalidate(event.payload.id);
       if (event.type !== 'transcript.appended') refresh();
+      graph.request(event.type);
     },
-    onState: state => { store.setConnection(state.connected, state.error); if (state.connected) refresh(); },
+    onState: state => { store.setConnection(state.connected, state.error); refresher.setConnected(state.connected); if (state.connected) graph.request(); },
   });
-  return { store, client, loadTranscript: transcripts.load, pageTranscript: transcripts.page, focusTranscript: transcripts.focus, reviews, loadMemory, retryNeedsYou: refresh, watchMemory: id => memory.watch(id), stop: () => { stopped = true; transcripts.stop(); memory.dispose(); reviews.dispose(); refresher.stop(); client.stop(); store.dispose(); } };
+  return { store, client, loadTranscript: transcripts.load, pageTranscript: transcripts.page, focusTranscript: transcripts.focus, reviews, loadMemory, retryNeedsYou: refresh, watchMemory: id => memory.watch(id), stop: () => { stopped = true; transcripts.stop(); memory.dispose(); reviews.dispose(); refresher.stop(); graph.stop(); client.stop(); store.dispose(); } };
 }
 
-function attentionRequests(store: Store, client: DaemonClient): Refresher {
+function attentionRequests(store: Store, client: DaemonClient): ConnectedRefresher {
   let stopped = false;
   const load = async () => {
     store.setNeedsYouError(false);
@@ -49,7 +53,7 @@ function attentionRequests(store: Store, client: DaemonClient): Refresher {
     } catch { if (!stopped) store.setNeedsYouError(true); }
   };
   const refresher = throttled(load, NEEDS_YOU_REFRESH_MS);
-  return { request: refresher.request, stop: () => { stopped = true; refresher.stop(); } };
+  return pollWhileConnected({ request: refresher.request, stop: () => { stopped = true; refresher.stop(); } }, NEEDS_YOU_POLL_MS);
 }
 
 const paging = new Set<WindowedCollection>();

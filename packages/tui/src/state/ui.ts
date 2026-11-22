@@ -35,6 +35,8 @@ export interface UiState {
   focusEntry: string | null;
   search: string;
   questionDetail: boolean;
+  /** Explicit expansion works at every width; automatic narrow detail keeps its resize behavior. */
+  questionExpanded: boolean;
   detailScroll: number;
   pane: SidePane;
   memoryIndex: number;
@@ -49,7 +51,7 @@ export interface UiState {
 export const initial: UiState = {
   terminalWidth: 80, section: 'overview', sessionId: null, overlay: 'none', helpScroll: 0, input: '', paletteIndex: 0, recents: [], filter: '',
   cursor: { overview: 0, fleet: 0, requests: 0, questions: 0, messages: 0, timeline: 0, work: 0 },
-  collapsed: [], follow: true, anchor: null, requestFilter: { state: 'all', origin: 'all', sessionId: null }, focusEntry: null, search: '', questionDetail: false, detailScroll: 0, pane: 'requests', memoryIndex: 0, messagesGraph: false, window: null, scrub: false, scrubColumn: 0, quit: false, notice: '',
+  collapsed: [], follow: true, anchor: null, requestFilter: { state: 'all', origin: 'all', sessionId: null }, focusEntry: null, search: '', questionDetail: false, questionExpanded: false, detailScroll: 0, pane: 'requests', memoryIndex: 0, messagesGraph: false, window: null, scrub: false, scrubColumn: 0, quit: false, notice: '',
 };
 
 /** What the reducer needs to know about the rendered world; supplied by the view layer. */
@@ -57,15 +59,16 @@ export interface Bounds { length: number; page: number; fit: TimeWindow; width: 
 
 interface ActionBounds extends Bounds { questionDetailShown: boolean }
 
-const questionDetailAvailable = (state: UiState): boolean => state.sessionId === null && state.section === 'questions' && terminalContentWidth(state.terminalWidth) < 110;
+const onQuestionsList = (state: UiState): boolean => state.sessionId === null && state.section === 'questions';
+const questionDetailAvailable = (state: UiState): boolean => onQuestionsList(state) && (state.questionExpanded || terminalContentWidth(state.terminalWidth) < 110);
 export const questionDetailShown = (state: UiState): boolean => state.questionDetail && questionDetailAvailable(state);
-const withoutQuestionDetail = (state: UiState): UiState => state.questionDetail ? { ...state, questionDetail: false, detailScroll: 0 } : state;
+const withoutQuestionDetail = (state: UiState): UiState => state.questionDetail ? { ...state, questionDetail: false, questionExpanded: false, detailScroll: 0 } : state;
 
 /** A real width transition, not missing per-action geometry, can dismiss narrow detail. */
 export function resizeUi(state: UiState, terminalWidth: number): UiState {
   if (state.terminalWidth === terminalWidth) return state;
   const resized = { ...state, terminalWidth };
-  return terminalContentWidth(terminalWidth) < 110 ? resized : withoutQuestionDetail(resized);
+  return state.questionExpanded || terminalContentWidth(terminalWidth) < 110 ? resized : withoutQuestionDetail(resized);
 }
 
 const contextRules: readonly (readonly [(state: UiState) => boolean, KeyContext])[] = [
@@ -99,7 +102,7 @@ function moveTranscript(state: UiState, action: Action, bounds: Bounds): UiState
   return motion ? { ...state, focusEntry: null, ...scrollTranscript(bounds.transcript, state, bounds.viewport, motion(bounds)) } : state;
 }
 
-const goto = (state: UiState, section: Section): UiState => ({ ...state, section, sessionId: null, focusEntry: null, overlay: 'none', filter: '', scrub: false, questionDetail: false, detailScroll: 0 });
+const goto = (state: UiState, section: Section): UiState => ({ ...state, section, sessionId: null, focusEntry: null, overlay: 'none', filter: '', scrub: false, questionDetail: false, questionExpanded: false, detailScroll: 0 });
 
 const opensQuestionDetail = (state: UiState, bounds: ActionBounds): boolean => questionDetailAvailable(state) && !bounds.questionDetailShown && bounds.length > 0;
 
@@ -108,14 +111,14 @@ function open(state: UiState, bounds: ActionBounds): UiState {
   const row = bounds.rowAt(state.cursor[state.section]);
   if (!row.sessionId) return row.groupId ? toggleGroup(state, bounds) : state;
   const sessionId = row.sessionId;
-  return { ...state, sessionId, ...resumeTranscript, search: '', pane: 'requests', focusEntry: row.entryId ?? null, questionDetail: false, detailScroll: 0 };
+  return { ...state, sessionId, ...resumeTranscript, search: '', pane: 'requests', focusEntry: row.entryId ?? null, questionDetail: false, questionExpanded: false, detailScroll: 0 };
 }
 
 function back(state: UiState, bounds: ActionBounds): UiState {
   if (state.overlay !== 'none') return { ...state, overlay: 'none', input: '' };
-  if (bounds.questionDetailShown) return { ...state, questionDetail: false, detailScroll: 0 };
+  if (bounds.questionDetailShown) return withoutQuestionDetail(state);
   if (state.scrub) return { ...state, scrub: false };
-  if (state.sessionId) return { ...state, sessionId: null, search: '', focusEntry: null, questionDetail: false, detailScroll: 0 };
+  if (state.sessionId) return { ...state, sessionId: null, search: '', focusEntry: null, questionDetail: false, questionExpanded: false, detailScroll: 0 };
   return state.filter ? { ...state, filter: '' } : state;
 }
 
@@ -159,6 +162,12 @@ function requestFilters(state: UiState, bounds: Bounds, action: Action): UiState
   return { ...state, requestFilter: { state: next.state, origin: next.origin, sessionId: next.sessionId }, cursor: { ...state.cursor, requests: 0 } };
 }
 
+function toggleView(state: UiState, bounds: Bounds): UiState {
+  if (!onQuestionsList(state)) return { ...state, messagesGraph: !state.messagesGraph, cursor: { ...state.cursor, messages: 0 } };
+  if (bounds.length === 0) return state;
+  return questionDetailShown(state) ? withoutQuestionDetail(state) : { ...state, questionDetail: true, questionExpanded: true, detailScroll: 0 };
+}
+
 const moveHandler: Handler = (state, bounds, action) => (state.sessionId ? moveTranscript(state, action, bounds) : moveList(state, action, bounds));
 
 const handlers: Partial<Record<Action, Handler>> = {
@@ -171,7 +180,7 @@ const handlers: Partial<Record<Action, Handler>> = {
   'open': (state, bounds) => open(state, bounds),
   'filter.next': requestFilters, 'filter.previous': requestFilters, 'filter.origin': requestFilters, 'filter.session': requestFilters,
   'follow.toggle': (state, bounds) => ({ ...state, focusEntry: null, ...(state.follow ? pauseTranscript(bounds.transcript, state, bounds.viewport) : resumeTranscript) }),
-  'view.toggle': state => ({ ...state, messagesGraph: !state.messagesGraph, cursor: { ...state.cursor, messages: 0 } }),
+  'view.toggle': (state, bounds) => toggleView(state, bounds),
   'group.toggle': (state, bounds) => toggleGroup(state, bounds),
   'pane.next': state => cyclePane(state, 1),
   'pane.previous': state => cyclePane(state, -1),
