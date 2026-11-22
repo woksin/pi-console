@@ -10,6 +10,8 @@ export type HealthRecord = Record<string, string | number | boolean>;
 
 export type Connection = 'connecting' | 'live' | 'reconnecting' | 'offline' | 'unauthorized';
 
+export type MemoryReadStatus = { status: 'loading' | 'loaded' | 'absent' } | { status: 'error'; message: string };
+
 /** Everything the views read. Built from the snapshot plus deltas; contains no UI state. */
 export interface ConsoleState {
   repositories: Repository[];
@@ -26,6 +28,8 @@ export interface ConsoleState {
   memory: Partial<Record<string, SessionMemory>>;
   /** The newest memory items per session id. */
   memoryItems: Partial<Record<string, MemoryItem[]>>;
+  /** Read status is independent of cached data; only `storeDetected: false` confirms absence. */
+  memoryStatus: Partial<Record<string, MemoryReadStatus>>;
   memoryReviews: ReadonlyMap<string, MemoryReviewSession>;
   /** The daemon's single attention list; clients never compute their own. */
   needsYou: AttentionItem[];
@@ -64,7 +68,7 @@ export const retentionFor = (state: Pick<ConsoleState, 'deepHistory'>, sessionId
 export function emptyState(): ConsoleState {
   return {
     repositories: [], sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], interventions: [],
-    transcripts: {}, memory: {}, memoryItems: {}, memoryReviews: new Map(), needsYou: [], needsYouLoaded: false, needsYouError: false, graph: null, health: null, overview: null, liveAt: 0, snapshotLoaded: false, seq: 0,
+    transcripts: {}, memory: {}, memoryItems: {}, memoryStatus: {}, memoryReviews: new Map(), needsYou: [], needsYouLoaded: false, needsYouError: false, graph: null, health: null, overview: null, liveAt: 0, snapshotLoaded: false, seq: 0,
     connection: 'connecting', lastFrameAt: 0, gapCount: 0, received: 0, deepHistory: [], totals: null, bounded: [], history: {},
   };
 }
