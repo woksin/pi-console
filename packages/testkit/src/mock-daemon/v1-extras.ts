@@ -48,7 +48,7 @@ export function transcriptAround(store: Store, sessionId: string, entryId: strin
   if (index < 0) throw new HttpError(404, 'Transcript entry not found');
   const start = Math.max(0, index - Math.floor(limit / 2));
   const items = entries.slice(start, start + limit);
-  return { items, nextCursor: items.at(-1)?.cursor ?? 0, hasMore: start + limit < entries.length };
+  return { items, nextCursor: items.at(-1)?.cursor ?? 0, hasMore: start + limit < entries.length, hasOlder: start > 0 };
 }
 
 export interface MockInfo { port: number; startedAt: string; replayWindow: number; eventLoop: ELDHistogram }

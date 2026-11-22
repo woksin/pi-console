@@ -38,9 +38,9 @@ for (const width of [80, 112]) {
     const store = transcriptStore(TRANSCRIPT_LIMIT + 1);
     const ui = await mountSession(store, width);
     try {
-      assert.match(ui.frame(), /capped at newest 2500/);
+      assert.match(ui.frame(), /older entries above — scroll up to load/);
       await ui.press('f');
-      assert.match(ui.frame(), /capped at newest 2500/);
+      assert.match(ui.frame(), /older entries above — scroll up to load/);
       assert.match(ui.frame(), /paused.*f to follow/);
       await ui.press('f');
       assert.match(ui.frame(), /following tail/);
@@ -52,12 +52,12 @@ test('exactly 2500 entries do not claim truncation; a later live entry does', as
   const store = transcriptStore(TRANSCRIPT_LIMIT);
   const ui = await mountSession(store, 112);
   try {
-    assert.doesNotMatch(ui.frame(), /capped at newest/);
+    assert.doesNotMatch(ui.frame(), /older entries above/);
     const last = store.getSnapshot().transcripts.get(sessions[0].id)!.at(-1)!;
     store.apply({ seq: 2, type: 'transcript.appended', occurredAt: fixture.generatedAt, payload: { ...last, id: 'live', cursor: last.cursor + 1 } });
     store.flush();
     await ui.settle();
-    assert.match(ui.frame(), /capped at newest 2500/);
+    assert.match(ui.frame(), /older entries above — scroll up to load/);
   } finally { ui.destroy(); store.dispose(); }
 });
 
@@ -88,24 +88,48 @@ test('switching sessions, closing the view and unmounting clean up the previous 
   } finally { ui.destroy(); store.dispose(); }
 });
 
-test('backfill reports truncation only after an entry was actually dropped', async () => {
+test('opening a large transcript requests only its newest page', async () => {
+  const urls: URL[] = [];
+  const server = createServer((request, response) => {
+    const url = new URL(request.url ?? '', 'http://localhost');
+    urls.push(url);
+    const desc = url.searchParams.get('order') === 'desc';
+    const after = Number(url.searchParams.get('after') ?? (desc ? 10_001 : 0));
+    const items = Array.from({ length: 1000 }, (_, index) => ({ id: `e${String(desc ? after - index - 1 : after + index + 1)}`, cursor: desc ? after - index - 1 : after + index + 1 }));
+    response.setHeader('content-type', 'application/json');
+    response.end(JSON.stringify({ items, nextCursor: items.at(-1)?.cursor, hasMore: desc ? after > 1001 : after < 9000 }));
+  });
+  await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
+  const client = new DaemonClient({ baseUrl: `http://127.0.0.1:${String((server.address() as { port: number }).port)}`, token: 'test', tokenSource: 'test' });
+  try {
+    const tail = await client.transcriptTail({ sessionId: 's' });
+    assert.equal(urls.length, 1);
+    assert.equal(urls[0]?.searchParams.get('order'), 'desc');
+    assert.equal(tail.entries.at(-1)?.cursor, 10_000);
+    assert.equal(tail.truncated, false);
+    assert.equal(tail.hasMore, true);
+  } finally { client.stop(); server.closeAllConnections(); server.close(); }
+});
+
+test('one tail page reports older history without claiming entries were dropped', async () => {
   const server = createServer((request, response) => {
     const url = new URL(request.url ?? '', 'http://localhost');
     const total = Number(url.pathname.split('/').at(-2));
-    const after = Number(url.searchParams.get('after'));
-    const items = Array.from({ length: Math.min(1000, total - after) }, (_, index) => ({ id: `e${String(after + index)}`, cursor: after + index + 1 }));
+    const items = Array.from({ length: Math.min(1000, total) }, (_, index) => ({ id: `e${String(total - index)}`, cursor: total - index }));
     response.setHeader('content-type', 'application/json');
-    response.end(JSON.stringify({ items, nextCursor: after + items.length, hasMore: after + items.length < total }));
+    response.end(JSON.stringify({ items, nextCursor: items.at(-1)?.cursor ?? 0, hasMore: total > items.length }));
   });
   await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
   const client = new DaemonClient({ baseUrl: `http://127.0.0.1:${String((server.address() as { port: number }).port)}`, token: 'test', tokenSource: 'test' });
   const store = new Store();
   try {
-    for (const count of [TRANSCRIPT_LIMIT, TRANSCRIPT_LIMIT + 1]) {
+    for (const count of [0, 1, 999, 1000, 1001, TRANSCRIPT_LIMIT, TRANSCRIPT_LIMIT + 1]) {
       const sessionId = String(count);
-      const { entries, truncated } = await client.transcriptTail({ sessionId });
-      assert.equal(entries.length, TRANSCRIPT_LIMIT);
-      assert.equal(truncated, count > TRANSCRIPT_LIMIT);
+      const { entries, truncated, hasMore } = await client.transcriptTail({ sessionId });
+      assert.equal(entries.length, Math.min(count, 1000));
+      assert.equal(truncated, false);
+      assert.equal(hasMore, count > 1000);
+      if (count > 0) assert.equal(entries.at(-1)?.cursor, count);
       store.mergeTranscript(sessionId, entries, truncated);
       store.flush();
       assert.equal(store.getSnapshot().transcriptsTruncated.has(sessionId), truncated);
@@ -119,9 +143,8 @@ for (const cancellation of ['view', 'shutdown']) {
     let pages = 0;
     const server = createServer((_request, response) => {
       pages++;
-      if (pages > 1) { reached.resolve(undefined); return; }
+      reached.resolve(undefined);
       response.setHeader('content-type', 'application/json');
-      response.end(JSON.stringify({ items: [], nextCursor: 17, hasMore: true }));
     });
     await new Promise<void>(resolve => server.listen(0, '127.0.0.1', resolve));
     const client = new DaemonClient({ baseUrl: `http://127.0.0.1:${String((server.address() as { port: number }).port)}`, token: 'test', tokenSource: 'test' });
@@ -135,7 +158,7 @@ for (const cancellation of ['view', 'shutdown']) {
       const deadline = setTimeout(() => { timedOut = true; client.stop(); }, 2000);
       try { await assert.rejects(loading, { name: 'AbortError' }); } finally { clearTimeout(deadline); }
       assert.equal(timedOut, false, 'the per-load signal must abort without waiting for shutdown');
-      assert.equal(pages, 2);
+      assert.equal(pages, 1);
     } finally { client.stop(); server.closeAllConnections(); server.close(); }
   });
 }

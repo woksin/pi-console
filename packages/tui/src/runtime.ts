@@ -11,7 +11,7 @@ import { launch } from './view/renderer.ts';
 import { MemoryRefreshController, MemoryReviewController, type WindowedCollection } from '@pi-console/viewmodels';
 import { detectDepth, palette, themeFromEnv } from './view/theme.ts';
 
-export interface Runtime { store: Store; client: DaemonClient; loadTranscript: TranscriptLoader['load']; reviews: MemoryReviewController; loadMemory: (id: string) => Promise<void>; loadMoreMemory: MemoryLoader['more']; retryNeedsYou: Refresher['request']; watchMemory: (id: string) => () => void; stop: () => void }
+export interface Runtime { store: Store; client: DaemonClient; loadTranscript: TranscriptLoader['load']; pageTranscript: TranscriptLoader['page']; focusTranscript: TranscriptLoader['focus']; reviews: MemoryReviewController; loadMemory: (id: string) => Promise<void>; loadMoreMemory: MemoryLoader['more']; retryNeedsYou: Refresher['request']; watchMemory: (id: string) => () => void; stop: () => void }
 
 const NEEDS_YOU_REFRESH_MS = 2000;
 const NEEDS_YOU_POLL_MS = 60_000;
@@ -40,7 +40,7 @@ export function connect(credentials: Credentials): Runtime {
     },
     onState: state => { store.setConnection(state.connected, state.error); refresher.setConnected(state.connected); if (state.connected) graph.request(); },
   });
-  return { store, client, loadTranscript: transcripts.load, reviews, loadMemory, loadMoreMemory, retryNeedsYou: refresh, watchMemory: id => memory.watch(id), stop: () => { stopped = true; transcripts.stop(); memoryLoader.stop(); memory.dispose(); reviews.dispose(); refresher.stop(); graph.stop(); client.stop(); store.dispose(); } };
+  return { store, client, loadTranscript: transcripts.load, pageTranscript: transcripts.page, focusTranscript: transcripts.focus, reviews, loadMemory, loadMoreMemory, retryNeedsYou: refresh, watchMemory: id => memory.watch(id), stop: () => { stopped = true; transcripts.stop(); memoryLoader.stop(); memory.dispose(); reviews.dispose(); refresher.stop(); graph.stop(); client.stop(); store.dispose(); } };
 }
 
 function olderMemory(store: Store, loader: MemoryLoader, refresh: MemoryRefreshController): Runtime['loadMoreMemory'] {
@@ -96,7 +96,7 @@ export async function run(options: RunOptions = {}): Promise<number> {
       store: runtime.store, endpoint: credentials.baseUrl, tokenSource: credentials.tokenSource, animate, clock,
       retryNeedsYou: runtime.retryNeedsYou,
       loadMore: collection => { void loadMore(runtime, collection); },
-      loadTranscript: runtime.loadTranscript,
+      loadTranscript: runtime.loadTranscript, pageTranscript: runtime.pageTranscript, focusTranscript: runtime.focusTranscript,
       loadMemory: id => { void runtime.loadMemory(id); }, watchMemory: runtime.watchMemory,
       loadMoreMemory: id => { void runtime.loadMoreMemory(id); },
       requestMemoryAction: (id, itemId, action) => { void runtime.reviews.request(id, itemId, action); },

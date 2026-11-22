@@ -34,6 +34,7 @@ export interface SectionView {
   time?: { fit: TimeWindow; width: number };
   /** Session view only: the rendered shape of the transcript, which the reducer scrolls through. */
   transcript?: TranscriptLayout;
+  transcriptRows?: number;
   /** Id shown by `y copy id`. */
   idAt: (index: number) => string | null;
 }
