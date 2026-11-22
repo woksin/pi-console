@@ -17,8 +17,8 @@ async function memoryDaemon() {
   const tokenPath = join(root, 'daemon/token');
   const memory = join(root, 'memory'); mkdirSync(join(memory, 'journal'), { recursive: true });
   const daemon = await startDaemon({
-    config: { ...defaultConfig, port: 0, bindAddress: '127.0.0.1', databasePath: ':memory:', tokenPath,
-      sessionRoots: [], agentRoot: root, orchRoot: join(root, 'orch'), laneStatusDir: join(root, 'lanes'), sourcePollMs: 20, pollMs: 20 },
+    ...defaultConfig(join(root, 'daemon')), port: 0,
+    sessionRoots: [], agentRoot: root, orchRoot: join(root, 'orch'), laneStatusDir: join(root, 'lanes'), sourcePollMs: 20, pollMs: 20,
     now: () => new Date('2026-11-20T12:00:00Z'),
   });
   await daemon.log.append([testEvent(1, 'SessionStarted', { sessionId: 's1', repositoryId: 'repo', name: 'Synthetic session',
@@ -36,7 +36,7 @@ async function memoryDaemon() {
     retire: () => { event('retire', { itemId: 'live-item', status: 'done', reason: 'synthetic' }); },
     journal: () => { append(join(memory, 'journal/s1.jsonl'), { schema: 'memory.journal/2', id: 'live-message', at: '2026-11-20T10:00:00Z', cwd: '/synthetic', session: { id: 's1', role: 'main' }, origin: 'human', originEvidence: [], text: 'PRIVATE JOURNAL BODY', withheld: null, redactions: [], textBytes: 20, sha256: 'abc' }); },
     classify: () => { event('classify', { messageId: 'live-message', whole: 'none', spans: [] }); },
-    async close() { await daemon.stop(); daemon.log.close(); rmSync(root, { recursive: true, force: true }); },
+    async close() { try { await daemon.close(); } finally { rmSync(root, { recursive: true, force: true }); } },
   };
 }
 
@@ -47,24 +47,33 @@ test('visible headless memory panel follows real producer appends; hidden pane c
   const ui = await mountHeadless(h(App, {
     store: runtime.store, endpoint: 'synthetic', tokenSource: 'test', animate: false,
     loadTranscript: () => undefined, loadMemory: id => { void runtime.loadMemory(id); }, watchMemory: runtime.watchMemory,
-    loadMore: collection => { void runtime.store.loadMore(runtime.client, collection); }, onQuit: () => undefined,
+    onQuit: () => undefined,
   }), { width: 160, height: 42 });
+  // Frame-pass polling alone does not yield to fetch, ingestion or the 350 ms refresh timer.
+  const waitFor = async (expected: Parameters<typeof ui.waitFor>[0]) => {
+    const matches = typeof expected === 'string' ? (frame: ReturnType<typeof ui.frame>) => frame.includes(expected) : expected;
+    for (let attempt = 0; attempt < 200; attempt++) {
+      await ui.settle();
+      if (matches(ui.frame())) return;
+    }
+    assert.fail(`Timed out waiting for memory UI: ${String(expected)}\n${ui.frame()}`);
+  };
   try {
-    await ui.waitFor('◉ live');
-    await ui.press('2'); await ui.waitFor('Fleet ·');
-    await ui.press('RETURN'); await ui.waitFor('Transcript');
+    await waitFor('◉ live');
+    await ui.press('2'); await waitFor('Fleet ·');
+    await ui.press('RETURN'); await waitFor('Transcript');
     for (let n = 0; n < 4; n++) await ui.press('TAB');
-    await ui.waitFor('No intent-memory store seen');
+    await waitFor('No intent-memory store seen');
     spec.add();
-    await ui.waitFor('Synthetic live order');
+    await waitFor('Synthetic live order');
     assert.equal(runtime.store.getSnapshot().memoryItems.get('s1')?.[0].status, 'proposed');
     spec.confirm();
-    await ui.waitFor(frame => /active[\s\S]*Synthetic live order/i.test(frame));
+    await waitFor(frame => /active[\s\S]*Synthetic live order/i.test(frame));
     assert.equal(runtime.store.getSnapshot().memoryItems.get('s1')?.[0].status, 'active');
     assert.equal(Object.hasOwn(runtime.store.getSnapshot().sessions[0], 'memoryChanged'), false);
-    spec.journal(); await ui.waitFor('unresolved: 1+');
-    spec.classify(); await ui.waitFor('unresolved: 0+');
-    await ui.press('ESCAPE'); await ui.waitFor('Fleet ·');
+    spec.journal(); await waitFor('unresolved: 1+');
+    spec.classify(); await waitFor('unresolved: 0+');
+    await ui.press('ESCAPE'); await waitFor('Fleet ·');
     spec.retire();
     // Canonical REST advances while the panel is closed; reopening must fetch independently of later SSE.
     for (let n = 0; n < 150; n++) {
@@ -72,9 +81,9 @@ test('visible headless memory panel follows real producer appends; hidden pane c
       await new Promise(resolve => { setTimeout(resolve, 20); });
     }
     await ui.press('RETURN');
-    // The pane selection is retained across back/open in this UI.
-    if (!ui.frame().includes('Synthetic live order')) for (let n = 0; n < 4; n++) await ui.press('TAB');
-    await ui.waitFor(frame => /done[\s\S]*Synthetic live order/i.test(frame));
+    // Opening a session resets its detail pane to requests.
+    for (let n = 0; n < 4; n++) await ui.press('TAB');
+    await waitFor(frame => /done[\s\S]*Synthetic live order/i.test(frame));
     assert.equal(runtime.store.getSnapshot().memoryItems.get('s1')?.[0].status, 'done');
     assert.equal(ui.frame().includes('PRIVATE JOURNAL BODY'), false);
   } finally { ui.destroy(); runtime.stop(); await spec.close(); }

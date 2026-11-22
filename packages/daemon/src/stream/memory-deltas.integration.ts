@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { call, openStream } from '@pi-console/testkit';
-import { validate, type Event, type MemoryItem, type Session, type SessionMemory, type Snapshot } from '@pi-console/contract';
-import { apiV1Schema } from '@pi-console/contract/api-schema';
+import { apiV1Schema, validate, type Event, type MemoryItem, type Session, type SessionMemory, type Snapshot } from '@pi-console/contract';
 import { memoryDaemon } from '../testing/memory-live.ts';
 
 async function eventually(check: () => Promise<boolean>): Promise<void> {
@@ -29,7 +28,7 @@ test('real memory producer append reaches canonical REST and additive existing S
     assert.fail('no memory marker');
   };
   const summary = async () => (await call(spec.daemon.port, '/api/v1/sessions/s1/memory', { headers: spec.headers })).body as SessionMemory;
-  const items = async () => ((await call(spec.daemon.port, '/api/v1/memory/items?sessionId=s1', { headers: spec.headers })).body as { items: MemoryItem[] }).items;
+  const items = async () => ((await call(spec.daemon.port, '/api/v1/memory-items?sessionId=s1', { headers: spec.headers })).body as { items: MemoryItem[] }).items;
   try {
     const initial = await stream.next();
     assert.equal(initial.event, 'snapshot');

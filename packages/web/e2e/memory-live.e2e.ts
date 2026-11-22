@@ -25,9 +25,9 @@ test('an open browser memory panel converges from real producer files without he
     const row = page.locator('li').filter({ hasText: 'Synthetic live order' });
     assert.match(await row.innerText(), /Proposed/i);
     spec.confirm();
-    await page.waitForFunction(() => [...document.querySelectorAll('li')].some(node => node.textContent?.includes('Synthetic live order') && /Active/i.test(node.textContent)));
+    await page.waitForFunction(() => [...document.querySelectorAll('li')].some(node => node.textContent.includes('Synthetic live order') && /Active/i.test(node.textContent)));
     spec.retire();
-    await page.waitForFunction(() => [...document.querySelectorAll('li')].some(node => node.textContent?.includes('Synthetic live order') && /Done/i.test(node.textContent)));
+    await page.waitForFunction(() => [...document.querySelectorAll('li')].some(node => node.textContent.includes('Synthetic live order') && /Done/i.test(node.textContent)));
     spec.journal();
     await page.getByText('unresolved: 1+ (lower bound)', { exact: false }).waitFor();
     spec.classify();

@@ -117,7 +117,7 @@ test('a complete (unbounded) snapshot never pages', async () => {
   assert.equal(calls, 0);
 });
 
-const memorySummary = (sessionId: string): SessionMemory => ({
+const memorySummary = (sessionId: SessionMemory['sessionId']): SessionMemory => ({
   sessionId, storeDetected: true,
   counts: { active: 0, proposed: 1, done: 0, superseded: 0, withdrawn: 0, rejected: 0 },
   proposedConfirmable: 1, unresolved: { lowerBound: 2, atLastHandoff: null }, wider: 0, handoffs: [],
@@ -133,9 +133,9 @@ test('visible memory loads canonical pairs and readiness once per watch, indepen
   const availabilityCalls: string[] = [];
   const itemCalls: unknown[] = [];
   const api = {
-    memoryActionAvailability: (sessionId: string) => { availabilityCalls.push(sessionId); return Promise.resolve(null); },
-    sessionMemory: (sessionId: string) => { summaries.push(sessionId); return Promise.resolve(memorySummary(sessionId)); },
-    memoryItems: (sessionId: string, limit: number) => { itemCalls.push([sessionId, limit]); return Promise.resolve([proposedItem]); },
+    memoryActionAvailability: (sessionId: SessionMemory['sessionId']) => { availabilityCalls.push(sessionId); return Promise.resolve(null); },
+    sessionMemory: (sessionId: SessionMemory['sessionId']) => { summaries.push(sessionId); return Promise.resolve(memorySummary(sessionId)); },
+    memoryItems: (sessionId: SessionMemory['sessionId'], limit: Parameters<Api['memoryItems']>[1]) => { itemCalls.push([sessionId, limit]); return Promise.resolve([proposedItem]); },
   } as unknown as Api;
   const store = new ConsoleStore(api, clock);
   const close = store.watchSessionMemory('s1');
@@ -268,9 +268,9 @@ test('only marked visible session updates refetch; replacement clears stale rows
   let items = [proposedItem];
   const timers = new Map<number, () => void>(); let key = 0;
   const api = {
-    stream: (_signal: AbortSignal, event: (frame: Event) => void) => { emit = event; return new Promise(() => undefined); },
+    stream: (_seq: Event['seq'], _signal: AbortSignal, event: (frame: Event) => void) => { emit = event; return new Promise(() => undefined); },
     needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null),
-    sessionMemory: (id: string) => { calls++; return Promise.resolve(memorySummary(id)); },
+    sessionMemory: (id: SessionMemory['sessionId']) => { calls++; return Promise.resolve(memorySummary(id)); },
     memoryItems: () => Promise.resolve(items), memoryAvailability: () => Promise.reject(new Error('unavailable')),
   } as unknown as Api;
   const store = new ConsoleStore(api, { ...clock, setTimeout: callback => { timers.set(++key, callback); return key; }, clearTimeout: token => { timers.delete(token); } });

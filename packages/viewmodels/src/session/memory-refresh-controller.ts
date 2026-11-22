@@ -86,14 +86,17 @@ export class MemoryRefreshController {
     state.inFlight = true;
     try {
       await this.#reload(id);
-      if (ready && !this.#disposed) await this.#readiness(id);
+      if (ready && this.#active()) await this.#readiness(id);
     } catch { /* Keep canonical data; a later invalidation or reopen retries. */ }
     finally {
       state.inFlight = false;
       for (const resolve of forced) resolve();
-      if (!this.#disposed) this.#continue(id, state);
+      if (this.#active()) this.#continue(id, state);
     }
   }
+
+  /** Resample disposal after asynchronous work; it can change while a read is pending. */
+  #active(): boolean { return !this.#disposed; }
 
   #continue(id: SessionId, state: SessionRefresh): void {
     if (state.forced.length) void this.#run(id, state);

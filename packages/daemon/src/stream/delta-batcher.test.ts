@@ -93,7 +93,8 @@ test('a reset publishes an answered request whose state changed without a status
       testEvent(4, 'AnswerObserved', { raw: true, sessionId: 's1', entryId: 'a1', answerId: 'a1', interim: false, excerpt: 'answer', withheld: false }),
     ]);
     const deltas = await spec.apply([testEvent(5, 'ResetOccurred', { sessionId: 's1', resetId: 'reset', kind: 'compaction' })]);
-    assert.deepEqual(deltas.map(delta => delta.type), ['reset.occurred', 'request.observed']);
+    assert.deepEqual(deltas.map(delta => delta.type), ['reset.occurred', 'request.observed', 'session.updated']);
+    assert.equal((deltas[2].payload as { memoryChanged: boolean }).memoryChanged, true);
     const request = deltas[1].payload as Request;
     assert.equal(request.status, 'answered');
     assert.equal(request.answerPossiblyUnseen, true);

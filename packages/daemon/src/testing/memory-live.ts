@@ -25,7 +25,7 @@ export async function memoryDaemon() {
     });
   };
   return {
-    ...spec, memory,
+    ...spec, memory, headers: { Authorization: `Bearer ${spec.token}` },
     add(id = 'live-item', text = 'Synthetic live order') {
       event('add', { item: { id, kind: 'order', scope: { kind: 'session', key: 's1' }, text, source: { type: 'coordinator_order' }, supersedes: [] } });
     },

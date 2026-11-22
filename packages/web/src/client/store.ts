@@ -65,7 +65,7 @@ export class ConsoleStore {
   }
 
   #createMemoryRefresh(): MemoryRefreshController {
-    return new MemoryRefreshController(id => this.#fetchMemory(id), id => this.#reviews.load(id), {
+    return new MemoryRefreshController(id => this.#fetchMemory(id), id => this.#reviews.load(id, { fresh: true }), {
       set: (callback, ms = 350) => this.#clock.setTimeout(callback, ms),
       clear: timer => { this.#clock.clearTimeout(timer as number); },
     });

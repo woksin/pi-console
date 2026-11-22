@@ -20,7 +20,7 @@ export function connect(credentials: Credentials): Runtime {
   const memory = new MemoryRefreshController(async id => {
     const [summary, items] = await Promise.all([client.sessionMemory(id), client.memoryItems(id)]);
     if (!stopped) store.mergeMemory(id, summary, items);
-  }, id => reviews.load(id));
+  }, id => reviews.load(id, { fresh: true }));
   const loadMemory = (id: string): Promise<void> => memory.refresh(id);
   const reviews = new MemoryReviewController(client, (id, review) => { if (!stopped) store.setMemoryReview(id, review); }, loadMemory);
   const refresher = throttled(async () => { store.setNeedsYou(await client.needsYou()); }, NEEDS_YOU_REFRESH_MS);
