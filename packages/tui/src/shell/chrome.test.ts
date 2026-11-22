@@ -74,19 +74,26 @@ test('reconnect banner shows human wording, as-of time and retrying at 80 column
   assert.equal(banner({ ...offline, connected: true }, 80), undefined);
 });
 
-for (const lastEventAt of [undefined, offline.lastEventAt]) {
-  test(`offline banner names the attempted URL with last event ${String(lastEventAt)}`, async () => {
-    const endpoint = 'http://127.0.0.1:5888';
-    const line = banner({ ...offline, lastEventAt }, 80, endpoint);
-    assert.ok(line);
-    const ui = await mountHeadless(h(Screen, {}, h(Text, { line })), { width: 80, height: 2 });
-    try {
-      await ui.settle();
-      assert.ok(ui.frame().includes(endpoint));
-      assert.match(ui.frame(), /Daemon unreachable/);
-      assert.equal(banner({ ...offline, connected: true }, 80, endpoint), undefined);
-    } finally { ui.destroy(); }
-  });
+for (const width of [80, 112]) {
+  for (const lastEventAt of [undefined, offline.lastEventAt]) {
+    test(`${String(width)}-column offline banner clips the endpoint before reconnect status with last event ${String(lastEventAt)}`, async () => {
+      const endpoint = 'http://127.0.0.1:5888';
+      const line = banner({ ...offline, lastEventAt }, width, endpoint);
+      assert.ok(line);
+      const ui = await mountHeadless(h(Screen, {}, h(Text, { line })), { width, height: 2 });
+      try {
+        await ui.settle();
+        const frame = ui.frame();
+        assert.match(frame, /http:\/\//);
+        assert.match(frame, /Daemon unreachable/);
+        assert.match(frame, /retrying/);
+        assert.match(frame, lastEventAt === undefined ? /waiting for data/ : /showing data as of 12:00:03 UTC/);
+        if (width === 112) assert.ok(frame.includes(endpoint));
+        for (const row of frame.split('\n')) assert.ok(Array.from(row).length <= width);
+        assert.equal(banner({ ...offline, connected: true }, width, endpoint), undefined);
+      } finally { ui.destroy(); }
+    });
+  }
 }
 
 test('the OSC 2 terminal title leads with the needs-you count and strips control characters from a hostile session name', () => {

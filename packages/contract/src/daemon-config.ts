@@ -15,11 +15,11 @@ export function readDaemonConfigFile(dataDir: string): Record<string, unknown> {
   return parsed;
 }
 
-/** Clients only need the configured port; absent, unreadable or malformed configuration uses the default. */
+/** Clients need a fixed port; absent, unreadable, malformed or ephemeral-port configuration uses the default. */
 export function readDaemonPort(dataDir: string): number {
   try {
     const { port } = readDaemonConfigFile(dataDir);
-    return typeof port === 'number' && Number.isInteger(port) && port >= 0 && port <= 65_535 ? port : defaultDaemonPort;
+    return typeof port === 'number' && Number.isInteger(port) && port > 0 && port <= 65_535 ? port : defaultDaemonPort;
   } catch {
     return defaultDaemonPort;
   }

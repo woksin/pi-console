@@ -83,8 +83,11 @@ const cells = (line: readonly Part[]): number => line.reduce((sum, part) => sum 
 export function banner(connection: Connection, width: number, endpoint?: string): Line | undefined {
   const text = connectionBanner(connection);
   if (!text) return undefined;
-  const message = endpoint ? `${endpoint} · ${text}` : text;
-  return fit([t(' ⚠ ', 'bg', { background: 'amber', bold: true }), t(` ${message}`, 'amber')], width, 'raised');
+  const warning = [t(' ⚠ ', 'bg', { background: 'amber', bold: true }), t(' ', 'amber')];
+  const status = [t(text, 'amber')];
+  return endpoint
+    ? split([...warning, t(endpoint, 'amber')], status, width, 'raised')
+    : fit([...warning, ...status], width, 'raised');
 }
 
 /** The footer: the text being typed while a field is open, otherwise the shared keymap's hints for the context. */

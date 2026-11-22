@@ -21,13 +21,20 @@ test('a missing config file supplies no overrides and the default port', t => {
   assert.equal(readDaemonPort(path), defaultDaemonPort);
 });
 
-for (const port of [0, 5888, 65_535]) {
+for (const port of [1, 5888, 65_535]) {
   test(`reads configured port ${String(port)} without daemon field validation`, t => {
     const path = directory(t);
     writeFileSync(join(path, 'config.json'), JSON.stringify({ port, sources: 'unused by clients' }));
     assert.equal(readDaemonPort(path), port);
   });
 }
+
+test('ephemeral port zero is preserved for the daemon but falls back for clients', t => {
+  const path = directory(t);
+  writeFileSync(join(path, 'config.json'), '{"port":0}');
+  assert.equal(readDaemonConfigFile(path).port, 0);
+  assert.equal(readDaemonPort(path), defaultDaemonPort);
+});
 
 for (const config of ['{', 'null', '[]', '5']) {
   test(`malformed config ${config} throws for the daemon but falls back for clients`, t => {
