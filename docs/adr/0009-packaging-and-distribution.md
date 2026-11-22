@@ -18,7 +18,7 @@ The console should be easy for an open-source adopter to install and for the own
 Option 2.
 
 - npm workspace monorepo (packages listed in [architecture](../architecture.md#package-layout)).
-- One published CLI package `pi-console` with subcommands: `daemon`, `tui`, `open`, `install-service` (launchd and systemd units generated; Windows guidance), `token`. The web UI is built to static assets bundled into the package and served by the daemon.
+- One published CLI package `pi-console` with subcommands: `daemon`, `tui`, `open`, `install-service` (launchd and systemd units generated; Windows guidance), `token`. `install-service` is planned, not implemented yet; configure launchd or systemd yourself to supervise `pi-console daemon` in the meantime. The web UI is built to static assets bundled into the package and served by the daemon.
 - A second published package for the pi extension, installable with pi's package mechanism.
 - If the TUI bake-off selects a non-TypeScript stack, the TUI ships as a separate binary (release assets, Homebrew) and `pi-console tui` locates or downloads it; the daemon and web UI remain in the npm package.
 - If the TUI needs a runtime other than the Node 26 floor (for example Bun), `pi-console tui` checks for it and prints the requirement.
