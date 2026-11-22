@@ -29,6 +29,8 @@ export function GraphView({ state }: { state: ConsoleState }) {
       <ul className="legend graph-legend" aria-label="Graph legend">
         <li><svg viewBox="0 0 32 12" aria-hidden="true"><path className="edge message" d="M1 6 H30" /></svg>Message →</li>
         <li><svg viewBox="0 0 32 12" aria-hidden="true"><path className="edge spawn" d="M1 6 H30" /></svg>Spawn →</li>
+        <li><svg viewBox="0 0 32 12" aria-hidden="true"><path className="edge waiting-on" d="M1 6 H30" /></svg>waiting-on →</li>
+        <li><svg viewBox="0 0 32 12" aria-hidden="true"><path className="edge barred-by" d="M1 6 H30" /></svg>barred-by →</li>
         <li>Thicker edges = more messages</li><li>Lane nodes; session status only in spawn relationships</li>
       </ul>
       <section aria-label="Lane communication">

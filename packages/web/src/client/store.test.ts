@@ -204,28 +204,56 @@ function streamingStore(context: TestContext, overrides: object = {}) {
   return { store, ...connection, tick: async (ms: number) => { context.mock.timers.tick(ms); await settle(); } };
 }
 
-test('graph loads on refresh and stream bursts, not heartbeats; failures retain the last good graph', async t => {
+test('manual graph refresh bypasses the event throttle; snapshots and session updates retain the last good graph on failure', async t => {
   let calls = 0;
   let fail = false;
   const graph: Graph = { nodes: [{ laneId: 'L192', label: 'Worker', repositoryId: null }], edges: [] };
   const { store, emitters, tick } = streamingStore(t, { graph: () => { calls++; return fail ? Promise.reject(new Error('offline')) : Promise.resolve(graph); } });
   await store.refresh();
   assert.deepEqual(store.getState().graph, graph);
-  emitters[0]('heartbeat'); await tick(350);
-  assert.equal(calls, 2, 'becoming live refreshes the canonical graph');
-  emitters[0]('heartbeat'); await tick(350);
-  assert.equal(calls, 2, 'heartbeats while live do not refresh the graph');
-  const fixture = generate().fixture;
-  emitters[0](windowedSnapshot([], 0)); await tick(350);
-  assert.equal(calls, 3, 'a snapshot refreshes the canonical graph');
-  for (let seq = 6; seq < 26; seq++) emitters[0]({ seq, type: 'message.sent', occurredAt: fixture.messages[0].sentAt, payload: fixture.messages[0] });
-  await tick(349); assert.equal(calls, 3);
-  await tick(1); assert.equal(calls, 4, 'a burst is coalesced into one canonical read');
+  await store.refresh();
+  assert.equal(calls, 2, 'explicit refresh does not wait for the event throttle');
+  emitters[0](windowedSnapshot([], 0));
+  await tick(1999); assert.equal(calls, 2);
+  await tick(1); assert.equal(calls, 3, 'a snapshot refreshes the canonical graph');
   fail = true;
-  emitters[0]({ seq: 26, type: 'session.updated', occurredAt: fixture.sessions[0].updatedAt, payload: fixture.sessions[0] });
-  await tick(350);
-  assert.equal(calls, 5);
+  const session = generate().fixture.sessions[0];
+  emitters[0]({ seq: 6, type: 'session.updated', occurredAt: session.updatedAt, payload: session });
+  await tick(2000);
+  assert.equal(calls, 4);
   assert.deepEqual(store.getState().graph, graph, 'a failed read does not erase the graph');
+});
+
+test('transcript floods never refetch the graph; message bursts get one trailing read after two seconds', async t => {
+  let calls = 0;
+  const { store, emitters, tick } = streamingStore(t, { graph: () => { calls++; return Promise.resolve({ nodes: [], edges: [] }); } });
+  emitters[0](windowedSnapshot([], 0)); await settle();
+  assert.equal(calls, 1);
+  for (let cursor = 1; cursor <= 50; cursor++) {
+    emitters[0]({ seq: cursor + 5, type: 'transcript.appended', occurredAt: entry(cursor).at, payload: entry(cursor) });
+    await tick(100);
+  }
+  assert.equal(calls, 1, 'transcript-driven derived refreshes do not read the graph');
+  const message = generate().fixture.messages[0];
+  emitters[0]({ seq: 56, type: 'message.sent', occurredAt: message.sentAt, payload: message }); await settle();
+  assert.equal(calls, 2, 'a message triggers an immediate read when outside the throttle');
+  for (let seq = 57; seq < 77; seq++) emitters[0]({ seq, type: 'message.sent', occurredAt: message.sentAt, payload: message });
+  await tick(1999); assert.equal(calls, 2);
+  await tick(1); assert.equal(calls, 3, 'one trailing read covers the burst');
+  emitters[0]({ seq: 77, type: 'message.sent', occurredAt: message.sentAt, payload: message });
+  store.stop(); await tick(2000);
+  assert.equal(calls, 3, 'stop cancels the pending read');
+});
+
+test('reconnect refreshes the graph, but subsequent live heartbeats do not', async t => {
+  let calls = 0;
+  const { emitters, disconnects, tick } = streamingStore(t, { graph: () => { calls++; return Promise.resolve({ nodes: [], edges: [] }); } });
+  emitters[0](windowedSnapshot([], 0)); await settle();
+  disconnects[0](); await settle(); await tick(reconnectDelays[0]);
+  emitters[1]('heartbeat'); await tick(2000);
+  assert.equal(calls, 2, 'the first live frame on a reconnected stream requests the graph');
+  emitters[1]('heartbeat'); await tick(2000);
+  assert.equal(calls, 2);
 });
 
 test('late graph reads cannot overwrite a resnapshot or a stopped store', async t => {
@@ -234,9 +262,13 @@ test('late graph reads cannot overwrite a resnapshot or a stopped store', async 
   const { store, emitters, tick } = streamingStore(t, { graph: () => reads[calls++].promise });
   const old = store.refresh();
   emitters[0](windowedSnapshot([], 0)); await tick(350);
+  assert.equal(calls, 1, 'resnapshot does not overlap an in-flight graph read');
+  reads[0].resolve({ nodes: [], edges: [] }); await old;
+  assert.equal(store.getState().graph, null, 'the old snapshot response is ignored');
+  await tick(1999); assert.equal(calls, 1);
+  await tick(1); assert.equal(calls, 2);
   const current: Graph = { nodes: [{ laneId: 'current', label: 'Current', repositoryId: null }], edges: [] };
   reads[1].resolve(current); await settle();
-  reads[0].resolve({ nodes: [], edges: [] }); await old;
   assert.deepEqual(store.getState().graph, current);
   const pending = store.refresh(); store.stop();
   reads[2].resolve({ nodes: [], edges: [] }); await pending;

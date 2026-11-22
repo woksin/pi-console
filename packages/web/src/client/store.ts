@@ -3,6 +3,7 @@ import { MemoryRefreshController, MemoryReviewController, type WindowedCollectio
 import { applyEvent, mergePage, mergeSessionDetail, mergeTranscript } from '../state/reduce.ts';
 import { emptyState, type Connection, type ConsoleState } from '../state/state.ts';
 import { Unauthorized, type Api } from './api.ts';
+import { GraphRefreshController } from './graph-refresh.ts';
 
 export interface Clock { now(): number; setTimeout(callback: () => void, ms: number): number; clearTimeout(id: number): void }
 
@@ -46,7 +47,8 @@ class RequestGeneration {
 
 /**
  * The client's single source of truth: server-sent state plus connection status. It owns the stream loop (resume by
- * Last-Event-ID, snapshot refetch on gap, backoff) and the derived-model refresh (`/needs-you`, `/health`, `/graph`).
+ * Last-Event-ID, snapshot refetch on gap, backoff) and derived-model refresh (`/needs-you`, `/health`).
+ * Canonical `/graph` reads use a separate event throttle.
  */
 /** Paging stops at the end of history, or as soon as the entry being jumped to has been loaded. */
 const isLastPage = (result: { hasMore: boolean; items: readonly { id: string }[] }, focus: string | null): boolean =>
@@ -58,6 +60,7 @@ export class ConsoleStore {
   readonly #api: Api;
   #reviews: MemoryReviewController;
   #memoryRefresh: MemoryRefreshController;
+  #graphRefresh: GraphRefreshController;
   readonly #clock: Clock;
   #abort: AbortController | null = null;
   #refresh: number | null = null;
@@ -83,6 +86,15 @@ export class ConsoleStore {
     this.#clock = clock;
     this.#reviews = this.#createReviews();
     this.#memoryRefresh = this.#createMemoryRefresh();
+    this.#graphRefresh = this.#createGraphRefresh();
+  }
+
+  #createGraphRefresh(): GraphRefreshController {
+    return new GraphRefreshController(async () => {
+      const requests = this.#requests;
+      const graph = await this.#api.graph();
+      if (graph && this.#requestActive(requests)) this.#set({ ...this.#state, graph });
+    }, this.#clock);
   }
 
   #createMemoryRefresh(): MemoryRefreshController {
@@ -119,6 +131,7 @@ export class ConsoleStore {
       this.#resetRequests();
       this.#reviews = this.#createReviews();
       this.#memoryRefresh = this.#createMemoryRefresh();
+      this.#graphRefresh = this.#createGraphRefresh();
       this.#set({ ...this.#state, memoryReviews: new Map() });
     }
     this.#stopped = false;
@@ -130,6 +143,7 @@ export class ConsoleStore {
     this.#generation++;
     this.#reviews.dispose();
     this.#memoryRefresh.dispose();
+    this.#graphRefresh.dispose();
     this.#abort?.abort();
     this.#unwatch();
     if (this.#refresh !== null) this.#clock.clearTimeout(this.#refresh);
@@ -184,6 +198,7 @@ export class ConsoleStore {
     const now = this.#clock.now();
     this.#lastActivityAt = now;
     if (frame === 'heartbeat') { this.#heartbeat(); return; }
+    const becameLive = this.#state.connection !== 'live';
     if (frame.type === 'snapshot') this.#resetRequests();
     const next = applyEvent(this.#state, frame);
     if (frame.type === 'session.updated') this.#invalidateSessionDetail(frame.payload);
@@ -193,21 +208,26 @@ export class ConsoleStore {
     if (frame.type === 'snapshot') this.#memoryRefresh.invalidateVisible();
     if (frame.type === 'session.updated' && frame.payload.memoryChanged) this.#memoryRefresh.invalidate(frame.payload.id);
     this.#scheduleRefresh();
+    this.#graphRefresh.request(becameLive ? undefined : frame.type);
   }
 
   #heartbeat(): void {
     const becameLive = this.#state.connection !== 'live';
     this.#set({ ...this.#state, lastFrameAt: this.#lastActivityAt, connection: 'live', received: this.#state.received + 1 });
-    if (becameLive) this.#scheduleRefresh();
+    if (becameLive) { this.#scheduleRefresh(); this.#graphRefresh.request(); }
   }
 
   #scheduleRefresh(): void {
     if (this.#refresh !== null) return;
-    this.#refresh = this.#clock.setTimeout(() => { this.#refresh = null; void this.refresh(); }, refreshDebounceMs);
+    this.#refresh = this.#clock.setTimeout(() => { this.#refresh = null; void this.#refreshDerived(); }, refreshDebounceMs);
   }
 
   /** Refetches the daemon-derived read models. Failures keep the last good copy (the stream banner reports connectivity). */
   async refresh(): Promise<void> {
+    await Promise.all([this.#refreshDerived(), this.#graphRefresh.refresh()]);
+  }
+
+  async #refreshDerived(): Promise<void> {
     const requests = this.#requests;
     if (requests.refreshing) { requests.refreshAgain = true; return; }
     requests.refreshing = true;
@@ -218,11 +238,11 @@ export class ConsoleStore {
 
   async #fetchDerived(requests: RequestGeneration): Promise<void> {
     this.#set({ ...this.#state, needsYouError: false });
-    const [needsYou, health, graph] = await Promise.all([
-      this.#api.needsYou().catch(() => null), this.#api.health().catch(() => null), this.#api.graph().catch(() => null),
+    const [needsYou, health] = await Promise.all([
+      this.#api.needsYou().catch(() => null), this.#api.health().catch(() => null),
     ]);
     if (!this.#requestActive(requests)) return;
-    this.#set({ ...this.#state, needsYou: needsYou ?? this.#state.needsYou, needsYouLoaded: needsYou !== null, needsYouError: needsYou === null, health: health ?? this.#state.health, graph: graph ?? this.#state.graph });
+    this.#set({ ...this.#state, needsYou: needsYou ?? this.#state.needsYou, needsYouLoaded: needsYou !== null, needsYouError: needsYou === null, health: health ?? this.#state.health });
     await this.#refreshTotals(requests);
   }
 
