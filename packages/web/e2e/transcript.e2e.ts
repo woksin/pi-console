@@ -35,11 +35,7 @@ const openSession = async (): Promise<Page> => {
   let historyLoaded: Promise<Response> | undefined;
   const page = await rig.open('/session/s2', {
     beforeNavigate: page => {
-      historyLoaded = page.waitForResponse(async response => {
-        if (new URL(response.url()).pathname !== '/api/v1/sessions/s2/transcript' || !response.ok()) return false;
-        const history = await response.json() as { hasMore: boolean };
-        return !history.hasMore;
-      });
+      historyLoaded = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/sessions/s2/transcript' && response.ok());
     },
   });
   await historyLoaded;
