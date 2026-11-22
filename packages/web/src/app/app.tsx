@@ -28,7 +28,7 @@ export function App() {
     setRecents(previous => rememberPick(previous, item.id));
     pickTarget(item, setOverlay);
   };
-  const attention = useMemo(() => attentionPresentation(state), [state.needsYou, state.needsYouLoaded, state.needsYouError, state.needsYouCached]);
+  const attention = useMemo(() => attentionPresentation(state), [state.connection, state.needsYou, state.needsYouLoaded, state.needsYouError, state.needsYouCached]);
   const place = route.view === 'session' ? state.sessions.find(session => session.id === route.id)?.name ?? titleFor(route.view) : titleFor(route.view);
   useEffect(() => { document.title = attentionTitle(attention, place); }, [attention, place]);
   useEffect(() => { setFavicon(faviconHref(attention)); }, [attention]);

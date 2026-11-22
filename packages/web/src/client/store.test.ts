@@ -3,6 +3,7 @@ import { test, type TestContext } from 'node:test';
 import type { Event, Graph, MemoryItem, SessionMemory, SessionUpdate, TranscriptEntry } from '@pi-console/contract';
 import { generate } from '@pi-console/testkit';
 import { clockNow } from '../app/hooks.ts';
+import { attentionPresentation } from '../app/attention.ts';
 import { ConsoleStore, reconnectDelays, staleAfterMs, type Clock } from './store.ts';
 import { createApi, type Api } from './api.ts';
 
@@ -546,6 +547,43 @@ test('the needs-you poll is suspended without a live stream', async t => {
   assert.equal(store.getState().connection, 'reconnecting');
   await tick(60_000);
   assert.equal(calls, 1, 'offline time cannot poll needs-you');
+});
+
+test('disconnecting after a successful zero read makes attention stale, not all clear', async t => {
+  const { store, emitters, disconnects, tick } = streamingStore(t);
+  emitters[0](windowedSnapshot([], 0)); await tick(350);
+  assert.equal(attentionPresentation(store.getState()).status, 'ready');
+  disconnects[0](); await settle();
+  assert.equal(store.getState().needsYouLoaded, true, 'the last fetch succeeded');
+  assert.equal(store.getState().connection, 'offline');
+  assert.deepEqual(attentionPresentation(store.getState()), { status: 'stale', count: 0, label: '0 need you · stale', badge: '0 stale' });
+  await tick(reconnectDelays[0]);
+  assert.equal(store.getState().connection, 'reconnecting');
+  assert.equal(attentionPresentation(store.getState()).status, 'stale');
+});
+
+test('a reconnect starting with a transcript append refreshes once within the throttle', async t => {
+  const reads: number[] = [];
+  let healthCalls = 0;
+  const { store, emitters, disconnects, lastEventIds, tick } = streamingStore(t, {
+    needsYou: () => { reads.push(Date.now()); return Promise.resolve([]); },
+    health: () => { healthCalls++; return Promise.resolve(null); },
+  });
+  emitters[0](windowedSnapshot([], 0)); await tick(350);
+  disconnects[0](); await settle(); await tick(reconnectDelays[0]);
+  assert.deepEqual(lastEventIds, [0, 5]);
+  emitters[1]({ seq: 6, type: 'transcript.appended', occurredAt: entry(1).at, payload: entry(1) });
+  assert.equal(store.getState().connection, 'live');
+  await tick(1999 - reconnectDelays[0]);
+  assert.deepEqual(reads, [350], 'the reconnect refresh respects the two-second throttle');
+  await tick(1);
+  assert.deepEqual(reads, [350, 2350], 'the first replayed append revalidates derived reads');
+  assert.equal(healthCalls, 2);
+  emitters[1]('heartbeat'); emitters[1]('heartbeat');
+  emitters[1]({ seq: 7, type: 'transcript.appended', occurredAt: entry(2).at, payload: entry(2) });
+  await tick(2000);
+  assert.deepEqual(reads, [350, 2350], 'routine appends and heartbeats do not refresh again');
+  assert.equal(healthCalls, 2);
 });
 
 test('transcript appends do not refresh derived models, but other events still do', async t => {

@@ -12,7 +12,7 @@ import { useNewSince, useStatusFlash } from './overview-changes.ts';
 
 export function OverviewView({ state, now }: ViewProps) {
   const view = useMemo(() => overviewViewModel({ needsYou: state.needsYou, sessions: state.sessions, repositories: state.repositories.length, now }), [state.needsYou, state.sessions, state.repositories.length, now]);
-  const ready = state.needsYouLoaded && !state.needsYouError;
+  const ready = attentionPresentation(state).status === 'ready';
   const histogram = useMemo(() => pressureHistogram(state.sessions), [state.sessions]);
   const byId = new Map(view.cards.map(card => [card.id, card]));
   const sections = groupAttentionCards(view.cards);

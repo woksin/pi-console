@@ -1,7 +1,7 @@
 import { consoleTitle } from '@pi-console/viewmodels';
 import type { ConsoleState } from '../state/state.ts';
 
-type AttentionState = Pick<ConsoleState, 'needsYou' | 'needsYouLoaded' | 'needsYouError' | 'needsYouCached'>;
+type AttentionState = Pick<ConsoleState, 'connection' | 'needsYou' | 'needsYouLoaded' | 'needsYouError' | 'needsYouCached'>;
 export interface AttentionPresentation {
   status: 'ready' | 'checking' | 'unavailable' | 'stale';
   count: number | null;
@@ -9,10 +9,11 @@ export interface AttentionPresentation {
   badge: string;
 }
 
-/** Only a successful latest fetch can claim a current count or all-clear. */
+/** Only a successful latest fetch on a live stream can claim a current count or all-clear. */
 export function attentionPresentation(state: AttentionState): AttentionPresentation {
   const count = state.needsYou.length;
-  if (state.needsYouLoaded && !state.needsYouError) return { status: 'ready', count, label: `${String(count)} need you`, badge: count > 0 ? String(count) : '' };
+  const loaded = state.needsYouLoaded && !state.needsYouError;
+  if (loaded && state.connection === 'live') return { status: 'ready', count, label: `${String(count)} need you`, badge: count > 0 ? String(count) : '' };
   if (state.needsYouCached) return { status: 'stale', count, label: `${String(count)} need you · stale`, badge: `${String(count)} stale` };
   if (state.needsYouError) return { status: 'unavailable', count: null, label: 'Needs you unavailable', badge: 'unavailable' };
   return { status: 'checking', count: null, label: 'Checking needs you…', badge: 'checking…' };

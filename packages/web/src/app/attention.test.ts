@@ -30,7 +30,7 @@ after(async () => { await server.close(); });
 
 const fixture = generate(119).fixture;
 const item = needsYou(fixture).items[0];
-const base = (): ConsoleState => ({ ...emptyState(), snapshotLoaded: true, sessions: fixture.sessions as ConsoleState['sessions'] });
+const base = (): ConsoleState => ({ ...emptyState(), connection: 'live', snapshotLoaded: true, sessions: fixture.sessions as ConsoleState['sessions'] });
 const store = new ConsoleStore({} as Api);
 function render(state: ConsoleState): string {
   return renderToStaticMarkup(createElement(StoreContext.Provider, { value: store },
@@ -72,6 +72,24 @@ for (const { status, overrides, label } of cases) {
       assert.match(html, />Retry<\/button>/);
       if (attention.count === 1) assert.ok(html.includes(item.text), 'cached cards remain visible');
     }
+  });
+}
+
+for (const connection of ['connecting', 'reconnecting', 'offline', 'unauthorized'] as const) {
+  for (const cached of [[], [item]]) test(`${connection}: a successful cached ${String(cached.length)} is stale in every presentation`, () => {
+    const state = { ...base(), connection, needsYou: cached, needsYouLoaded: true, needsYouCached: true };
+    const attention = attentionPresentation(state);
+    const label = `${String(cached.length)} need you · stale`;
+    assert.equal(attention.status, 'stale');
+    assert.equal(attention.count, cached.length);
+    assert.equal(attentionTitle(attention, 'Overview'), `(${String(cached.length)} stale) Overview · pi console`);
+    assert.ok(decodeURIComponent(faviconHref(attention)).includes(`<title>${label}</title>`));
+    assert.match(faviconHref(attention), /<circle/);
+    const html = render(state);
+    assert.ok(html.includes(`aria-label="${label}"`), 'sidebar marks the cached count stale');
+    assert.ok(html.includes(`class="hero-title">${label}</h2>`), 'Overview marks the cached count stale');
+    assert.ok(html.includes(`working, ${label};`), 'pulse marks the cached count stale');
+    assert.doesNotMatch(html, /All clear|class="hero clear"/);
   });
 }
 

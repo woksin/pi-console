@@ -234,7 +234,7 @@ export class ConsoleStore {
     if (frame.type === 'snapshot') this.#memoryRefresh.invalidateVisible();
     if (frame.type === 'session.updated' && frame.payload.memoryChanged) this.#memoryRefresh.invalidate(frame.payload.id);
     this.#pollWhileLive();
-    if (frame.type !== 'transcript.appended') this.#scheduleRefresh();
+    if (becameLive || frame.type !== 'transcript.appended') this.#scheduleRefresh();
     this.#graphRefresh.request(becameLive ? undefined : frame.type);
   }
 
