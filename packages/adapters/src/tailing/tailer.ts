@@ -1,7 +1,7 @@
 import { fstatSync, readSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname } from 'node:path';
-import { setImmediate as yieldToLoop } from 'node:timers/promises';
+import { recordEnd, recordSpans } from './framing.ts';
 import type { EventLog, NewEvent, SourceCheckpoint } from '@pi-console/contract';
 import { mapLine, warning, type Mapper } from './events.ts';
 import { sourcePath } from './paths.ts';
@@ -49,19 +49,6 @@ function validateBatchSize(size: number): void {
 
 function sameEpoch(saved: SourceCheckpoint, current: SourceCheckpoint): boolean {
   return saved.size > 0 && saved.generation === current.generation;
-}
-
-/** Scan only the captured file size, reusing the batch buffer and yielding between chunks. */
-async function recordEnd(fd: number, offset: number, size: number, bytes: Buffer): Promise<number | undefined> {
-  while (offset < size) {
-    await yieldToLoop();
-    const read = readSync(fd, bytes, 0, Math.min(bytes.length, size - offset), offset);
-    if (read === 0) break;
-    const newline = bytes.subarray(0, read).indexOf(10);
-    if (newline !== -1) return offset + newline + 1;
-    offset += read;
-  }
-  return undefined;
 }
 
 /** Bounded read-only transport. Source adapters supply a schema-guarded domain mapper. */
@@ -190,13 +177,11 @@ export class FileTailer {
   private mapBatch(bytes: Buffer, checkpoint: SourceCheckpoint): NewEvent[] {
     if (bytes.length === 0) return [];
     const events: NewEvent[] = [];
-    let start = 0;
-    for (let end = bytes.indexOf(10); end !== -1; end = bytes.indexOf(10, start)) {
-      const line = bytes.subarray(start, end).toString('utf8');
+    for (const { start, end } of recordSpans(bytes)) {
+      const line = bytes.subarray(start, end - 1).toString('utf8');
       if (line.trim() && (this.options.lineFilter?.(line) ?? true)) events.push(...mapLine(line, checkpoint.offset + start, {
         checkpoint, mapper: this.mapper, scanner: this.options.scanner,
       }));
-      start = end + 1;
     }
     return events;
   }
