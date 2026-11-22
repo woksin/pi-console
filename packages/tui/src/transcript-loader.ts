@@ -3,7 +3,8 @@ import type { DaemonClient, TranscriptQuery } from './api/client.ts';
 import type { Store } from './store/store.ts';
 import type { TranscriptLoad, TranscriptProgress } from './store/transcript-history.ts';
 
-interface VisibleTranscript { id: string; controller: AbortController; page?: AbortController; focus?: string }
+/** `successor` is the reload that replaced this one after a daemon reset; closing the original closes the chain. */
+interface VisibleTranscript { id: string; controller: AbortController; page?: AbortController; focus?: string; successor?: VisibleTranscript }
 const pageOrders: Record<TranscriptLoad, 'asc' | 'desc'> = { older: 'desc', newer: 'asc', around: 'asc', tail: 'asc' };
 
 function pageAvailable(progress: TranscriptProgress | undefined, direction: TranscriptLoad): boolean {
@@ -41,6 +42,8 @@ function pageCursor(entries: readonly TranscriptEntry[], direction: TranscriptLo
 /** Only the visible session owns requests. Every page has its own cancellable generation. */
 export class TranscriptLoader {
   private active: VisibleTranscript | undefined;
+  /** The transcript that was open when the daemon's history was reset; reopened by `resume()` once the fresh snapshot lands. */
+  private interrupted: VisibleTranscript | undefined;
   private readonly store: Store;
   private readonly client: DaemonClient;
 
@@ -57,8 +60,29 @@ export class TranscriptLoader {
     this.store.setTranscriptProgress(id, { returnToLive: false, observedTail: 0 });
     this.requestDetail(visible);
     this.request(visible, entryId ? 'around' : 'tail');
-    return () => { abortVisible(visible); };
+    return () => { this.close(visible); };
   };
+
+  private close(visible: VisibleTranscript): void {
+    if (this.interrupted === visible) this.interrupted = undefined;
+    abortVisible(visible);
+    if (visible.successor) this.close(visible.successor);
+  }
+
+  /** The daemon's history was reset: cancel every read of the old history, remembering what was open. */
+  reset(): void {
+    this.interrupted = this.visibleSession(this.active?.id ?? '');
+    if (this.active) abortVisible(this.active);
+  }
+
+  /** Reloads the interrupted transcript, with its detail and paging cursors, against the fresh snapshot. */
+  resume(): void {
+    const visible = this.interrupted;
+    this.interrupted = undefined;
+    if (!visible) return;
+    this.load(visible.id, visible.focus);
+    visible.successor = this.active;
+  }
 
   focus = (id: string, entryId: string): void => {
     const visible = this.visibleSession(id);
@@ -137,5 +161,6 @@ export class TranscriptLoader {
   stop(): void {
     if (this.active) abortVisible(this.active);
     this.active = undefined;
+    this.interrupted = undefined;
   }
 }

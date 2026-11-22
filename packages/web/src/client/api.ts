@@ -4,6 +4,8 @@ import type { HealthRecord } from '../state/state.ts';
 import { SseParser } from './sse.ts';
 
 export class Unauthorized extends Error {}
+/** The daemon refused `Last-Event-ID` as newer than its own sequence (HTTP 400): its history was reset. */
+export class StaleResume extends Error {}
 
 export interface ListItems { sessions: Session; requests: Request; questions: Question; messages: Message; jobs: Job; resets: Reset }
 /** One keyset page of a list endpoint (`limit` sent); `nextCursor` is opaque. */
@@ -81,11 +83,17 @@ export function createApi(token: string, base = '', fetcher: typeof fetch = (...
       const extra: Record<string, string> = { Accept: 'text/event-stream' };
       if (lastEventId > 0) extra['Last-Event-ID'] = String(lastEventId);
       const response = await fetcher(`${base}/api/v1/stream`, { headers: headers(extra), cache: 'no-store', signal });
-      if (response.status === 401) throw new Unauthorized();
-      if (!response.ok || !response.body) throw new Error(`stream failed: ${String(response.status)}`);
+      assertStreamOpen(response, lastEventId);
       await pump(response.body, onFrame);
     },
   };
+}
+
+/** Throws the typed failure for a refused stream; narrows `response.body` for the caller. */
+function assertStreamOpen(response: Response, lastEventId: number): asserts response is Response & { body: ReadableStream<Uint8Array> } {
+  if (response.status === 401) throw new Unauthorized();
+  if (response.status === 400 && lastEventId > 0) throw new StaleResume();
+  if (!response.ok || !response.body) throw new Error(`stream failed: ${String(response.status)}`);
 }
 
 async function pump(body: ReadableStream<Uint8Array>, onFrame: (event: ApiEvent | 'heartbeat') => void): Promise<void> {

@@ -199,3 +199,50 @@ test('a renderer launch failure rejects run and stops the connected runtime', ()
   assert.equal(result.error, undefined, String(result.error));
   assert.equal(result.status, 0, result.stderr);
 });
+
+test('a refused resume reloads the open transcript, revalidates reviews and drops reads of the old history', () => {
+  const source = `
+    import assert from 'node:assert/strict';
+    import { mock } from 'node:test';
+    mock.module('./packages/tui/src/view/renderer.ts', { namedExports: { launch: async () => {} } });
+    mock.module('./packages/tui/src/app.ts', { namedExports: { App: () => null } });
+    let handlers, availability = 0, tails = 0, details = 0;
+    const staleDetail = Promise.withResolvers();
+    mock.module('./packages/tui/src/api/client.ts', { namedExports: { DaemonClient: class {
+      stream(h) { handlers = h; return new Promise(() => {}); }
+      needsYou() { return Promise.resolve([]); }
+      session() { details++; return details === 1 ? staleDetail.promise : new Promise(() => {}); }
+      transcriptTail() { tails++; return Promise.resolve({ entries: [], truncated: false }); }
+      memoryActionAvailability() { availability++; return Promise.resolve({ version: 1, available: true, providerVersion: 1, generation: 'g', reason: 'available' }); }
+      stop() {}
+    } } });
+    const { connect } = await import('./packages/tui/src/runtime.ts');
+    const runtime = connect({ baseUrl: 'http://127.0.0.1', token: 'test', tokenSource: 'test' });
+    const flush = async () => { for (let turn = 0; turn < 10; turn++) await Promise.resolve(); };
+    const snapshot = seq => ({ seq, type: 'snapshot', payload: { repositories: [], sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [] } });
+    try {
+      handlers.onEvent(snapshot(5));
+      runtime.loadTranscript('s1');
+      await runtime.reviews.load('s1');
+      assert.equal(runtime.store.getSnapshot().memoryReviews.get('s1')?.availability?.available, true);
+      assert.equal(tails, 1);
+      handlers.onReset();
+      assert.equal(runtime.store.getSnapshot().memoryReviews.size, 0);
+      staleDetail.resolve({ session: { id: 'stale' }, requests: [], questions: [], jobs: [], resets: [], subagents: [] });
+      await flush();
+      assert.equal(runtime.store.getSnapshot().sessions.length, 0, 'a read that began before the reset cannot repopulate the fresh state');
+      handlers.onEvent(snapshot(1));
+      await flush();
+      assert.equal(tails, 2, 'the open transcript is loaded again from the new history');
+      assert.equal(details, 2);
+      await runtime.reviews.load('s1');
+      assert.equal(runtime.store.getSnapshot().memoryReviews.get('s1')?.availability?.available, true, 'the review cache did not survive the reset');
+      assert.equal(availability, 2);
+    } finally { runtime.stop(); }
+  `;
+  const result = spawnSync(process.execPath, ['--experimental-test-module-mocks', '--input-type=module', '-e', source], {
+    cwd: new URL('../../..', import.meta.url), encoding: 'utf8', timeout: 5000,
+  });
+  assert.equal(result.error, undefined, String(result.error));
+  assert.equal(result.status, 0, result.stderr);
+});

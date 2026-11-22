@@ -72,3 +72,14 @@ for (const config of ['{', 'null', '[]', '{}', '{"port":"5888"}', '{"port":70000
     assert.equal(credentials.tokenSource, join(directory, 'token'));
   });
 }
+
+test('a token with a control character is refused up front without echoing it', t => {
+  const directory = dataDir(t);
+  const hostile = 'abc123\nX-Injected: sekrit-tail';
+  for (const env of [{ PI_CONSOLE_DATA_DIR: directory, PI_CONSOLE_TOKEN: hostile }, { PI_CONSOLE_DATA_DIR: directory, PI_CONSOLE_TOKEN: 'abc\u0007def' }]) {
+    assert.throws(() => resolveCredentials(env), (error: Error) => error.name === 'Error' && error.message.includes('control') && !/sekrit|abc123|abc.def/.test(error.message));
+  }
+  const file = join(directory, 'hostile');
+  writeFileSync(file, 'abc123\u0000sekrit-tail\n', { mode: 0o600 });
+  assert.throws(() => resolveCredentials({ PI_CONSOLE_DATA_DIR: directory, PI_CONSOLE_TOKEN_FILE: file }), (error: Error) => !/sekrit|abc123/.test(error.message));
+});
