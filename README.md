@@ -162,7 +162,7 @@ CLI errors print a short message to stderr and exit non-zero. Set `PI_CONSOLE_DE
 
 ### Install the pi extension (optional)
 
-The console works from pi session logs alone. The extension in `packages/extension` only adds [memory review](docs/ui-web.md#memory-review): it connects each pi session outbound to the daemon so you can confirm or reject memory actions. Enable review on the daemon, create the separate `<data-dir>/memory-control-token`, and load `packages/extension` as a pi extension (its `package.json` declares `./src/index.ts` under `pi.extensions`); set `PI_CONSOLE_MEMORY_REVIEW=1` in the environment pi runs in to turn memory review on, and set `PI_CONSOLE_URL` or `PI_CONSOLE_DATA_DIR` if you use a non-default port or data directory. Credential setup is described in [web memory review](docs/ui-web.md#memory-review).
+The console works from pi session logs alone. The extension in `packages/extension` only adds [memory review](docs/ui-web.md#memory-review): it connects each pi session outbound to the daemon so you can confirm or reject memory actions. Enable review on the daemon by adding `"memoryActions": true` to `<data-dir>/config.json` (merge it with any existing keys, then restart the daemon, which reads the file only at start); the daemon then creates the separate `<data-dir>/memory-control-token`. Load `packages/extension` as a pi extension (its `package.json` declares `./src/index.ts` under `pi.extensions`); set `PI_CONSOLE_MEMORY_REVIEW=1` in the environment pi runs in to turn memory review on, and set `PI_CONSOLE_URL` or `PI_CONSOLE_DATA_DIR` if you use a non-default port or data directory. Credential setup is described in [web memory review](docs/ui-web.md#memory-review).
 
 ## Architecture
 
