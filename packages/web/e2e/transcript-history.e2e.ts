@@ -42,7 +42,7 @@ describe('bounded long transcript history', () => {
     await page.locator('.transcript').hover();
     await page.mouse.wheel(0, -10_000_000);
     await page.locator(`#line-${base + total - 1499}`).waitFor();
-    assert.ok(queries.length <= 3, 'opening and two deliberate older loads never scan the session');
+    assert.equal([...queries].length, 3, 'opening and two deliberate older loads never scan the session');
     await page.context().close();
   });
 
@@ -59,6 +59,23 @@ describe('bounded long transcript history', () => {
     await ready(page);
     await page.getByRole('button', { name: /Following/ }).waitFor();
     assert.equal(await page.locator('.tline').count(), 500);
+    await page.context().close();
+  });
+
+  test('resuming follow at live preserves the search and does not reload the transcript', async () => {
+    const page = await rig.open('/fleet');
+    const queries: URL[] = [];
+    page.on('request', request => { if (request.url().includes('/transcript?')) queries.push(new URL(request.url())); });
+    await page.evaluate(() => { location.hash = '/session/s2'; });
+    await ready(page);
+    await page.getByRole('button', { name: /Following/ }).click();
+    const search = page.getByPlaceholder('Search this transcript…');
+    await search.fill('long transcript row 7999');
+    await page.getByRole('button', { name: /Follow tail/ }).focus();
+    await page.keyboard.press('f');
+    await page.getByRole('button', { name: /Following/ }).waitFor();
+    assert.equal(await search.inputValue(), 'long transcript row 7999');
+    assert.equal(queries.length, 1);
     await page.context().close();
   });
 

@@ -69,7 +69,7 @@ export class ConsoleStore {
   #takeRefreshAgain(requests: RequestGeneration): boolean { const again = requests.refreshAgain; requests.refreshAgain = false; return again; }
 
   #resetRequests(): void {
-    this.#transcript.close();
+    this.#transcript.invalidate();
     this.#requests = new RequestGeneration();
     if (this.#refresh !== null) this.#clock.clearTimeout(this.#refresh);
     this.#refresh = null;
@@ -342,5 +342,6 @@ export class ConsoleStore {
   loadTranscript(sessionId: string, focus: string | null = null): Promise<void> { return this.#transcript.open(sessionId, focus); }
   pageTranscript(sessionId: string, direction: 'older' | 'newer'): Promise<void> { return this.#transcript.page(sessionId, direction); }
   returnToLiveTranscript(sessionId: string): Promise<void> { return this.#transcript.tail(sessionId); }
+  get transcriptReader(): TranscriptHistory { return this.#transcript; }
   closeTranscript(sessionId: string): void { this.#transcript.close(sessionId); }
 }

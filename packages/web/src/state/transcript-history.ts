@@ -45,10 +45,14 @@ export function transcriptPage(current: readonly TranscriptEntry[], progress: Tr
   return { entries, progress: { ...edges, focusEntry: direction === 'tail' ? undefined : progress.focusEntry, observedTail: progress.observedTail, revision: progress.revision + (direction === 'tail' || direction === 'around' ? 1 : 0), lastPage: direction } };
 }
 
-/** Live entries must not splice the tail into an older window with an unloaded gap. */
+function deferArrival(progress: TranscriptProgress): boolean {
+  return progress.newer || progress.loading === 'around' || progress.loading === 'older';
+}
+
+/** Live entries must not splice the tail into an older window or evict an in-flight page boundary. */
 export function transcriptArrival(current: readonly TranscriptEntry[], progress: TranscriptProgress, entry: TranscriptEntry): { entries: TranscriptEntry[]; progress: TranscriptProgress } {
   const observedTail = Math.max(progress.observedTail, entry.cursor);
-  if (progress.newer || progress.loading === 'around') return { entries: [...current], progress: { ...progress, observedTail, newer: true } };
+  if (deferArrival(progress)) return { entries: [...current], progress: { ...progress, observedTail, newer: true } };
   const unique = new Map([...current, entry].map(item => [item.id, item]));
   const all = [...unique.values()].sort((a, b) => a.cursor - b.cursor);
   return { entries: all.slice(-transcriptRetention), progress: { ...progress, observedTail, older: progress.older || all.length > transcriptRetention } };

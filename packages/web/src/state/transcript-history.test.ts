@@ -31,6 +31,16 @@ test('around responses retain knowledge of concurrent live arrivals until the ga
   assert.deepEqual(next.entries.map(item => item.cursor), [99, 100, 101]);
 });
 
+test('older paging preserves cursor 7501 when arrival 10001 races the response before 7501', () => {
+  const current = Array.from({ length: 2500 }, (_, index) => entry(7501 + index));
+  const live = transcriptArrival(current, { ...emptyProgress, older: true, loading: 'older' }, entry(10001));
+  const items = Array.from({ length: 500 }, (_, index) => entry(7001 + index));
+  const result = transcriptPage(live.entries, live.progress, { items, nextCursor: 7001, hasMore: true }, 'older');
+  assert.deepEqual(result.entries.map(item => item.cursor), Array.from({ length: 2500 }, (_, index) => 7001 + index));
+  assert.equal(result.progress.newer, true);
+  assert.equal(result.progress.observedTail, 10001);
+});
+
 test('live arrivals deduplicate and evict only the oldest edge at the retention bound', () => {
   const current = Array.from({ length: 2500 }, (_, index) => entry(index + 1));
   const result = transcriptArrival(current, emptyProgress, entry(2501));

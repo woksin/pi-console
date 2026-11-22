@@ -58,8 +58,8 @@ export interface TranscriptScroll {
 }
 
 /** Follow-the-tail, pause on user scroll, anchoring on a line id while paused, and the one-time scroll to a jump target. */
-export function useTranscriptScroll(lines: readonly TranscriptLine[], focusEntry: string | null, onResume: () => void): TranscriptScroll {
-  const { follow, pause, toggleFollow } = useFollow(focusEntry === null, onResume);
+export function useTranscriptScroll(lines: readonly TranscriptLine[], focusEntry: string | null, onResume: () => void, onFollow: (following: boolean) => void): TranscriptScroll {
+  const { follow, pause, toggleFollow } = useFollow(focusEntry === null, onResume, onFollow);
   const pane = useRef<HTMLDivElement>(null);
   const end = useRef<HTMLDivElement>(null);
   const tail = tailSignature(lines);

@@ -3,6 +3,7 @@ import { test } from 'node:test';
 import type { Transcript, TranscriptEntry } from '@pi-console/contract';
 import { ConsoleStore, type Clock } from './store.ts';
 import { createApi, type Api } from './api.ts';
+import type { TranscriptProgress } from '../state/transcript-history.ts';
 
 const clock: Clock = { now: () => 0, setTimeout: () => 0, clearTimeout: () => undefined };
 const entry = (cursor: number): TranscriptEntry => ({ id: `e${cursor}`, cursor, sessionId: 's1', at: '2026-01-01T00:00:00Z', kind: 'assistant', text: `line ${cursor}`, toolCallId: null, resetId: null });
@@ -50,6 +51,12 @@ function loadedTranscript(store: ConsoleStore, sessionId = 's1'): TranscriptEntr
   return entries;
 }
 
+function loadedProgress(store: ConsoleStore): TranscriptProgress {
+  const progress = store.getState().transcriptHistory.s1;
+  assert.ok(progress, 'Transcript progress has not been initialized');
+  return progress;
+}
+
 test('transcript assertions reject a session that has not been initialized', () => {
   const { store } = rig();
   assert.throws(() => loadedTranscript(store), { name: 'AssertionError', message: 'Transcript for s1 has not been initialized' });
@@ -66,7 +73,7 @@ test('tail omits after, older/newer use the visible edges and retain a movable 2
   assert.equal(entries.length, 2500);
   assert.equal(entries[0].cursor, 4501);
   assert.equal(entries.at(-1)?.cursor, 7000);
-  assert.equal(store.getState().transcriptHistory.s1.newer, true);
+  assert.equal(loadedProgress(store).newer, true);
   await store.pageTranscript('s1', 'newer');
   assert.equal(queries.at(-1)?.searchParams.get('order'), 'asc');
   assert.equal(queries.at(-1)?.searchParams.get('after'), '7000');
@@ -86,7 +93,7 @@ test('around jumps are direct, repeatable and fall back to a single fresh tail o
   }
   await store.loadTranscript('s1', 'missing');
   assert.equal(loadedTranscript(store).at(-1)?.cursor, 8000);
-  assert.equal(store.getState().transcriptHistory.s1.lastPage, 'tail');
+  assert.equal(loadedProgress(store).lastPage, 'tail');
   fail(); await store.loadTranscript('s1', 'e42');
   assert.equal(loadedTranscript(store).at(-1)?.cursor, 8000);
   assert.equal(queries.length, 6);
@@ -96,16 +103,28 @@ test('older failures expose retryable status and return-to-live and reopen disca
   const { store, queries, fail } = rig();
   await store.loadTranscript('s1');
   fail(); await store.pageTranscript('s1', 'older');
-  assert.equal(store.getState().transcriptHistory.s1.error, 'older');
+  assert.equal(loadedProgress(store).error, 'older');
   assert.equal(loadedTranscript(store).length, 500);
   await store.pageTranscript('s1', 'older');
-  assert.equal(store.getState().transcriptHistory.s1.error, undefined);
+  assert.equal(loadedProgress(store).error, undefined);
   assert.equal(loadedTranscript(store).length, 1000);
   await store.returnToLiveTranscript('s1');
   assert.equal(loadedTranscript(store).length, 500);
   store.closeTranscript('s1'); await store.loadTranscript('s1');
   assert.equal(queries.at(-1)?.searchParams.has('after'), false);
-  assert.equal(store.getState().transcriptHistory.s1.lastPage, 'tail');
+  assert.equal(loadedProgress(store).lastPage, 'tail');
+});
+
+test('resuming follow at the live tail is local and leaves the window and revision untouched', async () => {
+  const { store, queries } = rig();
+  await store.loadTranscript('s1');
+  const entries = loadedTranscript(store);
+  const progress = loadedProgress(store);
+  store.transcriptReader.following({ sessionId: 's1', following: false });
+  await store.transcriptReader.resume({ sessionId: 's1' });
+  assert.equal(queries.length, 1);
+  assert.equal(loadedTranscript(store), entries);
+  assert.equal(loadedProgress(store), progress);
 });
 
 function deferred<T>(): { promise: Promise<T>; resolve: (value: T) => void } {

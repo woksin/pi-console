@@ -2,6 +2,7 @@ import type {
   AttentionItem, Event as ApiEvent, Graph, Intervention, Job, MemoryItem, Message, Overview, Question, Request, Reset, Session, SessionMemory, Snapshot, TranscriptEntry,
 } from '@pi-console/contract';
 import type { MemoryReviewSession, Totals, WindowedCollection } from '@pi-console/viewmodels';
+import type { TranscriptProgress } from './transcript-history.ts';
 
 export type Repository = Snapshot['repositories'][number];
 
@@ -54,7 +55,7 @@ export interface ConsoleState {
   /** Frames (events and heartbeats) received since this page loaded. */
   received: number;
   /** The visible transcript's bounded-window edges and request status, independent of follow/pause. */
-  transcriptHistory: Record<string, import('./transcript-history.ts').TranscriptProgress>;
+  transcriptHistory: Partial<Record<string, TranscriptProgress>>;
   /** Full collection sizes from the daemon; `null` against a daemon that sends complete snapshots. */
   totals: Totals | null;
   /** Collections the snapshot only carried a window of (active items plus the newest); the rest of their history is paged. */

@@ -366,7 +366,7 @@ test('pending detail, tail and memory finish after a resumable reconnect; older 
   await Promise.all(pending);
   assert.deepEqual(store.getState().jobs.map(item => item.id), ['older']);
   assert.deepEqual(store.getState().transcripts.s1, [entry(2)], 'the pending tail page completes without scanning older history');
-  assert.equal(store.getState().transcriptHistory.s1.older, true, 'descending hasMore means older history is available');
+  assert.equal(store.getState().transcriptHistory.s1?.older, true, 'descending hasMore means older history is available');
   assert.deepEqual(transcriptQueries[0].slice(0, 3), ['s1', undefined, 500]);
   assert.equal(transcriptQueries[0][3]?.order, 'desc');
   assert.deepEqual(store.getState().memory.s1, memorySummary('s1'));
@@ -377,6 +377,53 @@ test('pending detail, tail and memory finish after a resumable reconnect; older 
   assert.equal(transcriptQueries[1][1], 2);
   assert.equal(transcriptQueries[1][3]?.order, 'desc');
   assert.deepEqual(calls, { detail: 1, transcript: 2, memory: 1 }, 'only explicit navigation fetches another transcript page');
+});
+
+test('a gap resnapshot preserves a paused transcript window and revision until return to live', async t => {
+  const { api, calls } = history(6000);
+  const { store, emitters } = streamingStore(t, { transcript: api.transcript.bind(api) });
+  const snapshot = windowedSnapshot([], 0);
+  emitters[0](snapshot);
+  await store.loadTranscript('s1');
+  await store.pageTranscript('s1', 'older');
+  store.transcriptReader.following({ sessionId: 's1', following: false });
+  const before = store.getState();
+  const progress = before.transcriptHistory.s1;
+  assert.ok(progress);
+  emitters[0]({ ...snapshot, seq: snapshot.seq + 1 });
+  await store.transcriptReader.refresh({ sessionId: 's1' });
+  assert.equal(store.getState().transcripts.s1, before.transcripts.s1, 'the reader keeps the same anchored lines');
+  assert.equal(store.getState().transcriptHistory.s1?.revision, progress.revision, 'the transcript must not remount');
+  assert.equal(store.getState().transcriptHistory.s1?.newer, true, 'return to live is offered without discarding history');
+  assert.equal(calls(), 2, 'a paused gap does not fetch or clear the tail');
+  await store.transcriptReader.resume({ sessionId: 's1' });
+  assert.equal(calls(), 3);
+  assert.equal(store.getState().transcripts.s1?.at(-1)?.cursor, 6000);
+  assert.equal(store.getState().transcripts.s1?.length, 500);
+});
+
+test('a gap while following refreshes the tail without blanking or remounting and keeps concurrent arrivals', async t => {
+  const tail = Promise.withResolvers<Awaited<ReturnType<Api['transcript']>>>();
+  let calls = 0;
+  const { store, emitters } = streamingStore(t, {
+    transcript: () => ++calls === 1 ? Promise.resolve({ items: [entry(1)], nextCursor: 1, hasMore: false }) : tail.promise,
+  });
+  const snapshot = windowedSnapshot([], 0);
+  emitters[0](snapshot);
+  await store.loadTranscript('s1');
+  const before = store.getState();
+  const progress = before.transcriptHistory.s1;
+  assert.ok(progress);
+  emitters[0]({ ...snapshot, seq: snapshot.seq + 1 });
+  const refresh = store.transcriptReader.refresh({ sessionId: 's1' });
+  assert.equal(store.getState().transcripts.s1, before.transcripts.s1, 'the old tail remains visible while refreshing');
+  assert.equal(store.getState().transcriptHistory.s1?.revision, progress.revision);
+  emitters[0]({ seq: snapshot.seq + 2, type: 'transcript.appended', occurredAt: entry(3).at, payload: entry(3) });
+  tail.resolve({ items: [entry(1), entry(2)], nextCursor: 1, hasMore: true });
+  await refresh;
+  assert.deepEqual(store.getState().transcripts.s1, [entry(1), entry(2), entry(3)]);
+  assert.equal(store.getState().transcriptHistory.s1?.revision, progress.revision, 'a fresh tail does not reset follow state');
+  assert.equal(calls, 2);
 });
 
 test('pending history stays deduplicated and completes across a resumable reconnect', async t => {

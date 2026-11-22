@@ -1,9 +1,10 @@
 import type { Transcript } from '@pi-console/contract';
 import type { ConsoleState } from '../state/state.ts';
-import { emptyProgress, transcriptPage, type TranscriptLoad } from '../state/transcript-history.ts';
+import { emptyProgress, transcriptPage, type TranscriptLoad, type TranscriptProgress } from '../state/transcript-history.ts';
 import type { Api } from './api.ts';
 
 const pageSize = 500;
+interface TranscriptTarget { sessionId: string }
 
 /** One visible transcript, one cancellable request; reopening always fetches a fresh bounded window. */
 export class TranscriptHistory {
@@ -12,6 +13,7 @@ export class TranscriptHistory {
   readonly #publish: (state: ConsoleState) => void;
   #session: string | null = null;
   #request: AbortController | null = null;
+  #following = true;
 
   constructor(api: Api, read: () => ConsoleState, publish: (state: ConsoleState) => void) {
     this.#api = api; this.#read = read; this.#publish = publish;
@@ -19,11 +21,34 @@ export class TranscriptHistory {
 
   close(sessionId?: string): void {
     if (sessionId !== undefined && this.#session !== sessionId) return;
-    this.#request?.abort(); this.#request = null; this.#session = null;
+    this.invalidate(); this.#session = null;
+  }
+
+  /** A new snapshot invalidates requests, not the visible reader's position or follow state. */
+  invalidate(): void { this.#request?.abort(); this.#request = null; }
+
+  following({ sessionId, following }: TranscriptTarget & { following: boolean }): void {
+    if (this.#session === sessionId) this.#following = following;
+  }
+
+  refresh({ sessionId }: TranscriptTarget): Promise<void> {
+    if (this.#session !== sessionId) return Promise.resolve();
+    this.invalidate();
+    const progress = this.#read().transcriptHistory[sessionId];
+    if (this.#following && !progress?.newer) return this.#load(sessionId, 'tail', null, true);
+    this.#progress(sessionId, { loading: undefined, error: undefined, newer: true });
+    return Promise.resolve();
+  }
+
+  resume(target: TranscriptTarget): Promise<void> {
+    const { sessionId } = target;
+    this.following({ ...target, following: true });
+    if (!this.#read().transcriptHistory[sessionId]?.newer) return Promise.resolve();
+    return this.tail(sessionId);
   }
 
   open(sessionId: string, focus: string | null): Promise<void> {
-    this.close(); this.#session = sessionId;
+    this.close(); this.#session = sessionId; this.#following = focus === null;
     const state = this.#read();
     this.#publish({ ...state, transcripts: { ...state.transcripts, [sessionId]: [] }, transcriptHistory: { ...state.transcriptHistory, [sessionId]: { ...emptyProgress, focusEntry: focus ?? undefined, revision: (state.transcriptHistory[sessionId]?.revision ?? 0) + 1 } } });
     return this.#load(sessionId, focus ? 'around' : 'tail', focus);
@@ -45,12 +70,21 @@ export class TranscriptHistory {
     return this.#api.transcript(sessionId, cursor, pageSize, { order: direction === 'tail' || direction === 'older' ? 'desc' : 'asc', around: focus ?? undefined, signal });
   }
 
-  #progress(sessionId: string, patch: { loading?: TranscriptLoad; error?: TranscriptLoad }): void {
+  #progress(sessionId: string, patch: Partial<TranscriptProgress>): void {
     const state = this.#read();
     this.#publish({ ...state, transcriptHistory: { ...state.transcriptHistory, [sessionId]: { ...state.transcriptHistory[sessionId] ?? emptyProgress, ...patch } } });
   }
 
-  async #load(sessionId: string, direction: TranscriptLoad, focus: string | null = null): Promise<void> {
+  #merge(sessionId: string, direction: TranscriptLoad, page: Transcript, preservePosition: boolean): void {
+    const state = this.#read();
+    const progress = state.transcriptHistory[sessionId] ?? emptyProgress;
+    const result = transcriptPage(state.transcripts[sessionId] ?? [], progress, page, direction);
+    if (preservePosition) result.progress.revision = progress.revision;
+    else if (direction === 'tail') this.#following = true;
+    this.#publish({ ...state, transcripts: { ...state.transcripts, [sessionId]: result.entries }, transcriptHistory: { ...state.transcriptHistory, [sessionId]: result.progress } });
+  }
+
+  async #load(sessionId: string, direction: TranscriptLoad, focus: string | null = null, preservePosition = false): Promise<void> {
     const request = new AbortController(); this.#request = request;
     this.#progress(sessionId, { loading: direction, error: undefined });
     try {
@@ -63,9 +97,7 @@ export class TranscriptHistory {
         page = await this.#fetch(sessionId, direction, null, request.signal);
       }
       if (this.#request !== request) return;
-      const state = this.#read();
-      const result = transcriptPage(state.transcripts[sessionId] ?? [], state.transcriptHistory[sessionId] ?? emptyProgress, page, direction);
-      this.#publish({ ...state, transcripts: { ...state.transcripts, [sessionId]: result.entries }, transcriptHistory: { ...state.transcriptHistory, [sessionId]: result.progress } });
+      this.#merge(sessionId, direction, page, preservePosition);
     } catch {
       if (this.#request === request) this.#progress(sessionId, { loading: undefined, error: direction });
     } finally {

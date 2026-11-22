@@ -9,11 +9,12 @@ interface TranscriptProps {
   lines: readonly TranscriptLine[]; focusEntry: string | null; searching: boolean;
   progress?: TranscriptProgress;
   onPage: (direction: 'older' | 'newer') => void; onLive: () => void;
+  onResume: () => void; onFollow: (following: boolean) => void;
 }
 
 /** Every character is rendered as a React text node (escaped); transcript text is never interpreted as markup. */
-export function Transcript({ lines, focusEntry, searching, progress, onPage, onLive }: TranscriptProps) {
-  const scroll = useTranscriptScroll(lines, focusEntry, onLive);
+export function Transcript({ lines, focusEntry, searching, progress, onPage, onLive, onResume, onFollow }: TranscriptProps) {
+  const scroll = useTranscriptScroll(lines, focusEntry, onResume, onFollow);
   const history = useTranscriptHistoryPaging(scroll, progress, searching, onPage);
   const nav = useListNav(lines.map(line => String(line.key)), {
     initial: focusKey(lines, focusEntry), fallback: String(lines.at(-1)?.key),
