@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test, type TestContext } from 'node:test';
-import type { Event, MemoryItem, SessionMemory, SessionUpdate, TranscriptEntry } from '@pi-console/contract';
+import type { Event, Graph, MemoryItem, SessionMemory, SessionUpdate, TranscriptEntry } from '@pi-console/contract';
+import { generate } from '@pi-console/testkit';
 import { clockNow } from '../app/hooks.ts';
 import { ConsoleStore, reconnectDelays, staleAfterMs, type Clock } from './store.ts';
 import { createApi, type Api } from './api.ts';
@@ -66,6 +67,7 @@ test('a windowed snapshot is paged older-ward on request; pages merge without du
   const calls: unknown[] = [];
   const snapshot = windowedSnapshot([job('j4', 'running', '2026-01-04T00:00:00Z'), job('j3', 'done', '2026-01-03T00:00:00Z')], 4);
   const api = {
+    graph: () => Promise.resolve(null),
     page: (_name: string, params: unknown) => { calls.push(params); return Promise.resolve({ ...emptyList, items: older, total: 4 }); },
     stream: snapshotStream(snapshot),
     needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null),
@@ -84,6 +86,7 @@ test('a resnapshot voids exhausted paging so dropped rows can be reloaded', asyn
   let emit: (frame: unknown) => void = () => undefined;
   let pages = 0;
   const api = {
+    graph: () => Promise.resolve(null),
     page: () => { pages++; return Promise.resolve({ ...emptyList, items: [job('j1', 'done', '2026-01-01T00:00:00Z')], total: 2 }); },
     stream: (_seq: number, _signal: AbortSignal, onFrame: (frame: unknown) => void) => { emit = onFrame; onFrame(windowedSnapshot([job('j4', 'running', '2026-01-04T00:00:00Z')], 2)); return new Promise<void>(() => undefined); },
     needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null),
@@ -105,7 +108,7 @@ test('the attention list counts as loaded only once a fetch of it succeeds, so "
   let pending = Promise.withResolvers<[]>();
   let calls = 0;
   const api = {
-    needsYou: () => { calls++; return pending.promise; }, health: () => Promise.resolve(null),
+    needsYou: () => { calls++; return pending.promise; }, health: () => Promise.resolve(null), graph: () => Promise.resolve(null),
   } as unknown as Api;
   const store = new ConsoleStore(api, clock);
   assert.equal(store.getState().needsYouLoaded, false);
@@ -194,7 +197,7 @@ const settle = () => new Promise<void>(resolve => { setImmediate(resolve); });
 function streamingStore(context: TestContext, overrides: object = {}) {
   context.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 0 });
   const connection = lifecycleStream();
-  const api = { needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null), stream: connection.stream, ...overrides } as unknown as Api;
+  const api = { needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null), graph: () => Promise.resolve(null), stream: connection.stream, ...overrides } as unknown as Api;
   const store = new ConsoleStore(api, {
     now: () => Date.now(),
     setTimeout: (callback, ms) => setTimeout(callback, ms) as unknown as number,
@@ -204,6 +207,77 @@ function streamingStore(context: TestContext, overrides: object = {}) {
   store.start();
   return { store, ...connection, tick: async (ms: number) => { context.mock.timers.tick(ms); await settle(); } };
 }
+
+test('manual graph refresh bypasses the event throttle; snapshots and session updates retain the last good graph on failure', async t => {
+  let calls = 0;
+  let fail = false;
+  const graph: Graph = { nodes: [{ laneId: 'L192', label: 'Worker', repositoryId: null }], edges: [] };
+  const { store, emitters, tick } = streamingStore(t, { graph: () => { calls++; return fail ? Promise.reject(new Error('offline')) : Promise.resolve(graph); } });
+  await store.refresh();
+  assert.deepEqual(store.getState().graph, graph);
+  await store.refresh();
+  assert.equal(calls, 2, 'explicit refresh does not wait for the event throttle');
+  emitters[0](windowedSnapshot([], 0));
+  await tick(1999); assert.equal(calls, 2);
+  await tick(1); assert.equal(calls, 3, 'a snapshot refreshes the canonical graph');
+  fail = true;
+  const session = generate().fixture.sessions[0];
+  emitters[0]({ seq: 6, type: 'session.updated', occurredAt: session.updatedAt, payload: session });
+  await tick(2000);
+  assert.equal(calls, 4);
+  assert.deepEqual(store.getState().graph, graph, 'a failed read does not erase the graph');
+});
+
+test('transcript floods never refetch the graph; message bursts get one trailing read after two seconds', async t => {
+  let calls = 0;
+  const { store, emitters, tick } = streamingStore(t, { graph: () => { calls++; return Promise.resolve({ nodes: [], edges: [] }); } });
+  emitters[0](windowedSnapshot([], 0)); await settle();
+  assert.equal(calls, 1);
+  for (let cursor = 1; cursor <= 50; cursor++) {
+    emitters[0]({ seq: cursor + 5, type: 'transcript.appended', occurredAt: entry(cursor).at, payload: entry(cursor) });
+    await tick(100);
+  }
+  assert.equal(calls, 1, 'transcript-driven derived refreshes do not read the graph');
+  const message = generate().fixture.messages[0];
+  emitters[0]({ seq: 56, type: 'message.sent', occurredAt: message.sentAt, payload: message }); await settle();
+  assert.equal(calls, 2, 'a message triggers an immediate read when outside the throttle');
+  for (let seq = 57; seq < 77; seq++) emitters[0]({ seq, type: 'message.sent', occurredAt: message.sentAt, payload: message });
+  await tick(1999); assert.equal(calls, 2);
+  await tick(1); assert.equal(calls, 3, 'one trailing read covers the burst');
+  emitters[0]({ seq: 77, type: 'message.sent', occurredAt: message.sentAt, payload: message });
+  store.stop(); await tick(2000);
+  assert.equal(calls, 3, 'stop cancels the pending read');
+});
+
+test('reconnect refreshes the graph, but subsequent live heartbeats do not', async t => {
+  let calls = 0;
+  const { emitters, disconnects, tick } = streamingStore(t, { graph: () => { calls++; return Promise.resolve({ nodes: [], edges: [] }); } });
+  emitters[0](windowedSnapshot([], 0)); await settle();
+  disconnects[0](); await settle(); await tick(reconnectDelays[0]);
+  emitters[1]('heartbeat'); await tick(2000);
+  assert.equal(calls, 2, 'the first live frame on a reconnected stream requests the graph');
+  emitters[1]('heartbeat'); await tick(2000);
+  assert.equal(calls, 2);
+});
+
+test('late graph reads cannot overwrite a resnapshot or a stopped store', async t => {
+  const reads = [Promise.withResolvers<Graph>(), Promise.withResolvers<Graph>(), Promise.withResolvers<Graph>()];
+  let calls = 0;
+  const { store, emitters, tick } = streamingStore(t, { graph: () => reads[calls++].promise });
+  const old = store.refresh();
+  emitters[0](windowedSnapshot([], 0)); await tick(350);
+  assert.equal(calls, 1, 'resnapshot does not overlap an in-flight graph read');
+  reads[0].resolve({ nodes: [], edges: [] }); await old;
+  assert.equal(store.getState().graph, null, 'the old snapshot response is ignored');
+  await tick(1999); assert.equal(calls, 1);
+  await tick(1); assert.equal(calls, 2);
+  const current: Graph = { nodes: [{ laneId: 'current', label: 'Current', repositoryId: null }], edges: [] };
+  reads[1].resolve(current); await settle();
+  assert.deepEqual(store.getState().graph, current);
+  const pending = store.refresh(); store.stop();
+  reads[2].resolve({ nodes: [], edges: [] }); await pending;
+  assert.deepEqual(store.getState().graph, current);
+});
 
 test('a silent first connection is aborted and retried with backoff on every attempt', async t => {
   const { store, signals, tick } = streamingStore(t);
@@ -451,7 +525,7 @@ test('dirty totals and their debounced derived refresh survive a disconnect and 
   let healthCalls = 0;
   const { store, emitters, disconnects, lastEventIds, tick } = streamingStore(t, {
     page: (_name: string, params: unknown) => { pageParams.push(params); return page.promise; },
-    needsYou: () => { attentionCalls++; return Promise.resolve([]); }, health: () => { healthCalls++; return Promise.resolve(null); },
+    needsYou: () => { attentionCalls++; return Promise.resolve([]); }, health: () => { healthCalls++; return Promise.resolve(null); }, graph: () => Promise.resolve(null),
   });
   emitters[0](windowedSnapshot([], 0));
   await tick(350);
@@ -631,7 +705,7 @@ test('a resnapshot invalidates visible memory without touching hidden sessions',
     stream: (_seq: number, _signal: AbortSignal, onFrame: (frame: unknown) => void) => { emit = onFrame; onFrame(windowedSnapshot([], 0)); return new Promise<void>(() => undefined); },
     sessionMemory: () => { calls++; return Promise.resolve(memorySummary('s1')); },
     memoryItems: () => Promise.resolve([proposedItem]),
-    needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null),
+    needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null), graph: () => Promise.resolve(null),
   } as unknown as Api;
   const timers = new Map<number, () => void>();
   let key = 0;
@@ -765,7 +839,7 @@ test('only marked visible session updates refetch; replacement clears stale rows
   const timers = new Map<number, () => void>(); let key = 0;
   const api = {
     stream: (_seq: Event['seq'], _signal: AbortSignal, event: (frame: Event) => void) => { emit = event; return new Promise(() => undefined); },
-    needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null),
+    needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null), graph: () => Promise.resolve(null),
     sessionMemory: (id: SessionMemory['sessionId']) => { calls++; return Promise.resolve(memorySummary(id)); },
     memoryItems: () => Promise.resolve(items), memoryAvailability: () => Promise.reject(new Error('unavailable')),
   } as unknown as Api;
@@ -797,7 +871,7 @@ test('stop and restart generations reject late memory responses', async () => {
   let calls = 0;
   const api = {
     sessionMemory: () => { calls++; return calls === 1 ? new Promise<SessionMemory>(done => { resolve = done; }) : Promise.resolve(memorySummary('s1')); },
-    memoryItems: () => Promise.resolve([proposedItem]), needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null),
+    memoryItems: () => Promise.resolve([proposedItem]), needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null), graph: () => Promise.resolve(null),
     stream: () => new Promise(() => undefined),
   } as unknown as Api;
   const store = new ConsoleStore(api, clock);

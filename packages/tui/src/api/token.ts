@@ -15,13 +15,27 @@ export function readTokenFile(path: string): string {
   return readFileSync(path, 'utf8').trim();
 }
 
-/** Resolution order: PI_CONSOLE_TOKEN, PI_CONSOLE_TOKEN_FILE, `<data dir>/token`. The URL is always loopback HTTP. */
-export function resolveCredentials(env: NodeJS.ProcessEnv = process.env): Credentials {
-  const baseUrl = env.PI_CONSOLE_URL ?? 'http://127.0.0.1:4777';
-  const url = new URL(baseUrl);
+function daemonOrigin(endpoint: string): string {
+  const url = new URL(endpoint);
   if (url.protocol !== 'http:' || !['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname)) {
     throw new CredentialError('The TUI only talks to a loopback daemon over HTTP. Set PI_CONSOLE_URL to http://127.0.0.1:<port>.');
   }
+  const unsupported = ([
+    ['path', url.pathname !== '/'],
+    ['query', url.href.replace(/#.*$/u, '').includes('?')],
+    ['fragment', url.href.includes('#')],
+    ['username', Boolean(url.username)],
+    ['password', Boolean(url.password)],
+  ] as const).find(([, present]) => present);
+  if (unsupported) {
+    throw new CredentialError(`PI_CONSOLE_URL has an unsupported ${unsupported[0]}. Set PI_CONSOLE_URL to http://127.0.0.1:<port> (origin only).`);
+  }
+  return url.origin;
+}
+
+/** Resolution order: PI_CONSOLE_TOKEN, PI_CONSOLE_TOKEN_FILE, `<data dir>/token`. The URL is always loopback HTTP. */
+export function resolveCredentials(env: NodeJS.ProcessEnv = process.env): Credentials {
+  const baseUrl = daemonOrigin(env.PI_CONSOLE_URL ?? 'http://127.0.0.1:4777');
   if (env.PI_CONSOLE_TOKEN) return { baseUrl, token: env.PI_CONSOLE_TOKEN.trim(), tokenSource: 'PI_CONSOLE_TOKEN' };
   const file = env.PI_CONSOLE_TOKEN_FILE ?? resolve(env.PI_CONSOLE_DATA_DIR ?? resolve(homedir(), '.pi-console'), 'token');
   try {
