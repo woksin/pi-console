@@ -173,12 +173,15 @@ test('visible memory loads canonical pairs and readiness once per watch, indepen
 function lifecycleStream() {
   const emitters: ((frame: unknown) => void)[] = [];
   const signals: AbortSignal[] = [];
-  const stream: Api['stream'] = (_seq, signal, onFrame) => {
+  const disconnects: (() => void)[] = [];
+  const lastEventIds: number[] = [];
+  const stream: Api['stream'] = (seq, signal, onFrame) => {
     emitters.push(frame => { onFrame(frame as Parameters<typeof onFrame>[0]); });
     signals.push(signal);
-    return new Promise<void>(resolve => { signal.addEventListener('abort', () => { resolve(); }, { once: true }); });
+    lastEventIds.push(seq);
+    return new Promise<void>(resolve => { disconnects.push(resolve); signal.addEventListener('abort', () => { resolve(); }, { once: true }); });
   };
-  return { stream, emitters, signals };
+  return { stream, emitters, signals, disconnects, lastEventIds };
 }
 
 const settle = () => new Promise<void>(resolve => { setImmediate(resolve); });
@@ -232,6 +235,88 @@ test('every frame resets stream silence and a reconnect gets its own full silenc
   assert.equal(signals[1].aborted, true);
 });
 
+test('pending session detail, transcript and memory finish after a snapshot-free stalled reconnect', async t => {
+  const detail = Promise.withResolvers<Awaited<ReturnType<Api['session']>>>();
+  const transcript = Promise.withResolvers<Awaited<ReturnType<Api['transcript']>>>();
+  const memory = Promise.withResolvers<SessionMemory>();
+  const calls = { detail: 0, transcript: 0, memory: 0 };
+  const session = { id: 's1', repositoryId: 'r', name: '', laneId: 'l', role: 'main' as const, parentSessionId: null, orchestratorSessionId: 's1',
+    branch: '', cwd: '', model: '', status: 'idle' as const, startedAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', contextPercent: 0, samples: [] };
+  const { store, emitters, lastEventIds, tick } = streamingStore(t, {
+    session: () => { calls.detail++; return detail.promise; },
+    transcript: () => { calls.transcript++; return calls.transcript === 1 ? transcript.promise : Promise.resolve({ items: [entry(2)], nextCursor: 2, hasMore: false }); },
+    sessionMemory: () => { calls.memory++; return memory.promise; }, memoryItems: () => Promise.resolve([proposedItem]),
+  });
+  const snapshot = windowedSnapshot([], 0);
+  emitters[0]({ ...snapshot, payload: { ...snapshot.payload, sessions: [session] } });
+  const gapCount = store.getState().gapCount;
+  const pending = [store.loadSessionDetail('s1'), store.loadTranscript('s1'), store.loadSessionMemory('s1')];
+  await tick(staleAfterMs + staleAfterMs / 3);
+  assert.equal(store.getState().connection, 'offline');
+  await tick(reconnectDelays[0]);
+  emitters[1]('heartbeat');
+  assert.deepEqual(lastEventIds, [0, snapshot.seq]);
+  assert.equal(store.getState().gapCount, gapCount, 'a resumed stream does not retrigger the session view effects');
+  detail.resolve({ session, jobs: [job('older', 'done', session.startedAt)], requests: [], questions: [], resets: [], subagents: [] });
+  transcript.resolve({ items: [entry(1)], nextCursor: 1, hasMore: true });
+  memory.resolve(memorySummary('s1'));
+  await Promise.all(pending);
+  assert.deepEqual(store.getState().jobs.map(item => item.id), ['older']);
+  assert.deepEqual(store.getState().transcripts.s1, [entry(1), entry(2)], 'pagination continues after the resume');
+  assert.deepEqual(store.getState().memory.s1, memorySummary('s1'));
+  assert.deepEqual(store.getState().memoryItems.s1, [proposedItem]);
+  assert.deepEqual(calls, { detail: 1, transcript: 2, memory: 1 }, 'the original reads complete without another view load');
+});
+
+test('pending history stays deduplicated and completes across a resumable reconnect', async t => {
+  const page = Promise.withResolvers<Awaited<ReturnType<Api['page']>>>();
+  let calls = 0;
+  const { store, emitters, disconnects, tick } = streamingStore(t, { page: () => { calls++; return page.promise; } });
+  emitters[0](windowedSnapshot([], 1));
+  const pending = store.loadMore('jobs');
+  disconnects[0]();
+  await settle();
+  await tick(reconnectDelays[0]);
+  emitters[1]('heartbeat');
+  assert.equal(store.loadMore('jobs'), pending, 'resume keeps the same pending history request');
+  page.resolve({ ...emptyList, items: [job('older', 'done', '2026-01-01T00:00:00Z')], total: 1 });
+  await pending;
+  assert.equal(calls, 1);
+  assert.deepEqual(store.getState().jobs.map(item => item.id), ['older']);
+  assert.equal(store.getState().history.jobs?.more, false);
+});
+
+test('dirty totals and their debounced derived refresh survive a disconnect and snapshot-free resume', async t => {
+  const page = Promise.withResolvers<Awaited<ReturnType<Api['page']>>>();
+  const pageParams: unknown[] = [];
+  let attentionCalls = 0;
+  let healthCalls = 0;
+  const { store, emitters, disconnects, lastEventIds, tick } = streamingStore(t, {
+    page: (_name: string, params: unknown) => { pageParams.push(params); return page.promise; },
+    needsYou: () => { attentionCalls++; return Promise.resolve([]); }, health: () => { healthCalls++; return Promise.resolve(null); },
+  });
+  emitters[0](windowedSnapshot([], 0));
+  await tick(350);
+  emitters[0]({ seq: 6, type: 'job.updated', occurredAt: '2026-01-01T00:00:00Z', payload: job('j1', 'running', '2026-01-01T00:00:00Z') });
+  const gapCount = store.getState().gapCount;
+  disconnects[0]();
+  await settle();
+  await tick(349);
+  assert.equal(attentionCalls, 1, 'the pending refresh is still debounced');
+  await tick(1);
+  assert.deepEqual(pageParams, [{ limit: 1 }], 'the dirty total still causes a request');
+  await tick(reconnectDelays[0] - 350);
+  emitters[1]('heartbeat');
+  assert.deepEqual(lastEventIds, [0, 6]);
+  assert.equal(store.getState().gapCount, gapCount);
+  page.resolve({ ...emptyList, total: 1 });
+  await settle();
+  assert.equal(store.getState().jobs.length, 1);
+  assert.equal(store.getState().totals?.jobs, 1, 'the in-flight total refresh remains valid after resume');
+  assert.equal(attentionCalls, 2);
+  assert.equal(healthCalls, 2, 'the same refresh also updates the derived models');
+});
+
 test('a late history page cannot undo a newer snapshot or exhaust its paging', async t => {
   const oldPage = Promise.withResolvers<Awaited<ReturnType<Api['page']>>>();
   let calls = 0;
@@ -248,15 +333,14 @@ test('a late history page cannot undo a newer snapshot or exhaust its paging', a
   assert.equal(calls, 2, 'the recovered history remains loadable');
 });
 
-for (const boundary of ['snapshot', 'reconnect', 'restart'] as const) test(`old paging cleanup cannot remove the pending request after a ${boundary}`, async t => {
+for (const boundary of ['snapshot', 'restart'] as const) test(`old paging cleanup cannot remove the pending request after a ${boundary}`, async t => {
   const pages = Array.from({ length: 3 }, () => Promise.withResolvers<Awaited<ReturnType<Api['page']>>>());
   let calls = 0;
-  const { store, emitters, tick } = streamingStore(t, { page: () => pages[calls++].promise });
+  const { store, emitters } = streamingStore(t, { page: () => pages[calls++].promise });
   emitters[0](windowedSnapshot([], 1));
   const old = store.loadMore('jobs');
   if (boundary === 'snapshot') emitters[0]({ ...windowedSnapshot([], 2), seq: 9 });
   if (boundary === 'restart') { store.stop(); store.start(); }
-  if (boundary === 'reconnect') { await tick(staleAfterMs + staleAfterMs / 3); await tick(reconnectDelays[0]); }
   const current = store.loadMore('jobs');
   assert.equal(calls, 2, 'a new generation never shares the old pending request');
   const state = store.getState();

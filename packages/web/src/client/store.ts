@@ -25,7 +25,7 @@ const maxHistoryPages = 60;
 
 type Listener = () => void;
 
-/** Pending reads and their cleanup belong only to the connection/snapshot that issued them. */
+/** Pending reads and their cleanup belong to the current snapshot, even across resumable connections. */
 class RequestGeneration {
   readonly loaded = new Map<string, Promise<void>>();
   readonly paging = new Map<WindowedCollection, Promise<void>>();
@@ -108,6 +108,7 @@ export class ConsoleStore {
 
   start(): void {
     if (this.#stopped) {
+      this.#resetRequests();
       this.#reviews = this.#createReviews();
       this.#memoryRefresh = this.#createMemoryRefresh();
       this.#set({ ...this.#state, memoryReviews: new Map() });
@@ -130,7 +131,6 @@ export class ConsoleStore {
     while (this.#active(generation)) {
       const controller = new AbortController();
       this.#abort = controller;
-      this.#resetRequests();
       this.#lastActivityAt = this.#clock.now();
       this.#connection(this.#state.seq > 0 ? 'reconnecting' : 'connecting');
       this.#watch(controller);
@@ -144,7 +144,6 @@ export class ConsoleStore {
         if (this.#active(generation)) this.#unwatch();
       }
       if (!this.#active(generation)) return;
-      this.#resetRequests();
       this.#connection('offline');
       await this.#sleep(reconnectDelays[Math.min(this.#attempt++, reconnectDelays.length - 1)]);
     }
