@@ -27,9 +27,21 @@ type Listener = () => void;
 export type SessionDetailStatus = 'loading' | 'loaded' | 'failed' | 'not-found';
 interface SessionDetailLoad {
   sessionId: string;
-  gapCount: number;
+  requests: RequestGeneration;
   status: SessionDetailStatus;
   task: Promise<void>;
+}
+
+/** Pending reads and their cleanup belong to the current snapshot, even across resumable connections. */
+class RequestGeneration {
+  readonly loaded = new Map<string, Promise<void>>();
+  readonly details = new Map<string, SessionDetailLoad>();
+  readonly paging = new Map<WindowedCollection, Promise<void>>();
+  /** Bounded collections that gained an id the client had not seen: their snapshot total may have moved, so it is refetched. */
+  readonly staleTotals = new Set<WindowedCollection>();
+  /** A refresh requested while one is in flight runs again after it lands, never overlapping. */
+  refreshing = false;
+  refreshAgain = false;
 }
 
 /**
@@ -49,21 +61,22 @@ export class ConsoleStore {
   readonly #clock: Clock;
   #abort: AbortController | null = null;
   #refresh: number | null = null;
-  /** A refresh requested while one is in flight is not dropped: it runs again once the current one lands (a trailing refresh, never overlapping, so an older answer cannot overwrite a newer one). */
-  #refreshing = false;
-  #refreshAgain = false;
+  #requests = new RequestGeneration();
   #watchTimer: number | null = null;
+  #lastActivityAt = 0;
   #attempt = 0;
   #stopped = false;
   #generation = 0;
   /** Read through methods: these flags change across awaits, which control-flow narrowing cannot see. */
   #active(generation: number): boolean { return !this.#stopped && this.#generation === generation; }
-  #takeRefreshAgain(): boolean { const again = this.#refreshAgain; this.#refreshAgain = false; return again; }
-  readonly #loaded = new Map<string, Promise<void>>();
-  readonly #detailLoads = new Map<string, SessionDetailLoad>();
-  readonly #paging = new Map<WindowedCollection, Promise<void>>();
-  /** Bounded collections that gained an id the client had not seen: their snapshot total may have moved, so it is refetched. */
-  readonly #staleTotals = new Set<WindowedCollection>();
+  #requestActive(requests: RequestGeneration): boolean { return !this.#stopped && this.#requests === requests; }
+  #takeRefreshAgain(requests: RequestGeneration): boolean { const again = requests.refreshAgain; requests.refreshAgain = false; return again; }
+
+  #resetRequests(): void {
+    this.#requests = new RequestGeneration();
+    if (this.#refresh !== null) this.#clock.clearTimeout(this.#refresh);
+    this.#refresh = null;
+  }
 
   constructor(api: Api, clock: Clock = realClock) {
     this.#api = api;
@@ -103,6 +116,7 @@ export class ConsoleStore {
 
   start(): void {
     if (this.#stopped) {
+      this.#resetRequests();
       this.#reviews = this.#createReviews();
       this.#memoryRefresh = this.#createMemoryRefresh();
       this.#set({ ...this.#state, memoryReviews: new Map() });
@@ -123,15 +137,20 @@ export class ConsoleStore {
 
   async #run(generation: number): Promise<void> {
     while (this.#active(generation)) {
-      this.#abort = new AbortController();
+      const controller = new AbortController();
+      this.#abort = controller;
+      this.#lastActivityAt = this.#clock.now();
       this.#connection(this.#state.seq > 0 ? 'reconnecting' : 'connecting');
-      this.#watch(this.#abort);
+      this.#watch(controller);
       try {
-        await this.#api.stream(this.#state.seq, this.#abort.signal, frame => { this.#frameWhenActive(generation, frame); });
+        await this.#api.stream(this.#state.seq, controller.signal, frame => { this.#frameWhenActive(generation, controller.signal, frame); });
       } catch (error) {
         if (!this.#active(generation)) return;
         if (error instanceof Unauthorized) { this.#connection('unauthorized'); return; }
-      } finally { if (this.#active(generation)) this.#unwatch(); }
+      } finally {
+        controller.abort();
+        if (this.#active(generation)) this.#unwatch();
+      }
       if (!this.#active(generation)) return;
       this.#connection('offline');
       await this.#sleep(reconnectDelays[Math.min(this.#attempt++, reconnectDelays.length - 1)]);
@@ -140,7 +159,7 @@ export class ConsoleStore {
 
   #watch(controller: AbortController): void {
     const check = (): void => {
-      if (this.#state.lastFrameAt > 0 && this.#clock.now() - this.#state.lastFrameAt > staleAfterMs) controller.abort();
+      if (this.#clock.now() - this.#lastActivityAt > staleAfterMs) controller.abort();
       else this.#watchTimer = this.#clock.setTimeout(check, staleAfterMs / 3);
     };
     this.#watchTimer = this.#clock.setTimeout(check, staleAfterMs / 3);
@@ -155,17 +174,20 @@ export class ConsoleStore {
     return new Promise(resolve => { this.#clock.setTimeout(resolve, ms); });
   }
 
-  #frameWhenActive(generation: number, frame: ApiEvent | 'heartbeat'): void {
+  #frameWhenActive(generation: number, signal: AbortSignal, frame: ApiEvent | 'heartbeat'): void {
+    if (signal.aborted) return;
     if (this.#active(generation)) this.#frame(frame);
   }
 
   #frame(frame: ApiEvent | 'heartbeat'): void {
     this.#attempt = 0;
     const now = this.#clock.now();
+    this.#lastActivityAt = now;
     if (frame === 'heartbeat') { this.#set({ ...this.#state, lastFrameAt: now, connection: 'live', received: this.#state.received + 1 }); return; }
+    if (frame.type === 'snapshot') this.#resetRequests();
     const next = applyEvent(this.#state, frame);
     if (frame.type === 'session.updated') this.#invalidateSessionDetail(frame.payload);
-    if (frame.type !== 'snapshot') for (const name of next.bounded) if (next[name].length > this.#state[name].length) this.#staleTotals.add(name);
+    if (frame.type !== 'snapshot') for (const name of next.bounded) if (next[name].length > this.#state[name].length) this.#requests.staleTotals.add(name);
     this.#set({ ...next, lastFrameAt: now, connection: 'live', received: this.#state.received + 1 });
     if (frame.type === 'snapshot') this.#memoryRefresh.invalidateVisible();
     if (frame.type === 'session.updated' && frame.payload.memoryChanged) this.#memoryRefresh.invalidate(frame.payload.id);
@@ -179,27 +201,30 @@ export class ConsoleStore {
 
   /** Refetches the daemon-derived read models. Failures keep the last good copy (the stream banner reports connectivity). */
   async refresh(): Promise<void> {
-    if (this.#refreshing) { this.#refreshAgain = true; return; }
-    this.#refreshing = true;
+    const requests = this.#requests;
+    if (requests.refreshing) { requests.refreshAgain = true; return; }
+    requests.refreshing = true;
     try {
-      do { this.#refreshAgain = false; await this.#fetchDerived(); } while (this.#takeRefreshAgain());
-    } finally { this.#refreshing = false; }
+      do { requests.refreshAgain = false; await this.#fetchDerived(requests); } while (this.#requestActive(requests) && this.#takeRefreshAgain(requests));
+    } finally { requests.refreshing = false; }
   }
 
-  async #fetchDerived(): Promise<void> {
+  async #fetchDerived(requests: RequestGeneration): Promise<void> {
     this.#set({ ...this.#state, needsYouError: false });
     const [needsYou, health] = await Promise.all([this.#api.needsYou().catch(() => null), this.#api.health().catch(() => null)]);
+    if (!this.#requestActive(requests)) return;
     this.#set({ ...this.#state, needsYou: needsYou ?? this.#state.needsYou, needsYouLoaded: needsYou !== null, needsYouError: needsYou === null, health: health ?? this.#state.health });
-    await this.#refreshTotals();
+    await this.#refreshTotals(requests);
   }
 
   /** A `limit=1` page carries the collection's current total; no separate endpoint, no client-side guessing. */
-  async #refreshTotals(): Promise<void> {
-    const names = windowedNames.filter(name => this.#staleTotals.delete(name));
+  async #refreshTotals(requests: RequestGeneration): Promise<void> {
+    const names = windowedNames.filter(name => requests.staleTotals.delete(name));
     await Promise.all(names.map(async name => {
       const page = await this.#api.page(name, { limit: 1 }).catch(() => null);
+      if (!this.#requestActive(requests)) return;
       const totals = this.#state.totals;
-      if (!page || !totals) { this.#staleTotals.add(name); return; }
+      if (!page || !totals) { requests.staleTotals.add(name); return; }
       this.#set({ ...this.#state, totals: { ...totals, [name]: page.total } });
     }));
   }
@@ -208,55 +233,57 @@ export class ConsoleStore {
   loadMore(collection: WindowedCollection): Promise<void> {
     const state = this.#state;
     const progress = state.history[collection];
-    if (!state.bounded.includes(collection) || (progress && !progress.more)) return Promise.resolve();
-    const existing = this.#paging.get(collection);
+    if (!state.bounded.includes(collection)) return Promise.resolve();
+    if (progress && !progress.more) return Promise.resolve();
+    const requests = this.#requests;
+    const existing = requests.paging.get(collection);
     if (existing) return existing;
-    const task = this.#fetchPage(collection, progress?.cursor ?? null).finally(() => { this.#paging.delete(collection); });
-    this.#paging.set(collection, task);
+    const task = this.#fetchPage(requests, collection, progress?.cursor ?? null).finally(() => { requests.paging.delete(collection); });
+    requests.paging.set(collection, task);
     return task;
   }
 
-  async #fetchPage(collection: WindowedCollection, after: string | null): Promise<void> {
+  async #fetchPage(requests: RequestGeneration, collection: WindowedCollection, after: string | null): Promise<void> {
     const page = await this.#api.page(collection, { limit: listPageSize, order: 'desc', after }).catch(() => null);
+    if (!this.#requestActive(requests)) return;
     if (page) this.#set(mergePage(this.#state, collection, page));
   }
 
   /** Detail requests have their own status: an absent snapshot row is not evidence of a 404. */
   getSessionDetailStatus(sessionId: string): SessionDetailStatus | undefined {
-    const load = this.#detailLoads.get(sessionId);
-    return load?.gapCount === this.#state.gapCount ? load.status : undefined;
+    return this.#requests.details.get(sessionId)?.status;
   }
 
   #invalidateSessionDetail(session: { id: string }): void {
-    const load = this.#detailLoads.get(session.id);
-    if (load?.status === 'not-found' || load?.status === 'failed') this.#detailLoads.delete(session.id);
+    const details = this.#requests.details;
+    const load = details.get(session.id);
+    if (load?.status === 'not-found' || load?.status === 'failed') details.delete(session.id);
   }
 
   #clearSessionDetailStatus(load: SessionDetailLoad | undefined): void {
     if (!load) return;
-    this.#detailLoads.delete(load.sessionId);
+    load.requests.details.delete(load.sessionId);
     this.#set({ ...this.#state });
   }
 
   #publishSessionDetail(load: SessionDetailLoad, state = this.#state): void {
-    if (load.gapCount !== this.#state.gapCount) return;
-    if (this.#detailLoads.get(load.sessionId) !== load) return;
+    if (!this.#requestActive(load.requests)) return;
+    if (load.requests.details.get(load.sessionId) !== load) return;
     this.#set({ ...state });
   }
 
   /** Loads a session's complete jobs, requests, questions and subagents once per gap; missing sessions are checked even with an unbounded snapshot. Failed requests can be retried immediately. */
   loadSessionDetail(sessionId: string): Promise<void> {
-    const existing = this.#detailLoads.get(sessionId);
+    const requests = this.#requests;
+    const existing = requests.details.get(sessionId);
     if (this.#state.bounded.length === 0 && this.#state.sessions.some(session => session.id === sessionId)) {
       this.#clearSessionDetailStatus(existing);
       return Promise.resolve();
     }
-    if (existing?.gapCount === this.#state.gapCount) {
-      if (existing.status === 'loading' || existing.status === 'loaded') return existing.task;
-    }
-    const load: SessionDetailLoad = { sessionId, gapCount: this.#state.gapCount, status: 'loading', task: Promise.resolve() };
-    load.task = Promise.resolve().then(() => this.#fetchSessionDetail(load));
-    this.#detailLoads.set(sessionId, load);
+    if (existing?.status === 'loading' || existing?.status === 'loaded') return existing.task;
+    const load: SessionDetailLoad = { sessionId, requests, status: 'loading', task: Promise.resolve() };
+    requests.details.set(sessionId, load);
+    load.task = this.#fetchSessionDetail(load);
     this.#publishSessionDetail(load);
     return load.task;
   }
@@ -264,10 +291,12 @@ export class ConsoleStore {
   async #fetchSessionDetail(load: SessionDetailLoad): Promise<void> {
     try {
       const detail = await this.#api.session(load.sessionId);
-      if (load.gapCount !== this.#state.gapCount) return;
+      if (!this.#requestActive(load.requests)) return;
       load.status = detail ? 'loaded' : 'not-found';
       this.#publishSessionDetail(load, detail ? mergeSessionDetail(this.#state, detail) : this.#state);
     } catch {
+      // Even a synchronous transport throw settles after the loading state has been registered.
+      await Promise.resolve();
       load.status = 'failed';
       this.#publishSessionDetail(load);
     }
@@ -284,28 +313,30 @@ export class ConsoleStore {
   loadSessionMemory(sessionId: string): Promise<void> { return this.#memoryRefresh.refresh(sessionId); }
 
   async #fetchMemory(sessionId: string): Promise<void> {
-    const generation = this.#generation;
+    const requests = this.#requests;
     const [memory, items] = await Promise.all([this.#api.sessionMemory(sessionId).catch(() => null), this.#api.memoryItems(sessionId, memoryItemLimit).catch(() => null)]);
-    if (!this.#active(generation)) return;
+    if (!this.#requestActive(requests)) return;
     if (!memory || !items) return;
     this.#set({ ...this.#state, memory: { ...this.#state.memory, [sessionId]: memory }, memoryItems: { ...this.#state.memoryItems, [sessionId]: items } });
   }
 
   /** Loads a session's transcript history once per gap; the live tail arrives over the stream. History is paged to its end (only the newest entries are kept), or, with `focus`, until that entry is present. A failed load is forgotten so the next open retries it. */
   loadTranscript(sessionId: string, focus: string | null = null): Promise<void> {
+    const requests = this.#requests;
     const key = `${sessionId}:${String(this.#state.gapCount)}:${focus ?? ''}`;
-    const existing = this.#loaded.get(key);
+    const existing = requests.loaded.get(key);
     if (existing) return existing;
-    const task = this.#fetchTranscript(sessionId, focus).then(complete => { if (!complete) this.#loaded.delete(key); });
-    this.#loaded.set(key, task);
+    const task = this.#fetchTranscript(requests, sessionId, focus).then(complete => { if (!complete) requests.loaded.delete(key); });
+    requests.loaded.set(key, task);
     return task;
   }
 
   /** Returns false when a page could not be fetched. */
-  async #fetchTranscript(sessionId: string, focus: string | null): Promise<boolean> {
+  async #fetchTranscript(requests: RequestGeneration, sessionId: string, focus: string | null): Promise<boolean> {
     let after = 0;
     for (let page = 0; page < maxHistoryPages; page++) {
       const result = await this.#api.transcript(sessionId, after, historyPageSize).catch(() => null);
+      if (!this.#requestActive(requests)) return false;
       if (!result) return false;
       this.#set(mergeTranscript(this.#state, sessionId, result.items, focus !== null));
       if (isLastPage(result, focus)) return true;

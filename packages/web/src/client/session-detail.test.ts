@@ -20,9 +20,14 @@ function windowedStore(session: Api['session'], sessions: SessionDetail['session
     },
   };
   let emit: (event: Event) => void = () => undefined;
+  let initial = true;
   const store = new ConsoleStore({
     session,
-    stream: (_seq, _signal, onFrame) => { emit = onFrame; onFrame(snapshot); return new Promise<void>(() => undefined); },
+    stream: (_seq, _signal, onFrame) => {
+      emit = onFrame;
+      if (initial) { initial = false; onFrame(snapshot); }
+      return new Promise<void>(() => undefined);
+    },
   } as Api, clock);
   store.start();
   let seq = 1;
@@ -155,6 +160,42 @@ test('a known session in a complete snapshot still needs no detail request', asy
   await store.loadSessionDetail('s1');
   await store.loadSessionDetail('s1');
   assert.equal(calls, 1);
+});
+
+for (const status of [404, 503]) test(`a restart clears HTTP ${String(status)} status even without a new snapshot`, async () => {
+  const api = createApi('token', '', async () => new Response(null, { status }));
+  const { store } = windowedStore(id => api.session(id));
+  await store.loadSessionDetail('s1');
+  assert.equal(store.getSessionDetailStatus('s1'), status === 404 ? 'not-found' : 'failed');
+  const gapCount = store.getState().gapCount;
+  store.stop(); store.start();
+  assert.equal(store.getState().gapCount, gapCount);
+  assert.equal(store.getSessionDetailStatus('s1'), undefined);
+  store.stop();
+});
+
+for (const outcome of ['success', 'not-found', 'failure'] as const) test(`a pre-restart detail ${outcome} cannot affect the new request generation`, async () => {
+  const previous = Promise.withResolvers<SessionDetail | null>();
+  const current = Promise.withResolvers<SessionDetail | null>();
+  let calls = 0;
+  const { store } = windowedStore(() => ++calls === 1 ? previous.promise : current.promise);
+  const oldLoad = store.loadSessionDetail('s1');
+  const gapCount = store.getState().gapCount;
+  store.stop(); store.start();
+  assert.equal(store.getState().gapCount, gapCount, 'request generations can change without a snapshot');
+  assert.equal(store.getSessionDetailStatus('s1'), undefined);
+  const newLoad = store.loadSessionDetail('s1');
+  if (outcome === 'failure') previous.reject(new Error('old failure'));
+  else previous.resolve(outcome === 'success' ? detail : null);
+  await oldLoad;
+  assert.equal(store.getSessionDetailStatus('s1'), 'loading');
+  assert.deepEqual(store.getState().sessions, []);
+  assert.equal(store.loadSessionDetail('s1'), newLoad, 'old completion cannot uncache the current request');
+  assert.equal(calls, 2);
+  current.resolve(detail);
+  await newLoad;
+  assert.equal(store.getSessionDetailStatus('s1'), 'loaded');
+  store.stop();
 });
 
 for (const outcome of ['success', 'not-found', 'failure'] as const) test(`a pre-gap detail ${outcome} cannot overwrite the new request`, async () => {
