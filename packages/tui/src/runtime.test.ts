@@ -50,6 +50,72 @@ test('attention fetch failures are recorded and retry reuses the runtime load', 
   assert.equal(result.status, 0, result.stderr);
 });
 
+test('quiet connected sessions become stale and polling stops on disconnect and disposal', () => {
+  const source = `
+    import assert from 'node:assert/strict';
+    import { mock } from 'node:test';
+    import { SqliteEventLog } from './packages/core/src/event-log/sqlite-event-log.ts';
+    import { Projector } from './packages/core/src/projector/projector.ts';
+    import { consoleProjections, readModels } from './packages/core/src/projections/index.ts';
+    import { testEvent } from './packages/core/src/testing/events.ts';
+    import { needsYou } from './packages/core/src/attention/needs-you.ts';
+    const now = new Date('2026-11-20T08:00:00Z');
+    mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'], now });
+    const intervals = new Set(), schedule = globalThis.setInterval, cancel = globalThis.clearInterval;
+    mock.method(globalThis, 'setInterval', (...args) => { const timer = schedule(...args); intervals.add(timer); return timer; });
+    mock.method(globalThis, 'clearInterval', timer => { intervals.delete(timer); cancel(timer); });
+    const log = new SqliteEventLog(':memory:');
+    await log.append([testEvent(1, 'TurnStarted', { sessionId: 'quiet', turnId: 'turn' }, { occurredAt: now.toISOString() })]);
+    const projector = new Projector(log, consoleProjections());
+    await projector.catchUp();
+    const models = readModels(projector);
+    log.close();
+    let handlers, calls = 0;
+    mock.module('./packages/tui/src/view/renderer.ts', { namedExports: { launch: async () => {} } });
+    mock.module('./packages/tui/src/app.ts', { namedExports: { App: () => null } });
+    mock.module('./packages/tui/src/api/client.ts', { namedExports: { DaemonClient: class {
+      stream(value) { handlers = value; return Promise.resolve(); }
+      async needsYou() { calls++; return needsYou(models, { now: new Date() }); }
+      stop() {}
+    } } });
+    const { connect } = await import('./packages/tui/src/runtime.ts');
+    const runtime = connect({ baseUrl: 'http://127.0.0.1', token: 'test', tokenSource: 'test' });
+    const flush = async () => { for (let turn = 0; turn < 10; turn++) await Promise.resolve(); };
+    const minutes = async count => { for (let minute = 0; minute < count; minute++) { mock.timers.tick(60_000); await flush(); } };
+    try {
+      assert.equal(intervals.size, 0, 'no polling before connection');
+      handlers.onState({ connected: true });
+      await flush();
+      assert.equal(calls, 1);
+      assert.deepEqual(runtime.store.getSnapshot().needsYou, []);
+      await minutes(30);
+      assert.deepEqual(runtime.store.getSnapshot().needsYou, []);
+      await minutes(1);
+      assert.deepEqual(runtime.store.getSnapshot().needsYou.map(item => [item.reason, item.sessionId]), [['stale-session', 'quiet']]);
+      handlers.onState({ connected: false });
+      assert.equal(intervals.size, 0);
+      const disconnectedCalls = calls;
+      await minutes(2);
+      assert.equal(calls, disconnectedCalls);
+      handlers.onState({ connected: true });
+      handlers.onState({ connected: true });
+      await flush();
+      assert.equal(intervals.size, 1, 'reconnection owns only one polling timer');
+      runtime.stop();
+      handlers.onState({ connected: true });
+      assert.equal(intervals.size, 0, 'no polling timer survives disposal');
+      const stoppedCalls = calls;
+      await minutes(2);
+      assert.equal(calls, stoppedCalls, 'disposal also cancels trailing requests');
+    } finally { runtime.stop(); mock.restoreAll(); mock.timers.reset(); }
+  `;
+  const result = spawnSync(process.execPath, ['--experimental-test-module-mocks', '--input-type=module', '-e', source], {
+    cwd: new URL('../../..', import.meta.url), encoding: 'utf8', timeout: 5000,
+  });
+  assert.equal(result.error, undefined, String(result.error));
+  assert.equal(result.status, 0, result.stderr);
+});
+
 test('a renderer launch failure rejects run and stops the connected runtime', () => {
   const source = `
     import assert from 'node:assert/strict';
