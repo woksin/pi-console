@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { after, before, describe, test } from 'node:test';
 import type { Page } from 'playwright-core';
+import type { SessionDetail } from '@pi-console/contract';
 import { startRig, type Rig } from './harness.ts';
 
 let rig: Rig;
@@ -27,6 +28,58 @@ describe('web console e2e', () => {
     assert.equal(await page.locator('.session-head h2, .session-head .badge').count(), 0, 'identity and status appear only in the topbar');
     assert.equal(await page.locator('.rail .badge').filter({ hasText: 'Unknown' }).count(), 0);
     await page.context().close();
+  });
+
+  test('a session outside the snapshot loads, offers keyboard Retry on failure, and recovers', async () => {
+    const isolated = await startRig({ speed: 1e-9 });
+    const page = await isolated.open('/fleet', { token: null });
+    const first = Promise.withResolvers<undefined>();
+    const retried = Promise.withResolvers<undefined>();
+    let attempts = 0;
+    try {
+      const response = await page.request.get(`${isolated.baseUrl}/api/v1/sessions/s2`, { headers: { Authorization: `Bearer ${isolated.daemon.token}` } });
+      assert.equal(response.status(), 200);
+      const detail = await response.json() as SessionDetail;
+      detail.session = { ...detail.session, id: 'detail-only' };
+      await page.route('**/api/v1/sessions/detail-only', async route => {
+        attempts++;
+        if (attempts === 1) { await first.promise; await route.abort(); }
+        else { await retried.promise; await route.fulfill({ json: detail }); }
+      });
+      await page.getByLabel('Access token').fill(isolated.daemon.token);
+      await page.getByRole('button', { name: 'Connect' }).click();
+      await page.locator('.conn[data-connection="live"]').waitFor();
+      await page.evaluate(() => { window.location.hash = '#/session/detail-only'; });
+      await page.getByRole('status', { name: 'Loading session', exact: true }).waitFor();
+      assert.equal(await page.getByText('Session not found', { exact: true }).count(), 0);
+      first.resolve(undefined);
+      await page.getByRole('alert').filter({ hasText: 'Could not load session.' }).waitFor();
+      assert.equal(await page.getByText('Session not found', { exact: true }).count(), 0);
+      const retry = page.getByRole('button', { name: 'Retry', exact: true });
+      await page.locator('#content').focus();
+      await page.keyboard.press('Tab');
+      assert.equal(await retry.evaluate(node => node === document.activeElement), true, 'Retry is reachable by Tab');
+      await page.keyboard.press('Enter');
+      await page.getByRole('status', { name: 'Loading session', exact: true }).waitFor();
+      retried.resolve(undefined);
+      await page.locator('.session-head').waitFor();
+      assert.equal(attempts, 2, 'keyboard Retry issues a new detail request');
+      assert.equal(await page.getByRole('alert').count(), 0);
+      assert.equal(await page.getByRole('status', { name: 'Loading session', exact: true }).count(), 0);
+    } finally { first.resolve(undefined); retried.resolve(undefined); await page.context().close(); await isolated.close(); }
+  });
+
+  test('a real session 404 shows not-found without Retry', async () => {
+    const page = await rig.open('/session/missing-session', { token: null });
+    try {
+      await page.route('**/api/v1/sessions/missing-session', route => route.fulfill({ status: 404, json: { error: 'not found' } }));
+      await page.getByLabel('Access token').fill(rig.daemon.token);
+      await page.getByRole('button', { name: 'Connect' }).click();
+      await page.getByRole('heading', { name: 'Session not found', exact: true }).waitFor();
+      await page.getByRole('link', { name: 'Back to the fleet', exact: true }).waitFor();
+      assert.equal(await page.getByRole('button', { name: 'Retry', exact: true }).count(), 0);
+      assert.equal(await page.getByRole('alert').count(), 0);
+    } finally { await page.context().close(); }
   });
 
   test('initial stream hold shows skeletons, not empty states', async () => {

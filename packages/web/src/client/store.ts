@@ -24,6 +24,13 @@ const windowedNames: readonly WindowedCollection[] = ['sessions', 'requests', 'q
 const maxHistoryPages = 60;
 
 type Listener = () => void;
+export type SessionDetailStatus = 'loading' | 'loaded' | 'failed' | 'not-found';
+interface SessionDetailLoad {
+  sessionId: string;
+  gapCount: number;
+  status: SessionDetailStatus;
+  task: Promise<void>;
+}
 
 /**
  * The client's single source of truth: server-sent state plus connection status. It owns the stream loop (resume by
@@ -53,6 +60,7 @@ export class ConsoleStore {
   #active(generation: number): boolean { return !this.#stopped && this.#generation === generation; }
   #takeRefreshAgain(): boolean { const again = this.#refreshAgain; this.#refreshAgain = false; return again; }
   readonly #loaded = new Map<string, Promise<void>>();
+  readonly #detailLoads = new Map<string, SessionDetailLoad>();
   readonly #paging = new Map<WindowedCollection, Promise<void>>();
   /** Bounded collections that gained an id the client had not seen: their snapshot total may have moved, so it is refetched. */
   readonly #staleTotals = new Set<WindowedCollection>();
@@ -212,18 +220,41 @@ export class ConsoleStore {
     if (page) this.#set(mergePage(this.#state, collection, page));
   }
 
-  /** Loads a session's complete jobs, requests, questions and subagents once per gap (the snapshot only carries a window). */
+  /** Detail requests have their own status: an absent snapshot row is not evidence of a 404. */
+  getSessionDetailStatus(sessionId: string): SessionDetailStatus | undefined {
+    const load = this.#detailLoads.get(sessionId);
+    return load?.gapCount === this.#state.gapCount ? load.status : undefined;
+  }
+
+  #publishSessionDetail(load: SessionDetailLoad, state = this.#state): void {
+    if (load.gapCount !== this.#state.gapCount) return;
+    this.#detailLoads.set(load.sessionId, load);
+    this.#set({ ...state });
+  }
+
+  /** Loads a session's complete jobs, requests, questions and subagents once per gap; missing sessions are checked even with an unbounded snapshot. Failed requests can be retried immediately. */
   loadSessionDetail(sessionId: string): Promise<void> {
-    if (this.#state.bounded.length === 0) return Promise.resolve();
-    const key = `detail:${sessionId}:${String(this.#state.gapCount)}`;
-    const existing = this.#loaded.get(key);
-    if (existing) return existing;
-    const task = this.#api.session(sessionId).catch(() => null).then(detail => {
-      if (detail) this.#set(mergeSessionDetail(this.#state, detail));
-      else this.#loaded.delete(key);
-    });
-    this.#loaded.set(key, task);
-    return task;
+    if (this.#state.bounded.length === 0 && this.#state.sessions.some(session => session.id === sessionId)) return Promise.resolve();
+    const existing = this.#detailLoads.get(sessionId);
+    if (existing?.gapCount === this.#state.gapCount) {
+      if (existing.status === 'loading' || existing.status === 'loaded') return existing.task;
+    }
+    const load: SessionDetailLoad = { sessionId, gapCount: this.#state.gapCount, status: 'loading', task: Promise.resolve() };
+    load.task = Promise.resolve().then(() => this.#fetchSessionDetail(load));
+    this.#publishSessionDetail(load);
+    return load.task;
+  }
+
+  async #fetchSessionDetail(load: SessionDetailLoad): Promise<void> {
+    try {
+      const detail = await this.#api.session(load.sessionId);
+      if (load.gapCount !== this.#state.gapCount) return;
+      load.status = detail ? 'loaded' : 'not-found';
+      this.#publishSessionDetail(load, detail ? mergeSessionDetail(this.#state, detail) : this.#state);
+    } catch {
+      load.status = 'failed';
+      this.#publishSessionDetail(load);
+    }
   }
 
   requestMemoryAction(sessionId: string, itemId: string, action: 'confirm' | 'reject'): Promise<void> {
