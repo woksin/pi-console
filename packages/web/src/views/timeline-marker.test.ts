@@ -47,7 +47,7 @@ test('adjacent marker hit boxes stay within their cells and decorations do not t
     const html = renderToStaticMarkup(createElement(TimelineMarker, { marker, lane: 'repo/L1', x, cellWidth: 8, selected: true, onSelect: () => undefined }));
     assert.match(html, /class="marker-ring"[^>]+pointer-events="none"/);
     assert.match(html, /<text[^>]+pointer-events="none"/);
-    const hit = html.match(/class="marker-hit" x="([^"]+)" y="3" width="([^"]+)"[^>]+pointer-events="all"/);
+    const hit = /class="marker-hit" x="([^"]+)" y="3" width="([^"]+)"[^>]+pointer-events="all"/.exec(html);
     assert.ok(hit);
     return { left: Number(hit[1]), width: Number(hit[2]) };
   });
