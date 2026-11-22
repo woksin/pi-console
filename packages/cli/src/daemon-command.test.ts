@@ -78,7 +78,8 @@ async function startedLines(directory: string, extra: string[]): Promise<{ lines
 test('without a usable web bundle the daemon says it is API only and prints no launch link', async t => {
   const directory = mkdtempSync(join(tmpdir(), 'pi-console-cli-'));
   t.after(() => { rmSync(directory, { recursive: true, force: true }); });
-  for (const extra of [[], ['--web-dist', join(directory, 'missing')]]) {
+  mkdirSync(join(directory, 'asdir', 'index.html'), { recursive: true });
+  for (const extra of [[], ['--web-dist', join(directory, 'missing')], ['--web-dist', join(directory, 'asdir')]]) {
     const { lines, finish } = await startedLines(directory, extra);
     assert.match(lines[2], /^API only: start with --web-dist <path to packages\/web\/dist>/);
     assert.equal(lines.join('\n').includes('#token='), false);

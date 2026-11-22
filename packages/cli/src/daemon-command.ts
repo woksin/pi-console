@@ -1,6 +1,6 @@
 import { parseArgs } from 'node:util';
 import { join, resolve } from 'node:path';
-import { apiOnlyHint, defaultDataDir, loadConfig, loadToken, webBundleUsable, sourceIds, startDaemon, type ConfigOverrides, type RunningDaemon, type SourceId } from '@pi-console/daemon';
+import { apiOnlyHint, defaultDataDir, isUsableWebBundle, loadConfig, loadToken, sourceIds, startDaemon, type ConfigOverrides, type RunningDaemon, type SourceId } from '@pi-console/daemon';
 
 const usage = (): string => `Usage: pi-console daemon [options]
 
@@ -86,7 +86,7 @@ export async function runDaemon(args: string[], io: DaemonCommandIo): Promise<nu
   const daemon: RunningDaemon = await startDaemon(config);
   io.out(`pi-console daemon listening on http://127.0.0.1:${daemon.port} (ready in ${Math.round(daemon.startupMs)} ms)`);
   io.out(`token file: ${parsed.dataDir}/token`);
-  io.out(webBundleUsable(config.webDist) ? `open the web console: http://127.0.0.1:${daemon.port}/#token=${loadToken(parsed.dataDir)}` : apiOnlyHint);
+  io.out((await isUsableWebBundle(config.webDist)) ? `open the web console: http://127.0.0.1:${daemon.port}/#token=${loadToken(parsed.dataDir)}` : apiOnlyHint);
   await io.stopSignal;
   await daemon.close();
   return 0;
