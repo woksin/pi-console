@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync, statSync, symlinkSync, writeFileSync } from 'node:
 import type { IncomingMessage } from 'node:http';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { authenticate, checkCsrf, HttpError } from './guard.ts';
+import { authenticate, authenticateControl, checkCsrf, hasControlScope, HttpError } from './guard.ts';
 import { Credentials, loadToken } from './token.ts';
 
 const temp = (t: { after(fn: () => void): void }): string => {
@@ -59,14 +59,35 @@ test('credentials keep only a hash and accept exactly the token with read scope'
   assert.equal(JSON.stringify(credentials).includes(token), false);
 });
 
-test('mutating requests need the CSRF header and an Origin, even with a cookie', t => {
+test('query tokens and former cookies never authenticate, even with Origin and CSRF headers', t => {
   const token = loadToken(temp(t));
   const credentials = new Credentials(token);
-  const url = new URL('http://127.0.0.1/api/v1/anything');
+  const url = new URL(`http://127.0.0.1/api/v1/anything?token=${token}`);
   const cookie = { cookie: `piConsoleToken=${token}` };
-  assert.equal(status(() => { authenticate(request('POST', cookie), url, credentials); }), 403);
-  assert.equal(status(() => { authenticate(request('POST', { ...cookie, origin: 'http://127.0.0.1:1' }), url, credentials); }), 403);
-  assert.equal(status(() => { authenticate(request('POST', { ...cookie, origin: 'http://127.0.0.1:1', 'x-pi-console-csrf': '1' }), url, credentials); }), undefined);
-  assert.equal(status(() => { checkCsrf(request('POST', { 'x-pi-console-csrf': '1' })); }), 403);
+  assert.equal(status(() => { authenticate(request('GET', {}), url, credentials); }), 401);
+  assert.equal(status(() => { authenticate(request('GET', cookie), url, credentials); }), 401);
+  assert.equal(status(() => { authenticate(request('POST', cookie), url, credentials); }), 401);
+  assert.equal(status(() => { authenticate(request('POST', { ...cookie, origin: 'http://127.0.0.1:1', 'x-pi-console-csrf': '1' }), url, credentials); }), 401);
   assert.equal(status(() => { authenticate(request('POST', { authorization: `Bearer ${token}` }), url, credentials); }), undefined);
+});
+
+test('only the separate bearer credential grants memory-review scope', t => {
+  const token = loadToken(temp(t));
+  const control = loadToken(temp(t));
+  const credentials = new Credentials(token, control);
+  const url = new URL('http://127.0.0.1/api/v1/sessions/s1/memory-actions');
+  const cookie = request('GET', { cookie: `piConsoleToken=${control}` });
+  assert.equal(hasControlScope(cookie, credentials), false);
+  assert.equal(status(() => { authenticateControl(cookie, url, credentials); }), 401);
+  const read = request('GET', { authorization: `Bearer ${token}`, cookie: `piConsoleToken=${control}` });
+  assert.equal(hasControlScope(read, credentials), false);
+  assert.equal(status(() => { authenticateControl(read, url, credentials); }), 403);
+  assert.equal(authenticateControl(request('POST', { authorization: `Bearer ${control}` }), url, credentials), credentials.controlId());
+});
+
+test('the CSRF guard still requires both the header and an Origin', () => {
+  assert.equal(status(() => { checkCsrf(request('POST', {})); }), 403);
+  assert.equal(status(() => { checkCsrf(request('POST', { origin: 'http://127.0.0.1:1' })); }), 403);
+  assert.equal(status(() => { checkCsrf(request('POST', { 'x-pi-console-csrf': '1' })); }), 403);
+  assert.equal(status(() => { checkCsrf(request('POST', { origin: 'http://127.0.0.1:1', 'x-pi-console-csrf': '1' })); }), undefined);
 });

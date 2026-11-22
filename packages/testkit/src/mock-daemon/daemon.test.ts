@@ -110,25 +110,19 @@ test('authentication rejects missing credentials, foreign Host and unsafe browse
   assert.equal(statSync(directory).mode & 0o777, 0o700);
 });
 
-test('query login redirects without token; cookie SSE and POST need origin and CSRF', async () => {
+test('query tokens and former cookies never authenticate reads, SSE or interventions', async () => {
   const login = await fetch(`${base}/api/v1/overview?token=${daemon.token}`, { redirect: 'manual' });
-  assert.equal(login.status, 303);
-  assert.equal(login.headers.get('location'), '/api/v1/overview');
-  const setCookie = login.headers.get('set-cookie')!;
-  assert.match(setCookie, /HttpOnly; SameSite=Strict/);
-  const cookie = setCookie.split(';')[0];
-  await conform(await fetch(base + '/api/v1/overview', { headers: { cookie } }), 'overview');
-  await conform(await fetch(base + '/api/v1/stream', { headers: { cookie } }), 'error', 403);
+  await conform(login, 'error', 401);
+  assert.equal(login.headers.get('location'), null);
+  assert.equal(login.headers.get('set-cookie'), null);
+  const cookie = `piConsoleToken=${daemon.token}`;
+  await conform(await fetch(base + '/api/v1/overview', { headers: { cookie } }), 'error', 401);
+  await conform(await fetch(base + '/api/v1/stream', { headers: { cookie } }), 'error', 401);
   const body = JSON.stringify({ type: 'steer', sessionId: 's2', text: 'Check the synthetic queue.' });
-  for (const headers of [{ cookie }, { cookie, origin: base }] as Record<string, string>[]) {
-    await conform(await fetch(base + '/api/v1/interventions', { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body }), 'error', 403);
+  for (const headers of [{ cookie }, { cookie, origin: base, 'x-pi-console-csrf': '1' }] as Record<string, string>[]) {
+    await conform(await fetch(base + '/api/v1/interventions', { method: 'POST', headers: { ...headers, 'content-type': 'application/json' }, body }), 'error', 401);
   }
-  await conform(await fetch(base + '/api/v1/interventions', { method: 'POST', headers: { cookie, origin: base, 'x-pi-console-csrf': '1', 'content-type': 'application/json' }, body }), 'intervention', 202);
-  const controller = new AbortController();
-  const sse = await fetch(base + '/api/v1/stream', { headers: { cookie, origin: base }, signal: controller.signal });
-  assert.equal(sse.status, 200);
-  await sse.body?.cancel();
-  controller.abort();
+  await conform(await api('/interventions', { method: 'POST', headers: { 'content-type': 'application/json' }, body }), 'intervention', 202);
 });
 
 test('all intervention variants echo a mock-only audit and stream it without delivery', async () => {
