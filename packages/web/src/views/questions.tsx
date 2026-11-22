@@ -1,23 +1,27 @@
-import { questionsViewModel, type QuestionRow } from '@pi-console/viewmodels';
-import { useMemo } from 'react';
+import { filterQuestionRows, questionsViewModel, type QuestionRow } from '@pi-console/viewmodels';
+import { useMemo, useRef, useState } from 'react';
 import type { ViewProps } from '../app/view.tsx';
-import { navigate, useListNav } from '../app/hooks.ts';
+import { navigate, useListNav, useSearchFocus } from '../app/hooks.ts';
 import { sessionHref } from '../app/routes.ts';
-import { StatusBadge } from '../ui/primitives.tsx';
-import { EmptyFor } from '../ui/empty.tsx';
+import { SearchBox, StatusBadge } from '../ui/primitives.tsx';
+import { EmptyList } from '../ui/empty.tsx';
 import { useScrollIntoView } from '../ui/hooks.ts';
 import { LoadOlder } from './load-older.tsx';
 
 export function QuestionsView({ state, now }: ViewProps) {
-  const view = useMemo(() => questionsViewModel({ questions: state.questions, sessions: state.sessions, now }), [state.questions, state.sessions, now]);
+  const [query, setQuery] = useState('');
+  const search = useRef<HTMLInputElement>(null);
+  useSearchFocus(search);
+  const model = useMemo(() => questionsViewModel({ questions: state.questions, sessions: state.sessions, now }), [state.questions, state.sessions, now]);
+  const view = { ...model, rows: filterQuestionRows(model.rows, query) };
   const rows = new Map(view.rows.map(row => [row.id, row]));
   const nav = useListNav(view.rows.map(row => row.id), { onOpen: id => { const row = rows.get(id); if (row) navigate(sessionHref(row.sessionId)); } });
   return (
     <div className="page questions">
-      <div className="toolbar"><span className="muted">{view.open} open · {view.blocking} blocking</span><span className="note">Read-only in this version: answer in the session itself.</span></div>
-      {view.rows.length === 0 ? <EmptyFor view="questions" /> : (
+      <div className="toolbar"><SearchBox value={query} onChange={setQuery} placeholder="Filter questions…" inputRef={search} /><span className="muted">{view.open} open · {view.blocking} blocking</span><span className="note">Read-only in this version: answer in the session itself.</span></div>
+      {view.rows.length === 0 ? <EmptyList view="questions" none={model.rows.length === 0} noun="questions" /> : (
         <ol className="stack" aria-label="Questions">{view.rows.map(row => <QuestionCard key={row.id} row={row} selected={nav.selected === row.id} onSelect={() => { nav.select(row.id); }} />)}</ol>)}
-      <LoadOlder state={state} collection="questions" shown={view.rows.length} noun="questions" />
+      <LoadOlder state={state} collection="questions" shown={model.rows.length} noun="questions" />
     </div>
   );
 }

@@ -21,3 +21,7 @@ export function questionsViewModel(input: { questions: readonly Question[]; sess
   const open = input.questions.filter(question => question.status === 'open');
   return { rows, open: open.length, blocking: open.filter(question => question.blocking).length };
 }
+
+/** The `/` filter: case-insensitive substring over the question text and session name (shared by the TUI and web). */
+export const filterQuestionRows = <T extends Pick<QuestionRow, 'text' | 'session'>>(rows: readonly T[], filter: string): T[] =>
+  rows.filter(row => !filter || `${row.text} ${row.session}`.toLowerCase().includes(filter.toLowerCase()));

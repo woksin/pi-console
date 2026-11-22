@@ -328,6 +328,22 @@ describe('web console e2e', () => {
     await page.context().close();
   });
 
+  test('/ focuses the Questions filter and Esc clears and releases it', async () => {
+    const page = await rig.open('/questions');
+    await page.locator('.conn[data-connection="live"]').waitFor();
+    await page.locator('li.question').first().waitFor();
+    const total = await page.locator('li.question').count();
+    await page.keyboard.press('/');
+    assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('type')), 'search');
+    await page.keyboard.type('no-such-question-zzz');
+    await page.getByText('No questions match').waitFor();
+    await page.keyboard.press('Escape');
+    await page.locator('li.question').first().waitFor();
+    assert.equal(await page.locator('li.question').count(), total);
+    assert.equal(await page.evaluate(() => document.activeElement?.tagName), 'BODY');
+    await page.context().close();
+  });
+
   test('focused links and buttons activate natively instead of opening the selected row', async () => {
     const page = await rig.open('/fleet');
     await page.locator('.conn[data-connection="live"]').waitFor();

@@ -1,4 +1,4 @@
-import { emptyStates, graphViewModel, messagesViewModel, pad, wrap, age, type LaneGraphEdgeView, type MessageRow } from '@pi-console/viewmodels';
+import { emptyStates, graphViewModel, filterMessageRows, messagesViewModel, pad, wrap, age, type LaneGraphEdgeView, type MessageRow } from '@pi-console/viewmodels';
 import { Column, Lines, Panel, Row, h, type Line } from '../view/renderer.ts';
 import { blank, fit, heading, selectable, split, t, windowOf } from '../view/parts.ts';
 import type { Color } from '../view/theme.ts';
@@ -9,7 +9,7 @@ const deliveryColor: Record<MessageRow['delivery'], Color> = { sent: 'faint', de
 
 function listView(env: Env): SectionView {
   const model = messagesViewModel({ messages: env.data.messages, sessions: env.data.sessions, now: env.now });
-  const rows = model.rows.filter(row => !env.ui.filter || `${row.text} ${row.from} ${row.to}`.toLowerCase().includes(env.ui.filter.toLowerCase()));
+  const rows = filterMessageRows(model.rows, env.ui.filter);
   const width = env.width - 4;
   const cursor = Math.min(env.ui.cursor.messages, Math.max(0, rows.length - 1));
   const { start, end } = windowOf(rows.length, cursor, Math.max(1, env.height - 4));

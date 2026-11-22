@@ -1,28 +1,32 @@
-import { workViewModel, type WorkRow } from '@pi-console/viewmodels';
-import { useMemo } from 'react';
+import { filterWorkRows, workViewModel, type WorkRow } from '@pi-console/viewmodels';
+import { useMemo, useRef, useState } from 'react';
 import type { ViewProps } from '../app/view.tsx';
-import { navigate, useListNav } from '../app/hooks.ts';
+import { navigate, useListNav, useSearchFocus } from '../app/hooks.ts';
 import { sessionHref } from '../app/routes.ts';
-import { SkeletonRows, StatusBadge } from '../ui/primitives.tsx';
-import { EmptyFor } from '../ui/empty.tsx';
+import { SearchBox, SkeletonRows, StatusBadge } from '../ui/primitives.tsx';
+import { EmptyList } from '../ui/empty.tsx';
 import { useScrollIntoView } from '../ui/hooks.ts';
 import { LoadOlder } from './load-older.tsx';
 
 export function WorkView({ state, now }: ViewProps) {
-  const view = useMemo(() => workViewModel({ jobs: state.jobs, sessions: state.sessions, now }), [state.jobs, state.sessions, now]);
+  const [query, setQuery] = useState('');
+  const search = useRef<HTMLInputElement>(null);
+  useSearchFocus(search);
+  const model = useMemo(() => workViewModel({ jobs: state.jobs, sessions: state.sessions, now }), [state.jobs, state.sessions, now]);
+  const view = { ...model, rows: filterWorkRows(model.rows, query) };
   const rows = new Map(view.rows.map(row => [row.id, row]));
   const nav = useListNav(view.rows.map(row => row.id), { onOpen: id => { const row = rows.get(id); if (row) navigate(sessionHref(row.sessionId)); } });
   if (!state.snapshotLoaded) return <div className="page"><SkeletonRows label="work" columns={6} /></div>;
   return (
     <div className="page">
-      <div className="toolbar"><span className="muted">{view.running} running · {view.failed} failed</span></div>
-      {view.rows.length === 0 ? <EmptyFor view="work" /> : (
+      <div className="toolbar"><SearchBox value={query} onChange={setQuery} placeholder="Filter work…" inputRef={search} /><span className="muted">{view.running} running · {view.failed} failed</span></div>
+      {view.rows.length === 0 ? <EmptyList view="work" none={model.rows.length === 0} noun="jobs" /> : (
         <table className="grid" aria-label="Work">
           <thead><tr><th>Name</th><th>Kind</th><th>Status</th><th>Session</th><th>Exit</th><th className="num">Started</th></tr></thead>
           <tbody>{view.rows.map(row => (
             <WorkLine key={row.id} row={row} selected={nav.selected === row.id} onSelect={() => { nav.select(row.id); }} />))}</tbody>
         </table>)}
-      <LoadOlder state={state} collection="jobs" shown={view.rows.length} noun="jobs" />
+      <LoadOlder state={state} collection="jobs" shown={model.rows.length} noun="jobs" />
     </div>
   );
 }

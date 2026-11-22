@@ -16,3 +16,7 @@ export function messagesViewModel(input: { messages: readonly Message[]; session
   }));
   return { rows };
 }
+
+/** The `/` filter: case-insensitive substring over the message text and both lane names (shared by the TUI and web). */
+export const filterMessageRows = <T extends Pick<MessageRow, 'text' | 'from' | 'to'>>(rows: readonly T[], filter: string): T[] =>
+  rows.filter(row => !filter || `${row.text} ${row.from} ${row.to}`.toLowerCase().includes(filter.toLowerCase()));

@@ -1,4 +1,4 @@
-import { emptyStates, questionsViewModel, wrap, pad, type QuestionRow } from '@pi-console/viewmodels';
+import { emptyStates, filterQuestionRows, questionsViewModel, wrap, pad, type QuestionRow } from '@pi-console/viewmodels';
 import { questionDetailShown } from '../state/ui.ts';
 import { Lines, Panel, Row, h, type Line } from '../view/renderer.ts';
 import { blank, heading, selectable, split, statusParts, t, windowOf } from '../view/parts.ts';
@@ -19,8 +19,6 @@ function detail(row: QuestionRow | undefined, width: number, full = false): Line
   ];
 }
 
-const filteredRows = (rows: QuestionRow[], filter: string) => rows.filter(row => !filter || `${row.text} ${row.session}`.toLowerCase().includes(filter.toLowerCase()));
-
 function fullDetail(row: QuestionRow | undefined, env: Env) {
   const lines = detail(row, env.width, true);
   const page = Math.max(1, env.height - 2), max = Math.max(0, lines.length - page);
@@ -30,7 +28,7 @@ function fullDetail(row: QuestionRow | undefined, env: Env) {
 
 export function questionsView(env: Env): SectionView {
   const model = questionsViewModel({ questions: env.data.questions, sessions: env.data.sessions, now: env.now });
-  const rows = filteredRows(model.rows, env.ui.filter);
+  const rows = filterQuestionRows(model.rows, env.ui.filter);
   const wide = env.width >= 110;
   const width = (wide ? env.width - 48 : env.width) - 4;
   const cursor = Math.min(env.ui.cursor.questions, Math.max(0, rows.length - 1));

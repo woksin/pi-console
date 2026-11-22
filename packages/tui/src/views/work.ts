@@ -1,4 +1,4 @@
-import { emptyStates, workViewModel, pad } from '@pi-console/viewmodels';
+import { emptyStates, filterWorkRows, workViewModel, pad } from '@pi-console/viewmodels';
 import { Lines, Panel, h, type Line } from '../view/renderer.ts';
 import { listFilter } from '../state/ui.ts';
 import { selectable, split, statusParts, t, windowOf } from '../view/parts.ts';
@@ -6,8 +6,7 @@ import { emptyLines, shownOf, type Env, type SectionView } from './common.ts';
 
 export function workView(env: Env): SectionView {
   const model = workViewModel({ jobs: env.data.jobs, sessions: env.data.sessions, now: env.now });
-  const query = listFilter(env.ui).trim().toLowerCase();
-  const rows = model.rows.filter(row => [row.id, row.sessionId, row.session, row.kind, row.name, row.status.label, row.exit].join(' ').toLowerCase().includes(query));
+  const rows = filterWorkRows(model.rows, listFilter(env.ui));
   const width = env.width - 4;
   const clampCursor = (index: number) => Math.max(0, Math.min(index, rows.length - 1));
   const cursor = clampCursor(env.ui.cursor.work);
