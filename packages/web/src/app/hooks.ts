@@ -18,9 +18,9 @@ export const useConsole = (): ConsoleState => {
   return useSyncExternalStore(store.subscribe, store.getState);
 };
 
-/** "Now" for ages: the stream's own clock, advanced by wall time since the last frame, so fixture data and live data both read sensibly. */
+/** "Now" for ages: the stream's own clock, advanced by wall time since its event-time anchor, independent of heartbeats. */
 export function clockNow(state: ConsoleState, wall: number): number {
-  return state.liveAt > 0 && state.lastFrameAt > 0 ? state.liveAt + (wall - state.lastFrameAt) : wall;
+  return state.liveAt > 0 && state.liveAtReceivedAt !== null ? state.liveAt + (wall - state.liveAtReceivedAt) : wall;
 }
 
 export function useRoute(): Route {

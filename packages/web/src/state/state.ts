@@ -41,6 +41,8 @@ export interface ConsoleState {
   overview: Overview | null;
   /** Latest event time seen (epoch ms). Ages are measured against it so views are deterministic and replayable. */
   liveAt: number;
+  /** Wall time when `liveAt` last advanced; the display clock anchor, independent of transport activity. */
+  liveAtReceivedAt: number | null;
   /** True after even an empty first snapshot; connection attempts are not empty data. */
   snapshotLoaded: boolean;
   seq: number;
@@ -68,7 +70,7 @@ export const retentionFor = (state: Pick<ConsoleState, 'deepHistory'>, sessionId
 export function emptyState(): ConsoleState {
   return {
     repositories: [], sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], interventions: [],
-    transcripts: {}, memory: {}, memoryItems: {}, memoryStatus: {}, memoryReviews: new Map(), needsYou: [], needsYouLoaded: false, needsYouError: false, graph: null, health: null, overview: null, liveAt: 0, snapshotLoaded: false, seq: 0,
+    transcripts: {}, memory: {}, memoryItems: {}, memoryStatus: {}, memoryReviews: new Map(), needsYou: [], needsYouLoaded: false, needsYouError: false, graph: null, health: null, overview: null, liveAt: 0, liveAtReceivedAt: null, snapshotLoaded: false, seq: 0,
     connection: 'connecting', lastFrameAt: 0, gapCount: 0, received: 0, deepHistory: [], totals: null, bounded: [], history: {},
   };
 }
