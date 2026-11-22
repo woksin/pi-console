@@ -2,7 +2,7 @@ import type { Event as ApiEvent } from '@pi-console/contract';
 import { MemoryRefreshController, MemoryReviewController, type WindowedCollection } from '@pi-console/viewmodels';
 import { applyEvent, mergePage, mergeSessionDetail } from '../state/reduce.ts';
 import { emptyState, type Connection, type ConsoleState, type MemoryReadStatus } from '../state/state.ts';
-import { Unauthorized, type Api } from './api.ts';
+import { StaleResume, Unauthorized, type Api } from './api.ts';
 import { GraphRefreshController } from './graph-refresh.ts';
 import { TranscriptHistory } from './transcript-history.ts';
 
@@ -174,25 +174,42 @@ export class ConsoleStore {
   }
 
   async #run(generation: number): Promise<void> {
-    while (this.#active(generation)) {
-      const controller = new AbortController();
-      this.#abort = controller;
-      this.#lastActivityAt = this.#clock.now();
-      this.#connection(this.#state.seq > 0 ? 'reconnecting' : 'connecting');
-      this.#watch(controller);
-      try {
-        await this.#api.stream(this.#state.seq, controller.signal, frame => { this.#frameWhenActive(generation, controller.signal, frame); });
-      } catch (error) {
-        if (!this.#active(generation)) return;
-        if (error instanceof Unauthorized) { this.#connection('unauthorized'); return; }
-      } finally {
-        controller.abort();
-        if (this.#active(generation)) { this.#unwatch(); this.#clearPoll(); }
-      }
-      if (!this.#active(generation)) return;
+    const active = (): boolean => this.#active(generation);
+    const deliver = (signal: AbortSignal, frame: ApiEvent | 'heartbeat'): void => { this.#frameWhenActive(generation, signal, frame); };
+    while (active()) {
+      const next = await this.#connectOnce(active, deliver);
+      if (next === 'stop' || !active()) return;
+      if (next === 'again') continue;
       this.#connection('offline');
       await this.#sleep(reconnectDelays[Math.min(this.#attempt++, reconnectDelays.length - 1)]);
     }
+  }
+
+  /** One stream connection: `stop` ends the loop, `again` reconnects at once, `backoff` waits first. */
+  async #connectOnce(active: () => boolean, deliver: (signal: AbortSignal, frame: ApiEvent | 'heartbeat') => void): Promise<'stop' | 'again' | 'backoff'> {
+    const controller = new AbortController();
+    this.#abort = controller;
+    this.#lastActivityAt = this.#clock.now();
+    this.#connection(this.#state.seq > 0 ? 'reconnecting' : 'connecting');
+    this.#watch(controller);
+    try {
+      await this.#api.stream(this.#state.seq, controller.signal, frame => { deliver(controller.signal, frame); });
+      return 'backoff';
+    } catch (error) {
+      return active() ? this.#afterFailure(error) : 'stop';
+    } finally {
+      controller.abort();
+      if (active()) { this.#unwatch(); this.#clearPoll(); }
+    }
+  }
+
+  /** A rejected token ends the loop; a refused resume sequence means the daemon's history was reset, so mirrored state is dropped and the stream reopens at once for a fresh snapshot. */
+  #afterFailure(error: unknown): 'stop' | 'again' | 'backoff' {
+    if (error instanceof Unauthorized) { this.#connection('unauthorized'); return 'stop'; }
+    if (!(error instanceof StaleResume)) return 'backoff';
+    this.#resetRequests();
+    this.#set({ ...emptyState(), connection: 'connecting' });
+    return 'again';
   }
 
   #watch(controller: AbortController): void {

@@ -6,7 +6,7 @@ import { Screen, Text, h, mountHeadless } from '../view/renderer.ts';
 import type { Connection } from '../store/store.ts';
 import type { Session } from '@pi-console/contract';
 import { palette } from '../view/theme.ts';
-import { pulseViewModel } from '@pi-console/viewmodels';
+import { pulseViewModel, tokenRejectedError } from '@pi-console/viewmodels';
 import { generate, needsYou } from '@pi-console/testkit';
 
 const items = needsYou(generate().fixture).items;
@@ -67,18 +67,28 @@ test('100-column header keeps all tab numbers, the active label and an explicit 
   } finally { ui.destroy(); }
 });
 
-test('reconnect banner shows human wording, as-of time and retrying at 80 columns', () => {
+test('reconnect banner shows human wording, as-of time, the last error and retrying at 80 columns', () => {
   const text = banner(offline, 80)?.map(part => part.text).join('');
-  assert.match(text ?? '', /Daemon unreachable · showing data as of 12:00:03 UTC · retrying/);
-  assert.doesNotMatch(text ?? '', /terminated|#42/);
+  assert.match(text ?? '', /Daemon unreachable · showing data as of 12:00:03 UTC · terminated · retrying/);
+  assert.doesNotMatch(text ?? '', /#42/);
   assert.equal(banner({ ...offline, connected: true }, 80), undefined);
+});
+
+test('a rejected token banner names the fix, with and without an endpoint', () => {
+  const rejected = { ...offline, error: tokenRejectedError };
+  for (const endpoint of [undefined, 'http://127.0.0.1:5888']) {
+    const text = banner(rejected, 80, endpoint)?.map(part => part.text).join('') ?? '';
+    assert.match(text, /Token rejected · check PI_CONSOLE_TOKEN or --data-dir/);
+    assert.doesNotMatch(text, /unreachable/);
+    assert.ok(Array.from(text).length <= 80);
+  }
 });
 
 for (const width of [80, 112]) {
   for (const lastEventAt of [undefined, offline.lastEventAt]) {
     test(`${String(width)}-column offline banner clips the endpoint before reconnect status with last event ${String(lastEventAt)}`, async () => {
       const endpoint = 'http://127.0.0.1:5888';
-      const line = banner({ ...offline, lastEventAt }, width, endpoint);
+      const line = banner({ ...offline, error: '', lastEventAt }, width, endpoint);
       assert.ok(line);
       const ui = await mountHeadless(h(Screen, {}, h(Text, { line })), { width, height: 2 });
       try {
@@ -94,6 +104,22 @@ for (const width of [80, 112]) {
       } finally { ui.destroy(); }
     });
   }
+}
+
+for (const width of [80, 112]) {
+  test(`${String(width)}-column offline banner with an error clips the endpoint first and keeps the error and retrying visible`, async () => {
+    const endpoint = 'http://127.0.0.1:5888';
+    const line = banner({ ...offline, error: 'Daemon answered HTTP 500' }, width, endpoint);
+    assert.ok(line);
+    const ui = await mountHeadless(h(Screen, {}, h(Text, { line })), { width, height: 2 });
+    try {
+      await ui.settle();
+      const frame = ui.frame();
+      assert.match(frame, /Daemon answered HTTP 500 · retrying/);
+      assert.ok(frame.includes('http://127.0'));
+      for (const row of frame.split('\n')) assert.ok(Array.from(row).length <= width);
+    } finally { ui.destroy(); }
+  });
 }
 
 test('the OSC 2 terminal title leads with the needs-you count and strips control characters from a hostile session name', () => {

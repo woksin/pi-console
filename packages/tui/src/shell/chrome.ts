@@ -79,9 +79,13 @@ export function pulseLine(pulse: PulseViewModel, width: number): Line {
 
 const cells = (line: readonly Part[]): number => line.reduce((sum, part) => sum + Array.from(part.text).length, 0);
 
-/** One-line banner while the stream is down; the client reconnects on its own with capped backoff. */
+const bannerWarningCells = 4;
+/** Columns kept for the endpoint when the banner text has to give up the as-of time to show the error. */
+const endpointCells = 12;
+
+/** One-line banner while the stream is down, with the last error; the client reconnects on its own with capped backoff. */
 export function banner(connection: Connection, width: number, endpoint?: string): Line | undefined {
-  const text = connectionBanner(connection);
+  const text = connectionBanner(connection, width - bannerWarningCells - (endpoint ? endpointCells : 0));
   if (!text) return undefined;
   const warning = [t(' ⚠ ', 'bg', { background: 'amber', bold: true }), t(' ', 'amber')];
   const status = [t(text, 'amber')];

@@ -1,4 +1,4 @@
-import type { WindowedCollection } from '@pi-console/viewmodels';
+import { tokenRejectedError, type WindowedCollection } from '@pi-console/viewmodels';
 import type { Graph, MemoryActionAvailability, MemoryActionReceipt, MemoryActionRequest, Event, MemoryItem, MemoryItemPage, SessionDetail, SessionMemory, TranscriptEntry, Transcript, NeedsYou, AttentionItem } from '@pi-console/contract';
 import { FrameParser } from './sse.ts';
 import type { Credentials } from './token.ts';
@@ -9,7 +9,14 @@ export interface TranscriptQuery { sessionId: string; after?: number; order?: 'a
 export interface StreamHandlers {
   onEvent: (event: Event) => void;
   onState: (state: { connected: boolean; error: string }) => void;
+  /** The daemon refused the saved resume sequence: its history was reset, so mirrored state is void and a fresh snapshot follows. */
+  onReset?: () => void;
 }
+
+/** The daemon refused `Last-Event-ID` as newer than its own sequence (HTTP 400). */
+class StaleResume extends Error {}
+/** The daemon rejected the bearer token (HTTP 401). */
+class TokenRejected extends Error {}
 
 export interface StreamClock {
   now: () => number;
@@ -18,6 +25,15 @@ export interface StreamClock {
 }
 const realClock: StreamClock = { now: () => Date.now(), setTimeout: (callback, ms) => setTimeout(callback, ms), clearTimeout: timer => { clearTimeout(timer); } };
 const staleAfterMs = 45_000;
+/** A rejected token is retried this slowly: the same token only works again if the daemon behind the port changes. */
+const rejectedRetryMs = 30_000;
+
+/** Throws the typed failure for a refused stream; narrows `response.body` for the caller. */
+function assertStreamOpen(response: Response, resuming: boolean): asserts response is Response & { body: ReadableStream<Uint8Array> } {
+  if (response.status === 401) throw new TokenRejected(tokenRejectedError);
+  if (response.status === 400 && resuming) throw new StaleResume();
+  if (!response.ok || !response.body) throw new Error(`Daemon answered HTTP ${String(response.status)}`);
+}
 
 /** The daemon API client: bearer token, loopback only, SSE with resume from the last seen sequence. */
 export class DaemonClient {
@@ -115,18 +131,24 @@ export class DaemonClient {
     return page;
   }
 
-  /** Runs until `stop()`. Reconnects with capped backoff and resumes through `Last-Event-ID`. */
+  /**
+   * Runs until `stop()`. Reconnects with capped backoff and resumes through `Last-Event-ID`. A 400 drops the saved sequence and
+   * reconnects at once for a fresh snapshot; a 401 retries every 30 seconds with the rejection as the error.
+   */
   async stream(handlers: StreamHandlers): Promise<void> {
     let delay = 500;
     while (!this.abort.signal.aborted) {
+      let wait = delay;
       try {
         await this.attempt(handlers, () => { delay = 500; });
         handlers.onState({ connected: false, error: 'Stream closed by the daemon' });
       } catch (error) {
         if (this.abort.signal.aborted) return;
+        if (error instanceof StaleResume) { this.lastSeq = undefined; handlers.onReset?.(); continue; }
+        if (error instanceof TokenRejected) wait = rejectedRetryMs;
         handlers.onState({ connected: false, error: (error as Error).message });
       }
-      await this.sleep(delay);
+      await this.sleep(wait);
       delay = Math.min(delay * 2, 8000);
     }
   }
@@ -145,7 +167,7 @@ export class DaemonClient {
       const response = await fetch(`${this.credentials.baseUrl}/api/v1/stream`, {
         headers: { Authorization: `Bearer ${this.credentials.token}`, ...(this.lastSeq === undefined ? {} : { 'Last-Event-ID': String(this.lastSeq) }) }, signal,
       });
-      if (!response.ok || !response.body) throw new Error(`Daemon answered HTTP ${String(response.status)}`);
+      assertStreamOpen(response, this.lastSeq !== undefined);
       handlers.onState({ connected: true, error: '' });
       connected();
       await this.read(response.body, handlers, () => { lastFrameAt = this.clock.now(); });

@@ -36,15 +36,17 @@ export interface Data {
   fresh: ReadonlyMap<string, number>;
 }
 
+const emptyData = (): Data => ({
+  loaded: false, connection: { connected: false, error: 'Connecting…', lastSeq: undefined, lastEventAt: undefined, eventsReceived: 0 }, repositories: 0,
+  graph: { nodes: [], edges: [] }, sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], totals: null, bounded: [], history: {}, needsYou: [], needsYouLoaded: false, needsYouError: false, needsYouCached: false, transcripts: new Map(), transcriptsTruncated: new Set(), transcriptHistory: new Map(), memory: new Map(), memoryItems: new Map(), memoryReviews: new Map(), memoryHistory: new Map(), fresh: new Map(),
+});
+
 /**
  * Client-side mirror of the daemon's state. It only folds events into collections; attention, pairing and status are
  * the daemon's. Updates are coalesced so a stream of thousands of events renders at most ~20 times a second.
  */
 export class Store {
-  private data: Data = {
-    loaded: false, connection: { connected: false, error: 'Connecting…', lastSeq: undefined, lastEventAt: undefined, eventsReceived: 0 }, repositories: 0,
-    graph: { nodes: [], edges: [] }, sessions: [], requests: [], questions: [], messages: [], jobs: [], resets: [], totals: null, bounded: [], history: {}, needsYou: [], needsYouLoaded: false, needsYouError: false, needsYouCached: false, transcripts: new Map(), transcriptsTruncated: new Set(), transcriptHistory: new Map(), memory: new Map(), memoryItems: new Map(), memoryReviews: new Map(), memoryHistory: new Map(), fresh: new Map(),
-  };
+  private data: Data = emptyData();
   private readonly listeners = new Set<() => void>();
   private timer: ReturnType<typeof setTimeout> | undefined;
   private readonly pendingTranscripts = new Map<string, TranscriptEntry[]>();
@@ -100,6 +102,14 @@ export class Store {
 
   setNeedsYouError(failed: boolean): void {
     this.data = { ...this.data, needsYouError: failed, needsYouLoaded: this.data.needsYouLoaded && !failed };
+    this.schedule();
+  }
+
+  /** Forgets everything mirrored from the daemon: its history was reset, so the next snapshot replaces all of it. */
+  reset(): void {
+    this.pendingTranscripts.clear();
+    this.pendingFresh.clear();
+    this.data = emptyData();
     this.schedule();
   }
 

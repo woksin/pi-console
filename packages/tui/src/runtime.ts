@@ -38,6 +38,7 @@ export function connect(credentials: Credentials): Runtime {
       if (event.type !== 'transcript.appended') refresh();
       graph.request(event.type);
     },
+    onReset: () => { store.reset(); },
     onState: state => { store.setConnection(state.connected, state.error); refresher.setConnected(state.connected); if (state.connected) graph.request(); },
   });
   return { store, client, loadTranscript: transcripts.load, pageTranscript: transcripts.page, focusTranscript: transcripts.focus, reviews, loadMemory, loadMoreMemory, retryNeedsYou: refresh, watchMemory: id => memory.watch(id), stop: () => { stopped = true; transcripts.stop(); memoryLoader.stop(); memory.dispose(); reviews.dispose(); refresher.stop(); graph.stop(); client.stop(); store.dispose(); } };
