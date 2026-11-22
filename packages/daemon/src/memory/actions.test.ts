@@ -4,9 +4,9 @@ import { createHash, createHmac } from 'node:crypto';
 import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { once } from 'node:events';
+import { EventEmitter, once } from 'node:events';
 import { WebSocket } from 'ws';
-import { memoryReviewTtlMs, type ReviewReadiness, type MemoryItem } from '@pi-console/contract';
+import { memoryReviewTtlMs, reviewPrefix, type ReviewReadiness, type ReviewResult, type MemoryItem } from '@pi-console/contract';
 import { reviewableItem } from './availability.ts';
 import { reviewIngestionGraceMs } from './receipts.ts';
 import { testEvent } from '@pi-console/core/testing';
@@ -49,7 +49,7 @@ async function setup(t: { after(fn: () => unknown): void }, enabled = true) {
     await new Promise(resolve => setTimeout(resolve, 20));
     return ws;
   };
-  return { call, connect, token, readToken, config, get daemon() { return daemon; }, async restart() { await daemon.close(); daemon = await startDaemon(config); }, source: join(realpathSync(agentRoot), 'memory/events.jsonl') };
+  return { call, connect, token, readToken, config, storeId, get daemon() { return daemon; }, async restart() { await daemon.close(); daemon = await startDaemon(config); }, source: join(realpathSync(agentRoot), 'memory/events.jsonl') };
 }
 function helloFrame(challenge: { nonce: string; generation: string }, sessionId: string, secret: string) {
   const binding = { sessionId, pid: process.pid, cwd: '/repo' };
@@ -125,6 +125,65 @@ test('disconnect, replacement and restart retain unknown receipts without redisp
   assert.equal((await (await spec.call('', 'POST', body)).json()).state, 'unknown');
   await new Promise(resolve => setTimeout(resolve, 30));
   assert.equal(delivered, 0);
+});
+
+async function extensionProvider(t: { after(fn: () => unknown): void }, spec: Awaited<ReturnType<typeof setup>>) {
+  // Load the real client at runtime without adding a production daemon dependency on the extension.
+  const { MemoryReviewClient } = await import(new URL('../../../extension/src/client.ts', import.meta.url).href);
+  const events = new EventEmitter();
+  events.on(`${reviewPrefix}probe`, () => {
+    events.emit(`${reviewPrefix}readiness`, { version: 1, available: true, storeId: spec.storeId, sessionId: 's1', generation: 'g1' });
+  });
+  const client = new MemoryReviewClient({
+    url: `ws://127.0.0.1:${spec.daemon.port}/api/v1/extensions/memory-review`, secret: spec.token,
+    binding: { sessionId: 's1', pid: process.pid, cwd: '/repo' }, reconnectMs: 60_000,
+    bus: {
+      on: (name: string, listener: (value: unknown) => void) => { events.on(name, listener); return () => { events.off(name, listener); }; },
+      emit: (name: string, value: unknown) => { events.emit(name, value); },
+    },
+  });
+  t.after(() => { client.close(); });
+  await wait(async () => (await (await spec.call('/availability')).json()).available);
+  return events;
+}
+
+async function providerReply(spec: Awaited<ReturnType<typeof setup>>, events: EventEmitter, result: ReviewResult): Promise<void> {
+  const delivery = once(events, `${reviewPrefix}request`);
+  assert.equal((await spec.call('', 'POST', { requestId: result.requestId, itemId: 'i1', action: 'confirm' })).status, 202);
+  assert.equal((await delivery)[0].requestId, result.requestId);
+  events.emit(`${reviewPrefix}result`, result);
+}
+
+test('real extension correlates minimal refusals, preserves mismatches and never completes partial success claims', { timeout: 5000 }, async t => {
+  const spec = await setup(t);
+  const events = await extensionProvider(t, spec);
+  const cases: { requestId: string; reply: Partial<ReviewResult>; state: string }[] = [
+    { requestId: 'minimal', reply: {}, state: 'declined' },
+    { requestId: 'wrong-item', reply: { itemId: 'other' }, state: 'unknown' },
+    { requestId: 'wrong-action', reply: { action: 'reject' }, state: 'unknown' },
+    { requestId: 'wrong-session', reply: { sessionId: 'other' }, state: 'unknown' },
+    { requestId: 'wrong-generation', reply: { generation: 'other' }, state: 'unknown' },
+    { requestId: 'partial-success', reply: { reason: 'applied', ok: true, status: 'applied', eventId: 'claim' }, state: 'unknown' },
+  ];
+  for (const { requestId, reply, state } of cases) {
+    await providerReply(spec, events, { version: 1, requestId, reason: 'refused', ...reply });
+    await wait(async () => await receiptState(spec.call, requestId) === state);
+    const receipt = await (await spec.call(`/${requestId}`)).json();
+    assert.equal(receipt.eventId, null, 'a refusal or uncorrelated claim never establishes a write');
+  }
+  assert.equal(spec.daemon.log.lastSeq(), 3, 'results never manufacture canonical memory events');
+});
+
+test('failure-like replies with any success indicator never borrow pending correlation', { timeout: 5000 }, async t => {
+  const spec = await setup(t);
+  const events = await extensionProvider(t, spec);
+  const replies: Partial<ReviewResult>[] = [{ reason: 'applied' }, { ok: true }, { status: 'applied' }, { eventId: 'claim' }];
+  for (const [index, reply] of replies.entries()) {
+    const requestId = `untrusted-${index}`;
+    await providerReply(spec, events, { version: 1, requestId, reason: 'refused', ...reply });
+    await wait(async () => await receiptState(spec.call, requestId) === 'unknown');
+  }
+  assert.equal(spec.daemon.log.lastSeq(), 3);
 });
 
 test('decline, provider generation loss and expiry never claim a write; late results cannot revive receipts', { timeout: 5000 }, async t => {

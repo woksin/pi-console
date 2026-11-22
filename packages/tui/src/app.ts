@@ -33,6 +33,7 @@ export interface AppProps {
   focusTranscript?: (sessionId: string, entryId: string) => void;
   /** Fetches the session's read-only memory summary and items. */
   loadMemory: (sessionId: string) => void;
+  loadMoreMemory?: (sessionId: string) => void;
   watchMemory?: (sessionId: string) => () => void;
   requestMemoryAction?: RequestMemoryAction;
   /** Fetches the next older page of a list the snapshot only windowed; called when the cursor reaches the end of a list. */
@@ -133,7 +134,7 @@ interface AppKeys {
 function useAppKeys({ props, uiRef, dataRef, viewRef, heightRef, size, copy, apply }: AppKeys): void {
   useKeys(key => {
     retryHistory({ ui: uiRef.current, data: dataRef.current, key: neutralKey(key), length: viewRef.current.length, loadMore: props.loadMore });
-    const memory = memoryInput(uiRef.current, neutralKey(key), dataRef.current, size.width, props.requestMemoryAction);
+    const memory = memoryInput(uiRef.current, neutralKey(key), dataRef.current, size.width, { request: props.requestMemoryAction, loadMore: props.loadMoreMemory });
     if (memory) { apply(memory); return; }
     const current = viewRef.current;
     const bounds = { ...boundsOf(current, heightRef.current), help: helpViewport(size).bounds };
