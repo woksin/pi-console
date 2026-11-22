@@ -276,12 +276,30 @@ describe('web console e2e', () => {
   });
 
   test('transcript jump: an attention item opens its session at the exact line', async () => {
+    // The accelerated mock evicts old entries. Own a fresh request/entry pair, not the first retained pointer.
+    const fixture = rig.daemon.store.fixture;
+    const requestId = 'jump-request';
+    rig.daemon.store.publish('transcript.appended', { ...fixture.transcript[0], kind: 'user', requestId });
+    const entry = fixture.transcript.at(-1);
+    assert.ok(entry);
+    rig.daemon.store.publish('request.observed', {
+      ...fixture.requests[0], id: requestId, sessionId: entry.sessionId, status: 'open', text: 'Transcript-jump request', resetId: null, answer: null, interimAnswers: [],
+    });
     const page = await rig.open('/overview');
-    await page.locator('[data-reason="open-request"] a', { hasText: 'Open in session' }).first().click();
-    await page.locator('.tline.target').waitFor();
-    assert.equal(await page.locator('.tline.target').getAttribute('id'), 'line-1');
-    assert.ok(await page.locator('.tline.target').isVisible());
-    await page.context().close();
+    try {
+      const link = page.locator('[data-reason="open-request"]', { hasText: 'Transcript-jump request' }).getByRole('link', { name: 'Open in session' });
+      const href = `#/session/${entry.sessionId}?entry=${entry.id}`;
+      assert.equal(await link.getAttribute('href'), href);
+      await link.click();
+      await page.locator('.tline.target').waitFor();
+      assert.equal(new URL(page.url()).hash, href);
+      assert.equal(await page.locator('.tline.target').getAttribute('id'), `line-${String(entry.cursor)}`);
+      assert.ok(await page.locator('.tline.target').isVisible());
+    } finally {
+      fixture.requests = fixture.requests.filter(request => request.id !== requestId);
+      fixture.transcript = fixture.transcript.filter(item => item.id !== entry.id);
+      await page.context().close();
+    }
   });
 
   test('reading back pauses following and keeps the viewport on the same line while new lines arrive', async () => {
