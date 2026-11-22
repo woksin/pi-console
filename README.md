@@ -143,7 +143,7 @@ node packages/cli/bin/pi-console.mjs tui                                    # in
 
 Memory review is a narrow opt-in exception: with daemon review enabled, a separate `memory-control-token` and a ready owning interactive pi provider, both consoles can request **Confirm…** / **Reject…**. Every request requires native human confirmation in pi and then canonical producer ingestion; the console never writes memory directly. The ordinary token remains read-only, with exact command fallback and reasons when review is unavailable. See [web memory review](docs/ui-web.md#memory-review) and [TUI memory review](docs/ui-tui.md#memory-review) for credential setup and controls.
 
-`pi-console daemon --help` lists the data directory, port and source options. Interventions (answering, steering, pausing) are milestone M2; there is no global install yet.
+`pi-console daemon --help` lists the data directory, port and source options. The daemon uses `--data-dir` first, then `PI_CONSOLE_DATA_DIR`, then `~/.pi-console`. Set `PI_CONSOLE_DATA_DIR` in both terminals to share a custom data directory with the TUI. `pi-console tui --help` shows TUI usage without opening the terminal UI. Interventions (answering, steering, pausing) are milestone M2; there is no global install yet.
 
 CLI errors print a short message to stderr and exit non-zero. Set `PI_CONSOLE_DEBUG=1` to include a stack trace for diagnosis (for example, `PI_CONSOLE_DEBUG=1 pi-console daemon --port banana`).
 
