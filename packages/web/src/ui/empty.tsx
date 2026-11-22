@@ -26,3 +26,9 @@ export function FirstRun({ connected, sessions }: { connected: boolean; sessions
     </section>
   );
 }
+
+/** An empty list: the view's own empty state when nothing exists, otherwise a note that the `/` filter hides everything. */
+export function EmptyList({ view, none, noun }: { view: EmptyView; none: boolean; noun: string }) {
+  if (none) return <EmptyFor view={view} />;
+  return <EmptyState title={`No ${noun} match`}>Clear the filter to see every one.</EmptyState>;
+}

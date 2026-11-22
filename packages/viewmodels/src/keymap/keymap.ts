@@ -40,7 +40,7 @@ const sections = ([1, 2, 3, 4, 5, 6, 7] as const).map(n => ({
 export const bindings: readonly Binding[] = [
   ...sections.map(section => ({ ...section, label: `Go to ${section.label}` })),
   { keys: ['Ctrl+P', ':'], action: 'palette.open', label: 'Command palette', hint: ': palette', contexts: ['global'] },
-  { keys: ['/'], action: 'filter.open', label: 'Filter list; in a transcript, search', hint: '/ filter', contexts: [...listContexts, 'transcript', 'detail'] },
+  { keys: ['/'], action: 'filter.open', label: 'Filter list; in a transcript, search', hint: '/ filter', contexts: [...listContexts.filter(context => context !== 'overview'), 'transcript', 'detail'] },
   { keys: [','], action: 'settings.open', label: 'Settings', contexts: ['global'] },
   { keys: ['?'], action: 'help.toggle', label: 'Help', hint: '? help', contexts: ['global'] },
   { keys: ['Ctrl+C', 'q'], action: 'quit', label: 'Quit the TUI (never aborts a session)', contexts: ['global'], clients: ['tui'] },

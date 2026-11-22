@@ -51,7 +51,7 @@ The bindings are defined once in `packages/viewmodels/src/keymap` (press `?` for
 | `j` `k` / arrows, `g` `G`, PageUp/PageDown | Move, top, bottom, page |
 | `Enter` | Open the selected item (on a fleet group: fold/unfold it) |
 | `Esc` | Close, cancel, back |
-| `/` | Filter the list or search the transcript |
+| `/` | Filter the list (Fleet, Requests, Questions, Messages, Work; the same match rules as the TUI) or search the transcript. The Overview has no filter |
 | `f` | Toggle follow-tail |
 | `y` | Copy the id of the selected row; in a session, the session id. A short "Copied" notice confirms it (or reports that the clipboard is unavailable) |
 | `v` | List ↔ graph (messages) |

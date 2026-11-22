@@ -16,3 +16,9 @@ export function workViewModel(input: { jobs: readonly Job[]; sessions: readonly 
   }));
   return { rows, running: input.jobs.filter(job => job.status === 'running').length, failed: input.jobs.filter(job => job.status === 'failed').length };
 }
+
+/** The `/` filter: trimmed, case-insensitive substring over the job's identity, session, kind, name, status and exit (shared by the TUI and web). */
+export const filterWorkRows = <T extends Pick<WorkRow, 'id' | 'sessionId' | 'session' | 'kind' | 'name' | 'status' | 'exit'>>(rows: readonly T[], filter: string): T[] => {
+  const query = filter.trim().toLowerCase();
+  return rows.filter(row => [row.id, row.sessionId, row.session, row.kind, row.name, row.status.label, row.exit].join(' ').toLowerCase().includes(query));
+};

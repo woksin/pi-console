@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { workViewModel } from './work.ts';
+import { filterWorkRows, workViewModel } from './work.ts';
 import { fixture, golden, now } from '../test-support.ts';
 
 test('work lists failures first and counts running jobs', () => {
@@ -10,4 +10,13 @@ test('work lists failures first and counts running jobs', () => {
   const order = model.rows.map(row => row.status.status);
   assert.ok(order.indexOf('failed') <= order.indexOf('done') || !order.includes('failed'));
   golden('work', model);
+});
+
+test('the filter trims and matches job identity, session, kind, name, status and exit, ignoring case', () => {
+  const { rows } = workViewModel({ jobs: fixture.jobs, sessions: fixture.sessions, now });
+  assert.deepEqual(filterWorkRows(rows, '  '), rows);
+  assert.ok(filterWorkRows(rows, ` ${rows[0].name.toUpperCase()} `).includes(rows[0]));
+  assert.ok(filterWorkRows(rows, rows[0].status.label).includes(rows[0]));
+  assert.ok(filterWorkRows(rows, rows[0].session).includes(rows[0]));
+  assert.deepEqual(filterWorkRows(rows, 'no-such-job-zzz'), []);
 });
