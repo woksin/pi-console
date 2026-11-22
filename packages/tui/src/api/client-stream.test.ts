@@ -8,7 +8,7 @@ function setup(t: TestContext) {
   t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 1000 });
   const attempts: { signal: AbortSignal; body: ReadableStreamDefaultController<Uint8Array>; headers: Headers }[] = [];
   t.mock.method(globalThis, 'fetch', (_url: string, init: RequestInit) => {
-    const signal = init.signal as AbortSignal;
+    const signal = init.signal!;
     const stream = new ReadableStream<Uint8Array>({ start(body) {
       attempts.push({ signal, body, headers: new Headers(init.headers) });
       signal.addEventListener('abort', () => { body.error(signal.reason); }, { once: true });
