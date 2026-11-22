@@ -68,9 +68,10 @@ export class ConsoleQueries {
     const session = sessions.find(item => item.id === id);
     if (!session) return undefined;
     const belongs = (item: Pick<Request, 'sessionId'>) => item.sessionId === id;
+    const work = this.#models().workQueries;
     return {
       session, requests: this.requests().filter(belongs), questions: this.questions().filter(belongs),
-      jobs: this.jobs().filter(belongs), resets: this.resets().filter(belongs),
+      jobs: work ? work.all(id) : this.jobs().filter(belongs), resets: this.resets().filter(belongs),
       subagents: sessions.filter(item => item.parentSessionId === id),
     };
   }

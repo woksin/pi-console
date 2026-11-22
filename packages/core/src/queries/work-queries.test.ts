@@ -5,7 +5,7 @@ import { now, plain, workSpec } from '../projector/completed-work-spec.ts';
 import { encodeCursor, InvalidCursorError } from './paging.ts';
 import type { ConsoleQueries } from './console-queries.ts';
 import { SqliteProjectionStore } from '../projector/sqlite-projection-store.ts';
-import { sqlWorkQueries } from './work-queries.ts';
+import { sqlWorkQueries, type WorkQuerySource } from './work-queries.ts';
 
 function parity(actual: ConsoleQueries, expected: ConsoleQueries) {
   assert.deepEqual(plain(actual.jobs()), plain(expected.jobs()));
@@ -53,6 +53,39 @@ test('SQL work reads match memory before/after commit, eviction and late metadat
     parity(spec.actual, spec.expected);
     spec.sql.flush();
     parity(spec.actual, spec.expected);
+  } finally { spec.close(); }
+});
+
+test('session detail reads only its owner rows in memory order; session lists and overview read no work history', async context => {
+  const spec = await workSpec();
+  try {
+    await spec.append(['owner', 'other', 'console'].map((sessionId, index) => testEvent(index + 1, 'SessionStarted', {
+      sessionId, cwd: '/repo', model: null, role: 'main', parentSessionId: null,
+    })));
+    const jobs = [
+      { id: '\ue000', sessionId: 'owner', at: '2026-11-20T00:00:00Z' },
+      { id: '\u{10000}', sessionId: 'owner', at: '2026-11-20T00:00:00Z' },
+      { id: 'early', sessionId: 'owner', at: '2020-01-01T00:00:00Z' },
+      { id: 'unrelated', sessionId: 'other', at: '2026-11-20T00:00:00Z' },
+      { id: 'console-job', sessionId: null, at: '2026-11-20T00:00:00Z' },
+    ];
+    await spec.append(jobs.map((job, index) => testEvent(index + 10, 'JobStarted', {
+      jobId: job.id, sessionId: job.sessionId, kind: 'job', name: job.id,
+    }, { occurredAt: job.at })));
+    await spec.append(jobs.map((job, index) => testEvent(index + 20, 'JobFinished', { jobId: job.id, status: 'done' })));
+    spec.sql.flush();
+    const source = spec.sql.querySource('work') as WorkQuerySource;
+    const all = context.mock.method(source, 'all');
+    const select = context.mock.method(spec.store.workRows(), 'select');
+    assert.deepEqual(plain(spec.actual.sessions()), plain(spec.expected.sessions()));
+    assert.deepEqual(plain(spec.actual.overview()), plain(spec.expected.overview()));
+    assert.equal(all.mock.callCount(), 0);
+    assert.equal(select.mock.callCount(), 0);
+    for (const id of ['owner', 'other', 'console']) assert.deepEqual(plain(spec.actual.session(id)), plain(spec.expected.session(id)));
+    assert.deepEqual(all.mock.calls.map(call => call.arguments), [['owner'], ['other'], ['console']]);
+    assert.deepEqual(select.mock.calls.map(call => call.arguments[0].sessionId), ['owner', 'other', 'console']);
+    assert.deepEqual(select.mock.calls.map(call => call.result?.length), [3, 1, 1]);
+    assert.deepEqual(spec.actual.session('owner')?.jobs.map(job => job.id), ['early', '\u{10000}', '\ue000']);
   } finally { spec.close(); }
 });
 
