@@ -4,6 +4,8 @@ import { FrameParser } from './sse.ts';
 import type { Credentials } from './token.ts';
 import { TRANSCRIPT_LIMIT } from '../store/store.ts';
 
+export interface TranscriptTail { entries: TranscriptEntry[]; truncated: boolean }
+
 export interface StreamHandlers {
   onEvent: (event: Event) => void;
   onState: (state: { connected: boolean; error: string }) => void;
@@ -29,14 +31,14 @@ export class DaemonClient {
     this.clock = clock;
   }
 
-  private get(path: string, extra: Record<string, string> = {}): Promise<Response> {
+  private get(path: string, extra: Record<string, string> = {}, signal?: AbortSignal): Promise<Response> {
     return fetch(`${this.credentials.baseUrl}/api/v1${path}`, {
-      headers: { Authorization: `Bearer ${this.credentials.token}`, ...extra }, signal: this.abort.signal,
+      headers: { Authorization: `Bearer ${this.credentials.token}`, ...extra }, signal: signal ? AbortSignal.any([signal, this.abort.signal]) : this.abort.signal,
     });
   }
 
-  private async json<T>(path: string): Promise<T> {
-    const response = await this.get(path);
+  private async json<T>(path: string, signal?: AbortSignal): Promise<T> {
+    const response = await this.get(path, {}, signal);
     if (!response.ok) throw new Error(`Daemon answered HTTP ${String(response.status)} for ${path}`);
     return await response.json() as T;
   }
@@ -50,8 +52,8 @@ export class DaemonClient {
     return await this.json(`/${collection}?limit=${String(limit)}&order=desc${after ? `&after=${encodeURIComponent(after)}` : ''}`);
   }
 
-  async session(sessionId: string): Promise<SessionDetail> {
-    return await this.json<SessionDetail>(`/sessions/${encodeURIComponent(sessionId)}`);
+  async session(sessionId: string, signal?: AbortSignal): Promise<SessionDetail> {
+    return await this.json<SessionDetail>(`/sessions/${encodeURIComponent(sessionId)}`, signal);
   }
 
   async sessionMemory(sessionId: string): Promise<SessionMemory> {
@@ -85,17 +87,26 @@ export class DaemonClient {
     return (await this.json<{ items: MemoryItem[] }>(`/memory-items?limit=${String(limit)}&order=desc&sessionId=${encodeURIComponent(sessionId)}`)).items;
   }
 
-  /** Backfills the newest `TRANSCRIPT_LIMIT` entries: pages forward to the end (so the tail is never the part that is missing), keeping only the tail. Bounded to `pages` pages. */
-  async transcript(sessionId: string, pages = 50): Promise<TranscriptEntry[]> {
+  async transcript(sessionId: string, signal?: AbortSignal): Promise<TranscriptEntry[]> {
+    return (await this.transcriptTail({ sessionId, signal })).entries;
+  }
+
+  /** Pages forward with bounded retention and per-load cancellation. The daemon has no tail/reverse option; cursors are exclusive byte offsets, not entry counts. */
+  async transcriptTail({ sessionId, signal }: { sessionId: string; signal?: AbortSignal }): Promise<TranscriptTail> {
+    const active = signal ? AbortSignal.any([signal, this.abort.signal]) : this.abort.signal;
     let entries: TranscriptEntry[] = [];
     let cursor = 0;
-    for (let page = 0; page < pages; page++) {
-      const body = await this.json<Transcript>(`/sessions/${encodeURIComponent(sessionId)}/transcript?after=${String(cursor)}&limit=1000`);
+    let truncated = false;
+    for (;;) {
+      active.throwIfAborted();
+      const body = await this.json<Transcript>(`/sessions/${encodeURIComponent(sessionId)}/transcript?after=${String(cursor)}&limit=1000`, active);
+      active.throwIfAborted();
+      truncated ||= entries.length + body.items.length > TRANSCRIPT_LIMIT;
       entries = [...entries, ...body.items].slice(-TRANSCRIPT_LIMIT);
+      if (!body.hasMore) return { entries, truncated };
+      if (body.nextCursor <= cursor) throw new Error('Transcript paging did not advance');
       cursor = body.nextCursor;
-      if (!body.hasMore) break;
     }
-    return entries;
   }
 
   /** Runs until `stop()`. Reconnects with capped backoff and resumes through `Last-Event-ID`. */

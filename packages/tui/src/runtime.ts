@@ -1,4 +1,5 @@
 import { createElement } from 'react';
+import { TranscriptLoader } from './transcript-loader.ts';
 import { DaemonClient } from './api/client.ts';
 import { resolveCredentials, type Credentials } from './api/token.ts';
 import { throttled, type Refresher } from './refresh.ts';
@@ -8,7 +9,7 @@ import { launch } from './view/renderer.ts';
 import { MemoryRefreshController, MemoryReviewController, type WindowedCollection } from '@pi-console/viewmodels';
 import { detectDepth, palette, themeFromEnv } from './view/theme.ts';
 
-export interface Runtime { store: Store; client: DaemonClient; reviews: MemoryReviewController; loadMemory: (id: string) => Promise<void>; retryNeedsYou: Refresher['request']; watchMemory: (id: string) => () => void; stop: () => void }
+export interface Runtime { store: Store; client: DaemonClient; loadTranscript: TranscriptLoader['load']; reviews: MemoryReviewController; loadMemory: (id: string) => Promise<void>; retryNeedsYou: Refresher['request']; watchMemory: (id: string) => () => void; stop: () => void }
 
 const NEEDS_YOU_REFRESH_MS = 2000;
 
@@ -23,6 +24,7 @@ export function connect(credentials: Credentials): Runtime {
   }, id => reviews.load(id, { fresh: true }));
   const loadMemory = (id: string): Promise<void> => memory.refresh(id);
   const reviews = new MemoryReviewController(client, (id, review) => { if (!stopped) store.setMemoryReview(id, review); }, loadMemory);
+  const transcripts = new TranscriptLoader(store, client);
   const refresher = attentionRequests(store, client);
   const refresh = refresher.request;
   void client.stream({
@@ -34,7 +36,7 @@ export function connect(credentials: Credentials): Runtime {
     },
     onState: state => { store.setConnection(state.connected, state.error); if (state.connected) refresh(); },
   });
-  return { store, client, reviews, loadMemory, retryNeedsYou: refresh, watchMemory: id => memory.watch(id), stop: () => { stopped = true; memory.dispose(); reviews.dispose(); refresher.stop(); client.stop(); store.dispose(); } };
+  return { store, client, loadTranscript: transcripts.load, reviews, loadMemory, retryNeedsYou: refresh, watchMemory: id => memory.watch(id), stop: () => { stopped = true; transcripts.stop(); memory.dispose(); reviews.dispose(); refresher.stop(); client.stop(); store.dispose(); } };
 }
 
 function attentionRequests(store: Store, client: DaemonClient): Refresher {
@@ -58,7 +60,8 @@ async function loadMore(runtime: Runtime, collection: WindowedCollection): Promi
   const progress = data.history[collection];
   if (!data.bounded.includes(collection) || progress?.more === false || paging.has(collection)) return;
   paging.add(collection);
-  try { runtime.store.mergePage(collection, await runtime.client.page(collection, progress?.cursor ?? null)); } catch { /* retried on the next scroll to the end */ } finally { paging.delete(collection); }
+  runtime.store.setHistoryError(collection, false);
+  try { runtime.store.mergePage(collection, await runtime.client.page(collection, progress?.cursor ?? null)); } catch { runtime.store.setHistoryError(collection, true); } finally { paging.delete(collection); }
 }
 
 export interface RunOptions { env?: NodeJS.ProcessEnv }
@@ -79,7 +82,7 @@ export async function run(options: RunOptions = {}): Promise<number> {
       store: runtime.store, endpoint: credentials.baseUrl, tokenSource: credentials.tokenSource, animate, clock,
       retryNeedsYou: runtime.retryNeedsYou,
       loadMore: collection => { void loadMore(runtime, collection); },
-      loadTranscript: id => { void runtime.client.session(id).then(detail => { runtime.store.mergeDetail(detail); }, () => undefined); void runtime.client.transcript(id).then(entries => { runtime.store.mergeTranscript(id, entries); }, () => { runtime.store.mergeTranscript(id, []); }); },
+      loadTranscript: runtime.loadTranscript,
       loadMemory: id => { void runtime.loadMemory(id); }, watchMemory: runtime.watchMemory,
       requestMemoryAction: (id, itemId, action) => { void runtime.reviews.request(id, itemId, action); },
       onQuit: () => { handle?.destroy(); finish(); },
