@@ -40,7 +40,7 @@ Details and the threat model are in [security.md](../security.md).
 
 ## Consequences
 
-- Some friction: first open needs the token (handled by `pi-console open`).
+- Some friction: first open needs the token (handled by the launch link the daemon prints at startup when it serves the web bundle, or by pasting the token from `<data-dir>/token`).
 - Reverse proxy setups need explicit Host and trusted-proxy configuration.
 - The security model is part of every API and every milestone's acceptance criteria, not a later hardening step.
 - Remaining risks: same-user local processes can read the token file (same trust level as pi itself); a compromised extension or pi session can feed hostile content into the console.

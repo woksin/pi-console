@@ -20,6 +20,9 @@ const types = new Map(Object.entries({
   '.webmanifest': 'application/manifest+json', '.map': 'application/json; charset=utf-8',
 }));
 
+/** Said at startup and in the bundle-missing response; never carries the token. */
+export const apiOnlyHint = 'API only: start with --web-dist <path to packages/web/dist> to serve the web console';
+
 async function existingFile(path: string): Promise<boolean> {
   try {
     return (await stat(path)).isFile();
@@ -69,16 +72,22 @@ function notFound(res: ServerResponse, message: string): void {
   res.end(message);
 }
 
-/** Serves the built web bundle from `root`. A missing bundle is a plain 404, not an error. */
+/** True when `webDist` is set and `serveStatic` can serve its `index.html` (a regular file inside the bundle); the same check the server applies. */
+export async function isUsableWebBundle(webDist: string | undefined): Promise<boolean> {
+  if (webDist === undefined) return false;
+  try {
+    return (await servable(webDist, new URL('http://127.0.0.1/'))) !== undefined;
+  } catch {
+    return false;
+  }
+}
+
+/** Serves the built web bundle from `root`. A missing or unusable bundle is a plain 404 with a hint, not an error. */
 export async function serveStatic(root: string | undefined, req: IncomingMessage, res: ServerResponse, url: URL): Promise<void> {
   if (!['GET', 'HEAD'].includes(req.method ?? '')) throw new HttpError(405, 'Method not allowed');
-  if (root === undefined) {
-    notFound(res, 'Web bundle not configured\n');
-    return;
-  }
-  const file = await servable(root, url);
-  if (file === undefined) {
-    notFound(res, 'Not found\n');
+  const file = root === undefined ? undefined : await servable(root, url);
+  if (root === undefined || file === undefined) {
+    notFound(res, (await isUsableWebBundle(root)) ? 'Not found\n' : `Web bundle not available. ${apiOnlyHint}\n`);
     return;
   }
   const body = await readFile(file);

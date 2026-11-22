@@ -148,15 +148,21 @@ Press **Ctrl-C** in the demo terminal to stop it and remove its temporary data a
 
 ```bash
 npm run build -w @pi-console/web
-node packages/cli/bin/pi-console.mjs daemon --web-dist packages/web/dist   # prints the URL; the token is ~/.pi-console/token
+node packages/cli/bin/pi-console.mjs daemon --web-dist packages/web/dist   # prints a launch link with the token; the token file is ~/.pi-console/token
 node packages/cli/bin/pi-console.mjs tui                                    # in a second terminal
 ```
 
 Memory review is a narrow opt-in exception: with daemon review enabled, a separate `memory-control-token` and a ready owning interactive pi provider, both consoles can request **Confirm…** / **Reject…**. Every request requires native human confirmation in pi and then canonical producer ingestion; the console never writes memory directly. The ordinary token remains read-only, with exact command fallback and reasons when review is unavailable. See [web memory review](docs/ui-web.md#memory-review) and [TUI memory review](docs/ui-tui.md#memory-review) for credential setup and controls.
 
+With a usable `--web-dist` the daemon prints one launch link, `http://127.0.0.1:<port>/#token=<token>`; the token sits in the URL fragment, which never reaches a server. Open it once, or paste the token from `<data-dir>/token`. Without a web bundle (flag missing, or no `index.html` at the path) the daemon prints `API only: start with --web-dist <path to packages/web/dist> to serve the web console` and prints no link. `pi-console --help`, `-h` and `help` print usage and exit 0.
+
 `node packages/cli/bin/pi-console.mjs daemon --help` lists the data directory, port and source options. The daemon uses `--data-dir` first, then `PI_CONSOLE_DATA_DIR`, then `~/.pi-console`. Set `PI_CONSOLE_DATA_DIR` in both terminals to share a custom data directory with the TUI. `node packages/cli/bin/pi-console.mjs tui --help` shows TUI usage without opening the terminal UI. Interventions (answering, steering, pausing) are milestone M2; there is no global install yet.
 
 CLI errors print a short message to stderr and exit non-zero. Set `PI_CONSOLE_DEBUG=1` to include a stack trace for diagnosis (for example, `PI_CONSOLE_DEBUG=1 node packages/cli/bin/pi-console.mjs daemon --port banana`).
+
+### Install the pi extension (optional)
+
+The console works from pi session logs alone. The extension in `packages/extension` only adds [memory review](docs/ui-web.md#memory-review): it connects each pi session outbound to the daemon so you can confirm or reject memory actions. Enable review on the daemon, create the separate `<data-dir>/memory-control-token`, and load `packages/extension` as a pi extension (its `package.json` declares `./src/index.ts` under `pi.extensions`); set `PI_CONSOLE_MEMORY_REVIEW=1` in the environment pi runs in to turn memory review on, and set `PI_CONSOLE_URL` or `PI_CONSOLE_DATA_DIR` if you use a non-default port or data directory. Credential setup is described in [web memory review](docs/ui-web.md#memory-review).
 
 ## Architecture
 

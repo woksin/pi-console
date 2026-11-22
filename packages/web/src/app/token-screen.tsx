@@ -14,7 +14,7 @@ export function TokenScreen({ rejected, onToken }: { rejected: boolean; onToken:
           <input type="password" autoComplete="off" spellCheck={false} autoFocus value={value} onChange={event => { setValue(event.target.value); }} aria-invalid={rejected} />
         </label>
         <button type="submit" className="btn primary" disabled={!valid}>Connect</button>
-        <p className="muted small">First run: start the daemon, then run <code>pi-console open</code> to get the link.</p>
+        <p className="muted small">First run: open the launch link the daemon printed when it started, or paste the token from <code>~/.pi-console/token</code> (inside the data directory the daemon was started with).</p>
       </form>
     </main>
   );
