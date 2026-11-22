@@ -2,7 +2,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { FlashTracker, LookTracker, pressureHistogram } from '@pi-console/viewmodels';
 import { generate, needsYou } from '@pi-console/testkit';
-import type { Session } from '@pi-console/contract';
+import type { Event, Session } from '@pi-console/contract';
+import { App } from '../app.ts';
 import { Store } from '../store/store.ts';
 import { initial } from '../state/ui.ts';
 import { Screen, h, mountHeadless } from '../view/renderer.ts';
@@ -27,7 +28,7 @@ test('the pressure histogram draws bars on the shared ramp with the 60 and 80 % 
 });
 
 test('first run shows the checklist without empty fleet status bars or histogram', async () => {
-  const data = { ...new Store().getSnapshot(), loaded: true };
+  const data = { ...new Store().getSnapshot(), loaded: true, needsYouLoaded: true };
   const view = overviewView({ data, ui: initial, width: 160, height: 40, now: 0, phase: 0, click: () => undefined });
   const ui = await mountHeadless(h(Screen, {}, view.render()), { width: 160, height: 40 });
   try {
@@ -35,6 +36,42 @@ test('first run shows the checklist without empty fleet status bars or histogram
     assert.match(ui.frame(), /Sources detected/);
     assert.doesNotMatch(ui.frame(), /Status|Context pressure|Context, fleet average|working right now/);
   } finally { ui.destroy(); }
+});
+
+test('attention loading and failure stay separate from connection; retry reaches empty-after-load', async () => {
+  const store = new Store();
+  const fixture = generate().fixture;
+  store.apply({ type: 'snapshot', seq: 1, payload: fixture } as unknown as Event);
+  store.setConnection(true, '');
+  let retries = 0;
+  const ui = await mountHeadless(h(App, { store, endpoint: 'http://127.0.0.1', tokenSource: 'test', animate: false,
+    loadTranscript: () => undefined, loadMemory: () => undefined, onQuit: () => undefined,
+    retryNeedsYou: () => { retries++; store.setNeedsYouError(false); },
+  }), { width: 110, height: 30 });
+  const settleStore = async () => { await new Promise(resolve => setTimeout(resolve, 60)); await ui.settle(); };
+  try {
+    await ui.settle();
+    assert.match(ui.frame(), /Loading…/);
+    assert.doesNotMatch(ui.frame(), /All clear|Sources detected/);
+    store.setNeedsYouError(true);
+    await settleStore();
+    assert.match(ui.frame(), /Could not load needs you\./);
+    assert.match(ui.frame(), /r retry/);
+    assert.doesNotMatch(ui.frame(), /All clear|Sources detected|Disconnected/);
+    await ui.press('r');
+    assert.equal(retries, 1);
+    await settleStore();
+    assert.match(ui.frame(), /Loading…/);
+    store.setNeedsYou([]);
+    await settleStore();
+    assert.match(ui.frame(), /All clear/);
+    assert.match(ui.frame(), /Nothing needs you\./);
+    await ui.press('r');
+    assert.equal(retries, 1, 'healthy lists do not retry');
+    store.setNeedsYouError(true);
+    await settleStore();
+    assert.doesNotMatch(ui.frame(), /All clear|Nothing needs you\./, 'a later failure invalidates the calm state');
+  } finally { ui.destroy(); store.dispose(); }
 });
 
 test('new attention items get a divider and a tag until the Overview is left', async () => {

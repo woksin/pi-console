@@ -5,7 +5,7 @@ import { StoreContext } from './app/hooks.ts';
 import { TokenScreen } from './app/token-screen.tsx';
 import { createApi } from './client/api.ts';
 import { ConsoleStore } from './client/store.ts';
-import { forgetToken, loadToken, saveToken } from './client/token.ts';
+import { forgetToken, loadToken, saveToken, tabTokenStorage } from './client/token.ts';
 import './styles/index.css';
 
 function Connected({ token, onRejected }: { token: string; onRejected: () => void }) {
@@ -17,12 +17,12 @@ function Connected({ token, onRejected }: { token: string; onRejected: () => voi
 }
 
 function Root() {
-  const initial = useMemo(() => loadToken(sessionStorage, window.location.hash), []);
+  const initial = useMemo(() => loadToken(tabTokenStorage, window.location.hash), []);
   const [token, setToken] = useState(initial.token);
   const [rejected, setRejected] = useState(false);
   useEffect(() => { if (initial.cleanHash !== window.location.hash) history.replaceState(null, '', `${window.location.pathname}${initial.cleanHash}`); }, [initial]);
-  if (token === null) return <TokenScreen rejected={rejected} onToken={value => { saveToken(sessionStorage, value); setRejected(false); setToken(value); }} />;
-  return <Connected token={token} onRejected={() => { forgetToken(sessionStorage); setRejected(true); setToken(null); }} />;
+  if (token === null) return <TokenScreen rejected={rejected} onToken={value => { saveToken(tabTokenStorage, value); setRejected(false); setToken(value); }} />;
+  return <Connected token={token} onRejected={() => { forgetToken(tabTokenStorage); setRejected(true); setToken(null); }} />;
 }
 
 const mount = document.getElementById('root');

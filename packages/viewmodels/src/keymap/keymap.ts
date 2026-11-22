@@ -10,7 +10,7 @@ export type Action =
   | 'section.1' | 'section.2' | 'section.3' | 'section.4' | 'section.5' | 'section.6' | 'section.7'
   | 'palette.open' | 'filter.open' | 'settings.open' | 'help.toggle' | 'quit'
   | 'move.up' | 'move.down' | 'move.top' | 'move.bottom' | 'page.up' | 'page.down'
-  | 'open' | 'back' | 'pane.next' | 'pane.previous' | 'follow.toggle' | 'copy.id' | 'view.toggle'
+  | 'attention.retry' | 'open' | 'back' | 'pane.next' | 'pane.previous' | 'follow.toggle' | 'copy.id' | 'view.toggle'
   | 'time.scrub' | 'time.zoomIn' | 'time.zoomOut' | 'time.left' | 'time.right'
   | 'group.toggle' | 'filter.next' | 'filter.previous' | 'filter.origin' | 'filter.session'
   | 'memory.next' | 'memory.previous' | 'memory.confirm' | 'memory.reject'
@@ -48,6 +48,7 @@ export const bindings: readonly Binding[] = [
   { keys: ['G', 'End'], action: 'move.bottom', label: 'Bottom', contexts: [...lists, 'transcript'] },
   { keys: ['PageUp'], action: 'page.up', label: 'Page up', contexts: [...lists, 'transcript'] },
   { keys: ['PageDown'], action: 'page.down', label: 'Page down', contexts: [...lists, 'transcript'] },
+  { keys: ['r'], action: 'attention.retry', label: 'Retry needs you after a failed load', hint: 'r retry', contexts: ['overview'], clients: ['tui'] },
   { keys: ['Enter'], action: 'open', label: 'Open', hint: '⏎ open', contexts: [...listContexts, 'timeline', 'graph', 'palette', 'filter'] },
   { keys: ['Esc'], action: 'back', label: 'Close, cancel, back', hint: 'esc back', contexts: [...lists, 'transcript', 'graph', 'timeline', 'palette', 'filter', 'help'] },
   { keys: ['Tab'], action: 'pane.next', label: 'Next pane', hint: 'tab pane', contexts: ['detail', 'transcript'] },

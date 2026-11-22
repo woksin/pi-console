@@ -15,7 +15,8 @@ export function RequestCard({ row, selected, onSelect }: { row: RequestsRow; sel
         {row.possiblyUnseen && <StatusBadge cell={row.possiblyUnseen} />}
         <a href={sessionHref(row.sessionId)}>{row.session}</a><span className="grow" /><span className="faint tnum">{row.age}</span>
       </div>
-      <p className={`card-text${row.withheld ? ' withheld' : ''}`} title={row.text}>{row.text}</p>
+      <button type="button" className={`card-text request-select${row.withheld ? ' withheld' : ''}`} title={row.text} aria-label={`Show details for ${row.text}`} aria-pressed={selected}
+        onClick={event => { event.stopPropagation(); onSelect(); }}>{row.text}</button>
       {row.answer && <blockquote className="answer"><span className="faint small">Answer · {row.answer.age} ago</span><p className={row.answer.withheld ? 'withheld' : undefined}>{row.answer.text}</p></blockquote>}
     </li>
   );

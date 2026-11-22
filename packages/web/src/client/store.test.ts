@@ -97,17 +97,34 @@ test('a resnapshot voids exhausted paging so dropped rows can be reloaded', asyn
 });
 
 test('the attention list counts as loaded only once a fetch of it succeeds, so "new since you looked" has a real baseline', async () => {
-  let fail = true;
+  let pending = Promise.withResolvers<[]>();
+  let calls = 0;
   const api = {
-    needsYou: () => (fail ? Promise.reject(new Error('offline')) : Promise.resolve([])), health: () => Promise.resolve(null),
+    needsYou: () => { calls++; return pending.promise; }, health: () => Promise.resolve(null),
   } as unknown as Api;
   const store = new ConsoleStore(api, clock);
   assert.equal(store.getState().needsYouLoaded, false);
-  await store.refresh();
+  const first = store.refresh();
+  assert.equal(store.getState().needsYouError, false, 'pending is not a failure');
+  pending.reject(new Error('offline'));
+  await first;
   assert.equal(store.getState().needsYouLoaded, false, 'a failed fetch is not a loaded list');
-  fail = false;
-  await store.refresh();
+  assert.equal(store.getState().needsYouError, true);
+  pending = Promise.withResolvers<[]>();
+  const retry = store.refresh();
+  assert.equal(calls, 2, 'retry re-issues the same fetch');
+  assert.equal(store.getState().needsYouError, false, 'retry clears the error while loading');
+  assert.equal(store.getState().needsYouLoaded, false);
+  pending.resolve([]);
+  await retry;
   assert.equal(store.getState().needsYouLoaded, true);
+  pending = Promise.withResolvers<[]>();
+  const refresh = store.refresh();
+  pending.reject(new Error('offline again'));
+  await refresh;
+  assert.equal(store.getState().needsYouLoaded, false, 'a later failure invalidates the calm state');
+  assert.equal(store.getState().needsYouError, true);
+  store.stop();
 });
 
 test('a complete (unbounded) snapshot never pages', async () => {

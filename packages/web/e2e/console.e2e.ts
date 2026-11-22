@@ -43,6 +43,38 @@ describe('web console e2e', () => {
     await page.context().close();
   });
 
+  test('Overview waits for attention, shows a retryable failure, then clears only after success', async () => {
+    const isolated = await startRig({ speed: 1e-9 });
+    const page = await isolated.open('/', { token: null });
+    let attempts = 0;
+    const failed = Promise.withResolvers<boolean>();
+    const retried = Promise.withResolvers<boolean>();
+    await page.route('**/api/v1/needs-you', async route => {
+      attempts++;
+      if (attempts === 1) { await failed.promise; await route.fulfill({ status: 503, json: { error: 'offline' } }); }
+      else { await retried.promise; await route.fulfill({ json: { items: [] } }); }
+    });
+    try {
+      await page.getByLabel('Access token').fill(isolated.daemon.token);
+      await page.getByRole('button', { name: 'Connect' }).click();
+      await page.locator('.conn[data-connection="live"]').waitFor();
+      await page.getByRole('status').filter({ hasText: 'Loading…' }).waitFor();
+      assert.equal(await page.locator('.hero.clear, .empty').count(), 0);
+      assert.ok(!(await page.locator('#content').innerText()).includes('All clear'));
+      failed.resolve(true);
+      await page.getByRole('alert').filter({ hasText: 'Could not load needs you.' }).waitFor();
+      assert.equal(await page.locator('.hero.clear, .empty').count(), 0);
+      assert.equal(await page.locator('.conn[data-connection="live"]').count(), 1);
+      await page.getByRole('button', { name: 'Retry', exact: true }).click();
+      await page.getByRole('status').filter({ hasText: 'Loading…' }).waitFor();
+      assert.equal(attempts, 2, 'retry re-issues the same load');
+      retried.resolve(true);
+      await page.locator('.hero.clear').waitFor();
+      await page.getByRole('heading', { name: 'All clear: nothing needs you', exact: true }).waitFor();
+      assert.equal(await page.getByRole('alert').count(), 0);
+    } finally { failed.resolve(true); retried.resolve(true); await page.context().close(); await isolated.close(); }
+  });
+
   test('Settings renders nested daemon health with human labels', async () => {
     const page = await rig.open('/settings', { token: null });
     await page.route('**/api/v1/health', route => route.fulfill({ json: {
