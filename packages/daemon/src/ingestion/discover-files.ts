@@ -11,6 +11,8 @@ export type Scope = Pick<Feed, 'extension' | 'recursive' | 'name' | 'window' | '
 
 /** One discovery pass: which files a feed wants and the start of its window. */
 interface Scan { feed: Scope; since: number }
+interface DirectoryScan extends Scan { directory: string }
+interface Entry { path: string; kind: Dirent }
 
 /**
  * Files of the feed under `directory` that are inside the window `since`. Same boundary as the adapters' `discover`:
@@ -18,14 +20,14 @@ interface Scan { feed: Scope; since: number }
  * throws. Only `mtime` windows stat a file.
  */
 export function discoverFiles(directory: string, feed: Scope, since: number): string[] {
-  return [...walk(directory, { feed, since })].filter((path): path is string => path !== undefined).sort();
+  return [...walk({ directory, feed, since })].filter((path): path is string => path !== undefined).sort();
 }
 
 /** Read directories off-loop and yield even across empty/denied directories; slices target 5 ms. */
 export async function discoverFilesSliced(directory: string, feed: Scope, since: number): Promise<string[]> {
   const files: string[] = [];
   let started = performance.now();
-  for await (const path of walkAsync(directory, { feed, since })) {
+  for await (const path of walkAsync({ directory, feed, since })) {
     if (path !== undefined) files.push(path);
     if (performance.now() - started < sliceMs) continue;
     await yieldToLoop();
@@ -40,39 +42,61 @@ function isReadableDirectory(directory: string): boolean {
   return !pathDenied(directory) && existsSync(directory) && !lstatSync(directory).isSymbolicLink();
 }
 
+function canEnter({ directory, feed }: DirectoryScan): boolean {
+  if (!isReadableDirectory(directory)) return false;
+  return feed.ancestors?.every(isReadableDirectory) ?? true;
+}
+
 /** Every wanted file under `directory`, with an `undefined` after each entry so a caller can yield between them. */
-function* walk(directory: string, scan: Scan): Generator<string | undefined> {
-  if (!isReadableDirectory(directory) || scan.feed.ancestors?.some(path => !isReadableDirectory(path))) return;
-  for (const entry of readdirSync(directory, { withFileTypes: true })) {
+function* walk(scan: DirectoryScan): Generator<string | undefined> {
+  if (!canEnter(scan)) return;
+  for (const kind of readdirSync(scan.directory, { withFileTypes: true })) {
     yield undefined;
-    yield* visit(join(directory, entry.name), entry, scan);
+    yield* visit({ path: join(scan.directory, kind.name), kind }, scan);
   }
 }
 
 /** Directory enumeration itself can exceed a slice on a large feed, so do it on the I/O pool. */
-async function* walkAsync(directory: string, scan: Scan): AsyncGenerator<string | undefined> {
-  if (!isReadableDirectory(directory) || scan.feed.ancestors?.some(path => !isReadableDirectory(path))) return;
-  for (const entry of await promises.readdir(directory, { withFileTypes: true })) {
+async function* walkAsync(scan: DirectoryScan): AsyncGenerator<string | undefined> {
+  if (!canEnter(scan)) return;
+  for (const kind of await promises.readdir(scan.directory, { withFileTypes: true })) {
     yield undefined;
-    const path = join(directory, entry.name);
-    if (pathDenied(path) || entry.isSymbolicLink()) continue;
-    if (entry.isDirectory() && scan.feed.recursive !== false) yield* walkAsync(path, scan);
-    else if (entry.isFile() && wanted(path, scan)) yield path;
+    yield* visitAsync({ path: join(scan.directory, kind.name), kind }, scan);
   }
 }
 
-function* visit(path: string, entry: Dirent, scan: Scan): Generator<string | undefined> {
-  if (pathDenied(path) || entry.isSymbolicLink()) return;
-  if (entry.isDirectory() && scan.feed.recursive !== false) yield* walk(path, scan);
-  else if (entry.isFile() && wanted(path, scan)) yield path;
+function visible(entry: Entry): boolean {
+  return !pathDenied(entry.path) && !entry.kind.isSymbolicLink();
 }
 
-function wanted(path: string, { feed, since }: Scan): boolean {
-  if (!path.endsWith(feed.extension) || feed.name?.test(basename(path)) === false) return false;
-  return inWindow(path, feed.window ?? 'mtime', since);
+function descends(entry: Entry, { feed }: Scan): boolean {
+  return entry.kind.isDirectory() && feed.recursive !== false;
 }
 
-function inWindow(path: string, window: NonNullable<Feed['window']>, since: number): boolean {
+function matches(entry: Entry, scan: Scan): boolean {
+  return entry.kind.isFile() && wanted(entry, scan);
+}
+
+function* visit(entry: Entry, scan: Scan): Generator<string | undefined> {
+  if (!visible(entry)) return;
+  if (descends(entry, scan)) yield* walk({ ...scan, directory: entry.path });
+  else if (matches(entry, scan)) yield entry.path;
+}
+
+async function* visitAsync(entry: Entry, scan: Scan): AsyncGenerator<string | undefined> {
+  if (!visible(entry)) return;
+  if (descends(entry, scan)) yield* walkAsync({ ...scan, directory: entry.path });
+  else if (matches(entry, scan)) yield entry.path;
+}
+
+function wanted(entry: Entry, scan: Scan): boolean {
+  const { feed } = scan;
+  if (!entry.path.endsWith(feed.extension) || feed.name?.test(basename(entry.path)) === false) return false;
+  return inWindow(entry, scan);
+}
+
+function inWindow({ path }: Entry, { feed, since }: Scan): boolean {
+  const window = feed.window ?? 'mtime';
   if (window === 'none') return true;
   if (window === 'mtime') return statSync(path).mtimeMs >= since;
   const named = Date.parse(basename(path).slice(0, 10));
