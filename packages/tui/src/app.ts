@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactElement } from 'react';
-import { FlashTracker, LookTracker, paletteItems, pulseViewModel, rememberPick, type Action, type PaletteInput, type WindowedCollection } from '@pi-console/viewmodels';
+import { FlashTracker, LookTracker, paletteItems, pulseViewModel, rememberPick, resolve, type Action, type PaletteInput, type WindowedCollection } from '@pi-console/viewmodels';
 import { Column, Screen, Text, h, useClipboard, useKeys, useSize, useTerminalTitle, useTick } from './view/renderer.ts';
 import type { Store } from './store/store.ts';
-import { commit, handleKey, initial, reduce, typing, type Bounds, type Section, type UiState } from './state/ui.ts';
+import { commit, contextOf, handleKey, initial, reduce, typing, type Bounds, type Section, type UiState } from './state/ui.ts';
 import { terminalContentWidth } from './state/session-layout.ts';
 import { emptyLayout, resumeTranscript, transcriptViewport } from './state/transcript-window.ts';
 import { neutralKey, typedCharacter, type KeyInput } from './state/keys.ts';
@@ -33,6 +33,7 @@ export interface AppProps {
   requestMemoryAction?: RequestMemoryAction;
   /** Fetches the next older page of a list the snapshot only windowed; called when the cursor reaches the end of a list. */
   loadMore?: (collection: WindowedCollection) => void;
+  retryNeedsYou?: () => void;
   onQuit: () => void;
   /** Spinner and pulse motion; off for reduced-motion and tests. */
   animate: boolean;
@@ -96,7 +97,7 @@ export function App(props: AppProps): ReactElement {
     const memory = memoryInput(uiRef.current, neutralKey(key), dataRef.current, size.width, props.requestMemoryAction);
     if (memory) { apply(memory); return; }
     const current = viewRef.current;
-    apply(nextState(uiRef.current, key, { palette: dataRef.current, view: current, bounds: boundsOf(current, heightRef.current), copy }));
+    apply(nextState(uiRef.current, key, { palette: dataRef.current, view: current, bounds: boundsOf(current, heightRef.current), copy, needsYouError: dataRef.current.needsYouError, retryNeedsYou: props.retryNeedsYou }));
   });
 
   useTerminalTitle(terminalTitle(ui, data));
@@ -112,6 +113,13 @@ export function App(props: AppProps): ReactElement {
     h(Column, { grow: 1, paddingX: 1 }, view.render()),
     h(Text, { line: footerLine(ui, size.width) }),
     ...overlays(ui, data, input, size));
+}
+
+function retryAttention(ui: UiState, key: KeyInput, ctx: KeyContext): boolean {
+  if (!ctx.needsYouError) return false;
+  if (resolve(contextOf(ui), neutralKey(key), 'tui') !== 'attention.retry') return false;
+  ctx.retryNeedsYou?.();
+  return true;
 }
 
 function frameSize(data: ReturnType<Store['getSnapshot']>, height: number): { showPulse: boolean; bodyHeight: number } {
@@ -133,10 +141,11 @@ function openAt(state: UiState, index: number, bounds: Bounds): UiState {
 }
 
 type PaletteData = Pick<PaletteInput, 'sessions' | 'requests' | 'questions' | 'messages'>;
-interface KeyContext { palette: PaletteData; view: SectionView; bounds: Bounds; copy: (text: string) => boolean }
+interface KeyContext { palette: PaletteData; view: SectionView; bounds: Bounds; copy: (text: string) => boolean; needsYouError: boolean; retryNeedsYou?: () => void }
 
 /** Next state for a key: text entry while an input overlay is open, otherwise the keymap (`y` copies the id and keeps the state). */
 function nextState(state: UiState, key: KeyInput, ctx: KeyContext): UiState {
+  if (retryAttention(state, key, ctx)) return state;
   if (neutralKey(key) === 'Ctrl+C') return reduce(state, 'quit', ctx.bounds);
   if (isTextOverlay(state.overlay)) {
     if (neutralKey(key) === 'Enter') return state.overlay === 'palette' ? runPalette(state, ctx.palette, ctx.bounds) : commit(state);
