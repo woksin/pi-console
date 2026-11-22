@@ -55,7 +55,7 @@ export default function memoryReviewExtension(pi: ExtensionApi): void {
   const connect = (sessionId: string, cwd: string, delay = 1000): void => {
     retry = undefined;
     try {
-      client = new MemoryReviewClient({ url: channelUrl(), secret: credential(), binding: { sessionId, pid: process.pid, cwd }, bus: pi.events });
+      client = new MemoryReviewClient({ url: channelUrl(), secret: credential(), readSecret: credential, binding: { sessionId, pid: process.pid, cwd }, bus: pi.events });
     } catch (error) {
       // Only absent credentials are retried; incompatible installations remain read-only. Never log secrets.
       if (!missingCredential(error)) return;
