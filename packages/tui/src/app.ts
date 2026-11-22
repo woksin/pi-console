@@ -41,7 +41,7 @@ export interface AppProps {
 }
 
 const boundsOf = (view: SectionView, height: number): Bounds => ({
-  length: view.length, page: Math.max(1, height - 6), fit: view.time?.fit ?? { start: 0, span: 1 }, width: view.time?.width ?? 0, rowAt: view.rowAt, sessionIds: view.sessionIds, transcript: view.transcript ?? emptyLayout, viewport: transcriptViewport(height),
+  length: view.length, page: Math.max(1, height - 6), fit: view.time?.fit ?? { start: 0, span: 1 }, width: view.time?.width ?? 0, rowAt: view.rowAt, sessionIds: view.sessionIds, transcript: view.transcript ?? emptyLayout, viewport: transcriptViewport(height), detail: view.detail,
 });
 
 const noBounds: Bounds = { length: 0, page: 1, fit: { start: 0, span: 1 }, width: 0, rowAt: () => ({ sessionId: null, groupId: null }), transcript: emptyLayout, viewport: 1 };
