@@ -49,6 +49,7 @@ const boundsOf = (view: SectionView, height: number): Bounds => ({
 const isVerticalArrow = (name: string): boolean => name === 'ArrowDown' || name === 'ArrowUp';
 const movePaletteIndex = (index: number, delta: number, setCount: number): number => Math.max(0, Math.min(Math.max(0, setCount - 1), index + delta));
 const isTextOverlay = (overlay: UiState['overlay']): boolean => overlay === 'palette' || overlay === 'filter' || overlay === 'search';
+const pasteInto = (state: UiState, text: string): UiState => isTextOverlay(state.overlay) ? typing(state, '', text) : state;
 const sectionOrder: readonly Section[] = ['overview', 'fleet', 'requests', 'questions', 'messages', 'timeline', 'work'];
 
 /** Text entry for the palette, filter and search; returns the next state. Keys never reach the keymap while typing. */
@@ -106,7 +107,7 @@ export function App(props: AppProps): ReactElement {
     const current = viewRef.current;
     const bounds = { ...boundsOf(current, heightRef.current), help: helpViewport(size).bounds };
     apply(nextState(uiRef.current, key, { palette: dataRef.current, view: current, bounds, copy, needsYouError: dataRef.current.needsYouError, retryNeedsYou: props.retryNeedsYou }));
-  });
+  }, text => { apply(pasteInto(uiRef.current, text)); });
 
   useTerminalTitle(terminalTitle(ui, data));
   const connectionBanner = banner(data.connection, size.width);
