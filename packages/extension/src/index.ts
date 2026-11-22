@@ -38,16 +38,37 @@ function credential(): string {
   if (!/^[a-f0-9]{64}$/u.test(secret)) throw new Error('Invalid credential');
   return secret;
 }
+function missingCredential(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  if (!('code' in error)) return false;
+  return error.code === 'ENOENT';
+}
 export default function memoryReviewExtension(pi: ExtensionApi): void {
   let client: MemoryReviewClient | undefined;
-  const stop = () => { client?.close(); client = undefined; };
+  let retry: ReturnType<typeof setTimeout> | undefined;
+  const stop = () => {
+    clearTimeout(retry);
+    retry = undefined;
+    client?.close();
+    client = undefined;
+  };
+  const connect = (sessionId: string, cwd: string, delay = 1000): void => {
+    retry = undefined;
+    try {
+      client = new MemoryReviewClient({ url: channelUrl(), secret: credential(), binding: { sessionId, pid: process.pid, cwd }, bus: pi.events });
+    } catch (error) {
+      // Only absent credentials are retried; incompatible installations remain read-only. Never log secrets.
+      if (!missingCredential(error)) return;
+      retry = setTimeout(() => { connect(sessionId, cwd, Math.min(delay * 2, 30_000)); }, delay);
+      retry.unref();
+    }
+  };
   const start = (_event: unknown, context: Context) => {
     stop();
     if (process.env.PI_CONSOLE_MEMORY_REVIEW !== '1') return;
     try {
       const sessionId = context.sessionManager.getSessionId();
-      if (!sessionId) return;
-      client = new MemoryReviewClient({ url: channelUrl(), secret: credential(), binding: { sessionId, pid: process.pid, cwd: context.cwd }, bus: pi.events });
+      if (sessionId) connect(sessionId, context.cwd);
     } catch { /* Missing or incompatible installations remain read-only. No credential/source logging. */ }
   };
   pi.on('session_start', start);
