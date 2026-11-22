@@ -10,9 +10,14 @@ function show(message: string | null): void {
   for (const listener of listeners) listener();
 }
 
+/** True when the write succeeded; a missing clipboard (non-secure context) or a rejected write is a failure, never a throw. */
+async function write(text: string): Promise<boolean> {
+  try { await navigator.clipboard.writeText(text); return true; } catch { return false; }
+}
+
 /** Writes to the clipboard and announces the outcome. Falls back to a failure notice where the API is unavailable. */
 export async function copyWithNotice(text: string, label: string): Promise<boolean> {
-  const copied = await navigator.clipboard.writeText(text).then(() => true, () => false);
+  const copied = await write(text);
   clearTimeout(timer);
   show(copied ? `Copied ${label}` : `Could not copy ${label}: clipboard unavailable`);
   timer = setTimeout(() => { show(null); }, noticeMillis);

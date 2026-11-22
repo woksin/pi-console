@@ -74,3 +74,7 @@ test('pane cycling and the timeline scrubber are TUI-only; the graph scrubber st
   assert.ok(!hints('detail', 'web').includes('tab pane'));
   assert.ok(hints('detail', 'tui').includes('tab pane'));
 });
+
+test('the time scrubber is listed once per client', () => {
+  for (const client of ['web', 'tui'] as const) assert.equal(bindingsFor(client).filter(binding => binding.action === 'time.scrub').length, 1, client);
+});

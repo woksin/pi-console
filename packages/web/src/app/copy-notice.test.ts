@@ -25,3 +25,20 @@ test('an unavailable clipboard reports failure instead of claiming success', asy
   assert.match(currentNotice() ?? '', /clipboard unavailable/);
   t.mock.timers.tick(3000);
 });
+
+test('a missing clipboard API reports failure without throwing', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  Object.defineProperty(globalThis, 'navigator', { value: {}, configurable: true });
+  t.after(() => { Reflect.deleteProperty(globalThis, 'navigator'); });
+  assert.equal(await copyWithNotice('abc', 'id'), false);
+  assert.match(currentNotice() ?? '', /clipboard unavailable/);
+  t.mock.timers.tick(3000);
+});
+
+test('a synchronously throwing write reports failure without throwing', async t => {
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  clipboard(t, () => { throw new Error('nope'); });
+  assert.equal(await copyWithNotice('abc', 'id'), false);
+  assert.match(currentNotice() ?? '', /clipboard unavailable/);
+  t.mock.timers.tick(3000);
+});
