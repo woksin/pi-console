@@ -183,15 +183,22 @@ export class ConsoleStore {
     this.#attempt = 0;
     const now = this.#clock.now();
     this.#lastActivityAt = now;
-    if (frame === 'heartbeat') { this.#set({ ...this.#state, lastFrameAt: now, connection: 'live', received: this.#state.received + 1 }); return; }
+    if (frame === 'heartbeat') { this.#heartbeat(); return; }
     if (frame.type === 'snapshot') this.#resetRequests();
     const next = applyEvent(this.#state, frame);
     if (frame.type === 'session.updated') this.#invalidateSessionDetail(frame.payload);
     if (frame.type !== 'snapshot') for (const name of next.bounded) if (next[name].length > this.#state[name].length) this.#requests.staleTotals.add(name);
-    this.#set({ ...next, lastFrameAt: now, connection: 'live', received: this.#state.received + 1 });
+    const liveAtReceivedAt = next.liveAt !== this.#state.liveAt ? now : this.#state.liveAtReceivedAt;
+    this.#set({ ...next, liveAtReceivedAt, lastFrameAt: now, connection: 'live', received: this.#state.received + 1 });
     if (frame.type === 'snapshot') this.#memoryRefresh.invalidateVisible();
     if (frame.type === 'session.updated' && frame.payload.memoryChanged) this.#memoryRefresh.invalidate(frame.payload.id);
     this.#scheduleRefresh();
+  }
+
+  #heartbeat(): void {
+    const becameLive = this.#state.connection !== 'live';
+    this.#set({ ...this.#state, lastFrameAt: this.#lastActivityAt, connection: 'live', received: this.#state.received + 1 });
+    if (becameLive) this.#scheduleRefresh();
   }
 
   #scheduleRefresh(): void {

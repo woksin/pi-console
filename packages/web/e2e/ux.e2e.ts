@@ -206,6 +206,28 @@ test('1100px navigation is an icon rail, Fleet fits, and transcript controls do 
   await page.context().close();
 });
 
+test('request state filters wrap at 768px and every filter stays inside the viewport and clickable', async () => {
+  const page = await rig.open('/requests', { width: 768, height: 900 });
+  try {
+    const filters = page.getByRole('tablist', { name: 'Request state' });
+    const tabs = filters.getByRole('tab');
+    await tabs.last().waitFor();
+    assert.deepEqual(await tabs.allTextContents(), ['All', 'Open', 'Answered', 'Unanswered', 'Interrupted', 'Uncertain', 'Possibly unseen']);
+    assert.equal(await filters.evaluate(node => {
+      const rows = new Set(Array.from(node.children, child => child.getBoundingClientRect().top));
+      return rows.size > 1;
+    }), true, 'filters wrap onto multiple rows');
+    for (const tab of await tabs.all()) {
+      assert.equal(await tab.evaluate(node => {
+        const rect = node.getBoundingClientRect();
+        return rect.left >= 0 && rect.right <= innerWidth && rect.top >= 0 && rect.bottom <= innerHeight;
+      }), true, `${await tab.innerText()} is inside the viewport before clicking`);
+      await tab.click();
+      assert.equal(await tab.getAttribute('aria-selected'), 'true');
+    }
+  } finally { await page.context().close(); }
+});
+
 test('compact human requests fit six per viewport while detail keeps full text', async () => {
   const fixture = rig.daemon.store.fixture;
   const original = fixture.requests;

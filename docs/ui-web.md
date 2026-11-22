@@ -25,6 +25,8 @@ Checks: `npm test -w @pi-console/web` (unit), `npm run e2e -w @pi-console/web` (
 - **Live and honest**: an SSE stream with resume (`Last-Event-ID`), a snapshot refetch on a gap, and backoff. When the daemon goes away the last data stays on screen under a banner (see `offline.png`) and the UI reconnects by itself. Needs-you/health refreshes are debounced with a trailing refresh, never dropped while one is in flight.
 - **Jump to the exact line**: "Open in session" on an attention item pages the transcript history until the entry is present (retention is 2,500 lines, raised to 20,000 for a deliberate jump), scrolls once, and highlights it.
 - **Follow / pause**: the transcript follows the tail. Scrolling up (wheel, touch, PageUp/↑/Home) or `f` pauses it, and while paused the viewport is pinned to a line id, so evicted or merged history never shifts what you are reading.
+- **Timeline details**: click a marker, or focus it and press `Enter` / `Space`, to read its kind, lane, session id, timestamp and full text below the timeline.
+- **Timeline history**: bounded collections show loaded/total counts for sessions, requests, questions, messages and resets, independent of zoom. Each collection has a **Load older** button until its history is complete; a limited-history notice warns when older data may be missing.
 - Long transcripts use `content-visibility` rather than virtualization (accepted for M1).
 
 ## Memory review
