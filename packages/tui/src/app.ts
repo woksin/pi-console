@@ -7,7 +7,7 @@ import { terminalContentWidth } from './state/session-layout.ts';
 import { emptyLayout, resumeTranscript, transcriptViewport } from './state/transcript-window.ts';
 import { neutralKey, typedCharacter, type KeyInput } from './state/keys.ts';
 import { Header, banner, footerLine, pulseLine, terminalTitle } from './shell/chrome.ts';
-import { Help, Palette, Settings } from './shell/overlays.ts';
+import { Help, Palette, Settings, helpViewport } from './shell/overlays.ts';
 import { collectionToLoad, countsOf, memoryInput, type RequestMemoryAction } from './app-input.ts';
 import type { Env, SectionView } from './views/common.ts';
 import { overviewView } from './views/overview.ts';
@@ -95,7 +95,8 @@ export function App(props: AppProps): ReactElement {
     const memory = memoryInput(uiRef.current, neutralKey(key), dataRef.current, size.width, props.requestMemoryAction);
     if (memory) { apply(memory); return; }
     const current = viewRef.current;
-    apply(nextState(uiRef.current, key, { palette: dataRef.current, view: current, bounds: boundsOf(current, heightRef.current), copy }));
+    const bounds = { ...boundsOf(current, heightRef.current), help: helpViewport(size).bounds };
+    apply(nextState(uiRef.current, key, { palette: dataRef.current, view: current, bounds, copy }));
   });
 
   useTerminalTitle(terminalTitle(ui, data));
@@ -122,7 +123,7 @@ interface Size { width: number; height: number }
 
 function overlays(ui: UiState, data: ReturnType<Store['getSnapshot']>, input: Parameters<typeof Settings>[0]['input'], size: Size): ReactElement[] {
   if (ui.overlay === 'palette') return [h(Palette, { ui, data, width: size.width, height: size.height })];
-  if (ui.overlay === 'help') return [h(Help, { width: size.width, height: size.height })];
+  if (ui.overlay === 'help') return [h(Help, { width: size.width, height: size.height, scroll: ui.helpScroll })];
   if (ui.overlay === 'settings') return [h(Settings, { input, width: size.width, height: size.height })];
   return [];
 }

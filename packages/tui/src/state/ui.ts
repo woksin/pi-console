@@ -13,6 +13,7 @@ export interface UiState {
   /** The open session, shown as a full-screen detail over the current section. */
   sessionId: string | null;
   overlay: Overlay;
+  helpScroll: number;
   /** The text being typed in the palette, filter or transcript search. */
   input: string;
   paletteIndex: number;
@@ -43,13 +44,13 @@ export interface UiState {
 }
 
 export const initial: UiState = {
-  section: 'overview', sessionId: null, overlay: 'none', input: '', paletteIndex: 0, recents: [], filter: '',
+  section: 'overview', sessionId: null, overlay: 'none', helpScroll: 0, input: '', paletteIndex: 0, recents: [], filter: '',
   cursor: { overview: 0, fleet: 0, requests: 0, questions: 0, messages: 0, timeline: 0, work: 0 },
   collapsed: [], follow: true, anchor: null, requestFilter: { state: 'all', origin: 'all', sessionId: null }, focusEntry: null, search: '', questionDetail: false, detailScroll: 0, pane: 'requests', memoryIndex: 0, messagesGraph: false, window: null, scrub: false, scrubColumn: 0, quit: false, notice: '',
 };
 
 /** What the reducer needs to know about the rendered world; supplied by the view layer. */
-export interface Bounds { length: number; page: number; fit: TimeWindow; width: number; rowAt: (index: number) => { sessionId: string | null; groupId: string | null; entryId?: string | null }; sessionIds?: readonly string[]; transcript: TranscriptLayout; viewport: number; detail?: { max: number; page: number } }
+export interface Bounds { length: number; page: number; fit: TimeWindow; width: number; rowAt: (index: number) => { sessionId: string | null; groupId: string | null; entryId?: string | null }; sessionIds?: readonly string[]; transcript: TranscriptLayout; viewport: number; detail?: { max: number; page: number }; help?: { max: number; page: number } }
 
 const contextRules: readonly (readonly [(state: UiState) => boolean, KeyContext])[] = [
   [state => state.overlay === 'palette', 'palette'],
@@ -149,7 +150,7 @@ const handlers: Partial<Record<Action, Handler>> = {
   'palette.open': state => ({ ...state, overlay: 'palette', input: '', paletteIndex: 0 }),
   'filter.open': state => (state.sessionId ? { ...state, overlay: 'search', input: state.search } : { ...state, overlay: 'filter', input: state.filter }),
   'settings.open': state => ({ ...state, overlay: 'settings' }),
-  'help.toggle': state => ({ ...state, overlay: state.overlay === 'help' ? 'none' : 'help' }),
+  'help.toggle': state => ({ ...state, overlay: state.overlay === 'help' ? 'none' : 'help', helpScroll: 0 }),
   'back': state => back(state),
   'open': (state, bounds) => open(state, bounds),
   'filter.next': requestFilters, 'filter.previous': requestFilters, 'filter.origin': requestFilters, 'filter.session': requestFilters,
@@ -173,10 +174,20 @@ function detailPosition(position: number, action: Action, bounds: Bounds['detail
   return next === undefined ? undefined : Math.max(0, Math.min(max, next));
 }
 
+function scrollDetail(state: UiState, action: Action, bounds: Bounds): UiState | undefined {
+  if (state.overlay === 'help') {
+    const position = detailPosition(state.helpScroll, action, bounds.help);
+    return position === undefined ? undefined : { ...state, helpScroll: position };
+  }
+  if (!state.questionDetail || state.overlay !== 'none') return undefined;
+  const position = detailPosition(state.detailScroll, action, bounds.detail);
+  return position === undefined ? undefined : { ...state, detailScroll: position };
+}
+
 /** Applies a resolved keymap action. Returns the same state object when nothing changed. */
 export function reduce(state: UiState, action: Action, bounds: Bounds): UiState {
-  const position = state.questionDetail && state.overlay === 'none' ? detailPosition(state.detailScroll, action, bounds.detail) : undefined;
-  if (position !== undefined) return { ...state, detailScroll: position };
+  const scrolled = scrollDetail(state, action, bounds);
+  if (scrolled) return scrolled;
   const target = sectionActions[action];
   if (target) return goto(state, target);
   return handlers[action]?.(state, bounds, action) ?? state;
@@ -190,8 +201,10 @@ function toggleGroup(state: UiState, bounds: Bounds): UiState {
 }
 
 /** Resolves a neutral key in the current state, then reduces; text fields are handled by `typing`. */
+const helpKeys: Record<string, Action> = { ArrowUp: 'move.up', k: 'move.up', ArrowDown: 'move.down', j: 'move.down', PageUp: 'page.up', PageDown: 'page.down', Home: 'move.top', g: 'move.top', End: 'move.bottom', G: 'move.bottom' };
+
 export function handleKey(state: UiState, key: string, bounds: Bounds): UiState {
-  const action = resolve(contextOf(state), key);
+  const action = state.overlay === 'help' ? helpKeys[key] ?? resolve('help', key) : resolve(contextOf(state), key);
   return action ? reduce(state, action, bounds) : state;
 }
 
