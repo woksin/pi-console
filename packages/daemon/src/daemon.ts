@@ -9,7 +9,7 @@ import type { TranscriptReader } from './api/transcripts.ts';
 import { FileTranscriptReader } from './api/file-transcripts.ts';
 import { TranscriptSources } from './api/transcript-sources.ts';
 import { healthOf, settingsOf } from './api/health.ts';
-import { apiPrefix, authenticate, checkSource, exchangeToken, HttpError, streamPath } from './security/guard.ts';
+import { apiPrefix, authenticate, checkSource, HttpError, streamPath } from './security/guard.ts';
 import { Credentials, loadToken } from './security/token.ts';
 import { MemoryActions } from './memory/actions.ts';
 import { isMemoryApiPath, memoryApi } from './memory/api.ts';
@@ -104,8 +104,7 @@ function handler(parts: HandlerParts): Handler {
     try {
       const url = new URL(req.url ?? '/', 'http://127.0.0.1');
       checkSource(req, parts.port());
-      if (url.searchParams.has('token')) exchangeToken(req, res, url, parts.credentials);
-      else if (url.pathname === apiPrefix || url.pathname.startsWith(`${apiPrefix}/`)) await api(parts, req, res, url);
+      if (url.pathname === apiPrefix || url.pathname.startsWith(`${apiPrefix}/`)) await api(parts, req, res, url);
       else if (url.pathname.startsWith('/api/')) throw new HttpError(404, 'Not found');
       else await serveStatic(parts.webDist, req, res, url);
     } catch (error) {

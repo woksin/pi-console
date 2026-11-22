@@ -186,7 +186,7 @@ Everything is derived from the append-only event log, so every screen can be reb
 pi sessions can run shell commands and hold credentials, so the console treats its own surface as hostile territory. The full threat model is in [docs/security.md](docs/security.md) and [ADR-0006](docs/adr/0006-security-model.md).
 
 - **Loopback only.** The daemon binds `127.0.0.1`; a Host allowlist and an Origin check (plus a CSRF header for writes) defend against DNS rebinding and cross-site requests.
-- **Token on every request.** A 256-bit random token in an owner-only (0600) file, removed from the URL after exchange, `HttpOnly` cookie, rotation and scoped read-only tokens.
+- **Token on every request.** A 256-bit random token in an owner-only (0600) file, sent as a bearer header, with rotation and scoped read-only tokens. Web launch links use a fragment that is immediately scrubbed; query tokens and cookies do not authenticate.
 - **Strict CSP.** The web bundle is served with a strict Content-Security-Policy and no external network.
 - **Transcripts are untrusted text.** Model and attacker-written content is rendered as text, never HTML; control sequences are stripped in the TUI.
 - **Read-only in M1.** No intervention path exists yet; later writes are typed commands with an audit trail.

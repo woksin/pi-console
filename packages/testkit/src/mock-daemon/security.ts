@@ -37,35 +37,14 @@ function checkSource(req: IncomingMessage, port: number) {
   const origins = hosts.map(host => `http://${host}`);
   refuseUnless(!req.headers.origin || origins.includes(req.headers.origin), 'Origin not allowed');
 }
-function exchangeToken(req: IncomingMessage, res: ServerResponse, url: URL, token: string) {
-  if (!equalToken(url.searchParams.get('token')!, token)) throw new HttpError(401, 'Unauthorized');
-  if (req.method !== 'GET') throw new HttpError(400, 'Token exchange requires GET');
-  res.setHeader('Set-Cookie', `piConsoleToken=${token}; HttpOnly; SameSite=Strict; Path=/api/v1`);
-  url.searchParams.delete('token');
-  res.writeHead(303, { Location: url.pathname + url.search });
-  res.end();
-  return false;
-}
 function bearerToken(req: IncomingMessage) {
   const authorization = req.headers.authorization;
   if (!authorization?.startsWith('Bearer ')) return undefined;
   return authorization.slice(7);
 }
-function cookieToken(req: IncomingMessage) {
-  const cookies = (req.headers.cookie ?? '').split(';').map(value => value.trim());
-  return cookies.find(value => value.startsWith('piConsoleToken='))?.slice(15);
-}
-function checkBrowserRequest(req: IncomingMessage, url: URL) {
-  const post = req.method === 'POST';
-  refuseUnless(!(post || url.pathname === '/api/v1/stream') || Boolean(req.headers.origin), 'Bearer token required without Origin');
-  refuseUnless(!post || req.headers['x-pi-console-csrf'] === '1', 'CSRF header required');
-}
 export function authenticate(req: IncomingMessage, res: ServerResponse, url: URL, credentials: { port: number; token: string }) {
   const { port, token } = credentials;
   checkSource(req, port);
-  if (url.searchParams.has('token')) return exchangeToken(req, res, url, token);
-  if (equalToken(bearerToken(req), token)) return true;
-  if (!equalToken(cookieToken(req), token)) throw new HttpError(401, 'Unauthorized');
-  checkBrowserRequest(req, url);
+  if (!equalToken(bearerToken(req), token)) throw new HttpError(401, 'Unauthorized');
   return true;
 }
