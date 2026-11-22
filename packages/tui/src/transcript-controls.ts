@@ -8,20 +8,33 @@ import type { TranscriptLoad, TranscriptProgress } from './store/transcript-hist
 export type PageTranscript = (id: string, direction?: TranscriptLoad) => void;
 interface WindowState { ui: UiState; data: Data; layout: TranscriptLayout; viewport: number }
 interface Navigation extends WindowState { key: string; load?: PageTranscript }
-const olderActions = new Set(['move.up', 'page.up', 'move.top']);
-const newerActions = new Set(['move.down', 'page.down', 'move.bottom']);
+type Edge = 'older' | 'newer' | 'tail';
+const actionEdges: Readonly<Record<string, Edge | undefined>> = {
+  'move.up': 'older', 'page.up': 'older', 'move.top': 'older',
+  'move.down': 'newer', 'page.down': 'newer', 'move.bottom': 'newer',
+  'follow.toggle': 'tail',
+};
 
 function progressOf({ ui, data }: WindowState): TranscriptProgress | undefined {
   if (!ui.sessionId) return undefined;
   return contextOf(ui) === 'transcript' ? data.transcriptHistory.get(ui.sessionId) : undefined;
 }
 
-function edgeDirection(action: string, state: WindowState, progress: TranscriptProgress): TranscriptLoad | undefined {
-  if (action === 'follow.toggle' && progress.newer) return 'tail';
+function availableEdges(state: WindowState, progress: TranscriptProgress): Record<Edge, boolean> {
   const window = transcriptWindow(state.layout, state.ui, state.viewport);
-  if (olderActions.has(action) && window.start === 0) return progress.older ? 'older' : undefined;
-  if (newerActions.has(action) && window.end === (state.layout.ends.at(-1) ?? 0)) return progress.newer ? 'newer' : undefined;
-  return undefined;
+  const last = state.layout.ends.at(-1) ?? 0;
+  return { tail: progress.newer, older: window.start === 0 && progress.older, newer: window.end === last && progress.newer };
+}
+
+function edgeDirection(action: string, state: WindowState, progress: TranscriptProgress): Edge | undefined {
+  const edge = actionEdges[action];
+  if (!edge) return undefined;
+  return availableEdges(state, progress)[edge] ? edge : undefined;
+}
+
+function navigationDirection(state: Navigation, progress: TranscriptProgress): TranscriptLoad | undefined {
+  const action = resolve('transcript', state.key, 'tui') ?? '';
+  return state.key === 'r' ? progress.error : edgeDirection(action, state, progress);
 }
 
 /** Navigation beyond a retained edge fetches one page; r retries the failed operation. */
@@ -30,8 +43,7 @@ export function transcriptNavigation(state: Navigation): UiState | undefined {
   if (!id) return undefined;
   const progress = progressOf(state);
   if (!progress) return undefined;
-  const action = resolve('transcript', state.key, 'tui') ?? '';
-  const direction = state.key === 'r' ? progress.error : edgeDirection(action, state, progress);
+  const direction = navigationDirection(state, progress);
   if (!direction) return undefined;
   state.load?.(id, direction);
   return state.key === 'r' ? state.ui : { ...state.ui, ...pauseTranscript(state.layout, state.ui, state.viewport) };
