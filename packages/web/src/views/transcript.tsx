@@ -2,22 +2,29 @@ import { glyphs, type ResetRequest, type TranscriptLine } from '@pi-console/view
 import { useListNav } from '../app/hooks.ts';
 import { focusKey } from './transcript-jump.ts';
 import { useTranscriptScroll } from './transcript-scroll.ts';
-import { EmptyState } from '../ui/primitives.tsx';
+import { TranscriptEmptyState, TranscriptHistoryBar, useTranscriptHistoryPaging } from './transcript-history-bar.tsx';
+import type { TranscriptProgress } from '../state/transcript-history.ts';
 
-interface TranscriptProps { lines: readonly TranscriptLine[]; focusEntry: string | null; searching: boolean }
+interface TranscriptProps {
+  lines: readonly TranscriptLine[]; focusEntry: string | null; searching: boolean;
+  progress?: TranscriptProgress;
+  onPage: (direction: 'older' | 'newer') => void; onLive: () => void;
+  onResume: () => void; onFollow: (following: boolean) => void;
+}
 
 /** Every character is rendered as a React text node (escaped); transcript text is never interpreted as markup. */
-export function Transcript({ lines, focusEntry, searching }: TranscriptProps) {
-  const scroll = useTranscriptScroll(lines, focusEntry);
+export function Transcript({ lines, focusEntry, searching, progress, onPage, onLive, onResume, onFollow }: TranscriptProps) {
+  const scroll = useTranscriptScroll(lines, focusEntry, onResume, onFollow);
+  const history = useTranscriptHistoryPaging(scroll, progress, searching, onPage);
   const nav = useListNav(lines.map(line => String(line.key)), {
     initial: focusKey(lines, focusEntry), fallback: String(lines.at(-1)?.key),
     onMove: key => { scroll.pause(); document.getElementById(`line-${key}`)?.scrollIntoView({ block: 'nearest' }); scroll.remember(); },
   });
-  if (lines.length === 0) return <EmptyState title={searching ? 'No lines match' : 'No transcript yet'} mark="…">{searching ? 'Clear the search to see the whole transcript.' : 'Lines stream in here as the agent works.'}</EmptyState>;
   return (
     <div className="transcript-shell">
-      <div className="transcript-controls"><button type="button" className="btn follow" aria-pressed={scroll.follow} onClick={scroll.toggleFollow}>{scroll.follow ? '● Following' : '○ Follow tail'} <kbd className="kbd">f</kbd></button></div>
-      <div ref={scroll.pane} onScroll={scroll.onScroll} className="transcript" role="log" aria-live="off" aria-label="Transcript lines">
+      <TranscriptHistoryBar scroll={scroll} progress={progress} onPage={history.page} onLive={onLive} />
+      <div ref={scroll.pane} onScroll={history.onScroll} className="transcript" role="log" aria-live="off" aria-label="Transcript lines">
+      <TranscriptEmptyState empty={lines.length === 0} searching={searching} progress={progress} />
       {lines.map(line => <Line key={line.key} line={line} selected={nav.selected === String(line.key)} focused={line.id === focusEntry} onSelect={() => { nav.select(String(line.key)); scroll.pause(); }} />)}
       <div ref={scroll.end} />
       </div>

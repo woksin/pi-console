@@ -1,4 +1,4 @@
-import type { KeyContext } from '@pi-console/viewmodels';
+import { resolve, type Action, type KeyContext } from '@pi-console/viewmodels';
 import { sectionFor, type Route } from './routes.ts';
 
 const named: Record<string, string> = { ' ': 'Space', Escape: 'Esc' };
@@ -18,6 +18,11 @@ export const isTyping = (target: EventTarget | null): boolean =>
 /** Focused controls own activation keys, not navigation or overlay shortcuts. */
 export const nativeActivation = (key: string | null, target: EventTarget | null): boolean =>
   (key === 'Enter' || key === 'Space') && target instanceof Element && target.closest('a, button, input, textarea, select, summary, [role="button"], [role="link"]') !== null;
+
+/** Session detail owns its existing bindings and falls back to its transcript for documented reader shortcuts. */
+export function resolveWebKey(context: KeyContext, key: string): Action | undefined {
+  return resolve(context, key, 'web') ?? (context === 'detail' ? resolve('transcript', key, 'web') : undefined);
+}
 
 export interface ContextInput { route: Route; palette: boolean; help: boolean }
 
