@@ -61,7 +61,8 @@ test('pausing follow keeps the transcript viewport fixed while entries arrive, a
   const merge = async (entries: TranscriptEntry[]) => { for (const id of ids) harness.runtime.store.mergeTranscript(id, entries.map(item => ({ ...item, sessionId: id }))); await quiet(); };
   await merge([entry(0)]);
   await harness.ui.press('f'); await harness.ui.waitFor('paused');
-  const body = (frame: string) => frame.split('\n').filter(line => !line.includes('paused') && !line.startsWith(' pulse ')).join('\n');
+  const live = /need you|all clear|attention unavailable|checking…|stale|^ pulse /;
+  const body = (frame: string) => frame.split('\n').filter(line => !line.includes('paused') && !live.test(line)).join('\n');
   const before = body(harness.ui.frame());
   assert.match(before, /LIVE-MARK-0/);
   await merge([entry(1), entry(2)]);

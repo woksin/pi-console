@@ -400,6 +400,10 @@ describe('web console e2e', () => {
       const found = [...(pane?.querySelectorAll('[id^="line-"]') ?? [])].find(node => node.getBoundingClientRect().bottom > edge + 1);
       return found ? [found.id, Math.round(found.getBoundingClientRect().top - edge)] : null;
     });
+    await page.waitForFunction(() => new Promise<boolean>(resolve => {
+      const top = document.querySelector('.transcript')?.scrollTop;
+      requestAnimationFrame(() => requestAnimationFrame(() => { resolve(document.querySelector('.transcript')?.scrollTop === top); }));
+    }), undefined, { polling: 100 });
     const before = await probe();
     await page.waitForTimeout(1500);
     assert.deepEqual(await probe(), before, 'the viewport stays anchored while the transcript changes');
