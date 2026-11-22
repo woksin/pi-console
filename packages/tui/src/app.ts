@@ -153,7 +153,7 @@ function runPalette(state: UiState, data: PaletteData, bounds: Bounds): UiState 
   const item = items[Math.min(state.paletteIndex, items.length - 1)];
   const closed: UiState = { ...state, overlay: 'none', input: '', paletteIndex: 0, recents: item ? rememberPick(state.recents, item.id) : state.recents };
   if (!item) return closed;
-  if (item.target.kind === 'session') return { ...closed, sessionId: item.target.sessionId, ...resumeTranscript, search: '', focusEntry: item.target.entryId ?? null };
+  if (item.target.kind === 'session') return { ...closed, sessionId: item.target.sessionId, ...resumeTranscript, search: '', focusEntry: item.target.entryId ?? null, questionDetail: false, detailScroll: 0 };
   return reduce(closed, item.target.action, bounds);
 }
 

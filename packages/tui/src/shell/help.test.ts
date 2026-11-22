@@ -5,7 +5,7 @@ import { App } from '../app.ts';
 import { Store } from '../store/store.ts';
 import { h, mountHeadless } from '../view/renderer.ts';
 
-test('80x24: Help scrolls through every shared binding and shows its position without moving the underlying list', async () => {
+test('80x24: Help scrolls through every shared binding and shows its position', async () => {
   const store = new Store();
   const ui = await mountHeadless(h(App, { store, endpoint: 'http://localhost', tokenSource: 'test', animate: false, loadTranscript: () => undefined, loadMemory: () => undefined, onQuit: () => undefined }), { width: 80, height: 24 });
   try {

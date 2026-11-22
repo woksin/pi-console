@@ -52,6 +52,13 @@ export const initial: UiState = {
 /** What the reducer needs to know about the rendered world; supplied by the view layer. */
 export interface Bounds { length: number; page: number; fit: TimeWindow; width: number; rowAt: (index: number) => { sessionId: string | null; groupId: string | null; entryId?: string | null }; sessionIds?: readonly string[]; transcript: TranscriptLayout; viewport: number; detail?: { max: number; page: number }; help?: { max: number; page: number } }
 
+interface ActionBounds extends Bounds { questionDetailShown: boolean }
+
+/** Detail bounds are supplied only by the narrow Questions layout. */
+const questionDetailAvailable = (state: UiState, layout: Pick<Bounds, 'width' | 'detail'>): boolean => state.sessionId === null && state.section === 'questions' && layout.width < 110 && layout.detail !== undefined;
+export const questionDetailShown = (state: UiState, layout: Pick<Bounds, 'width' | 'detail'>): boolean => state.questionDetail && questionDetailAvailable(state, layout);
+const withoutQuestionDetail = (state: UiState): UiState => state.questionDetail ? { ...state, questionDetail: false, detailScroll: 0 } : state;
+
 const contextRules: readonly (readonly [(state: UiState) => boolean, KeyContext])[] = [
   [state => state.overlay === 'palette', 'palette'],
   [state => state.overlay === 'filter' || state.overlay === 'search', 'filter'],
@@ -85,9 +92,9 @@ function moveTranscript(state: UiState, action: Action, bounds: Bounds): UiState
 
 const goto = (state: UiState, section: Section): UiState => ({ ...state, section, sessionId: null, focusEntry: null, overlay: 'none', filter: '', scrub: false, questionDetail: false, detailScroll: 0 });
 
-const opensQuestionDetail = (state: UiState, bounds: Bounds): boolean => state.section === 'questions' && bounds.detail !== undefined && bounds.length > 0;
+const opensQuestionDetail = (state: UiState, bounds: ActionBounds): boolean => questionDetailAvailable(state, bounds) && !bounds.questionDetailShown && bounds.length > 0;
 
-function open(state: UiState, bounds: Bounds): UiState {
+function open(state: UiState, bounds: ActionBounds): UiState {
   if (opensQuestionDetail(state, bounds)) return { ...state, questionDetail: true, detailScroll: 0 };
   const row = bounds.rowAt(state.cursor[state.section]);
   if (!row.sessionId) return row.groupId ? toggleGroup(state, bounds) : state;
@@ -95,9 +102,9 @@ function open(state: UiState, bounds: Bounds): UiState {
   return { ...state, sessionId, ...resumeTranscript, search: '', pane: 'requests', focusEntry: row.entryId ?? null, questionDetail: false, detailScroll: 0 };
 }
 
-function back(state: UiState): UiState {
+function back(state: UiState, bounds: ActionBounds): UiState {
   if (state.overlay !== 'none') return { ...state, overlay: 'none', input: '' };
-  if (state.questionDetail) return { ...state, questionDetail: false, detailScroll: 0 };
+  if (bounds.questionDetailShown) return { ...state, questionDetail: false, detailScroll: 0 };
   if (state.scrub) return { ...state, scrub: false };
   if (state.sessionId) return { ...state, sessionId: null, search: '', focusEntry: null };
   return state.filter ? { ...state, filter: '' } : state;
@@ -131,7 +138,7 @@ function cyclePane(state: UiState, direction: number): UiState {
   return { ...state, pane: sidePanes[next] };
 }
 
-type Handler = (state: UiState, bounds: Bounds, action: Action) => UiState;
+type Handler = (state: UiState, bounds: ActionBounds, action: Action) => UiState;
 
 const onRequestsList = (state: UiState): boolean => state.section === 'requests' && !state.sessionId;
 
@@ -151,7 +158,7 @@ const handlers: Partial<Record<Action, Handler>> = {
   'filter.open': state => (state.sessionId ? { ...state, overlay: 'search', input: state.search } : { ...state, overlay: 'filter', input: state.filter }),
   'settings.open': state => ({ ...state, overlay: 'settings' }),
   'help.toggle': state => ({ ...state, overlay: state.overlay === 'help' ? 'none' : 'help', helpScroll: 0 }),
-  'back': state => back(state),
+  'back': (state, bounds) => back(state, bounds),
   'open': (state, bounds) => open(state, bounds),
   'filter.next': requestFilters, 'filter.previous': requestFilters, 'filter.origin': requestFilters, 'filter.session': requestFilters,
   'follow.toggle': (state, bounds) => ({ ...state, focusEntry: null, ...(state.follow ? pauseTranscript(bounds.transcript, state, bounds.viewport) : resumeTranscript) }),
@@ -174,23 +181,25 @@ function detailPosition(position: number, action: Action, bounds: Bounds['detail
   return next === undefined ? undefined : Math.max(0, Math.min(max, next));
 }
 
-function scrollDetail(state: UiState, action: Action, bounds: Bounds): UiState | undefined {
+function scrollDetail(state: UiState, action: Action, bounds: ActionBounds): UiState | undefined {
   if (state.overlay === 'help') {
     const position = detailPosition(state.helpScroll, action, bounds.help);
     return position === undefined ? undefined : { ...state, helpScroll: position };
   }
-  if (!state.questionDetail || state.overlay !== 'none') return undefined;
+  if (!bounds.questionDetailShown || state.overlay !== 'none') return undefined;
   const position = detailPosition(state.detailScroll, action, bounds.detail);
   return position === undefined ? undefined : { ...state, detailScroll: position };
 }
 
 /** Applies a resolved keymap action. Returns the same state object when nothing changed. */
 export function reduce(state: UiState, action: Action, bounds: Bounds): UiState {
-  const scrolled = scrollDetail(state, action, bounds);
+  const context: ActionBounds = { ...bounds, questionDetailShown: questionDetailShown(state, bounds) };
+  const current = context.questionDetailShown ? state : withoutQuestionDetail(state);
+  const scrolled = scrollDetail(current, action, context);
   if (scrolled) return scrolled;
   const target = sectionActions[action];
-  if (target) return goto(state, target);
-  return handlers[action]?.(state, bounds, action) ?? state;
+  if (target) return goto(current, target);
+  return handlers[action]?.(current, context, action) ?? current;
 }
 
 function toggleGroup(state: UiState, bounds: Bounds): UiState {

@@ -26,6 +26,35 @@ test('number keys switch sections and the cursor stays within the list', () => {
   assert.equal(reduce(fleet, 'move.bottom', bounds).cursor.fleet, 4);
 });
 
+const staleQuestionDetail = { ...initial, section: 'questions' as const, questionDetail: true, detailScroll: 20, filter: 'needle' };
+const questionBounds = { ...bounds, detail: { max: 100, page: 10 } };
+const hiddenDetails = [
+  { name: 'wide Questions', state: staleQuestionDetail, bounds: { ...bounds, width: 138 } },
+  { name: 'wide Questions with stale detail bounds', state: staleQuestionDetail, bounds: { ...questionBounds, width: 138 } },
+  { name: 'another section', state: { ...staleQuestionDetail, section: 'requests' as const }, bounds: questionBounds },
+  { name: 'an open session', state: { ...staleQuestionDetail, sessionId: 's1' }, bounds },
+  { name: 'a session with stale detail bounds', state: { ...staleQuestionDetail, sessionId: 's1' }, bounds: questionBounds },
+];
+for (const scenario of hiddenDetails) {
+  test(`hidden question detail cannot intercept navigation or Esc in ${scenario.name}`, () => {
+    const cleared = { ...scenario.state, questionDetail: false, detailScroll: 0 };
+    for (const action of ['move.up', 'move.down', 'page.up', 'page.down', 'move.top', 'move.bottom', 'back', 'open'] as const) {
+      const next = reduce(scenario.state, action, scenario.bounds);
+      assert.deepEqual(next, reduce(cleared, action, scenario.bounds), action);
+      assert.equal(next.questionDetail, false, action);
+    }
+  });
+}
+
+test('Enter in a displayed narrow question detail opens its session', () => {
+  const detail = reduce({ ...initial, section: 'questions' }, 'open', questionBounds);
+  assert.equal(detail.questionDetail, true);
+  const opened = reduce(detail, 'open', questionBounds);
+  assert.equal(opened.sessionId, 's0');
+  assert.equal(opened.questionDetail, false);
+  assert.equal(opened.detailScroll, 0);
+});
+
 test('open and back move between a list and a session', () => {
   const opened = reduce({ ...initial, section: 'fleet', cursor: { ...initial.cursor, fleet: 2 } }, 'open', bounds);
   assert.equal(opened.sessionId, 's2');
