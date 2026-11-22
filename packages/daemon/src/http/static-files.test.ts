@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { call } from '@pi-console/testkit';
 import { specDaemon } from '../testing/harness.ts';
-import { pageCsp } from './static-files.ts';
+import { isUsableWebBundle, pageCsp } from './static-files.ts';
 
 function webBundle(t: { after(fn: () => void): void }): string {
   const root = mkdtempSync(join(tmpdir(), 'pi-console-web-'));
@@ -60,4 +60,45 @@ test('a missing or unconfigured bundle is a plain 404 and the API keeps working'
     const api = await call(spec.daemon.port, '/api/v1/overview', { headers: { Authorization: `Bearer ${spec.token}` } });
     assert.equal(api.status, 200);
   }
+});
+
+test('without a usable web bundle the response carries the API-only hint and never the token', async t => {
+  const missing = join(mkdtempSync(join(tmpdir(), 'pi-console-web-')), 'no-such-dist');
+  t.after(() => { rmSync(join(missing, '..'), { recursive: true, force: true }); });
+  for (const webDist of [undefined, missing]) {
+    const spec = await specDaemon(undefined, { webDist });
+    t.after(() => spec.close());
+    const page = await call(spec.daemon.port, '/');
+    assert.equal(page.status, 404);
+    assert.match(page.text, /API only: start with --web-dist <path to packages\/web\/dist> to serve the web console/);
+    assert.equal(page.text.includes(spec.token), false);
+    assert.equal(page.text.includes('#token='), false);
+  }
+});
+
+test('a bundle whose index.html is a directory or links outside it is unusable, and the server and the shared check agree', async t => {
+  const root = mkdtempSync(join(tmpdir(), 'pi-console-web-'));
+  t.after(() => { rmSync(root, { recursive: true, force: true }); });
+  writeFileSync(join(root, 'outside.html'), 'outside');
+  const asDirectory = join(root, 'dir');
+  mkdirSync(join(asDirectory, 'index.html'), { recursive: true });
+  const asLink = join(root, 'link');
+  mkdirSync(asLink);
+  symlinkSync(join(root, 'outside.html'), join(asLink, 'index.html'));
+  const good = webBundle(t);
+  assert.equal(await isUsableWebBundle(good), true);
+  assert.equal(await isUsableWebBundle(undefined), false);
+  assert.equal(await isUsableWebBundle(join(root, 'missing')), false);
+  for (const webDist of [asDirectory, asLink]) {
+    assert.equal(await isUsableWebBundle(webDist), false);
+    const spec = await specDaemon(undefined, { webDist });
+    t.after(() => spec.close());
+    const page = await call(spec.daemon.port, '/');
+    assert.equal(page.status, 404);
+    assert.match(page.text, /API only: start with --web-dist/);
+  }
+});
+
+test('serveStatic makes no synchronous filesystem call per request', () => {
+  assert.equal(/\b\w+Sync\b/.test(readFileSync(new URL('./static-files.ts', import.meta.url), 'utf8')), false);
 });
