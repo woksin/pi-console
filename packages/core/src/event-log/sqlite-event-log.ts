@@ -1,4 +1,5 @@
 import { DatabaseSync, type StatementSync } from 'node:sqlite';
+import { setImmediate as nextMacrotask } from 'node:timers/promises';
 import {
   validateEnvelope, type AppendResult, type EventEnvelope, type EventLog, type NewEvent, type SourceCheckpoint,
 } from '@pi-console/contract';
@@ -8,7 +9,10 @@ export interface SqliteEventLogOptions {
   now?: () => Date;
   /** Page size for `readFrom` and subscriber catch-up. */
   pageSize?: number;
-  /** Events a subscriber receives synchronously before the rest of a large append continues on a later macrotask. */
+  /**
+   * Events delivered synchronously (to a subscriber, or by one `readFrom` run) before the rest continues on a later
+   * macrotask, so timers and I/O run during a long replay. One event's own work is never preempted.
+   */
   sliceEvents?: number;
 }
 
@@ -111,13 +115,18 @@ export class SqliteEventLog implements EventLog {
   async *readFrom(afterSeq: number, limit = Number.MAX_SAFE_INTEGER): AsyncIterable<EventEnvelope> {
     let position = afterSeq;
     let remaining = limit;
+    let budget = this.#sliceEvents;
     while (remaining > 0) {
-      const page = this.readPage(position, Math.min(remaining, this.#pageSize));
+      const page = this.readPage(position, Math.min(remaining, this.#pageSize, budget));
       if (page.length === 0) return;
       for (const event of page) yield event;
       position = page[page.length - 1].seq;
       remaining -= page.length;
-      await Promise.resolve();
+      budget -= page.length;
+      if (budget <= 0) {
+        budget = this.#sliceEvents;
+        await nextMacrotask();
+      }
     }
   }
 

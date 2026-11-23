@@ -74,3 +74,22 @@ test('a slow SSE consumer is disconnected instead of buffering without bound', a
   assert.equal(spec.daemon.stream.clients, 0);
   stream.close();
 });
+
+test('a restart over normalized request histories serves the same requests after restart', async t => {
+  const events = [sessionStarted(1, 's1')];
+  for (let n = 0; n < 40; n++) {
+    events.push(testEvent(2 + n * 2, 'RequestObserved', { raw: true, sessionId: 's1', requestId: `r${n}`, entryId: `p${n}`, excerpt: `prompt ${n}`, origin: 'unproven', originEvidence: 'spec' }));
+    events.push(testEvent(3 + n * 2, 'AnswerObserved', { raw: true, sessionId: 's1', answerId: `a${n}`, entryId: `a${n}`, interim: false, excerpt: `answer ${n}`, withheld: false }));
+  }
+  const spec = await specDaemon(events);
+  t.after(() => { rmSync(spec.directory, { recursive: true, force: true }); });
+  const headers = { Authorization: `Bearer ${spec.token}` };
+  const before = (await call(spec.daemon.port, '/api/v1/requests?limit=200', { headers })).body as { items: unknown[] };
+  assert.equal(before.items.length, 40);
+  await spec.daemon.close();
+
+  const restarted = await startDaemon({ ...defaultConfig(spec.directory), port: 0, sessionRoots: [], ingest: false });
+  t.after(() => restarted.close());
+  const after = (await call(restarted.port, '/api/v1/requests?limit=200', { headers })).body as { items: unknown[] };
+  assert.deepEqual(after, before);
+});

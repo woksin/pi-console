@@ -67,13 +67,27 @@ export class SqliteProjectionStore implements ProjectionStore {
   }
 
   load(name: string): ProjectionRecord | undefined {
+    const record = this.#restore(name);
+    if (record && name === 'requests') this.#requestSessions.load(record.state as DerivationState);
+    return record;
+  }
+
+  /** Request projection restore that leaves normalized session histories on disk until each is hydrated. */
+  loadRequests(): { record: ProjectionRecord; deferred: Set<string> } | undefined {
+    const record = this.#restore('requests');
+    return record && { record, deferred: this.#requestSessions.defer(record.state as DerivationState) };
+  }
+
+  /** Lazy request-session history operations (hydrate/release/prompt scan) for the history runtime. */
+  get requestSessions(): SqliteRequestSessions { return this.#requestSessions; }
+
+  #restore(name: string): ProjectionRecord | undefined {
     const row = this.#load.get(name);
     if (!row) return undefined;
     const state = parseRecords<Record<string, Record<string, unknown>>>(row.state as string);
     for (const item of this.#rows.iterate(name)) {
       state[item.collection as string][item.id as string] = parseRecords(item.value as string);
     }
-    if (name === 'requests') this.#requestSessions.load(state as unknown as DerivationState);
     return { name, version: row.version as number, position: row.position as number, state };
   }
 
