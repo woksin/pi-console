@@ -46,19 +46,19 @@ export const h = createElement;
 export interface OverlayProps { left: number; top: number; width: number; height: number; children?: ReactNode }
 /** A floating panel drawn above the screen (palette, help, settings). */
 export const Overlay = (props: OverlayProps): ReactElement => element('box', {
-  position: 'absolute', left: props.left, top: props.top, width: props.width, height: props.height, zIndex: 10, flexDirection: 'column', backgroundColor: background('raised'),
+  position: 'absolute', left: props.left, top: props.top, width: props.width, height: props.height, zIndex: 10, flexDirection: 'column', backgroundColor: background('raised', true),
 }, props.children);
 
 export const Column = (props: BoxProps): ReactElement => element('box', layout(props, 'column'), props.children);
 export const Row = (props: BoxProps): ReactElement => element('box', layout(props, 'row'), props.children);
-export const Screen = (props: BoxProps): ReactElement => element('box', { ...layout(props, 'column'), width: '100%', height: '100%', backgroundColor: background('bg') }, props.children);
+export const Screen = (props: BoxProps): ReactElement => element('box', { ...layout(props, 'column'), width: '100%', height: '100%', backgroundColor: background('bg', true) }, props.children);
 
 export interface PanelProps extends BoxProps { title?: string; right?: string; focused?: boolean; accent?: Color }
 /** A rounded, titled container; the border brightens when focused. */
 export const Panel = (props: PanelProps): ReactElement => element('box', {
   ...layout(props, 'column'), border: true, borderStyle: palette.plain && props.focused ? 'double' : 'rounded', borderColor: foreground(props.focused ? (props.accent ?? 'cyan') : 'border'),
   title: props.title ? ` ${props.title} ` : undefined, titleAlignment: 'left', bottomTitle: props.right ? ` ${props.right} ` : undefined, bottomTitleAlignment: 'right',
-  backgroundColor: background(props.background ?? 'panel'), paddingLeft: 1, paddingRight: 1,
+  backgroundColor: background(props.background ?? 'panel', true), paddingLeft: 1, paddingRight: 1,
 }, props.children);
 
 export interface LinesProps { lines: readonly Line[]; grow?: number; onLineClick?: (index: number) => void; background?: Color; height?: number }

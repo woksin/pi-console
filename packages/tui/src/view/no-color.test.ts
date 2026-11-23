@@ -40,3 +40,24 @@ test('an empty NO_COLOR keeps colour', async () => {
   assert.ok(drawn(harness).some(coloured));
   assert.ok(!cells(harness).some(cell => (cell.attributes & TextAttributes.INVERSE) !== 0));
 });
+
+const words = (rows: string[]): string[] => rows.flatMap(row => row.match(/[\p{L}\p{N}]{6,}/gu) ?? []);
+
+test('NO_COLOR overlays cover the view below instead of letting it show through', async () => {
+  const harness = await start({ NO_COLOR: '1' });
+  await harness.ui.press('2');
+  const below = await harness.ui.waitFor('Fleet ·');
+  await harness.ui.press('?');
+  const above = await harness.ui.waitFor('Help');
+  const rows = above.split('\n');
+  const top = rows.findIndex(row => row.includes('Help'));
+  const bottom = rows.findIndex((row, index) => index > top && row.includes('╚'));
+  const left = (rows[top] ?? '').indexOf('╔═ Help');
+  const right = (rows[top] ?? '').indexOf('╗', left);
+  assert.ok(top >= 0 && bottom > top && left >= 0 && right > left, 'the help overlay is drawn with a border');
+  const inside = (frame: string): string[] => frame.split('\n').slice(top + 1, bottom).map(row => row.slice(left + 1, right));
+  const underneath = new Set(words(inside(below)));
+  assert.ok(underneath.size > 0, 'the view below has text under the overlay');
+  assert.deepEqual(words(inside(above)).filter(word => underneath.has(word)), []);
+  assert.deepEqual(drawn(harness).filter(coloured).map(cell => cell.text), []);
+});
