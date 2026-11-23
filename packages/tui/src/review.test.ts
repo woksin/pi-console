@@ -61,8 +61,17 @@ test('pausing follow keeps the transcript viewport fixed while entries arrive, a
   const merge = async (entries: TranscriptEntry[]) => { for (const id of ids) harness.runtime.store.mergeTranscript(id, entries.map(item => ({ ...item, sessionId: id }))); await quiet(); };
   await merge([entry(0)]);
   await harness.ui.press('f'); await harness.ui.waitFor('paused');
-  const live = /need you|all clear|attention unavailable|checking…|stale|^ pulse /;
-  const body = (frame: string) => frame.split('\n').filter(line => !line.includes('paused') && !live.test(line)).join('\n');
+  // Compare only the transcript pane: session metadata in the header and the context pane can change
+  // while entries arrive (mock replay updates session status on its own timer).
+  const body = (frame: string) => {
+    const lines = frame.split('\n');
+    const top = lines.findIndex(line => line.includes('─ Transcript'));
+    assert.ok(top >= 0, 'the transcript pane is visible');
+    const header = lines[top] ?? '';
+    const start = header.indexOf('╭─ Transcript');
+    const end = header.indexOf('╮', start) + 1;
+    return lines.slice(top + 1).map(line => line.slice(start, end)).filter(line => !line.includes('paused')).join('\n');
+  };
   const before = body(harness.ui.frame());
   assert.match(before, /LIVE-MARK-0/);
   await merge([entry(1), entry(2)]);
