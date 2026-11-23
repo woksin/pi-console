@@ -1,5 +1,4 @@
 import type { Job, Message, Question, Request, Reset, Session } from '@pi-console/contract';
-import type { AttentionItem } from '../attention/needs-you.ts';
 import type { ReadModels } from '../projections/index.ts';
 import type { JobModel } from '../projections/work.ts';
 import type { MessageModel } from '../projections/messages.ts';
@@ -37,19 +36,19 @@ function rootOf(models: ReadModels, session: SessionModel): string {
 
 const failedPattern = /fail|error|crash|abort/i;
 
-function statusOf(session: SessionModel, attention: readonly AttentionItem[]): Session['status'] {
+function statusOf(session: SessionModel, attentionSessionIds: ReadonlySet<string>): Session['status'] {
   if (session.endedAt !== null) return failedPattern.test(session.endReason ?? '') ? 'failed' : 'done';
-  if (attention.some(item => item.sessionId === session.id)) return 'needs-you';
+  if (attentionSessionIds.has(session.id)) return 'needs-you';
   if (session.heartbeatStatus === 'blocked' || session.heartbeatStatus === 'waiting') return session.heartbeatStatus;
   return session.openTurnId === null ? 'idle' : 'working';
 }
 
-export function toSession(models: ReadModels, session: SessionModel, attention: readonly AttentionItem[]): Session {
+export function toSession(models: ReadModels, session: SessionModel, attentionSessionIds: ReadonlySet<string>): Session {
   const burn = models.burn.sessions[session.id] as ReadModels['burn']['sessions'][string] | undefined;
   return {
     id: session.id, repositoryId: repositoryOf(session), name: baseName(session.cwd) || session.id, laneId: unassignedLane,
     role: session.role, parentSessionId: session.parentSessionId, orchestratorSessionId: rootOf(models, session), branch: '',
-    cwd: session.cwd, model: session.model ?? '', status: statusOf(session, attention), startedAt: session.startedAt,
+    cwd: session.cwd, model: session.model ?? '', status: statusOf(session, attentionSessionIds), startedAt: session.startedAt,
     updatedAt: session.updatedAt, contextPercent: burn?.contextPercent ?? 0,
     samples: (burn?.samples ?? []).map(sample => ({ at: sample.at, contextPercent: sample.contextPercent, tokens: sample.tokens, costUsd: 0 })),
   };
