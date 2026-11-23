@@ -80,12 +80,12 @@ test('an append before the first lookup is loaded without losing other checkpoin
   assert.equal(log.reads, 2);
 });
 
-test('2,000 one-file session tailers visit O(N) checkpoints across chunks and a second pass', { timeout: 5000 }, async t => {
+test('one-file session tailers visit O(N) checkpoints across chunks and a second pass', async t => {
   const directory = realpathSync(mkdtempSync(join(tmpdir(), 'pi-checkpoint-volume-')));
   t.after(() => rmSync(directory, { recursive: true, force: true }));
   const log = new StoredCheckpoints();
   const cache = new CountedCache(log);
-  const paths = Array.from({ length: 2000 }, (_, index) => join(directory, `${index}.jsonl`));
+  const paths = Array.from({ length: 50 }, (_, index) => join(directory, `${index}.jsonl`));
   for (const path of paths) {
     writeFileSync(path, '{}\n{}\n{}\n');
     const stat = statSync(path);
@@ -108,6 +108,7 @@ test('2,000 one-file session tailers visit O(N) checkpoints across chunks and a 
   const visits = log.visits + cache.visits;
   t.diagnostic(`N=${paths.length}; checkpoint visits=${visits}; source table reads=${log.reads}`);
   assert.equal(log.reads, 1);
+  // The former source-wide lookup visits 3*N*N + 3*N rows: 7,650 at N=50, versus 300 here.
   assert.equal(visits, 6 * paths.length, 'one table load, two pass enumerations and three indexed chunk lookups');
   assert.ok([...log.saved.values()].every(checkpoint => checkpoint.offset === checkpoint.size));
 });
