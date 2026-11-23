@@ -50,14 +50,19 @@ export function sessionMemory(models: ReadModels, sessionId: string): SessionMem
     .filter(message => message.recorded && message.sessionId === sessionId && message.origin === 'human' && !message.classified && message.itemIds.length === 0).length;
   const confirmable = items.filter(row => row.status === 'proposed' && row.statusBasis === 'recorded' && memorySessionOf(models, row) === sessionId).length;
   const wider = items.filter(row => live(row) && memorySessionOf(models, row) === null).length;
-  return {
-    sessionId, storeDetected: detected(models), counts, proposedConfirmable: confirmable,
-    unresolved: { lowerBound, atLastHandoff: null }, wider, handoffs: [],
-  };
+  return memorySummary(sessionId, counts, confirmable, lowerBound, detected(models), wider);
 }
 
-function proposedText(rows: MemoryItemModel[]): string {
-  return rows.length === 1 ? `1 proposed memory item waiting for ${confirmCommand(rows[0].id)}` : `${rows.length} proposed memory items waiting for /memory confirm`;
+/** Shared presentation for full queries and incremental aggregates. */
+export function memorySummary(sessionId: string, counts: SessionMemory['counts'], confirmable: number, lowerBound: number, storeDetected: boolean, wider: number): SessionMemory {
+  return { sessionId, storeDetected, counts, proposedConfirmable: confirmable, unresolved: { lowerBound, atLastHandoff: null }, wider, handoffs: [] };
+}
+
+export function proposedMemoryItem(key: string, count: number, firstId: string, since: string): AttentionItem {
+  return {
+    id: `memory:${key}`, reason: 'proposed-memory', sessionId: key === unlinkedMemory ? null : key, laneId: null,
+    text: count === 1 ? `1 proposed memory item waiting for ${confirmCommand(firstId)}` : `${count} proposed memory items waiting for /memory confirm`, since, pointer: null,
+  };
 }
 
 /** One attention item per session holding recorded-proposed items, plus `memory:unlinked` for those without a session. */
@@ -71,9 +76,6 @@ export function proposedMemoryAttention(models: ReadModels): AttentionItem[] {
   }
   return [...groups].map(([key, rows]) => {
     const since = rows.map(row => row.at).sort(compareText)[0];
-    return {
-      id: `memory:${key}`, reason: 'proposed-memory', sessionId: key === unlinkedMemory ? null : key, laneId: null,
-      text: proposedText(rows.sort((a, b) => compareText(a.id, b.id))), since, pointer: null,
-    };
+    return proposedMemoryItem(key, rows.length, rows.sort((a, b) => compareText(a.id, b.id))[0].id, since);
   });
 }

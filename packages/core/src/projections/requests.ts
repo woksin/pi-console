@@ -1,5 +1,5 @@
 import type { DerivedFrom, EventEnvelope, RequestEvidence, RequestUncertainty, SourceRef } from '@pi-console/contract';
-import { entry, insertSorted, orderKey, projection } from '../projector/handlers.ts';
+import { entry, insertSorted, markDirty, orderKey, projection } from '../projector/handlers.ts';
 import type { Projection } from '../projector/projection.ts';
 
 export interface AnswerModel { id: string; text: string; at: string; interim: boolean }
@@ -37,6 +37,7 @@ export interface RequestsState { requests: Record<string, RequestModel> }
 export type RequestDerivation = Projection<RequestsState>;
 
 function request(state: RequestsState, id: string, sessionId: string): RequestModel {
+  markDirty(state, 'requests', id);
   return entry(state.requests, id, () => ({
     id, sessionId, text: '', origin: 'unproven', originEvidence: '', status: 'open', createdAt: '',
     resetId: null, answer: null, interimAnswers: [], ref: null, stamps: Object.create(null) as Record<string, string>, interruptedResetId: null,

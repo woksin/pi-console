@@ -10,17 +10,15 @@ async function batchSpec() {
   const log = new SqliteEventLog(':memory:');
   await log.append([sessionStarted(1, 's1'), sessionStarted(2, 's2')]);
   const projector = new Projector(log, consoleProjections());
-  await projector.catchUp();
+  await projector.start();
   const deltas: Delta[] = [];
   const batcher = new DeltaBatcher(() => readModels(projector), delta => deltas.push(delta), () => new Date('2026-01-01'));
+  projector.onApplied((event, changes) => { batcher.add(event, changes); });
   return {
-    log,
+    log: { close() { batcher.flush(); projector.stop(); log.close(); } },
     async apply(events: NewEvent[]) {
       deltas.length = 0;
-      const position = projector.position;
       await log.append(events);
-      await projector.catchUp();
-      for await (const event of log.readFrom(position)) batcher.add(event);
       batcher.flush();
       return [...deltas];
     },
@@ -52,6 +50,35 @@ test('coalescing publishes only the final entity and net derived changes, not sn
     assert.equal((deltas[0].payload as { status: string }).status, 'answered');
     const heartbeat = await spec.apply([testEvent(5, 'SessionHeartbeat', { sessionId: 's1' })]);
     assert.deepEqual(heartbeat.map(delta => delta.type), ['session.updated']);
+  } finally { spec.log.close(); }
+});
+
+test('a request observed and reset in one batch emits only its routed final request delta', async () => {
+  const spec = await batchSpec();
+  try {
+    const deltas = await spec.apply([
+      testEvent(3, 'RequestObserved', { raw: true, sessionId: 's1', entryId: 'p1', requestId: 'q', origin: 'unproven', originEvidence: 'spec' }),
+      testEvent(4, 'ResetOccurred', { sessionId: 's1', resetId: 'reset', kind: 'compaction', interruptedRequestIds: ['q'] }),
+    ]);
+    const requests = deltas.filter(delta => delta.type.startsWith('request.'));
+    assert.deepEqual(requests.map(delta => delta.type), ['request.observed']);
+    assert.equal((requests[0].payload as Request).id, 'q');
+    assert.equal((requests[0].payload as Request).status, 'interrupted');
+  } finally { spec.log.close(); }
+});
+
+test('an interim answer on an interrupted request emits only one request delta', async () => {
+  const spec = await batchSpec();
+  try {
+    await spec.apply([
+      request(3, 's1'),
+      testEvent(4, 'RequestInterrupted', { requestId: 'r1', sessionId: 's1', resetId: 'reset', reason: 'aborted' }),
+    ]);
+    const deltas = await spec.apply([testEvent(5, 'AnswerObserved', { requestId: 'r1', answerId: 'interim', interim: true })]);
+    const requests = deltas.filter(delta => delta.type.startsWith('request.'));
+    assert.deepEqual(requests.map(delta => delta.type), ['request.observed']);
+    assert.equal((requests[0].payload as Request).status, 'interrupted');
+    assert.equal((requests[0].payload as Request).interimAnswers.length, 1);
   } finally { spec.log.close(); }
 });
 
@@ -117,19 +144,16 @@ test('after an expensive flush the next one waits, coalescing to the same final 
   try {
     await log.append([sessionStarted(1, 's1')]);
     const projector = new Projector(log, consoleProjections());
-    await projector.catchUp();
+    await projector.start();
+    t.after(() => projector.stop());
     let clock = 0;
     const flushes: Delta[][] = [];
     // Publishing one delta costs 5 ms of the injected clock.
     const batcher = new DeltaBatcher(() => readModels(projector), delta => { clock += 5; flushes.at(-1)?.push(delta); }, () => new Date('2026-01-01'), {
       clock: () => clock,
     });
-    const publish = async (events: NewEvent[]) => {
-      const position = projector.position;
-      await log.append(events);
-      await projector.catchUp();
-      for await (const event of log.readFrom(position)) batcher.add(event);
-    };
+    projector.onApplied((event, changes) => { batcher.add(event, changes); });
+    const publish = async (events: NewEvent[]) => { await log.append(events); };
     flushes.push([]);
     await publish([request(2, 's1')]);
     t.mock.timers.tick(0);
