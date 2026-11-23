@@ -12,7 +12,7 @@
 .seg button:hover { color: var(--text); background: var(--raised); }
 .seg button[aria-pressed='true'] { background: var(--select); color: var(--text); font-weight: 600; }
 .btn { background: var(--raised); border: 1px solid var(--border); border-radius: 8px; padding: 5px 12px; color: var(--text); text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
-.btn:hover { border-color: var(--cyan); text-decoration: none; }
+.btn:hover:not(:disabled) { border-color: var(--cyan); text-decoration: none; }
 .btn.ghost { background: transparent; } .btn.primary { background: var(--cyan); color: #06101a; border-color: transparent; font-weight: 650; }
 .btn[aria-pressed='true'] { background: var(--select); border-color: var(--cyan); }
 .tabs { display: inline-flex; gap: 4px; }
