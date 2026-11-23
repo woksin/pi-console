@@ -1,4 +1,4 @@
-import { connectionBanner, consoleTitle, displayWidth, hints, type PulseCell, type PulseViewModel } from '@pi-console/viewmodels';
+import { connectionBanner, consoleTitle, displayWidth, hints, type PulseCell, type PulseViewModel, type TextWidth } from '@pi-console/viewmodels';
 import { Clickable, Row, Spacer, Text, h, type Line, type Part } from '../view/renderer.ts';
 import { fit, split, t } from '../view/parts.ts';
 import { palette } from '../view/theme.ts';
@@ -103,22 +103,22 @@ const bannerWarningCells = 4;
 const endpointCells = 12;
 
 /** One-line banner while the stream is down, with the last error; the client reconnects on its own with capped backoff. */
-export function banner(connection: Connection, width: number, endpoint?: string): Line | undefined {
+export function banner(connection: Connection, width: number, endpoint?: string, measure?: TextWidth): Line | undefined {
   const text = connectionBanner(connection, width - bannerWarningCells - (endpoint ? endpointCells : 0));
   if (!text) return undefined;
   const warning = [t(' ⚠ ', 'bg', { background: 'amber', bold: true }), t(' ', 'amber')];
   const status = [t(text, 'amber')];
   return endpoint
-    ? split([...warning, t(endpoint, 'amber')], status, width, 'raised')
-    : fit([...warning, ...status], width, 'raised');
+    ? split([...warning, t(endpoint, 'amber')], status, width, { background: 'raised', measure })
+    : fit([...warning, ...status], width, 'raised', measure);
 }
 
 /** The footer: the text being typed while a field is open, otherwise the shared keymap's hints for the context. */
-export function footerLine(ui: UiState, width: number): Line {
+export function footerLine(ui: UiState, width: number, measure?: TextWidth): Line {
   if (ui.overlay === 'filter' || ui.overlay === 'search') {
-    return fit([t(ui.overlay === 'filter' ? ' / filter ' : ' / search ', 'bg', { background: 'cyan', bold: true }), t(` ${ui.input}`, 'text'), t('▌', 'cyan'), t('   ⏎ apply · esc cancel', 'faint')], width, 'raised');
+    return fit([t(ui.overlay === 'filter' ? ' / filter ' : ' / search ', 'bg', { background: 'cyan', bold: true }), t(` ${ui.input}`, 'text'), t('▌', 'cyan'), t('   ⏎ apply · esc cancel', 'faint')], width, 'raised', measure);
   }
   const keys = hints(contextOf(ui)).map(hint => { const space = hint.indexOf(' '); return [t(hint.slice(0, space), 'cyan'), t(`${hint.slice(space)}  `, 'muted')]; });
   const notice = ui.notice ? [t(`  ${ui.notice}`, 'amber')] : [];
-  return fit([t(' '), ...keys.flat(), ...notice], width, 'raised');
+  return fit([t(' '), ...keys.flat(), ...notice], width, 'raised', measure);
 }

@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { firstRunChecklist, wrap, type EmptyStateModel, type FlashTracker, type LookTracker, type TimeWindow, type WindowedCollection } from '@pi-console/viewmodels';
+import { firstRunChecklist, wrap, type EmptyStateModel, type FlashTracker, type LookTracker, type TimeWindow, type WindowedCollection, type TextWidth } from '@pi-console/viewmodels';
 import type { Line } from '../view/renderer.ts';
 import { blank, t } from '../view/parts.ts';
 import type { Data } from '../store/store.ts';
@@ -9,6 +9,8 @@ import type { TranscriptAnchor, TranscriptLayout } from '../state/transcript-win
 /** Everything a view needs to draw one frame; built once per render by the app. */
 export interface Env {
   data: Data; ui: UiState; now: number;
+  /** Cell measurement selected by the active renderer; absent in isolated view specs. */
+  measure?: TextWidth;
   /** Interior size of the body area (inside the header and footer). */
   width: number; height: number;
   /** Increases ~6 times a second while animation is on; always 0 when it is off. */

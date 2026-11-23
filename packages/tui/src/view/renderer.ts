@@ -3,8 +3,9 @@
  * Column, Lines, Clickable) and talks to the terminal through `useKeys`, `useSize`, `useTick`, `launch` and
  * `mountHeadless`. Swapping the renderer (the Bubble Tea fallback in ADR-0003) means re-implementing this file.
  */
-import { act, createElement, useEffect, type ReactElement, type ReactNode } from 'react';
-import { createCliRenderer, decodePasteBytes, RGBA, stripAnsiSequences, TextAttributes, type CapturedFrame, type CliRenderer } from '@opentui/core';
+import { act, createElement, useEffect, useMemo, type ReactElement, type ReactNode } from 'react';
+import { createCliRenderer, decodePasteBytes, measureEditText, RGBA, stripAnsiSequences, TextAttributes, type CapturedFrame, type CliRenderer, type WidthMethod } from '@opentui/core';
+import type { TextWidth } from '@pi-console/viewmodels';
 import { createRoot, useKeyboard, usePaste, useTerminalDimensions, useAnimationTick, useRenderer } from '@opentui/react';
 import { testRender } from '@opentui/react/test-utils';
 import type { KeyInput } from '../state/keys.ts';
@@ -82,6 +83,12 @@ export const useKeys = (handler: (key: KeyInput) => void, onPaste?: (text: strin
   });
 };
 export const useSize = (): { width: number; height: number } => useTerminalDimensions();
+/** Use OpenTUI's actual mode, including wcwidth in headless and pre-2027 terminals. */
+export const textWidth = (widthMethod: WidthMethod): TextWidth => text => measureEditText(text, { widthMethod });
+export function useTextWidth(): TextWidth {
+  const { widthMethod } = useRenderer();
+  return useMemo(() => textWidth(widthMethod), [widthMethod]);
+}
 /** Calls `callback` at `fps` on the renderer's shared clock; `undefined` pauses it. */
 export const useTick = (fps: number | undefined, callback: () => void): void => { useAnimationTick(fps, callback); };
 export const useClipboard = (): ((text: string) => boolean) => {
