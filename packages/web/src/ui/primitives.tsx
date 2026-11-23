@@ -65,9 +65,9 @@ export function EmptyState({ title, children, mark = '○' }: { title: string; c
 
 export function Tabs<T extends string>({ tabs, value, onChange, label }: { tabs: readonly { id: T; label: string; count?: number }[]; value: T; onChange: (id: T) => void; label: string }) {
   return (
-    <div className="tabs" role="tablist" aria-label={label}>
+    <div className="tabs" role="group" aria-label={label}>
       {tabs.map(tab => (
-        <button key={tab.id} type="button" role="tab" aria-selected={tab.id === value} className="tab" onClick={() => { onChange(tab.id); }}>
+        <button key={tab.id} type="button" aria-pressed={tab.id === value} className="tab" onClick={() => { onChange(tab.id); }}>
           {tab.label}{tab.count !== undefined && <span className="tab-count">{tab.count}</span>}
         </button>
       ))}

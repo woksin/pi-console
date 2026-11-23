@@ -30,7 +30,7 @@ export function QuestionsView({ state, now }: ViewProps) {
 function QuestionCard({ row, selected, onSelect }: { row: QuestionRow; selected: boolean; onSelect: () => void }) {
   const ref = useScrollIntoView<HTMLLIElement>(selected);
   return (
-    <li ref={ref} className={`card question${selected ? ' selected' : ''}${row.blocking ? ' blocking' : ''}`} onClick={onSelect} data-question={row.id}>
+    <li ref={ref} className={`card question${selected ? ' selected' : ''}${row.blocking ? ' blocking' : ''}`} onClick={onSelect} data-question={row.id} aria-current={selected ? 'true' : undefined}>
       <div className="card-head"><StatusBadge cell={row.status} /><span className="chip">{row.kind}</span>{row.blocking && <span className="chip warn-chip">blocking</span>}{row.urgent && <span className="urgent-mark" role="img" aria-label="Urgent" title="Urgent">‼</span>}<a href={sessionHref(row.sessionId)}>{row.session}</a><span className="grow" /><span className="faint tnum">{row.age}</span></div>
       <p className="card-text">{row.text}</p>
       {row.options.length > 0 && <ul className="question-options" aria-label="Options (read-only)">{row.options.map((option, index) => <li key={option}><span className="muted">{String.fromCharCode(65 + index)} · </span>{option}</li>)}</ul>}

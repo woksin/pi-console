@@ -17,7 +17,7 @@
 .btn[aria-pressed='true'] { background: var(--select); border-color: var(--cyan); }
 .tabs { display: inline-flex; gap: 4px; }
 .tab { background: none; border: 1px solid transparent; border-radius: 999px; padding: 4px 12px; color: var(--muted); }
-.tab[aria-selected='true'] { background: var(--select); color: var(--text); border-color: var(--border); }
+.tab[aria-pressed='true'] { background: var(--select); color: var(--text); border-color: var(--border); }
 .tab-count { margin-left: 6px; color: var(--faint); }
 .chip { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); border-radius: 999px; padding: 0 var(--space-2); font-size: var(--type-caption); color: var(--muted); background: var(--panel); }
 .warn-chip { border-color: var(--amber); color: var(--amber); } .warn-text { color: var(--amber); }

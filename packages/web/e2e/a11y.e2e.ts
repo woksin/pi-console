@@ -50,7 +50,7 @@ async function backgroundInert(page: Page, expected: boolean): Promise<void> {
   assert.deepEqual(await page.locator('.sidebar, .main').evaluateAll(nodes => nodes.map(node => node.hasAttribute('inert'))), [expected, expected]);
 }
 
-test('palette cycles Tab in both directions, inerts the background and restores focus after Escape or a pick', async () => {
+test('palette cycles Tab, inerts the background, restores on Escape and focuses the destination heading after a pick', async () => {
   const page = await rig.open('/requests');
   try {
     await page.locator('.conn[data-connection="live"]').waitFor();
@@ -77,7 +77,7 @@ test('palette cycles Tab in both directions, inerts the background and restores 
     await page.keyboard.press('Enter');
     await page.waitForURL('**/#/settings');
     await palette.waitFor({ state: 'detached' });
-    await focused(opener);
+    await page.locator('#content-heading:focus').waitFor();
     await backgroundInert(page, false);
   } finally { await page.context().close(); }
 });
