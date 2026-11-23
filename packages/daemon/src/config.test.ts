@@ -88,3 +88,15 @@ test('lane roots: no lanes root by default, the status directory follows agentRo
   assert.throws(() => loadConfig(dataDir(t, { lanesRoot: 3 })), /lanesRoot/);
   assert.throws(() => loadConfig(directory, { laneStatusDir: 3 as unknown as string }), /--lane-status-dir/);
 });
+
+test('the GitHub closure source is off by default with an empty allowlist; the allowlist is strict, canonical and bounded', t => {
+  const defaults = loadConfig(dataDir(t));
+  assert.deepEqual([defaults.sources['github-closures'], defaults.githubRepositories, defaults.sources['phase-ledger']], [false, [], true]);
+  const configured = loadConfig(dataDir(t, { sources: { 'github-closures': true }, githubRepositories: ['Owner/Repo', 'owner/repo', 'a/b'] }));
+  assert.deepEqual([configured.sources['github-closures'], configured.githubRepositories], [true, ['owner/repo', 'a/b']]);
+  const tooMany = Array.from({ length: 51 }, (_, index) => `o/r${String(index)}`);
+  for (const bad of [['*/*'], ['owner/*'], ['owner'], ['a/b/c'], ['--repo/x'], ['a/b#1'], ['https://github.com/a/b'], [3], 'a/b', tooMany]) {
+    assert.throws(() => loadConfig(dataDir(t, { githubRepositories: bad })), /githubRepositories must be/, JSON.stringify(bad).slice(0, 40));
+  }
+  assert.throws(() => loadConfig(dataDir(t), { githubRepositories: ['*/*'] }), /--github-repositories must be/);
+});

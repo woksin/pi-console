@@ -13,6 +13,7 @@ export * from './session/memory-review.ts';
 export * from './session/memory-review-controller.ts';
 export * from './request-list/request-list.ts';
 export * from './questions/questions.ts';
+export * from './questions/moot.ts';
 export * from './messages/messages.ts';
 export * from './settings/settings.ts';
 export * from './settings/theme-preview.ts';

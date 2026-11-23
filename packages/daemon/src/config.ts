@@ -1,7 +1,8 @@
 import { defaultDaemonPort, defaultDataDir, readDaemonConfigFile } from '@pi-console/contract/daemon-config';
 import { homedir } from 'node:os';
 import { isAbsolute, join, resolve } from 'node:path';
-import { sourceIds, type SourceId } from './ingestion/source-ids.ts';
+import { parseRepository } from '@pi-console/contract';
+import { optInSources, sourceIds, type SourceId } from './ingestion/source-ids.ts';
 
 /** Daemon configuration. The bind address is not configurable: the daemon listens on 127.0.0.1 only. */
 export interface DaemonConfig {
@@ -23,6 +24,8 @@ export interface DaemonConfig {
   sessionRoots: string[];
   /** Per-source switches for the non-session sources. Session ingestion is on whenever there are session roots. */
   sources: Record<SourceId, boolean>;
+  /** Exact `owner/repo` names (lower case) the optional GitHub closure source may query; empty means it queries nothing. */
+  githubRepositories: string[];
   /** Poll interval for the snapshot-style and low-rate sources (event-model 2.1: 2-5 s). */
   sourcePollMs: number;
   backfillWindowDays: number;
@@ -41,12 +44,12 @@ export function defaultConfig(dataDir = defaultDataDir()): DaemonConfig {
   return {
     dataDir, memoryActions: false, port: defaultDaemonPort, webDist: undefined, agentRoot, orchRoot: join(homedir(), '.pi', 'orch'),
     lanesRoot: undefined, laneStatusDir: join(agentRoot, 'lane-status'),
-    sessionRoots: [join(agentRoot, 'sessions')], sources: Object.fromEntries(sourceIds.map(id => [id, true])) as Record<SourceId, boolean>,
+    sessionRoots: [join(agentRoot, 'sessions')], sources: Object.fromEntries(sourceIds.map(id => [id, !optInSources.includes(id)])) as Record<SourceId, boolean>, githubRepositories: [],
     backfillWindowDays: 14, replayWindow: 10_000, heartbeatMs: 15_000, pollMs: 1_000, sourcePollMs: 2_000,
   };
 }
 
-type FileConfig = Partial<Pick<DaemonConfig, 'memoryActions' | 'port' | 'webDist' | 'agentRoot' | 'orchRoot' | 'lanesRoot' | 'laneStatusDir' | 'sessionRoots' | 'sources' | 'backfillWindowDays' | 'sourcePollMs'>>;
+type FileConfig = Partial<Pick<DaemonConfig, 'memoryActions' | 'port' | 'webDist' | 'agentRoot' | 'orchRoot' | 'lanesRoot' | 'laneStatusDir' | 'sessionRoots' | 'sources' | 'githubRepositories' | 'backfillWindowDays' | 'sourcePollMs'>>;
 
 const isObject = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value);
 
@@ -63,6 +66,10 @@ const pathIn = (directory: string, path: string): string => (isAbsolute(path) ? 
 
 const pathList = (value: unknown): value is string[] => Array.isArray(value) && value.every(item => typeof item === 'string');
 
+const maxRepositories = 50;
+const repositoryList = (value: unknown): value is string[] =>
+  Array.isArray(value) && value.length <= maxRepositories && value.every(item => parseRepository(item) !== null);
+
 interface Field { valid: (value: unknown) => boolean; expected: string; read: (value: never, dataDir: string) => unknown }
 
 const fields: Record<keyof FileConfig, Field> = {
@@ -75,6 +82,7 @@ const fields: Record<keyof FileConfig, Field> = {
   lanesRoot: { valid: value => typeof value === 'string', expected: 'a path', read: (value: string, dataDir) => pathIn(dataDir, value) },
   laneStatusDir: { valid: value => typeof value === 'string', expected: 'a path', read: (value: string, dataDir) => pathIn(dataDir, value) },
   sources: { valid: sourceSwitches, expected: `an object of booleans keyed by ${sourceIds.join(', ')}`, read: (value: Partial<Record<SourceId, boolean>>) => value },
+  githubRepositories: { valid: repositoryList, expected: `a list of at most ${String(maxRepositories)} exact owner/repo names`, read: (value: string[]) => [...new Set(value.map(item => parseRepository(item)))] },
   sourcePollMs: { valid: value => boundedInteger(value, 60_000) && value >= 250, expected: 'an integer 250-60000', read: (value: number) => value },
   sessionRoots: { valid: pathList, expected: 'a list of paths', read: (value: string[], dataDir) => value.map(root => pathIn(dataDir, root)) },
 };

@@ -52,10 +52,16 @@ const questionHistoryEntry = strict({
   sequence: int, operation: id, at: time, actor: nullable(str), excerpt, withheld: bool, truncated: bool,
 }, ['sequence', 'operation', 'at', 'actor']);
 
+/** Latest observed GitHub state of one current link target (docs/api/v1.md). `unknown` is an inconclusive refresh. */
+const questionLinkEvidence = strict({
+  target: id, kind: nullable(oneOf('issue', 'pull-request')), state: oneOf('open', 'closed', 'merged', 'unknown'),
+  closedAt: nullable(time), fetchedAt: time, source: oneOf('github-gh'),
+});
+
 /** v0 `question` plus optional history fields. `history` absent means the source never supplied it (old events). Every v0 question stays valid. */
 const question = strict({
   ...v0Question.properties,
-  updatedAt: time, history: array(ref('questionHistoryEntry')), links: array(str),
+  updatedAt: time, history: array(ref('questionHistoryEntry')), links: array(str), linkEvidence: array(ref('questionLinkEvidence')),
 }, v0Question.required);
 
 const memoryStatus = oneOf('active', 'proposed', 'done', 'superseded', 'withdrawn', 'rejected');
@@ -141,7 +147,7 @@ const v1Defs: Record<string, Schema> = {
   memoryActionRequest: memoryActionRequestSchema, memoryActionReceipt: memoryActionReceiptSchema, memoryActionAvailability: memoryActionAvailabilitySchema,
   snapshot, sessionPage: pageOf('session'), requestPage: pageOf('request'), questionPage: pageOf('question'),
   messagePage: pageOf('message'), jobPage: pageOf('job'), memoryItemPage: pageOf('memoryItem'), memoryItems: strict({ items: array(ref('memoryItem')) }), resetPage: pageOf('reset'), resets: strict({ items: array(ref('reset')) }),
-  memoryStatus, memoryItem, memoryHandoff, sessionMemory, toolResult, sourcePointer, attentionReason, attentionItem, graphNode, graphEdge, requestEvidence, requestUncertainty, request, questionHistoryEntry, question,
+  memoryStatus, memoryItem, memoryHandoff, sessionMemory, toolResult, sourcePointer, attentionReason, attentionItem, graphNode, graphEdge, requestEvidence, requestUncertainty, request, questionHistoryEntry, questionLinkEvidence, question,
   transcriptQuery: strict({ after: int, limit: { type: 'integer', minimum: 1, maximum: 1000 }, order: { enum: ['asc', 'desc'] }, around: str }, []),
   transcript: strict({ items: array(ref('transcriptEntry')), nextCursor: int, hasMore: bool, hasOlder: bool }, ['items', 'nextCursor', 'hasMore']),
   transcriptEntry: strict({

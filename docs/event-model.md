@@ -58,7 +58,7 @@ Groups, with the source each event comes from ([research summary](research-summa
 
 **Questions**
 
-`QuestionAsked`, `QuestionRevised`, `QuestionAnswered`, `QuestionDeferred`, `QuestionClosed` (from the question store, including kind, options, urgency, blocking flag, asker). `QuestionSnapshotObserved` carries a question's whole state at one source revision (status, times, links) and `QuestionHistoryRecorded` one stored history entry (sequence, operation, time, actor label, bounded note); both are keyed by the source's logical identity, so reading a revision file again, or a later revision that repeats the history, adds nothing new. The highest revision wins whatever the order of arrival.
+`QuestionAsked`, `QuestionRevised`, `QuestionAnswered`, `QuestionDeferred`, `QuestionClosed` (from the question store, including kind, options, urgency, blocking flag, asker). `QuestionSnapshotObserved` carries a question's whole state at one source revision (status, times, links) and `QuestionHistoryRecorded` one stored history entry (sequence, operation, time, actor label, bounded note); `QuestionLinkStateObserved` (source `github-closures`, opt-in) records the observed GitHub state of one link target for one link-set revision, including `unknown` for a failed refresh, which supersedes an earlier success; it never changes the question's status. All three are keyed by the source's logical identity, so reading a revision file again, or a later revision that repeats the history, adds nothing new. The highest revision wins whatever the order of arrival.
 
 **Messages and lanes**
 

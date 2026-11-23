@@ -32,6 +32,15 @@ function linkLines(row: QuestionRow): Line[] {
   return row.links.length ? [heading('Links'), ...row.links.map((link): Line => [t(`  ${link}`, 'muted')])] : [];
 }
 
+function mootLines(row: QuestionRow, width: number, full: boolean, measure?: TextWidth): Line[] {
+  if (!row.moot) return [];
+  const wrapped = (text: string, indent: number): Line[] => wrap(text, Math.max(1, width - indent), Infinity, measure).map((part): Line => [t(`${' '.repeat(indent - 2)}${part}`, 'muted')]);
+  return [
+    ...(row.moot.label ? [[t(row.moot.label, 'amber', { bold: true })] satisfies Line] : []),
+    ...(full ? [heading('GitHub evidence'), ...wrapped(row.moot.explanation, 6), ...row.moot.evidence.flatMap(item => wrapped(item.text, 6))] : [[t(`GitHub evidence (${String(row.moot.evidence.length)}) · v expand`, 'faint')] satisfies Line]),
+  ];
+}
+
 const historySummary = (row: QuestionRow): Line => [t(row.history ? `History (${String(row.history.length)}) · v expand` : 'History unavailable', 'faint')];
 
 function detail(row: QuestionRow | undefined, width: number, full = false, measure?: TextWidth): Line[] {
@@ -41,7 +50,7 @@ function detail(row: QuestionRow | undefined, width: number, full = false, measu
     [t(row.kind, 'violet', { bold: true }), ...(row.urgent ? [t('  urgent', 'red', { bold: true })] : []), ...(row.blocking ? [t('  blocking', 'amber', { bold: true })] : [])], blank,
     ...wrap(row.text, width - 4, full ? Infinity : 8, measure).map((text): Line => [t(text, 'text')]), blank,
     ...(row.options.length ? [heading('Options'), ...optionLines(row.options, width, full, measure)] : []), blank,
-    ...linkLines(row), ...(full ? [...historyLines(row, width, measure), blank] : [historySummary(row)]),
+    ...linkLines(row), ...mootLines(row, width, full, measure), ...(full ? [...historyLines(row, width, measure), blank] : [historySummary(row)]),
     [t('Read-only in this version: answer in the session itself.', 'faint', { italic: true })],
   ];
 }
