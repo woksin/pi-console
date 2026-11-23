@@ -15,8 +15,13 @@ export function graph(fixture: Fixture): Graph {
     if (!nodes.has(laneId)) nodes.set(laneId, { laneId, label: laneId, repositoryId: null });
     return laneId;
   };
-  const edges = [...messageEdges(fixture, endpoint), ...statusEdges(fixture, laneOf)];
+  // Same deterministic order as the core graph query, so replayed status changes never permute equal edges.
+  const edges = [...messageEdges(fixture, endpoint), ...statusEdges(fixture, laneOf)].sort(compareEdges);
   return { nodes: [...nodes.values()], edges };
+}
+
+function compareEdges(a: GraphEdge, b: GraphEdge): number {
+  return a.kind.localeCompare(b.kind) || a.fromLane.localeCompare(b.fromLane) || a.toLane.localeCompare(b.toLane);
 }
 
 function messageEdges(fixture: Fixture, endpoint: (id: string) => string): GraphEdge[] {
