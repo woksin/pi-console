@@ -42,7 +42,7 @@ export function renderEntry(entry: TranscriptLine, width: number, measure?: Text
   const stamp = t(`${entry.time} `, 'faint');
   const body = width - 12;
   if (entry.kind === 'reset') return resetDividerLines(entry, stamp, width, measure);
-  if (entry.kind === 'tool' && entry.tool) return [toolLine({ ...entry, tool: entry.tool }, stamp, body, measure)];
+  if (entry.kind === 'tool' && entry.tool) return [toolLine({ ...entry, tool: entry.tool }, stamp, body, measure), ...footerLines(entry, stamp, body, measure)];
   const lines = bodyLines(entry, stamp, body, measure);
   if (entry.streaming && lines.length > 0) lines[lines.length - 1] = [...lines[lines.length - 1], t(' ▍', 'cyan')];
   return [...lines, ...footerLines(entry, stamp, body, measure)];
@@ -67,9 +67,11 @@ interface Rendered { lines: Line[]; layout: TranscriptLayout }
 let linesCache: ({ key: unknown; width: number; search: string; measure?: TextWidth } & Rendered) | undefined;
 let modelCache: { deps: readonly unknown[]; model: SessionViewModel } | undefined;
 
+const isBlank = (line: Line | undefined): boolean => line?.every(part => part.text === '') === true;
+
 function layoutOf(entries: TranscriptLine[], rendered: Line[][]): TranscriptLayout {
   let end = 0;
-  return { keys: entries.map(entry => entry.key), ends: rendered.map(lines => (end += lines.length)) };
+  return { keys: entries.map(entry => entry.key), ends: rendered.map(lines => (end += lines.length)), spacers: rendered.map(lines => isBlank(lines.at(-1))) };
 }
 
 function transcriptLines(env: Env, model: SessionViewModel, key: unknown, width: number): Rendered {

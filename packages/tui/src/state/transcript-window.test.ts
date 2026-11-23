@@ -158,15 +158,27 @@ test('an anchor on a run line survives eviction of older entries', () => {
   }
 });
 
-test('topEntryKey names the entry at the top of the view, handing the blank spacer row to the entry below', () => {
-  const l = layout([3, 3, 3]);
-  const at = (key: number, offset: number) => topEntryKey(l, { follow: false, anchor: { key, offset, limit: 3 } }, 2);
-  assert.equal(at(1, 0), 1);
-  assert.equal(at(1, 1), 1);
-  assert.equal(at(1, 2), 2);
-  assert.equal(at(2, 0), 2);
-  assert.equal(at(2, 2), 3);
-  assert.equal(at(3, 0), 3);
+const withSpacers = (heights: number[], spacers: boolean[]): TranscriptLayout => ({ ...layout(heights), spacers });
+const topAt = (l: TranscriptLayout, key: number, offset: number) => topEntryKey(l, { follow: false, anchor: { key, offset, limit: l.keys.length } }, 2);
+
+test('topEntryKey hands only a real blank spacer row to the entry below', () => {
+  const l = withSpacers([3, 3, 3], [true, false, false]);
+  assert.equal(topAt(l, 1, 0), 1);
+  assert.equal(topAt(l, 1, 1), 1);
+  assert.equal(topAt(l, 1, 2), 2);
+  assert.equal(topAt(l, 2, 0), 2);
+  assert.equal(topAt(l, 3, 0), 3);
+});
+
+test('topEntryKey keeps the last content row of a result or diff with its own entry', () => {
+  const l = withSpacers([4, 4, 2], [false, false, true]);
+  assert.equal(topAt(l, 1, 3), 1, 'last row of a 4-row result (its note row)');
+  assert.equal(topAt(l, 2, 3), 2, 'last row of a diff');
+  assert.equal(topAt(layout([3, 3]), 1, 2), 1, 'a layout without spacer information has none');
+  assert.equal(topAt(l, 3, 1), 3, 'the spacer of the last entry stays with it');
+});
+
+test('topEntryKey of an empty or following transcript', () => {
   assert.equal(topEntryKey(layout([]), resumeTranscript, HEIGHT), undefined);
-  assert.equal(topEntryKey(l, resumeTranscript, 20), 1);
+  assert.equal(topEntryKey(layout([3, 3, 3]), resumeTranscript, 20), 1);
 });

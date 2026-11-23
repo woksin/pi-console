@@ -26,7 +26,13 @@ function clippedDiffLines(entry: TranscriptLine, body: number, measure: TextWidt
   return entry.text.split('\n').slice(0, LIMITS.diff).filter(text => measure(text.replace(/\s+/g, ' ')) > body).length;
 }
 
+/** A tool call is one row, `name args`; its arguments are clipped to what is left of the row. */
+function clippedToolArgs(tool: NonNullable<TranscriptLine['tool']>, body: number, measure: TextWidth = displayWidth): number {
+  return measure(tool.args.replace(/\s+/g, ' ')) > Math.max(4, body - tool.name.length - 1) ? 1 : 0;
+}
+
 function hiddenOf(entry: TranscriptLine, body: number, measure?: TextWidth): { more: number; clipped: number } {
+  if (entry.kind === 'tool' && entry.tool) return { more: 0, clipped: clippedToolArgs(entry.tool, body, measure) };
   if (entry.kind === 'diff') return { more: Math.max(0, entry.text.split('\n').length - LIMITS.diff), clipped: clippedDiffLines(entry, body, measure) };
   return { more: Math.max(0, wrap(entry.text, body, undefined, measure).length - LIMITS[entry.kind]), clipped: 0 };
 }
@@ -87,39 +93,49 @@ export function fullRows(entry: TranscriptLine, width: number, measure: TextWidt
   }
 }
 
-/** Splits a row around every case-insensitive occurrence of `needle`; a row whose lower-casing changes its length is left unmarked. */
-function marked(row: EntryRow, needle: string): Part[] {
+/** Column ranges `[from, to)` of a row that belong to a search match. */
+type Span = readonly [number, number];
+
+/** Splits a row around the given match spans. */
+function marked(row: EntryRow, spans: readonly Span[] = []): Part[] {
   const base = (text: string): Part => t(text, row.color, { bold: row.bold, italic: row.italic });
-  const lower = row.text.toLowerCase();
-  if (!needle || lower.length !== row.text.length) return [base(row.text)];
   const parts: Part[] = [];
   let at = 0;
-  for (let hit = lower.indexOf(needle); hit >= 0; hit = lower.indexOf(needle, at)) {
-    if (hit > at) parts.push(base(row.text.slice(at, hit)));
-    parts.push(t(row.text.slice(hit, hit + needle.length), 'cyan', { bold: true, underline: true }));
-    at = hit + needle.length;
+  for (const [from, to] of spans) {
+    if (from > at) parts.push(base(row.text.slice(at, from)));
+    parts.push(t(row.text.slice(from, to), 'cyan', { bold: true, underline: true }));
+    at = to;
   }
   return at < row.text.length ? [...parts, base(row.text.slice(at))] : parts;
 }
 
-/** First row holding the match; a match that wraps across rows is found in the rows joined back together. */
-export function firstMatch(rows: readonly EntryRow[], needle: string, joiner: string): number | null {
-  if (!needle) return null;
-  const direct = rows.findIndex(row => row.text.toLowerCase().includes(needle));
-  if (direct >= 0) return direct;
-  const joined = rows.map(row => row.text.toLowerCase()).join(joiner);
-  const at = joined.indexOf(needle);
-  if (at < 0) return null;
-  let end = 0;
-  return Math.max(0, rows.findIndex(row => (end += row.text.length + joiner.length) > at));
+const lowered = (char: string): string => (char.toLowerCase().length === char.length ? char.toLowerCase() : char);
+
+/**
+ * Match spans per row for a case-insensitive `needle`, found in the text as if it were not wrapped: whitespace is ignored on both sides,
+ * so a match split at a wrap boundary (inside a long token, or across the space the wrap dropped) is found and marked on every row it touches.
+ */
+export function matchSpans(rows: readonly EntryRow[], needle: string): Map<number, Span[]> {
+  const wanted = Array.from(needle.replace(/\s+/g, ''), lowered).join('');
+  const found = new Map<number, Span[]>();
+  if (!wanted) return found;
+  const chars = rows.flatMap((row, index) => Array.from(row.text, (char, column) => ({ char, index, column }))).filter(item => !/\s/.test(item.char));
+  const stripped = chars.map(item => lowered(item.char)).join('');
+  for (let hit = stripped.indexOf(wanted); hit >= 0; hit = stripped.indexOf(wanted, hit + wanted.length)) {
+    const covered = chars.slice(hit, hit + wanted.length);
+    for (const row of new Set(covered.map(item => item.index))) {
+      const columns = covered.filter(item => item.index === row).map(item => item.column);
+      found.set(row, [...(found.get(row) ?? []), [Math.min(...columns), Math.max(...columns) + 1]]);
+    }
+  }
+  return found;
 }
 
 export interface EntryDocument { lines: Line[]; match: number | null }
 
 /** The viewer's content: every wrapped row, the search needle highlighted, and the row of the first match. */
 export function entryDocument(entry: TranscriptLine, view: { width: number; search: string; measure: TextWidth }): EntryDocument {
-  const needle = view.search.toLowerCase();
   const rows = fullRows(entry, view.width, view.measure);
-  const hard = entry.kind !== 'user' && entry.kind !== 'assistant' && entry.kind !== 'thinking';
-  return { lines: rows.map(row => marked(row, needle)), match: firstMatch(rows, needle, hard ? '' : ' ') };
+  const spans = matchSpans(rows, view.search);
+  return { lines: rows.map((row, index) => marked(row, spans.get(index))), match: spans.size === 0 ? null : Math.min(...spans.keys()) };
 }

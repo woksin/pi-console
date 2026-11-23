@@ -9,7 +9,11 @@
  */
 
 /** Rendered shape of the retained transcript: per entry its stable key (see TranscriptLine.key) and the cumulative end line (exclusive). */
-export interface TranscriptLayout { keys: readonly number[]; ends: readonly number[] }
+export interface TranscriptLayout {
+  keys: readonly number[]; ends: readonly number[];
+  /** Per entry: whether its last row is a blank spacer rather than content. Absent means no entry has one. */
+  spacers?: readonly boolean[];
+}
 export const emptyLayout: TranscriptLayout = { keys: [], ends: [] };
 
 export interface TranscriptAnchor { key: number; offset: number; limit: number }
@@ -76,7 +80,7 @@ export function topEntryKey(layout: TranscriptLayout, view: TranscriptView, heig
   const { start } = transcriptWindow(layout, view, height);
   const found = layout.ends.findIndex(end => end > start);
   if (found < 0) return layout.keys.at(-1);
-  const spacer = layout.ends[found] - start === 1 && layout.ends[found] - startOf(layout, found) > 1;
+  const spacer = layout.ends[found] - start === 1 && layout.spacers?.[found] === true;
   return layout.keys[spacer && found + 1 < layout.keys.length ? found + 1 : found];
 }
 

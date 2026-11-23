@@ -94,3 +94,14 @@ test('closing the viewer restores the paused anchor, and follow state', async ()
     assert.match(ui.frame(), /following tail/);
   } finally { done(); }
 });
+
+test('a tool call with long arguments says its arguments were clipped, and Enter shows them whole', async () => {
+  const args = `${'a'.repeat(160)}ARGTAIL`;
+  const { ui, done } = await mount([entry(1, 'tool.call', '', { toolCallId: 'c1', toolResult: { toolName: 'read', argsExcerpt: args, resultKind: 'none', resultExcerpt: '', truncated: false, withheld: false } })]);
+  try {
+    assert.match(ui.frame(), /1 line clipped · ⏎ opens the full entry/);
+    assert.doesNotMatch(ui.frame(), /ARGTAIL/);
+    await ui.press('RETURN');
+    assert.match(ui.frame(), /ARGTAIL/);
+  } finally { done(); }
+});
