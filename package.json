@@ -1,6 +1,13 @@
 {
   "name": "pi-console",
   "private": true,
+  "description": "Read-only observability console for pi agent fleets, with web and terminal UIs and opt-in memory review requests.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/woksin/pi-console.git"
+  },
+  "homepage": "https://github.com/woksin/pi-console",
+  "keywords": ["pi", "ai-agents", "observability", "web", "tui", "memory-review"],
   "license": "MIT",
   "type": "module",
   "engines": {
