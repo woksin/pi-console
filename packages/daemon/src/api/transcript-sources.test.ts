@@ -223,6 +223,72 @@ test('duplicate candidates are revalidated after temporary unavailability withou
   assert.equal(await index.resolve('same'), undefined);
 });
 
+function recoveryFixture(t: { after: (callback: () => void) => void }, duplicate: boolean) {
+  const spec = fixture(t);
+  const sessionId = duplicate ? 'same' : 'solo';
+  const unavailable = join(spec.root, 'unavailable.jsonl');
+  writeFileSync(unavailable, header(sessionId));
+  spec.save(unavailable);
+  const available = join(spec.root, 'available.jsonl');
+  if (duplicate) { writeFileSync(available, header(sessionId)); spec.save(available); }
+  return { ...spec, sessionId, unavailable, available };
+}
+
+const unreadableScript = `
+  import promises from 'node:fs/promises';
+  import { syncBuiltinESMExports } from 'node:module';
+  import { TranscriptSources } from './packages/daemon/src/api/transcript-sources.ts';
+  const { root, path, sessionId, checkpoints } = JSON.parse(process.argv[1]);
+  let unreadable = true;
+  let attempts = 0;
+  const originalOpen = promises.open;
+  promises.open = async (candidate, ...args) => {
+    if (candidate === path) {
+      attempts++;
+      if (unreadable) throw Object.assign(new Error('Temporarily unreadable'), { code: 'EACCES' });
+    }
+    return originalOpen(candidate, ...args);
+  };
+  syncBuiltinESMExports();
+  const index = new TranscriptSources({ checkpoints: async () => checkpoints }, [root]);
+  const initial = await index.resolve(sessionId);
+  await index.resolve('unrelated');
+  await index.resolve(sessionId);
+  const pendingAttempts = attempts;
+  unreadable = false;
+  const recovered = await index.resolve(sessionId);
+  const recoveredAttempts = attempts;
+  await index.resolve('unrelated-after-recovery');
+  process.stdout.write(JSON.stringify({ initial: initial?.path ?? null, recovered: recovered?.path ?? null,
+    pendingAttempts, recoveredAttempts, settledAttempts: attempts }));
+`;
+
+for (const duplicate of [false, true]) {
+  test(`first-discovery hardlink failure recovers ${duplicate ? 'duplicate ambiguity' : 'a solo session'} without checkpoint changes`, async t => {
+    const { root, positions, index, sessionId, unavailable, available } = recoveryFixture(t, duplicate);
+    const alias = join(root, 'alias.jsonl');
+    linkSync(unavailable, alias);
+    assert.equal((await index.resolve(sessionId))?.path, duplicate ? available : undefined);
+    assert.equal(await index.resolve('unrelated'), undefined);
+    rmSync(alias);
+    assert.equal(statSync(unavailable).mtimeMs, positions[0].mtimeMs);
+    assert.equal((await index.resolve(sessionId))?.path, duplicate ? undefined : unavailable);
+  });
+
+  test(`unknown unreadable headers are retried on every lookup and recover ${duplicate ? 'duplicate ambiguity' : 'a solo session'}`, t => {
+    const { root, positions, sessionId, unavailable, available } = recoveryFixture(t, duplicate);
+    const input = JSON.stringify({ root, path: unavailable, sessionId, checkpoints: positions });
+    const result = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e', unreadableScript, input], {
+      cwd: new URL('../../../../', import.meta.url), encoding: 'utf8', timeout: 30_000,
+    }));
+    assert.equal(result.initial, duplicate ? available : null);
+    assert.equal(result.pendingAttempts, 3, 'including an unrelated session lookup while the header is unknown');
+    assert.equal(result.recoveredAttempts, 4, 'recovery is retried without checkpoint changes');
+    assert.equal(result.recovered, duplicate ? null : unavailable);
+    assert.equal(result.settledAttempts, 4, 'a successfully learnt header no longer needs discovery');
+  });
+}
+
 test('root pins permit missing-root discovery but reject later root replacement', async t => {
   const { root, positions } = fixture(t);
   const missing = join(root, 'missing');

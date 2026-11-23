@@ -64,9 +64,10 @@ export class TranscriptSources {
       const indexed = this.#indexed.get(checkpoint.identity) ?? { identity: checkpoint.identity };
       if (indexed.key === key) continue;
       this.#indexed.set(checkpoint.identity, indexed);
-      refreshed.set(checkpoint.identity, await this.#candidate(checkpoint, roots));
-      // A failed discovery is also remembered until checkpoint/root metadata changes; no per-request negative scans.
-      indexed.key = key;
+      const candidate = await this.#candidate(checkpoint, roots);
+      refreshed.set(checkpoint.identity, candidate);
+      // Only validated headers are known; every lookup retries the remaining identities before deciding uniqueness.
+      indexed.key = candidate ? key : undefined;
     }
     return refreshed;
   }
@@ -88,6 +89,12 @@ export class TranscriptSources {
     if (identities?.size === 0) this.#sessions.delete(sessionId);
   }
 
+  #invalidate(checkpoint: SourceCheckpoint): void {
+    this.#headers.delete(checkpoint.identity);
+    const indexed = this.#indexed.get(checkpoint.identity);
+    if (indexed) indexed.key = undefined;
+  }
+
   async #candidate(checkpoint: SourceCheckpoint, roots: readonly string[]): Promise<Candidate | undefined> {
     if (!checkpoint.path.endsWith('.jsonl')) return undefined;
     try {
@@ -104,7 +111,7 @@ export class TranscriptSources {
       } finally { await handle.close(); }
     } catch (error) {
       // Keep the learnt candidate membership so temporary failures cannot hide a duplicate on later accesses.
-      this.#headers.delete(checkpoint.identity);
+      this.#invalidate(checkpoint);
       if (transcriptUnavailable(error) || error instanceof InvalidHeader) return undefined;
       throw error;
     }
