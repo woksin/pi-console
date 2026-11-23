@@ -42,6 +42,12 @@ No turns or turn IDs are inferred. No verified explicit subagent lifecycle
 records were found; notification prose is not parsed. User-role prompts remain
 `unproven`: neither first position nor role proves launch provenance. Answers and
 aborts carry `raw: true`, sessionId and entryId, without a fabricated requestId.
+
+Every assistant message also emits `SessionCostObserved`, including tool-use, abort, error, length, pending and
+deferred records. Its nullable dollar value is only the finite nonnegative numeric `message.usage.cost.total`;
+missing or malformed optional usage produces null without suppressing other valid facts. Components are not summed.
+Logical session/entry identity prevents copies, rotation and replay from counting dollars twice. This adds no
+turn lifecycle or inferred answer facts; deferred/non-final output is still not a final answer.
 P5 alone derives pairing and request state. Tool results are not answers.
 The installed v3 `SessionHeader.parentSession` is a parent **file path**, not a
 session id (the writer's fork operations set it from the source filename).
@@ -86,6 +92,13 @@ never delays another. Everything is read-only and scoped to the directories belo
 | `question-store` | `<agent>/user-questions/items` | `/questions`, `/needs-you` |
 | `issue-work` | `<agent>/issue-work/registry.jsonl` | issue status |
 | `phase-ledger` | `<agent>/pi-phase/state/ledger/YYYY-MM-DD.jsonl` | phase jobs (`/jobs`) |
+
+Registry `LaneRegistered` facts optionally allowlist `cwd` and `branch`; prompts, session hints and other arbitrary
+fields stay private. Omitted metadata is preserved; explicit null clears it, ordered by event time/ID rather than
+arrival. Roster and legacy registrations carry no branch/cwd and cannot erase registry metadata. The registry mapper
+version refreshes an unchanged old `lanes.json` checkpoint once without deleting checkpoint state. Sessions associate
+only with exactly one registry lane at the same lexical cwd (separator/trailing-slash normalization, case sensitive,
+no filesystem resolution). Closed lanes remain eligible; ambiguity, basename and repository guesses never link sessions.
 
 ### Scope and windows (volume)
 

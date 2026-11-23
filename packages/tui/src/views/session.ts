@@ -98,10 +98,15 @@ function transcriptLines(env: Env, model: SessionViewModel, key: unknown, width:
   return fresh;
 }
 
+function headerMetadata(model: SessionViewModel): Line {
+  return [t(model.role, 'muted'), ...(model.branch ? [t(model.branch, 'violet')] : []), ...(model.model ? [t(model.model, 'muted')] : [])]
+    .flatMap(part => [part, t(' · ', 'muted')]);
+}
+
 function header(model: SessionViewModel, width: number, phase: number, measure?: TextWidth): Line[] {
   return [
     split([...statusParts(model.status, phase), t('  '), t(model.title, 'text', { bold: true })], [t(`updated ${model.age} ago`, 'faint')], width, { measure }),
-    fit([t(`${model.role} · `, 'muted'), t(model.branch, 'violet'), t(` · ${model.model} · `, 'muted'), t(model.cost, 'text'), t('  ctx ', 'muted'), ...pressureBar(model.context.percent, 14), t(` ${String(model.context.percent)}% `, pressureTone(model.context.pressure)), ...contextSpark(model.context, 16)], width, undefined, measure),
+    fit([...headerMetadata(model), t(model.cost, 'text'), t('  ctx ', 'muted'), ...pressureBar(model.context.percent, 14), t(` ${String(model.context.percent)}% `, pressureTone(model.context.pressure)), ...contextSpark(model.context, 16)], width, undefined, measure),
   ];
 }
 

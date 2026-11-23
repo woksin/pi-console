@@ -8,6 +8,7 @@ import { ConsoleQueries } from './console-queries.ts';
 import { toSession } from './entities.ts';
 import { IncrementalAttention } from './incremental-attention.ts';
 import { IncrementalMemory } from './incremental-memory.ts';
+import { IdentityDependencies } from './incremental-identity.ts';
 import { Owners, rowOf } from './keyed-queue.ts';
 
 export interface IncrementalChanges { sessions: Set<string>; requests: Set<string>; memory: Set<string> }
@@ -34,6 +35,7 @@ export const changedIds = (changes: ProjectionChanges, projection: string, colle
 /** Bootstrap once, then update only dirty rows and their reverse dependencies. Full REST queries remain canonical. */
 export class IncrementalQueries extends ConsoleQueries {
   readonly #models: () => ReadModels;
+  readonly #identity: IdentityDependencies;
   readonly #attention = new IncrementalAttention();
   readonly #memory = new IncrementalMemory();
   readonly #questions = new Owners();
@@ -47,14 +49,17 @@ export class IncrementalQueries extends ConsoleQueries {
   constructor(models: () => ReadModels, now: Date) {
     super(models, () => now);
     this.#models = models;
+    this.#identity = new IdentityDependencies(models());
     const changes = bootstrapChanges(models());
     this.update(changes, now, changedIds(changes, 'sessions', 'sessions'));
   }
 
+  protected override identityLookup() { return this.#identity.lanes; }
+
   override sessionById(id: string) {
     const models = this.#models();
     const row = rowOf(models.sessions.sessions, id);
-    return row ? toSession(models, row, this.#attention.sessions) : undefined;
+    return row ? toSession(models, row, this.#attention.sessions, this.#identity.lanes) : undefined;
   }
 
   override resetById(id: string) {
@@ -67,6 +72,7 @@ export class IncrementalQueries extends ConsoleQueries {
   update(changes: ProjectionChanges, now: Date, resetSessions: Iterable<string> = []): IncrementalChanges {
     const models = this.#models();
     const sessions = new Set<string>(changedIds(changes, 'sessions', 'sessions'));
+    for (const id of this.#identity.update(models, sessions, changedIds(changes, 'lanes', 'lanes'))) sessions.add(id);
     const attention = new Set<string>();
     const requests = this.#updateRequests(models, changes, attention);
     this.#updateQuestions(models, changes, sessions, attention);

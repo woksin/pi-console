@@ -6,7 +6,7 @@ const record = { type: 'message', id: 'entry', timestamp: '2026-07-01T09:00:00Z'
 
 test('documented non-answer assistant stop reasons are intentionally ignored', () => {
   for (const stopReason of ['length', 'pending', 'deferred', 'toolUse', 'error']) {
-    assert.deepEqual(sessionMapper('s')({ ...record, message: { role: 'assistant', stopReason, content: 'not a completed answer' } }), []);
+    assert.deepEqual(sessionMapper('s')({ ...record, message: { role: 'assistant', stopReason, content: 'not a completed answer' } }).map(fact => fact.type), ['SessionCostObserved']);
   }
   assert.throws(() => sessionMapper('s')({ ...record, message: { role: 'assistant', stopReason: 'future' } }), /Unknown assistant stop reason/);
 });

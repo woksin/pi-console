@@ -47,6 +47,10 @@ const requests = defs('requests', ['session-jsonl', 'derivation'], {
   ] },
 });
 
+const sessionCosts = defs('sessions', ['session-jsonl'], {
+  SessionCostObserved: open({ ...sessionId, entryId: id, costUsd: nullable({ type: 'number', minimum: 0 }) }),
+});
+
 const questionId = { questionId: id };
 const questions = defs('questions', ['question-store'], {
   QuestionAsked: open({ ...questionId, asker: nullable(str), kind: oneOf('question', 'decision', 'approval', 'fyi'), options: stringList, urgency: oneOf('normal', 'high'), blocking: bool, excerpt }, ['questionId', 'kind', 'urgency', 'blocking']),
@@ -77,7 +81,7 @@ const messagesAndLanes = defs('messages-lanes', ['lane-messages', 'lane-heartbea
   MessageDelivered: open({ ...messageId }),
   MessageRead: open({ ...messageId }),
   BroadcastSent: open({ ...messageId, from: id, excerpt, withheld: bool }, ['messageId', 'from']),
-  LaneRegistered: open({ laneId: id, name: str, repositoryId: nullable(str) }, ['laneId', 'name']),
+  LaneRegistered: open({ laneId: id, name: str, repositoryId: nullable(str), cwd: nullable(str), branch: nullable(str) }, ['laneId', 'name']),
   LaneStatusChanged: open({ laneId: id, status: str, waitingOn: nullable(str), barredBy: nullable(str), parked: bool }, ['laneId', 'status']),
   LaneClosed: open({ laneId: id }),
   IssueClaimed: open({ issue: id, laneId: id, owner: nullable(str) }, ['issue', 'laneId']),
@@ -119,7 +123,7 @@ const system = defs('system', ['console', 'session-jsonl', 'context-budget', 'la
 });
 
 /** The M1 event catalogue (event-model section 2, trimmed to what M1 ingests and derives). */
-export const catalogue: readonly EventDefinition[] = [...sessions, ...requests, ...questions, ...questionLinks, ...messagesAndLanes, ...work, ...memory, ...system];
+export const catalogue: readonly EventDefinition[] = [...sessions, ...sessionCosts, ...requests, ...questions, ...questionLinks, ...messagesAndLanes, ...work, ...memory, ...system];
 
 const byType = new Map(catalogue.map(definition => [definition.type, definition]));
 export const definitionOf = (type: string): EventDefinition | undefined => byType.get(type);

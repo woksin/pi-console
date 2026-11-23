@@ -22,7 +22,7 @@ test('v3 emits raw observations without pairing or leaking transcript bodies', a
   const { file, log, tailer } = setup(t);
   const before = statSync(file).mtimeMs;
   await tailer.poll([file]);
-  assert.deepEqual(log.rows.map(row => row.type), ['SessionStarted', 'ModelChanged', 'ThinkingLevelChanged', 'RequestObserved', 'AnswerObserved', 'RequestInterrupted', 'ResetOccurred']);
+  assert.deepEqual(log.rows.map(row => row.type), ['SessionStarted', 'ModelChanged', 'ThinkingLevelChanged', 'RequestObserved', 'SessionCostObserved', 'AnswerObserved', 'SessionCostObserved', 'RequestInterrupted', 'SessionCostObserved', 'ResetOccurred']);
   const request = log.rows.find(row => row.type === 'RequestObserved')!;
   assert.equal((request.payload as Record<string, unknown>).origin, 'unproven');
   assert.equal((request.payload as Record<string, unknown>).entryId, 'prompt-1');
@@ -43,7 +43,7 @@ test('torn final message is reread; atomic replacement and old-inode writes drai
   const line = JSON.stringify({ type: 'message', id: 'late', timestamp: '2026-11-19T10:00:09.000Z', message: { role: 'user', content: 'late prompt' } }) + '\n';
   appendFileSync(file, line.slice(0, -2));
   await tailer.poll([file]);
-  assert.equal(log.rows.length, 7);
+  assert.equal(log.rows.length, 10);
   const archive = join(directory, 'archive.jsonl');
   renameSync(file, archive);
   appendFileSync(archive, line.slice(-2));

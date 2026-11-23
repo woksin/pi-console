@@ -9,6 +9,7 @@ import { pageOf, type Entry, type Page, type PageCollection, type PageParams } f
 import { memoryEntries, memoryStatuses, sessionMemory } from './memory.ts';
 import type { MemoryItemStatus } from '../projections/memory.ts';
 import { screenSnapshot } from './screen-snapshot.ts';
+import { laneLookup, type LaneLookup } from './session-identity.ts';
 import { repositoryName, resetsOf, toJob, toMessage, toQuestion, toRequest, toSession } from './entities.ts';
 
 export type RequestFilter = 'all' | 'unanswered' | 'interrupted';
@@ -52,18 +53,21 @@ export class ConsoleQueries {
   /** Fresh for ordinary queries; a fixed-model batch may memoize this alongside needsYou(). */
   protected attentionSessionIds(): ReadonlySet<string> { return attentionSessionIds(this.needsYou()); }
 
+  protected identityLookup(): LaneLookup { return laneLookup(this.#models().lanes.lanes); }
+
   sessions(): Session[] {
     const models = this.#models();
     const attentionSessionIds = this.attentionSessionIds();
+    const lanes = this.identityLookup();
     return Object.values(models.sessions.sessions)
-      .map(session => toSession(models, session, attentionSessionIds))
+      .map(session => toSession(models, session, attentionSessionIds, lanes))
       .sort(by(session => session.startedAt, session => session.id));
   }
 
   sessionById(id: Session['id']): Session | undefined {
     const models = this.#models();
     const row = own(models.sessions.sessions, id);
-    return row ? toSession(models, row, this.attentionSessionIds()) : undefined;
+    return row ? toSession(models, row, this.attentionSessionIds(), this.identityLookup()) : undefined;
   }
 
   session(id: Session['id']): SessionDetail | undefined {
@@ -188,7 +192,7 @@ export class ConsoleQueries {
     const owned = (entry: { build: () => { sessionId: string | null } }) => session === undefined || entry.build().sessionId === session;
     const between = (entry: { build: () => Message }) => session === undefined || [entry.build().fromSessionId, entry.build().toSessionId].includes(session);
     const lists: Record<PageCollection, () => Entry<Listed>[]> = {
-      sessions: () => sessionEntries(models, this.attentionSessionIds()),
+      sessions: () => sessionEntries(models, this.attentionSessionIds(), this.identityLookup()),
       requests: () => requestEntries(models, referencedBy([]), query.filter).filter(owned),
       questions: () => questionEntries(models, referencedBy([])).filter(owned),
       messages: () => messageEntries(models).filter(between),

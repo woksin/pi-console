@@ -1,4 +1,5 @@
 import type { Graph, GraphEdge, GraphNode, Message, Session } from '@pi-console/contract';
+import { sessionLabels } from '../format/session-labels.ts';
 import { statusCell, type StatusCell } from '../format/status-cell.ts';
 
 export type EdgeKind = 'message' | 'spawn';
@@ -73,7 +74,7 @@ function sessionGraphViewModel(input: { sessions: readonly Session[]; messages: 
       const touched = new Set(repositoryEdges.flatMap(edge => [edge.from, edge.to]));
       return {
         repositoryId, edges: repositoryEdges.sort((a, b) => b.count - a.count || a.from.localeCompare(b.from)),
-        nodes: sessions.filter(session => touched.has(session.id)).map(session => ({ sessionId: session.id, label: `${session.laneId} ${session.role}`, status: statusCell(session.status), role: session.role })),
+        nodes: sessions.filter(session => touched.has(session.id)).map(session => ({ sessionId: session.id, label: sessionLabels(session).graph, status: statusCell(session.status), role: session.role })),
         messages: repositoryEdges.filter(edge => edge.kind === 'message').reduce((sum, edge) => sum + edge.count, 0),
       };
     }).filter(group => group.edges.length > 0),

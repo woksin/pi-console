@@ -6,7 +6,7 @@ import { SessionMemory } from './session-memory.tsx';
 export function SessionHeader({ view }: { view: SessionViewModel }) {
   return (
     <header className="session-head">
-      <div className="muted small mono">{view.cwd} · {view.branch} · {view.model} · {view.role}</div>
+      <div className="muted small mono">{[view.cwd, view.branch, view.model, view.role].filter(Boolean).join(' · ')}</div>
       <span className="muted tnum">{view.cost}</span><span className="muted tnum">updated {view.age} ago</span>
     </header>
   );

@@ -83,7 +83,7 @@ function turnFact(state: SessionsState, sessionId: string, turnId: string, event
   resolveTurn(session);
 }
 
-export const sessionsProjection = projection<SessionsState>('sessions', 3, () => ({ sessions: {} }), {
+export const sessionsProjection = projection<SessionsState>('sessions', 4, () => ({ sessions: {} }), {
   SessionStarted(state, payload, event) {
     const session = touch(state, payload.sessionId, event);
     setLatest(session, 'cwd', payload.cwd, event);
@@ -97,6 +97,7 @@ export const sessionsProjection = projection<SessionsState>('sessions', 3, () =>
     setLatest(session, 'endReason', payload.reason, event);
     resolveTurn(session);
   },
+  SessionCostObserved(state, payload, event) { touch(state, payload.sessionId, event); },
   ModelChanged(state, payload, event) { setLatest(touch(state, payload.sessionId, event), 'model', payload.model, event); },
   ThinkingLevelChanged(state, payload, event) { setLatest(touch(state, payload.sessionId, event), 'thinkingLevel', payload.level, event); },
   TurnStarted(state, payload, event) { turnFact(state, payload.sessionId, payload.turnId, event, 'start'); },

@@ -93,10 +93,11 @@ function GroupRow({ row, attributes, selected, onToggle }: { row: GroupModel; at
 
 function SessionLine({ row, attributes, selected }: { row: SessionRow; attributes: VirtualRowAttributes; selected: boolean }) {
   const flash = useChangeFlash(row.status.status);
+  const metadata = [row.lane, row.branch].filter(Boolean).join(' · ');
   const attention = row.status.status === 'needs-you' || row.status.status === 'blocked' || row.status.status === 'failed';
   return (
     <tr {...attributes} className={`row${selected ? ' selected' : ''}${flash ? ' flash' : ''}${attention ? ' attention' : ''}`} data-session={row.id} aria-current={selected ? 'true' : undefined}>
-      <td><a href={sessionHref(row.id)} style={{ paddingLeft: `${String(row.depth * 18)}px` }}>{row.depth > 0 && <span className="faint" aria-hidden="true">↳ </span>}{row.name}</a><div className="faint small" style={{ paddingLeft: `${String(row.depth * 18)}px` }}>{row.lane} · {row.branch}</div></td>
+      <td><a href={sessionHref(row.id)} style={{ paddingLeft: `${String(row.depth * 18)}px` }}>{row.depth > 0 && <span className="faint" aria-hidden="true">↳ </span>}{row.name}</a>{metadata && <div className="faint small" style={{ paddingLeft: `${String(row.depth * 18)}px` }}>{metadata}</div>}</td>
       <td><StatusBadge cell={row.status} /></td>
       <td><PressureBar percent={row.contextPercent} pressure={row.pressure} /></td>
       <td><Sparkline values={sparkValues(row.spark)} width={72} height={20} tone={row.pressure === 'hot' ? 'red' : row.pressure === 'warm' ? 'amber' : 'cyan'} label={`${row.name} context trend`} /></td>

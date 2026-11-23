@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { contextMapper, issueMapper, laneMapper, laneStatusMapper, memoryEventMapper, memoryJournalMapper, orchMapper, phaseMapper, questionMapper, questionMapperVersion, rosterMapper, type Mapper } from '@pi-console/adapters';
+import { contextMapper, issueMapper, laneMapper, laneMapperVersion, laneStatusMapper, memoryEventMapper, memoryJournalMapper, orchMapper, phaseMapper, questionMapper, questionMapperVersion, rosterMapper, type Mapper } from '@pi-console/adapters';
 import { laneStatusJson } from './lane-status.ts';
 import type { SourceId } from './source-ids.ts';
 import { SourceRoot } from './source-root.ts';
@@ -67,7 +67,7 @@ export function sourceTable({ agentRoot, orchRoot, lanesRoot, laneStatusDir }: S
   const statusRoot = new SourceRoot(laneStatusDir);
   const snapshot = (mapper: Mapper, recursive: boolean, ...directory: [SourceRoot, ...string[]]): Feed => ({ mapper, kind: 'snapshot', extension: '.json', ...scope(directory), recursive, window: 'none' });
   const tail = (mapper: Mapper, name: RegExp, extra: Partial<Feed>, ...directory: [SourceRoot, ...string[]]): Feed => ({ mapper, kind: 'tail', extension: '.jsonl', ...scope(directory), recursive: false, name, ...extra });
-  const lanes = lanesRootScope === undefined ? [] : [snapshot(rosterMapper, false, lanesRootScope, '.state', 'roster'), { ...snapshot(laneMapper, false, lanesRootScope), name: /^lanes\.json$/ }];
+  const lanes = lanesRootScope === undefined ? [] : [snapshot(rosterMapper, false, lanesRootScope, '.state', 'roster'), { ...snapshot(laneMapper, false, lanesRootScope), name: /^lanes\.json$/, mapperVersion: laneMapperVersion }];
   const status: Feed = { mapper: laneStatusMapper, kind: 'snapshot', extension: '.status', ...scope([statusRoot]), recursive: false, window: 'none', decode: laneStatusJson };
   return [
     { id: 'question-store', feeds: [{ ...snapshot(questionMapper, true, agent, 'user-questions', 'items'), mapperVersion: questionMapperVersion }] },

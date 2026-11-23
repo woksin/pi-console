@@ -1,6 +1,17 @@
 import type { Fact, Mapper } from '../tailing/events.ts';
 import { list, object, text, timestamp } from '../values.ts';
 
+/** Refresh existing registry snapshots once without resetting their checkpoints. */
+export const laneMapperVersion = 'lane-identity-v1';
+
+function registryMetadata(lane: Record<string, unknown>): Record<string, string | null> {
+  const metadata: Record<string, string | null> = {};
+  for (const key of ['cwd', 'branch'] as const) {
+    if (lane[key] !== undefined) metadata[key] = lane[key] === null ? null : text(lane[key]);
+  }
+  return metadata;
+}
+
 const laneName = /^[A-Z][A-Z0-9-]{0,15}$/;
 const iso = '(\\S+)';
 const working = new RegExp(`^working since ${iso}$`);
@@ -39,7 +50,7 @@ export const laneStatusMapper: Mapper = value => {
   throw new Error('Unknown lane status line');
 };
 
-/** `lanes.json`: only `id`, `repo` and `closed.at` are read; prompts, branches and the rest never leave the file. */
+/** `lanes.json`: identity metadata is allowlisted; prompts and arbitrary producer fields never leave the file. */
 export const laneMapper: Mapper = value => {
   const row = object(value);
   if (row.version !== 1) throw new Error('Unknown lanes version');
@@ -47,7 +58,9 @@ export const laneMapper: Mapper = value => {
     const id = text(lane.id);
     const repo = lane.repo === undefined || lane.repo === null ? null : text(lane.repo);
     const end = lane.closed === undefined || lane.closed === null ? undefined : timestamp(object(lane.closed).at);
-    return [registered(id, repo), ...(end ? [closure(id, end)] : [])];
+    const fact = registered(id, repo);
+    Object.assign(fact.payload, registryMetadata(lane));
+    return [fact, ...(end ? [closure(id, end)] : [])];
   });
 };
 

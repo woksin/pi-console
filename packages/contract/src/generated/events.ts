@@ -9,6 +9,7 @@ export type TurnEndedPayload = { sessionId: string; turnId: string; stopReason?:
 export type ContextPressureSampledPayload = { sessionId: string; percent: number; tokens?: number | null };
 export type ResetOccurredPayload = { sessionId: string; resetId: string; kind: 'handoff' | 'compaction' | 'relaunch'; carriedRequestIds?: string[]; interruptedRequestIds?: string[] };
 export type SessionHeartbeatPayload = { sessionId: string; status?: string };
+export type SessionCostObservedPayload = { sessionId: string; entryId: string; costUsd: number | null };
 export type RequestObservedPayload = { requestId: string; sessionId: string; entryId?: string; raw?: boolean; origin: 'human' | 'launch' | 'unproven'; originEvidence: string; excerpt?: string; withheld?: boolean; derivedFrom?: 'session-jsonl' | 'intent-memory' };
 export type AnswerObservedPayload = { requestId: string; answerId: string; interim: boolean; excerpt?: string; withheld?: boolean; derivedFrom?: 'session-jsonl' | 'intent-memory' } | { raw: true; sessionId: string; entryId: string; answerId: string; interim: false; excerpt: string; withheld: boolean; derivedFrom?: 'session-jsonl' | 'intent-memory' };
 export type RequestInterruptedPayload = { requestId: string; sessionId: string; resetId?: string | null; derivedFrom?: 'session-jsonl' | 'intent-memory' } | { raw: true; sessionId: string; entryId: string; reason: 'aborted'; derivedFrom?: 'session-jsonl' | 'intent-memory' };
@@ -24,7 +25,7 @@ export type MessageSentPayload = { messageId: string; from: string; to: string; 
 export type MessageDeliveredPayload = { messageId: string };
 export type MessageReadPayload = { messageId: string };
 export type BroadcastSentPayload = { messageId: string; from: string; excerpt?: string; withheld?: boolean };
-export type LaneRegisteredPayload = { laneId: string; name: string; repositoryId?: string | null };
+export type LaneRegisteredPayload = { laneId: string; name: string; repositoryId?: string | null; cwd?: string | null; branch?: string | null };
 export type LaneStatusChangedPayload = { laneId: string; status: string; waitingOn?: string | null; barredBy?: string | null; parked?: boolean };
 export type LaneClosedPayload = { laneId: string };
 export type IssueClaimedPayload = { issue: string; laneId: string; owner?: string | null };
@@ -57,6 +58,7 @@ export interface EventPayloads {
   ContextPressureSampled: ContextPressureSampledPayload;
   ResetOccurred: ResetOccurredPayload;
   SessionHeartbeat: SessionHeartbeatPayload;
+  SessionCostObserved: SessionCostObservedPayload;
   RequestObserved: RequestObservedPayload;
   AnswerObserved: AnswerObservedPayload;
   RequestInterrupted: RequestInterruptedPayload;

@@ -1,6 +1,7 @@
 import type { Fact, Mapper } from '../tailing/events.ts';
 import { text, object, excerpt } from '../values.ts';
 import { jobMessageFacts, jobToolFacts } from './jobs.ts';
+import { costFact } from './cost.ts';
 
 type Emit = (type: string, payload: Record<string, unknown>) => Fact[];
 
@@ -24,7 +25,10 @@ function messageFacts(record: Record<string, unknown>, sessionId: string, emit: 
   if (message.role === 'user') return emit('RequestObserved', {
     ...raw, requestId: `${sessionId}:${entryId}`, origin: 'unproven', originEvidence: 'Transcript user role only; launch provenance not established', ...excerpt(message.content),
   });
-  if (message.role === 'assistant') return assistantFacts(message, raw, emit);
+  if (message.role === 'assistant') return [
+    ...assistantFacts(message, raw, emit),
+    { ...costFact(sessionId, entryId, message), occurredAt: text(record.timestamp) },
+  ];
   if (message.role === 'toolResult') return jobToolFacts(record, message);
   if (['system', 'custom', 'bashExecution', 'branchSummary', 'compactionSummary'].includes(text(message.role))) return [];
   throw new Error('Unknown message role');

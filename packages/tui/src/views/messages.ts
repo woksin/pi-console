@@ -1,4 +1,4 @@
-import { emptyStates, graphViewModel, filterMessageRows, messagesViewModel, pad, wrap, age, type LaneGraphEdgeView, type MessageRow } from '@pi-console/viewmodels';
+import { emptyStates, repositoryLabel, graphViewModel, filterMessageRows, messagesViewModel, pad, wrap, age, type LaneGraphEdgeView, type MessageRow } from '@pi-console/viewmodels';
 import { Column, Lines, Panel, Row, h, type Line } from '../view/renderer.ts';
 import { blank, fit, heading, selectable, split, t, windowOf } from '../view/parts.ts';
 import type { Color } from '../view/theme.ts';
@@ -35,12 +35,12 @@ interface DisplayGroup { title: string; nodes: Map<string, { label: string; colo
 function graphGroups(env: Env, upTo: number): DisplayGroup[] {
   const graph = { ...env.data.graph, edges: env.data.graph.edges.filter(edge => Date.parse(edge.lastAt) <= upTo) };
   const lanes = graphViewModel({ graph }).groups.filter(group => group.edges.length > 0).map((group): DisplayGroup => ({
-    title: `${group.repositoryId ?? 'Unassigned lanes'} · ${String(group.messages)} messages · ${String(group.nodes.length)} lanes`,
+    title: `${group.repositoryId === null ? 'Unassigned lanes' : repositoryLabel(group.repositoryId)} · ${String(group.messages)} messages · ${String(group.nodes.length)} lanes`,
     nodes: new Map(group.nodes.map(node => [node.laneId, { label: node.label, color: 'cyan' }])),
     edges: group.edges.map(edge => ({ from: edge.fromLane, to: edge.toLane, kind: edge.kind, count: edge.count, lastAt: edge.lastAt, thickness: edge.thickness, sessionId: null })),
   }));
   const sessions = graphViewModel({ sessions: env.data.sessions, messages: [] }).groups.map((group): DisplayGroup => ({
-    title: `Session relationships · ${group.repositoryId}`,
+    title: `Session relationships · ${repositoryLabel(group.repositoryId)}`,
     nodes: new Map(group.nodes.map(node => [node.sessionId, { label: node.label, color: node.status.color }])),
     edges: group.edges.map(edge => ({ ...edge, sessionId: edge.from })),
   }));

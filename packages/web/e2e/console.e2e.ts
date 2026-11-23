@@ -512,3 +512,19 @@ describe('web console e2e', () => {
     await page.context().close();
   });
 });
+
+test('real-shaped identity and unknown dollars render without fake lane metadata', async () => {
+  const realRig = await startRig({ speed: 1e-9 });
+  const page = await realRig.open('/fleet');
+  try {
+    const response = await page.request.get(`${realRig.baseUrl}/api/v1/sessions/s2`, { headers: { Authorization: `Bearer ${realRig.daemon.token}` } });
+    const detail = await response.json() as SessionDetail;
+    detail.session = { ...detail.session, repositoryId: '/work/repo', cwd: '/work/repo', name: 'repo', laneId: 'unassigned', branch: '', model: '', samples: [], costUsd: null };
+    await page.route('**/api/v1/sessions/s2', route => route.fulfill({ json: detail }));
+    await page.evaluate(() => { window.location.hash = '#/session/s2'; });
+    await page.getByRole('heading', { name: 's2 repo', exact: true }).waitFor();
+    const header = await page.locator('.session-head').innerText();
+    assert.match(header, /—/);
+    assert.doesNotMatch(header, /unassigned|\$0\.00| · {2}· /);
+  } finally { await page.context().close(); await realRig.close(); }
+});
