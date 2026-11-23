@@ -32,6 +32,15 @@ function ordered(sessions: readonly Session[]): { session: Session; depth: numbe
   return roots.flatMap(root => walk(root, 0));
 }
 
+/** A session placed in the Fleet order; everything time-dependent is formatted later by {@link fleetRowAt}. */
+export interface SessionEntry { kind: 'session'; id: string; depth: number; session: Session }
+export type FleetEntry = GroupRow | SessionEntry;
+/** Clock-free Fleet layout: stable order, group counts and selection keys. Rebuild only when sessions, query or collapsed groups change. */
+export interface FleetStructure { entries: readonly FleetEntry[]; keys: readonly string[]; sessionCount: number; matched: number; query: string }
+
+/** The selection key of a row: sessions by id, groups prefixed so they cannot collide with a session id. */
+export const fleetEntryKey = (entry: FleetEntry): string => (entry.kind === 'group' ? `group:${entry.id}` : entry.id);
+
 function sessionRow(session: Session, depth: number, now: number): SessionRow {
   const series = session.samples.map(sample => sample.contextPercent);
   return {
@@ -42,15 +51,24 @@ function sessionRow(session: Session, depth: number, now: number): SessionRow {
   };
 }
 
-export function fleetViewModel(input: FleetInput): FleetViewModel {
+/** Formats one structural row for `now`; sessions pay for age, sparkline and cost only here. */
+export const fleetRowAt = (entry: FleetEntry, now: number): FleetRow => (entry.kind === 'group' ? entry : sessionRow(entry.session, entry.depth, now));
+
+export function fleetStructure(input: Omit<FleetInput, 'now'>): FleetStructure {
   const query = input.query?.trim() ?? '';
   const visible = query ? input.sessions.filter(session => fuzzy(query, text(session)) !== undefined) : input.sessions;
   const groups = Map.groupBy(ordered(visible), entry => entry.session.repositoryId);
-  const rows: FleetRow[] = [];
-  for (const [repository, entries] of groups) {
+  const entries: FleetEntry[] = [];
+  for (const [repository, members] of groups) {
     const collapsed = input.collapsed?.has(repository) ?? false;
-    rows.push({ kind: 'group', id: repository, label: repository, sessions: entries.length, collapsed, attention: entries.filter(entry => attentionStatuses.has(entry.session.status)).length });
-    if (!collapsed) rows.push(...entries.map(entry => sessionRow(entry.session, entry.depth, input.now)));
+    entries.push({ kind: 'group', id: repository, label: repository, sessions: members.length, collapsed, attention: members.filter(entry => attentionStatuses.has(entry.session.status)).length });
+    if (!collapsed) entries.push(...members.map((entry): SessionEntry => ({ kind: 'session', id: entry.session.id, depth: entry.depth, session: entry.session })));
   }
-  return { rows, sessionCount: input.sessions.length, matched: visible.length, query };
+  return { entries, keys: entries.map(fleetEntryKey), sessionCount: input.sessions.length, matched: visible.length, query };
+}
+
+/** Compatibility wrapper: the whole model formatted for `input.now`. Prefer {@link fleetStructure} plus {@link fleetRowAt} for large lists. */
+export function fleetViewModel(input: FleetInput): FleetViewModel {
+  const structure = fleetStructure(input);
+  return { rows: structure.entries.map(entry => fleetRowAt(entry, input.now)), sessionCount: structure.sessionCount, matched: structure.matched, query: structure.query };
 }

@@ -6,6 +6,7 @@ export * from './format/status-cell.ts';
 export * from './keymap/keymap.ts';
 export * from './overview/overview.ts';
 export * from './fleet/fleet.ts';
+export * from './memo/last-input.ts';
 export * from './session/session.ts';
 export * from './session/memory.ts';
 export * from './session/memory-review.ts';

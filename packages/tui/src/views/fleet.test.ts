@@ -73,3 +73,23 @@ test('an empty fleet shows the shared empty state and the first-run checklist', 
     assert.match(frame, /◇ Extension installed \(optional\)/);
   } finally { ui.destroy(); store.dispose(); }
 });
+
+test('Fleet keeps the same rows and navigation for any clock and only changes the formatted age', async () => {
+  const store = new Store();
+  const sessions = [parent, child];
+  const at = async (now: number) => {
+    const view = fleetView({ data: { ...store.getSnapshot(), loaded: true, sessions }, ui: { ...initial, section: 'fleet' }, width: 120, height: 24, now, phase: 0, click: () => undefined });
+    const ui = await mountHeadless(h(Screen, {}, view.render()), { width: 120, height: 24 });
+    try { await ui.settle(); return { view, frame: ui.frame() }; } finally { ui.destroy(); }
+  };
+  try {
+    const first = await at(Date.parse(base.updatedAt) + 5_000);
+    const later = await at(Date.parse(base.updatedAt) + 7_200_000);
+    assert.equal(first.view.length, later.view.length);
+    assert.deepEqual([0, 1, 2].map(index => first.view.rowAt(index)), [0, 1, 2].map(index => later.view.rowAt(index)));
+    assert.deepEqual([0, 1, 2].map(index => first.view.idAt(index)), [0, 1, 2].map(index => later.view.idAt(index)));
+    assert.notEqual(first.frame, later.frame);
+    assert.match(first.frame, /\b5s\b/);
+    assert.match(later.frame, /\b2h\b/);
+  } finally { store.dispose(); }
+});

@@ -193,3 +193,32 @@ test('silent live streams announce a stable warning while the visible frame age 
     assert.equal(await banner.getAttribute('role'), null);
   } finally { await page.context().close(); await silentRig.close(); }
 });
+
+test('virtualized Work keeps table row counts, a focused row mounted, and Tab reveals the adjacent logical row', async () => {
+  const fixture = rig.daemon.store.fixture;
+  const original = fixture.jobs;
+  fixture.jobs = Array.from({ length: 2000 }, (_, index) => ({ ...original[0], id: `a11y-big-${String(index).padStart(4, '0')}`, name: `A11y work ${String(index)}`, status: 'running' }));
+  const page = await rig.open('/work', { width: 1440, height: 600 });
+  try {
+    const table = page.getByRole('table', { name: 'Work' });
+    await table.locator('tbody tr[data-vindex="0"]').waitFor();
+    const total = Number(await table.getAttribute('aria-rowcount')) - 1;
+    assert.ok(total > 200, 'a large list is loaded');
+    assert.equal(await table.locator('thead tr').getAttribute('aria-rowindex'), '1');
+    assert.equal(await table.locator('tbody tr[data-vindex="3"]').getAttribute('aria-rowindex'), '5');
+    assert.equal(await table.locator('tbody tr[aria-hidden="true"]').evaluateAll(rows => rows.every(row => row.querySelector('a, button') === null)), true, 'spacers hold no controls');
+    assert.equal(await table.locator('[aria-selected]').count(), 0);
+
+    const link = table.locator('tbody tr[data-vindex="3"] a');
+    await link.focus();
+    await page.locator('#content').evaluate(node => { node.scrollTop = node.scrollHeight / 2; });
+    await page.waitForFunction(count => [...document.querySelectorAll('table[aria-label="Work"] tr[data-vindex]')].some(row => Math.abs(Number(row.getAttribute('data-vindex')) - count / 2) < 40), total);
+    await focused(link);
+    assert.ok(await table.locator('tbody tr[data-vindex]').count() < 60, 'only the focused row is kept beyond the window');
+
+    await page.keyboard.press('Tab');
+    await focused(table.locator('tbody tr[data-vindex="4"] a'));
+    await page.keyboard.press('Shift+Tab');
+    await focused(table.locator('tbody tr[data-vindex="3"] a'));
+  } finally { fixture.jobs = original; await page.context().close(); }
+});

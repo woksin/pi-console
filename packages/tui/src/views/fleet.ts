@@ -1,4 +1,4 @@
-import { emptyStates, fleetColumns, fleetViewModel, pad, padStart, type FleetRow, type SessionRow } from '@pi-console/viewmodels';
+import { emptyStates, fleetColumns, fleetRowAt, fleetStructure, lastInput, pad, padStart, type FleetEntry, type FleetRow, type SessionRow } from '@pi-console/viewmodels';
 import { Lines, Panel, Row, h, type Line } from '../view/renderer.ts';
 import { pressureBar, blank, fit, heading, pressureTone, selectable, statusParts, t, windowOf } from '../view/parts.ts';
 import { checklistLines, emptyLines, loadingLines, noMatchLines, type Env, type SectionView } from './common.ts';
@@ -63,7 +63,7 @@ function fleetLines(rows: FleetRow[], env: Env, window: { layout: Columns; curso
     : sessionLine(row, layout, env, start + offset === cursor));
 }
 
-function rowLocation(row: FleetRow | undefined) {
+function rowLocation(row: FleetEntry | undefined) {
   if (!row) return { sessionId: null, groupId: null };
   return row.kind === 'group' ? { sessionId: null, groupId: row.id } : { sessionId: row.id, groupId: null };
 }
@@ -77,22 +77,29 @@ const noRows = (query: string, env: Env, width: number): Line[] => query
   ? noMatchLines('session', query)
   : [...emptyLines(emptyStates.fleet, width), ...checklistLines({ connected: env.data.connection.connected, sessions: 0 }, width)];
 
+/** The clock-free layout for the last sessions/filter/collapsed inputs; a clock tick or cursor move reuses it. */
+const structureFor = lastInput((sessions: Env['data']['sessions'], query: string, collapsed: readonly string[]) => fleetStructure({ sessions, query, collapsed: new Set(collapsed) }));
+
+const fleetTitle = (model: ReturnType<typeof structureFor>): string => model.query
+  ? `Fleet · filter “${model.query}” · ${String(model.matched)} of ${String(model.sessionCount)}`
+  : `Fleet · ${String(model.sessionCount)} sessions`;
+
 export function fleetView(env: Env): SectionView {
-  const model = fleetViewModel({ sessions: env.data.sessions, now: env.now, query: listFilter(env.ui), collapsed: new Set(env.ui.collapsed) });
-  const rows = model.rows;
+  const model = structureFor(env.data.sessions, listFilter(env.ui), env.ui.collapsed);
+  const rows = model.entries;
   const wide = env.width >= 140;
   const layout = columns((wide ? env.width - 40 : env.width) - 4);
   const cursor = Math.min(env.ui.cursor.fleet, Math.max(0, rows.length - 1));
   const { start, end } = windowOf(rows.length, cursor, Math.max(1, env.height - 5 - Number(!layout.details)));
-  const lines = !env.data.loaded ? loadingLines() : rows.length ? fleetLines(rows.slice(start, end), env, { layout, cursor, start }) : noRows(model.query, env, layout.width);
-  const selected = rows[cursor];
-  const title = model.query ? `Fleet · filter “${model.query}” · ${String(model.matched)} of ${String(model.sessionCount)}` : `Fleet · ${String(model.sessionCount)} sessions`;
+  const lines = !env.data.loaded ? loadingLines() : rows.length ? fleetLines(rows.slice(start, end).map(entry => fleetRowAt(entry, env.now)), env, { layout, cursor, start }) : noRows(model.query, env, layout.width);
+  const current = rows.at(cursor);
+  const selected = current && fleetRowAt(current, env.now);
   return {
     length: rows.length,
     rowAt: index => rowLocation(rows[index]),
     idAt: index => rows[index]?.id ?? null,
     render: () => h(Row, { grow: 1, gap: 1 },
-      h(Panel, { title, focused: true, grow: 1, right: rows.length > end ? `↓ ${String(rows.length - end)} more` : '' },
+      h(Panel, { title: fleetTitle(model), focused: true, grow: 1, right: rows.length > end ? `↓ ${String(rows.length - end)} more` : '' },
         h(Lines, { lines: [columnHeadings(layout)] }),
         h(Lines, { lines, grow: 1, onLineClick: index => { env.click(start + index); } }),
         ...hiddenColumnsHint(layout)),
