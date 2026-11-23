@@ -7,12 +7,16 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import type { Session } from '@pi-console/contract';
 import { sessionViewModel, type SessionViewModel } from '@pi-console/viewmodels';
 import { webGraphModel } from './graph-model.ts';
+import { emptyState } from '../state/state.ts';
+import type { TopBar as TopBarComponent } from '../app/shell.tsx';
 
 let server: ViteDevServer;
 let SessionHeader: ComponentType<{ view: SessionViewModel }>;
+let TopBar: typeof TopBarComponent;
 before(async () => {
   server = await createServer({ configFile: false, root: resolve(import.meta.dirname, '../..'), server: { middlewareMode: true, watch: null, hmr: false }, appType: 'custom' });
   ({ SessionHeader } = await server.ssrLoadModule('/src/views/session-rail.tsx'));
+  ({ TopBar } = await server.ssrLoadModule('/src/app/shell.tsx'));
 });
 after(async () => { await server.close(); });
 
@@ -33,6 +37,18 @@ test('real session headers omit missing metadata and distinguish unknown, zero a
   assert.doesNotMatch(unknown, /unassigned| · {2}· |\$0\.00/);
   assert.match(render({ ...session, costUsd: 0 }), /\$0\.00/);
   assert.match(render({ ...session, costUsd: 1.25, costIncomplete: true }), /\$1\.25 \(known\)/);
+});
+
+test('the focused topbar heading uses readable session identity without changing rich mock labels', () => {
+  const render = (row?: Session) => renderToStaticMarkup(createElement(TopBar, {
+    title: 'Session', hint: '', state: emptyState(), wall: 0, session: row, onPalette: () => undefined, onHelp: () => undefined,
+  }));
+  const real = render(session);
+  assert.match(real, /<h1 id="content-heading" tabindex="-1" class="crumb truncate" title="abcdef01 repo">abcdef01 repo<\/h1>/);
+  assert.doesNotMatch(real, /\/work\/repo|unassigned/);
+  const rich = render({ ...session, repositoryId: 'aurora', laneId: 'L1', name: 'aurora worker' });
+  assert.match(rich, />aurora \/ L1 \/ aurora worker<\/h1>/);
+  assert.match(render(), />Session<\/h1>/);
 });
 
 test('graph titles are readable but raw repository grouping keys remain distinct', () => {

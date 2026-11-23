@@ -517,10 +517,13 @@ test('real-shaped identity and unknown dollars render without fake lane metadata
   const realRig = await startRig({ speed: 1e-9 });
   const page = await realRig.open('/fleet');
   try {
+    await page.locator('.conn[data-connection="live"]').waitFor();
     const response = await page.request.get(`${realRig.baseUrl}/api/v1/sessions/s2`, { headers: { Authorization: `Bearer ${realRig.daemon.token}` } });
+    assert.equal(response.status(), 200);
     const detail = await response.json() as SessionDetail;
     detail.session = { ...detail.session, repositoryId: '/work/repo', cwd: '/work/repo', name: 'repo', laneId: 'unassigned', branch: '', model: '', samples: [], costUsd: null };
-    await page.route('**/api/v1/sessions/s2', route => route.fulfill({ json: detail }));
+    // Existing snapshot sessions skip HTTP detail reads; update the authoritative stream instead.
+    realRig.daemon.store.publish('session.updated', detail.session);
     await page.evaluate(() => { window.location.hash = '#/session/s2'; });
     await page.getByRole('heading', { name: 's2 repo', exact: true }).waitFor();
     const header = await page.locator('.session-head').innerText();
