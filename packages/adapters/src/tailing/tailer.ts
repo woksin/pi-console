@@ -9,6 +9,10 @@ import { openSource, resolveSourceScope, type OpenedSource } from './open-source
 import type { Scanner } from './redact.ts';
 
 interface Handle extends OpenedSource { fd: number; identity: string; replayed: boolean }
+interface CheckpointLog extends EventLog {
+  /** Optional indexed lookup; ordinary EventLogs retain the source-wide fallback. */
+  checkpoint?(source: string, identity: string): Promise<SourceCheckpoint | undefined>;
+}
 export interface TailerOptions {
   /** Canonical trust roots pinned before discovery; standalone tailers default to the candidate's parent. */
   roots?: readonly string[];
@@ -54,14 +58,14 @@ function sameEpoch(saved: SourceCheckpoint, current: SourceCheckpoint): boolean 
 /** Bounded read-only transport. Source adapters supply a schema-guarded domain mapper. */
 export class FileTailer {
   private readonly handles = new Map<string, Handle>();
-  private readonly log: EventLog;
+  private readonly log: CheckpointLog;
   private readonly source: string;
   private mapper: Mapper;
   private loadMapper: (() => Promise<Mapper>) | undefined;
   private readonly options: TailerOptions;
   private polling = false;
 
-  constructor(log: EventLog, source: string, mapper: Mapper | { load: () => Promise<Mapper> }, options: TailerOptions = {}) {
+  constructor(log: CheckpointLog, source: string, mapper: Mapper | { load: () => Promise<Mapper> }, options: TailerOptions = {}) {
     this.log = log;
     this.source = source;
     this.mapper = typeof mapper === 'function' ? mapper : () => [];
@@ -107,13 +111,20 @@ export class FileTailer {
         this.loadMapper = undefined;
       }
       for (const path of paths) await this.track(path);
-      const saved = new Map((await this.log.checkpoints(this.source)).map(checkpoint => [checkpoint.identity, checkpoint]));
+      const lookup = await this.checkpointLookup();
       const result: PollResult = { entries: 0, appended: 0, lagBytes: 0, partialFiles: 0 };
-      for (const handle of this.handles.values()) await this.read(handle, saved.get(handle.identity), result);
+      for (const handle of this.handles.values()) await this.read(handle, await lookup(handle.identity), result);
       return result;
     } finally {
       this.polling = false;
     }
+  }
+
+  private async checkpointLookup(): Promise<(identity: string) => SourceCheckpoint | undefined | Promise<SourceCheckpoint | undefined>> {
+    const lookup = this.log.checkpoint?.bind(this.log, this.source);
+    if (lookup) return lookup;
+    const saved = new Map((await this.log.checkpoints(this.source)).map(checkpoint => [checkpoint.identity, checkpoint]));
+    return identity => saved.get(identity);
   }
 
   /** Where this poll starts: 0 when replaying, the windowed start for a new epoch, else where it left off. */

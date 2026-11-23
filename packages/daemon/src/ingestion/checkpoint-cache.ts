@@ -19,13 +19,21 @@ export class CheckpointCache implements EventLog {
     return result;
   }
 
+  async checkpoint(source: string, identity: string): Promise<SourceCheckpoint | undefined> {
+    return (await this.#known(source)).get(identity);
+  }
+
   async checkpoints(source: string): Promise<SourceCheckpoint[]> {
+    return [...(await this.#known(source)).values()];
+  }
+
+  async #known(source: string): Promise<Map<string, SourceCheckpoint>> {
     let known = this.#sources.get(source);
     if (!known) {
       known = new Map((await this.#log.checkpoints(source)).map(checkpoint => [checkpoint.identity, checkpoint]));
       this.#sources.set(source, known);
     }
-    return [...known.values()];
+    return known;
   }
 
   readFrom(afterSeq: number, limit?: number): AsyncIterable<EventEnvelope> {
