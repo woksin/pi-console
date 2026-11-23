@@ -1,4 +1,4 @@
-import { cells, clip, sanitize } from '@pi-console/viewmodels';
+import { displayWidth, clip, clipCells, graphemes, sanitize } from '@pi-console/viewmodels';
 import type { StatusCell } from '@pi-console/viewmodels';
 import type { Color } from './theme.ts';
 import type { Line, Part } from './renderer.ts';
@@ -49,19 +49,41 @@ export function pressureBar(percent: number, width: number): Line {
   });
 }
 
-const total = (line: readonly Part[]) => line.reduce((sum, part) => sum + cells(part.text).length, 0);
+const total = (line: readonly Part[]) => displayWidth(line.map(part => part.text).join(''));
+
+/** Whether a style boundary divides a user-perceived character. */
+function crossesGrapheme(line: readonly Part[]): boolean {
+  let end = 0;
+  const boundaries = new Set([0, ...graphemes(line.map(part => part.text).join('')).map(text => (end += text.length))]);
+  let offset = 0;
+  return line.some(part => { offset += part.text.length; return !boundaries.has(offset); });
+}
+
+function fitJoined(line: readonly Part[], width: number, background?: Color): Line {
+  const clipped = clipCells(line.map(part => part.text).join(''), width);
+  let offset = 0;
+  const out = line.flatMap(part => {
+    const text = clipped.slice(offset, offset + part.text.length);
+    offset += part.text.length;
+    return text ? [{ ...part, text, background: part.background ?? background }] : [];
+  });
+  const padding = Math.max(0, width - displayWidth(clipped));
+  if (padding) out.push({ text: ' '.repeat(padding), background });
+  return out;
+}
 
 /** Clips a line to `width` cells (ellipsis on the cut part) and pads it with spaces; `background` fills the whole width. */
 export function fit(line: readonly Part[], width: number, background?: Color): Line {
+  if (crossesGrapheme(line)) return fitJoined(line, width, background);
   const out: Part[] = [];
   let used = 0;
   for (const part of line) {
     const room = width - used;
     if (room <= 0) break;
-    const length = cells(part.text).length;
+    const length = displayWidth(part.text);
     const text = length > room ? clip(part.text, room) : part.text;
     out.push({ ...part, text, background: part.background ?? background });
-    used += cells(text).length;
+    used += displayWidth(text);
     if (length > room) break;
   }
   if (used < width) out.push({ text: ' '.repeat(width - used), background });
@@ -91,6 +113,6 @@ export const heading = (text: string, color: Color = 'muted'): Line => [t(text.t
 export const blank: Line = [t('')];
 export const rule = (width: number, label = '', color: Color = 'border'): Line => {
   const text = label ? ` ${label} ` : '';
-  const side = Math.max(0, Math.floor((width - cells(text).length) / 2));
-  return [t('─'.repeat(side) + text + '─'.repeat(Math.max(0, width - side - cells(text).length)), color)];
+  const side = Math.max(0, Math.floor((width - displayWidth(text)) / 2));
+  return [t('─'.repeat(side) + text + '─'.repeat(Math.max(0, width - side - displayWidth(text))), color)];
 };

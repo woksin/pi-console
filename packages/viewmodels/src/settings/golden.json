@@ -46,7 +46,7 @@
   "sources": [
     {
       "label": "Source adapters",
-      "value": "reported by the daemon once the sources endpoint ships",
+      "value": "availability not reported",
       "tone": "plain"
     }
   ]

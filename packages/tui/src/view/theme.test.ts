@@ -5,11 +5,12 @@ import { Settings } from '../shell/overlays.ts';
 import { Screen, h, mountHeadless } from './renderer.ts';
 import { palette, themeFromEnv } from './theme.ts';
 
-test('the theme comes from PI_CONSOLE_THEME, then the high-contrast switch, then NO_COLOR', () => {
+test('a non-empty NO_COLOR forces plain; otherwise PI_CONSOLE_THEME, then the high-contrast switch', () => {
   assert.equal(themeFromEnv({}), 'midnight');
   assert.equal(themeFromEnv({ PI_CONSOLE_THEME: 'mono' }), 'mono');
   assert.equal(themeFromEnv({ PI_CONSOLE_THEME: 'sepia', PI_CONSOLE_HIGH_CONTRAST: '1' }), 'contrast');
-  assert.equal(themeFromEnv({ NO_COLOR: '1' }), 'mono');
+  assert.equal(themeFromEnv({ NO_COLOR: '1' }), 'plain');
+  assert.equal(themeFromEnv({ NO_COLOR: '1', PI_CONSOLE_THEME: 'contrast' }), 'plain');
   assert.equal(themeFromEnv({ NO_COLOR: '', PI_CONSOLE_THEME: 'contrast' }), 'contrast');
 });
 

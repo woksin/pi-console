@@ -108,3 +108,13 @@ test('help prints usage without starting anything', async () => {
   assert.match(lines[0], /http:\/\/127\.0\.0\.1:<port>\/#token=<token>/);
   assert.equal(lines[0].includes('?token='), false);
 });
+
+test('startup lists the resolved agent root and source directories after the URL and token lines', async t => {
+  const directory = mkdtempSync(join(tmpdir(), 'pi-console-cli-'));
+  t.after(() => { rmSync(directory, { recursive: true, force: true }); });
+  const { lines, finish } = await startedLines(directory, []);
+  assert.match(lines[0], /^pi-console daemon listening on /);
+  assert.ok(lines.includes(`Agent root: ${join(directory, 'agent')} [missing]`), lines.join('\n'));
+  assert.ok(lines.some(line => line.startsWith('Source issue-work: ') && line.endsWith('[missing]')));
+  assert.equal(await finish(), 0);
+});

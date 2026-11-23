@@ -1,4 +1,4 @@
-import { cells, clip } from '../format/format.ts';
+import { displayWidth, clip } from '../format/format.ts';
 
 /** The error the TUI client reports for an HTTP 401; the banner turns it into a fix instruction. */
 export const tokenRejectedError = 'Token rejected (HTTP 401)';
@@ -15,8 +15,8 @@ export interface ConnectionBannerInput { connected: boolean; lastEventAt: number
 /** The error replaces the as-of time when both do not fit in `maxCells`; the error is dropped only when even a clipped one does not fit. */
 function withError(data: string, error: string, maxCells: number): string {
   const full = `${lead} · ${data} · ${error} · ${trail}`;
-  if (cells(full).length <= maxCells) return full;
-  const room = maxCells - cells(`${lead} ·  · ${trail}`).length;
+  if (displayWidth(full) <= maxCells) return full;
+  const room = maxCells - displayWidth(`${lead} ·  · ${trail}`);
   return room >= minErrorCells ? `${lead} · ${clip(error, room)} · ${trail}` : `${lead} · ${data} · ${trail}`;
 }
 
