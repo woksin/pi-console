@@ -110,6 +110,119 @@ test('outside roots, denied directories, non-regular sources and invalid header 
   assert.equal(await index.resolve('fifo'), undefined);
 });
 
+const scaleScript = `
+  import fs from 'node:fs';
+  import promises from 'node:fs/promises';
+  import { syncBuiltinESMExports } from 'node:module';
+  import { createHash } from 'node:crypto';
+  import { TranscriptSources } from './packages/daemon/src/api/transcript-sources.ts';
+  const root = fs.realpathSync(process.cwd());
+  const files = new Map();
+  const checkpoints = Array.from({ length: 5000 }, (_, i) => {
+    const bytes = Buffer.from(JSON.stringify({ type: 'session', version: 3, id: 's' + i,
+      timestamp: '2026-01-02T03:04:05.000Z', cwd: '/synthetic' }) + '\\n');
+    const path = root + '/stub-' + i + '.jsonl';
+    const stat = { dev: 1, ino: i, birthtimeMs: 1, nlink: 1, size: bytes.length, mtimeMs: 1,
+      isFile: () => true, isSymbolicLink: () => false };
+    files.set(path, { bytes, stat });
+    return { source: 'session-jsonl', identity: '1:' + i + ':1', path, generation: 0,
+      offset: bytes.length, size: bytes.length, mtimeMs: 1,
+      headHash: createHash('sha256').update(bytes).digest('hex') };
+  });
+  let opens = 0;
+  let closes = 0;
+  const originalStat = fs.lstatSync;
+  fs.lstatSync = path => files.get(path)?.stat ?? originalStat(path);
+  promises.open = async path => {
+    const file = files.get(path);
+    if (!file) throw new Error('Unexpected open: ' + path);
+    opens++;
+    return {
+      stat: async () => file.stat,
+      read: async (buffer, offset, length, position) => ({ bytesRead: file.bytes.copy(buffer, offset, position, position + length) }),
+      close: async () => { closes++; },
+    };
+  };
+  syncBuiltinESMExports();
+  const index = new TranscriptSources({ checkpoints: async () => checkpoints }, [root]);
+  const warm = await index.resolve('s4999');
+  const warmOpens = opens;
+  opens = closes = 0;
+  const selected = await index.resolve('s4999');
+  const uniqueOpens = opens;
+  const uniqueCloses = closes;
+  opens = closes = 0;
+  await index.resolve('missing');
+  await index.resolve('another-missing');
+  const unknownOpens = opens;
+  opens = closes = 0;
+  const concurrent = await Promise.all([index.resolve('s0'), index.resolve('s4999')]);
+  process.stdout.write(JSON.stringify({ warmOpens, uniqueOpens, uniqueCloses, unknownOpens,
+    concurrentOpens: opens, concurrentCloses: closes, paths: [warm, selected, ...concurrent].map(source => source?.path) }));
+`;
+
+test('5000 warm header associations validate only the selected candidates, including concurrent lookups', () => {
+  const result = JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e', scaleScript], {
+    cwd: new URL('../../../../', import.meta.url), encoding: 'utf8', timeout: 30_000,
+  }));
+  assert.equal(result.warmOpens, 5000);
+  assert.equal(result.uniqueOpens, 1);
+  assert.equal(result.uniqueCloses, 1);
+  assert.equal(result.unknownOpens, 0, 'unchanged checkpoints do not repeat negative scans');
+  assert.equal(result.concurrentOpens, 2);
+  assert.equal(result.concurrentCloses, 2);
+  assert.ok(result.paths[0]?.endsWith('/stub-4999.jsonl'));
+  assert.equal(result.paths[1], result.paths[0]);
+  assert.ok(result.paths[2]?.endsWith('/stub-0.jsonl'));
+  assert.equal(result.paths[3], result.paths[0]);
+});
+
+test('new, rewritten and removed checkpoints refresh associations and negative lookups', async t => {
+  const { root, positions, index, save } = fixture(t);
+  const path = join(root, 'file.jsonl');
+  assert.equal(await index.resolve('first'), undefined);
+  writeFileSync(path, header('first'));
+  save(path);
+  assert.ok(await index.resolve('first'));
+  assert.equal(await index.resolve('other'), undefined);
+  writeFileSync(path, header('other'));
+  save(path, 1);
+  assert.equal((await index.resolve('other'))?.path, path);
+  assert.equal(await index.resolve('first'), undefined);
+  positions.splice(0);
+  assert.equal(await index.resolve('other'), undefined);
+  save(path, 1);
+  assert.equal((await index.resolve('other'))?.path, path);
+});
+
+test('new duplicate checkpoints invalidate warm unique and negative lookups', async t => {
+  const { root, positions, index, save } = fixture(t);
+  const first = join(root, 'first.jsonl');
+  writeFileSync(first, header('same'));
+  save(first);
+  assert.equal((await index.resolve('same'))?.path, first);
+  assert.equal(await index.resolve('missing'), undefined);
+  const second = join(root, 'second.jsonl');
+  writeFileSync(second, header('same'));
+  save(second);
+  assert.equal(await index.resolve('same'), undefined);
+  positions.pop();
+  assert.equal((await index.resolve('same'))?.path, first);
+});
+
+test('duplicate candidates are revalidated after temporary unavailability without checkpoint changes', async t => {
+  const { root, index, save } = fixture(t);
+  const first = join(root, 'first.jsonl');
+  const second = join(root, 'second.jsonl');
+  for (const path of [first, second]) { writeFileSync(path, header('same')); save(path); }
+  assert.equal(await index.resolve('same'), undefined);
+  const alias = join(root, 'alias.jsonl');
+  linkSync(second, alias);
+  assert.equal((await index.resolve('same'))?.path, first);
+  rmSync(alias);
+  assert.equal(await index.resolve('same'), undefined);
+});
+
 test('root pins permit missing-root discovery but reject later root replacement', async t => {
   const { root, positions } = fixture(t);
   const missing = join(root, 'missing');
