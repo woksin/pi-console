@@ -60,7 +60,7 @@ const questions = defs('questions', ['question-store'], {
     urgency: oneOf('normal', 'high'), blocking: bool, status: oneOf('open', 'answered', 'deferred', 'closed'), createdAt: time, updatedAt: time, links: stringList,
   }, ['questionId', 'revision', 'kind', 'urgency', 'blocking', 'status', 'createdAt', 'updatedAt']),
   /** One stored history entry, identified by the producer's per-item sequence; the actor is a source-supplied display label. */
-  QuestionHistoryRecorded: open({ ...questionId, sequence: int, operation: str, at: time, actor: nullable(str), excerpt, withheld: bool }, ['questionId', 'sequence', 'operation', 'at', 'actor']),
+  QuestionHistoryRecorded: open({ ...questionId, sequence: int, operation: str, at: time, actor: nullable(str), excerpt, withheld: bool, truncated: bool }, ['questionId', 'sequence', 'operation', 'at', 'actor']),
 });
 
 const messageId = { messageId: id };

@@ -2,7 +2,7 @@ import type { EventEnvelope, SourceRef } from '@pi-console/contract';
 import { entry, markDirty, orderKey, projection } from '../projector/handlers.ts';
 
 /** One recorded history entry; the sequence is the source's per-question identity. */
-export interface QuestionHistoryModel { sequence: number; operation: string; at: string; actor: string | null; excerpt?: string; withheld: boolean }
+export interface QuestionHistoryModel { sequence: number; operation: string; at: string; actor: string | null; excerpt?: string; withheld: boolean; truncated?: boolean }
 
 export interface QuestionModel {
   id: string;
@@ -77,9 +77,9 @@ export const questionsProjection = projection<QuestionsState>('questions', 4, ()
   QuestionHistoryRecorded(state, payload) {
     const row = question(state, payload.questionId);
     row.history ??= Object.create(null) as Record<string, QuestionHistoryModel>;
-    const { sequence, operation, at, actor, excerpt, withheld } = payload;
+    const { sequence, operation, at, actor, excerpt, withheld, truncated } = payload;
     Object.defineProperty(row.history, String(sequence), {
-      value: { sequence, operation, at, actor, withheld: withheld ?? false, ...(excerpt === undefined ? {} : { excerpt }) },
+      value: { sequence, operation, at, actor, withheld: withheld ?? false, ...(truncated ? { truncated } : {}), ...(excerpt === undefined ? {} : { excerpt }) },
       writable: true, enumerable: true, configurable: true,
     });
   },

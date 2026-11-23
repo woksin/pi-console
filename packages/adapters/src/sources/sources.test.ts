@@ -125,7 +125,7 @@ test('question facts have logical identities: repeated or later revisions share 
   assert.equal(first[1].idempotencyKey, second[1].idempotencyKey);
   assert.notEqual(first[0].idempotencyKey, second[0].idempotencyKey);
   assert.notEqual(second[1].idempotencyKey, second[2].idempotencyKey);
-  assert.equal(second[2].idempotencyKey, 'question-store|question%3Aq-1|0|2|QuestionHistoryRecorded');
+  assert.match(second[2].idempotencyKey, /^question-store\|[0-9a-f]{64}\|0\|2\|QuestionHistoryRecorded$/);
   const moved = map(later, questionMapper, 'question-store');
   assert.deepEqual(moved.map(event => event.idempotencyKey), second.map(event => event.idempotencyKey));
 });
@@ -163,6 +163,33 @@ test('question history labels and notes are bounded, stripped of control text an
   assert.ok(Array.from(String(entry.actor)).every(char => char.charCodeAt(0) >= 32));
   const long = history(questionEvents({ ...fixture.question, rev: 2, history: [{ seq: 1, type: 'comment', ts: '2026-07-01T10:01:00Z', text: 'x'.repeat(5000) }] }))[0];
   assert.equal(String(long.excerpt).length, 200);
+});
+
+test('credentials straddling a bound are redacted before truncation, for actor labels and notes', () => {
+  const credential = 'https://user:' + 'p'.repeat(51) + '@example.invalid';
+  const jwt = ['eyJhbGciOiJIUzI1NiJ9', 'eyJlbWFpbCI6ImFsaWNlQGNvcnAuZXhhbXBsZSJ9', 'c2lnbmF0dXJlc2lnbmF0dXJl'].join('.');
+  const note = 'x'.repeat(190) + ' ghp_' + 'a'.repeat(40);
+  const events = questionEvents({ ...fixture.question, rev: 2, history: [
+    { seq: 1, type: 'comment', ts: '2026-07-01T10:01:00Z', text: note, actor: { kind: 'agent', sessionId: 's', name: credential } },
+    { seq: 2, type: 'comment', ts: '2026-07-01T10:02:00Z', actor: { kind: 'agent', sessionId: 's', name: jwt } },
+  ] });
+  const stored = JSON.stringify(events);
+  for (const leak of ['ppppp', 'ghp_', 'aaaaa', 'eyJlbWFpbCI6', 'user:p']) assert.ok(!stored.includes(leak), leak);
+  assert.ok(history(events)[0].actor !== null);
+});
+
+test('a note cut at the bound carries an explicit truncated signal, a short note does not', () => {
+  const [long, short] = history(questionEvents({ ...fixture.question, rev: 2, history: [
+    { seq: 1, type: 'comment', ts: '2026-07-01T10:01:00Z', text: 'y'.repeat(500) }, { seq: 2, type: 'comment', ts: '2026-07-01T10:02:00Z', text: 'y'.repeat(200) }] }));
+  assert.equal(long.truncated, true);
+  assert.equal(String(long.excerpt).length, 200);
+  assert.equal('truncated' in short, false);
+});
+
+test('a credential in a question id never reaches the stored idempotency key', () => {
+  const id = 'ghp_' + 'b'.repeat(40);
+  const stored = JSON.stringify(questionEvents({ ...fixture.question, id, rev: 2 }));
+  assert.ok(!stored.includes('bbbbbbbb'));
 });
 
 test('question records that cannot be represented warn without their content', () => {

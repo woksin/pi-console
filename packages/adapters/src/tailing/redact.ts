@@ -1,4 +1,4 @@
-export interface RedactedText { text?: string; withheld: boolean }
+export interface RedactedText { text?: string; withheld: boolean; truncated?: true }
 export type Scanner = (text: string) => string;
 
 const patterns = [
@@ -21,7 +21,7 @@ export function redact(text: string, scanner: Scanner = scanPatterns): RedactedT
   try {
     const safe = scanner(text);
     if (typeof safe !== 'string') return { withheld: true };
-    return { text: safe.slice(0, 200), withheld: false };
+    return { text: safe.slice(0, 200), withheld: false, ...(safe.length > 200 ? { truncated: true as const } : {}) };
   } catch {
     return { withheld: true };
   }

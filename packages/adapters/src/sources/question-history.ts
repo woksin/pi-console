@@ -1,5 +1,6 @@
 import type { Fact } from '../tailing/events.ts';
-import { excerpt, fact, integer, list, text, timestamp } from '../values.ts';
+import { fact, integer, list, text, timestamp } from '../values.ts';
+import { redact, scanPatterns } from '../tailing/redact.ts';
 
 type Row = Record<string, unknown>;
 export type QuestionStatus = 'open' | 'answered' | 'deferred' | 'closed';
@@ -19,11 +20,12 @@ export interface Entry { sequence: number; operation: string; at: string; actor:
 function actorLabel(value: unknown): string | null {
   const actor = typeof value === 'object' && value !== null && !Array.isArray(value) ? value as Row : { name: value };
   const candidates = [actor.lane, actor.name, actor.kind === 'user' ? 'user' : undefined, actor.sessionId];
-  const label = candidates.find((item): item is string => typeof item === 'string' && clean(item) !== '');
-  return label === undefined ? null : clean(label);
+  const label = candidates.map(item => (typeof item === 'string' ? clean(item) : '')).find(item => item !== '');
+  return label ?? null;
 }
 
-const clean = (value: string): string => Array.from(value, char => { const code = char.charCodeAt(0); return code < 32 || (code >= 127 && code < 160) ? ' ' : char; }).join('').trim().slice(0, maxActor);
+/** Scans the complete original first, so a secret straddling the bound cannot survive, then strips control characters and bounds it. */
+const clean = (value: string): string => Array.from(scanPatterns(value), char => { const code = char.charCodeAt(0); return code < 32 || (code >= 127 && code < 160) ? ' ' : char; }).join('').trim().slice(0, maxActor);
 
 /** Entries are validated for shape and unique sequence only; the revision number is independent of the history sequence. */
 export function entries(row: Row): Entry[] {
@@ -49,9 +51,15 @@ export function status(row: Row, history: readonly Entry[]): QuestionStatus {
 }
 
 
+/** Scan the whole note, then bound it; `truncated` tells clients the text is a shortened excerpt. */
+function noteOf(body: string): { excerpt: string; withheld: boolean; truncated?: true } {
+  const safe = redact(body);
+  return { excerpt: safe.text ?? '[withheld]', withheld: safe.withheld, ...(safe.truncated ? { truncated: true } : {}) };
+}
+
 /** One `QuestionHistoryRecorded` fact, identified by the producer's per-question sequence. */
 export function recorded(questionId: string, entry: Entry): Fact {
-  const note = typeof entry.note === 'string' && entry.note !== '' ? excerpt(entry.note) : {};
+  const note = typeof entry.note === 'string' && entry.note !== '' ? noteOf(entry.note) : {};
   const payload = { questionId, sequence: entry.sequence, operation: entry.operation, at: entry.at, actor: entry.actor, ...note };
   return { ...fact('QuestionHistoryRecorded', `question:${questionId}`, payload, entry.at, `${questionId}:${entry.sequence}`), logical: { identity: `question:${questionId}`, offset: entry.sequence } };
 }

@@ -8,11 +8,13 @@ function optionLines(options: string[], width: number, full: boolean, measure?: 
   return options.flatMap((option, index) => (full ? wrap(option, Math.max(1, width - 8), Infinity, measure) : [option]).map((text, line): Line => [t(line === 0 ? `  ${String(index + 1)} ` : '    ', 'cyan'), t(text, 'text')]));
 }
 
+const entryMeta = (entry: NonNullable<QuestionRow['history']>[number]): string => `${entry.at.replace('T', ' ').replace(/\.\d+Z$/, 'Z')} ${entry.operation} by ${entry.actor} · ${entry.age} ago`;
+
 function historyLines(row: QuestionRow, width: number, measure?: TextWidth): Line[] {
   if (!row.history) return [heading('History'), [t('History unavailable: this question predates recorded history.', 'faint', { italic: true })]];
   if (row.history.length === 0) return [heading(`History (0)`), [t('No history recorded.', 'faint')]];
   return [heading(`History (${String(row.history.length)}, newest first)`), ...row.history.flatMap((entry): Line[] => [
-    [t(`${entry.at.replace('T', ' ').replace(/\.\d+Z$/, 'Z')} `, 'faint'), t(entry.operation, 'cyan', { bold: true }), t(` by ${entry.actor}`, 'muted'), t(` · ${entry.age} ago`, 'faint')],
+    ...wrap(entryMeta(entry), Math.max(1, width - 4), Infinity, measure).map((text): Line => [t(text, 'muted')]),
     ...(entry.withheld ? [[t('    note withheld', 'faint', { italic: true })] satisfies Line] : []),
     ...(entry.excerpt ? wrap(entry.excerpt, Math.max(1, width - 8), Infinity, measure).map((text): Line => [t('    ', 'text'), t(text, 'text')]) : []),
   ])];

@@ -52,7 +52,7 @@ test('a v0 request is valid under v1, and v1 requests accept the derivation fiel
 test('a v0 question is valid under v1, and v1 questions accept optional history', () => {
   const v0 = { id: 'q1', sessionId: 's1', kind: 'question', text: 'ask', options: [], urgency: 'normal', blocking: false, status: 'open', createdAt: '2026-11-20T09:00:00Z' };
   validate(v0, apiV1Schema.$defs.question, apiV1Schema);
-  const history = [{ sequence: 2, operation: 'comment', at: '2026-11-20T09:05:00Z', actor: null, excerpt: 'note', withheld: false }];
+  const history = [{ sequence: 2, operation: 'comment', at: '2026-11-20T09:05:00Z', actor: null, excerpt: 'note', withheld: false, truncated: true }];
   const richer = { ...v0, updatedAt: '2026-11-20T09:05:00Z', history, links: ['https://example.invalid/1'] };
   validate(richer, apiV1Schema.$defs.question, apiV1Schema);
   validate({ seq: 1, type: 'question.asked', occurredAt: v0.createdAt, payload: richer }, apiV1Schema.$defs.event, apiV1Schema);

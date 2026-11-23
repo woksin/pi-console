@@ -14,6 +14,8 @@ const dayMs = 86_400_000;
 /** One recorded history entry, newest first, safe to print: text and labels are sanitized. */
 export interface QuestionHistoryRow {
   key: string; operation: string; at: string; age: string; actor: string; excerpt: string | null; withheld: boolean;
+  /** The note was cut at the source bound: `excerpt` then ends with an ellipsis and "(shortened)". */
+  shortened: boolean;
 }
 export interface QuestionRow {
   id: string; sessionId: string; session: string; kind: Question['kind']; urgent: boolean; blocking: boolean; status: StatusCell;
@@ -43,11 +45,13 @@ const verbs: Record<string, string> = {
 };
 const verb = (operation: string): string => verbs[operation] ?? (sanitize(operation) || 'changed');
 
+const noteText = (entry: HistoryEntry): string | null => (entry.excerpt === undefined ? null : `${sanitize(entry.excerpt)}${entry.truncated ? '… (shortened)' : ''}`);
+
 function historyRows(question: Question, now: number): QuestionHistoryRow[] | null {
   if (!question.history) return null;
   return question.history.map(entry => ({
     key: String(entry.sequence), operation: verb(entry.operation), at: entry.at, age: age(entry.at, now), actor: sanitize(entry.actor ?? '') || 'unknown',
-    excerpt: entry.excerpt === undefined ? null : sanitize(entry.excerpt), withheld: entry.withheld ?? false,
+    excerpt: noteText(entry), withheld: entry.withheld ?? false, shortened: entry.truncated === true,
   }));
 }
 

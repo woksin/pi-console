@@ -1,4 +1,4 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { definitionOf, idempotencyKey, payloadValid, type NewEvent, type SourceCheckpoint } from '@pi-console/contract';
 import { redactValue, type Scanner } from './redact.ts';
 
@@ -34,8 +34,11 @@ export function warning(checkpoint: SourceCheckpoint, offset: number, detail: st
   });
 }
 
+/** The raw logical identity may carry source text; the stored key holds only its stable digest. */
+const opaque = (identity: string): string => createHash('sha256').update(identity).digest('hex');
+
 function factKey(checkpoint: SourceCheckpoint, offset: number, fact: Fact): string {
-  if (fact.logical) return idempotencyKey({ source: checkpoint.source, identity: fact.logical.identity, generation: 0, offset: fact.logical.offset, type: fact.type });
+  if (fact.logical) return idempotencyKey({ source: checkpoint.source, identity: opaque(fact.logical.identity), generation: 0, offset: fact.logical.offset, type: fact.type });
   return idempotencyKey({ ...checkpoint, offset, type: fact.observationId === undefined ? fact.type : `${fact.type}:${fact.observationId}` });
 }
 

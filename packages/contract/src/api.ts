@@ -49,7 +49,7 @@ const v0Question = apiV0Schema.$defs.question as { properties: Record<string, Sc
 
 /** One recorded history entry of a question; `excerpt` is the bounded, redacted note or answer text. */
 const questionHistoryEntry = strict({
-  sequence: int, operation: id, at: time, actor: nullable(str), excerpt, withheld: bool,
+  sequence: int, operation: id, at: time, actor: nullable(str), excerpt, withheld: bool, truncated: bool,
 }, ['sequence', 'operation', 'at', 'actor']);
 
 /** v0 `question` plus optional history fields. `history` absent means the source never supplied it (old events). Every v0 question stays valid. */

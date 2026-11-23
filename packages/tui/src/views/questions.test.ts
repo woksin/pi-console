@@ -266,3 +266,16 @@ test('o cycles the sort, S cycles the stale threshold, and both show in the titl
     assert.match(ui.frame(), /priority · stale 14d/);
   } finally { ui.destroy(); store.dispose(); }
 });
+
+test('80x24: long actor labels wrap in history and shortened notes are labelled', async () => {
+  const actor = 'Z'.repeat(20) + 'ENDACTOR';
+  const long: Question = { ...withHistory, id: 'q-long', history: [{ ...history[0], actor: actor + 'w'.repeat(30) + 'TAILMARK', excerpt: 'partial note', truncated: true }] };
+  const { ui, store } = await setup(80, [long]);
+  try {
+    await ui.press('RETURN');
+    await ui.press('END');
+    const frame = ui.frame().replace(/[│\s]+/g, '');
+    assert.ok(frame.includes('TAILMARK'), 'metadata is wrapped, not clipped');
+    assert.match(ui.frame(), /partial note… \(shortened\)/);
+  } finally { ui.destroy(); store.dispose(); }
+});

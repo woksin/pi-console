@@ -45,6 +45,11 @@ test('history rows are newest first, sanitized and keep distinct actors and note
   assert.deepEqual(row.history?.map(item => [item.key, item.operation, item.actor, item.excerpt, item.withheld]), [['2', 'commented', 'user', 'second red', false], ['1', 'created', 'unknown', null, true]]);
 });
 
+test('a shortened history note says so in its text and flag; others are untouched', () => {
+  const [row] = rowsOf([ask('t', { history: [entry(2, '2026-11-02T00:00:00Z', { excerpt: 'cut here', truncated: true }), entry(1, '2026-11-01T00:00:00Z', { excerpt: 'whole' })] })]);
+  assert.deepEqual(row.history?.map(item => [item.excerpt, item.shortened]), [['cut here… (shortened)', true], ['whole', false]]);
+});
+
 test('old questions without the v1 fields stay usable with an explicit missing-history state', () => {
   const [row] = rowsOf([ask('old')]);
   assert.deepEqual([row.history, row.updated, row.updatedAt, row.lastActivityAt, row.links], [null, '–', null, base.createdAt, []]);
