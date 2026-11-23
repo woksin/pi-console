@@ -203,12 +203,14 @@ test('question history discloses by keyboard, newest first, as text, with stale 
   const seed = original[0];
   const old = new Date(Date.now() - 20 * 86_400_000).toISOString();
   const recent = new Date().toISOString();
-  fixture.questions = [
+  // The mock fixture type predates the optional v1 history fields; the daemon serves them through unchanged.
+  const questions: (typeof seed & { updatedAt?: string; history?: unknown[] })[] = [
     { ...seed, id: 'history-ux', text: 'History question', status: 'open', blocking: false, createdAt: old, updatedAt: recent, history: [
       { sequence: 2, operation: 'comment', at: recent, actor: 'L0', excerpt: '<b>not html</b>', withheld: false },
       { sequence: 1, operation: 'created', at: old, actor: null, withheld: false }] },
     { ...seed, id: 'stale-ux', text: 'Forgotten question', status: 'open', blocking: false, createdAt: old },
   ];
+  fixture.questions = questions;
   const page = await rig.open('/questions');
   try {
     const card = page.locator('[data-question="history-ux"]');
