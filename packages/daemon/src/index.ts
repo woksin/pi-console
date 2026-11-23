@@ -4,3 +4,4 @@ export { noTranscripts, type TranscriptReader } from './api/transcripts.ts';
 export { loadToken } from './security/token.ts';
 export { apiOnlyHint, pageCsp, isUsableWebBundle } from './http/static-files.ts';
 export { sourceIds, type SourceId } from './ingestion/source-ids.ts';
+export { directoryDiagnostics, isProblem, type Availability, type DirectoryDiagnostic, type DirectoryOwner } from './ingestion/source-availability.ts';

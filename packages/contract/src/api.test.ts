@@ -98,3 +98,24 @@ test('graph carries lane edges and no layout coordinates', () => {
 test('generated TypeScript types match the schemas they are generated from', () => {
   assert.deepEqual(staleFiles(), []);
 });
+
+const legacyHealth = {
+  status: 'ok', startedAt: '2026-11-20T09:00:00Z', eventLog: { lastSeq: 1, dbBytes: 1 }, projection: { position: 1, queueDepth: 0, skipped: 0 },
+  eventLoop: { p50: 0, p99: 0, max: 0 }, stream: { seq: 1, clients: 0, retained: 0 },
+  sources: [{ source: 'session-jsonl', files: 1, lagBytes: 0, lastPollAt: null, errors: 0 }], backfill: { complete: true, windowDays: 14 }, memory: { rssBytes: 1, heapUsedBytes: 1 },
+};
+const legacySettings = { version: 1, bind: '127.0.0.1', port: 1, backfillWindowDays: 14, replayWindow: 10, webBundle: false, sources: [{ source: 'session-jsonl', enabled: true }] };
+
+test('health and settings accept payloads without directory availability, and the optional availability values', () => {
+  validate(legacyHealth, apiV1Schema.$defs.health, apiV1Schema);
+  validate(legacySettings, apiV1Schema.$defs.settings, apiV1Schema);
+  validate({ ...legacyHealth, agentRootAvailability: 'missing', sources: [{ ...legacyHealth.sources[0], availability: 'unavailable' }] }, apiV1Schema.$defs.health, apiV1Schema);
+  validate({ ...legacySettings, agentRootAvailability: 'disabled', sources: [{ source: 'session-jsonl', enabled: false, availability: 'available' }] }, apiV1Schema.$defs.settings, apiV1Schema);
+});
+
+test('health and settings reject an unknown or mistyped availability', () => {
+  assert.throws(() => validate({ ...legacyHealth, agentRootAvailability: 'gone' }, apiV1Schema.$defs.health, apiV1Schema));
+  assert.throws(() => validate({ ...legacyHealth, sources: [{ ...legacyHealth.sources[0], availability: true }] }, apiV1Schema.$defs.health, apiV1Schema));
+  assert.throws(() => validate({ ...legacySettings, sources: [{ source: 'x', enabled: true, availability: 'ok' }] }, apiV1Schema.$defs.settings, apiV1Schema));
+  assert.throws(() => validate({ ...legacySettings, agentRootAvailability: 1 }, apiV1Schema.$defs.settings, apiV1Schema));
+});
