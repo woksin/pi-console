@@ -5,7 +5,7 @@ import type { Data } from '../store/store.ts';
 import type { UiState } from '../state/ui.ts';
 import { palette, type Color } from '../view/theme.ts';
 
-const frame = (width: number, height: number, wanted: { width: number; height: number }) => {
+export const frame = (width: number, height: number, wanted: { width: number; height: number }) => {
   const w = Math.min(wanted.width, width - 2), tall = Math.min(wanted.height, height - 2);
   return { left: Math.floor((width - w) / 2), top: Math.max(1, Math.floor((height - tall) / 3)), width: w, height: tall };
 };

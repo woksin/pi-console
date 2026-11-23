@@ -10,7 +10,7 @@ export type Action =
   | 'section.1' | 'section.2' | 'section.3' | 'section.4' | 'section.5' | 'section.6' | 'section.7'
   | 'palette.open' | 'filter.open' | 'settings.open' | 'help.toggle' | 'quit'
   | 'move.up' | 'move.down' | 'move.top' | 'move.bottom' | 'page.up' | 'page.down'
-  | 'attention.retry' | 'open' | 'back' | 'pane.next' | 'pane.previous' | 'follow.toggle' | 'copy.id' | 'view.toggle'
+  | 'attention.retry' | 'open' | 'entry.open' | 'back' | 'pane.next' | 'pane.previous' | 'follow.toggle' | 'copy.id' | 'view.toggle'
   | 'time.scrub' | 'time.zoomIn' | 'time.zoomOut' | 'time.left' | 'time.right'
   | 'group.toggle' | 'filter.next' | 'filter.previous' | 'filter.origin' | 'filter.session'
   | 'memory.next' | 'memory.previous' | 'memory.confirm' | 'memory.reject'
@@ -57,6 +57,7 @@ export const bindings: readonly Binding[] = [
   { keys: ['Tab'], action: 'pane.next', label: 'Next pane', hint: 'tab pane', contexts: ['detail', 'transcript'], clients: ['tui'] },
   { keys: ['Shift+Tab'], action: 'pane.previous', label: 'Previous pane', contexts: ['detail', 'transcript'], clients: ['tui'] },
   { keys: ['f'], action: 'follow.toggle', label: 'Toggle follow-tail in a transcript', hint: 'f follow', contexts: ['transcript'] },
+  { keys: ['Enter'], action: 'entry.open', label: 'Open the full transcript entry at the top of the view', hint: '⏎ entry', contexts: ['transcript'], clients: ['tui'] },
   { keys: ['y'], action: 'copy.id', label: 'Copy id', hint: 'y copy id', contexts: [...lists, 'transcript'] },
   { keys: ['v'], action: 'view.toggle', label: 'Toggle list and graph', hint: 'v graph', contexts: ['messages', 'graph'] },
   { keys: ['v'], action: 'view.toggle', label: 'Expand or collapse question detail', hint: 'v expand', contexts: ['questions'], clients: ['tui'] },
@@ -90,11 +91,13 @@ export const activeBindings: readonly Binding[] = bindings.filter(binding => !bi
 export interface KeymapGroup { title: string; bindings: readonly Binding[] }
 const groupTitles = ['Navigate', 'Lists', 'Transcript', 'Memory', 'Timeline', 'Global'] as const;
 
+const transcriptActions: ReadonlySet<string> = new Set(['follow.toggle', 'entry.open']);
+
 function groupOf(binding: Binding): string {
   if (binding.action.startsWith('section.')) return 'Navigate';
   if (binding.action.startsWith('memory.')) return 'Memory';
   if (binding.action.startsWith('time.')) return 'Timeline';
-  if (binding.action.startsWith('pane.') || binding.action === 'follow.toggle') return 'Transcript';
+  if (binding.action.startsWith('pane.') || transcriptActions.has(binding.action)) return 'Transcript';
   return binding.contexts.includes('global') ? 'Global' : 'Lists';
 }
 

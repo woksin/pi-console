@@ -7,6 +7,7 @@ import { terminalContentWidth } from './state/session-layout.ts';
 import { emptyLayout, resumeTranscript, transcriptViewport } from './state/transcript-window.ts';
 import { neutralKey, typedCharacter, type KeyInput } from './state/keys.ts';
 import { Header, banner, footerLine, pulseLine, terminalTitle } from './shell/chrome.ts';
+import { EntryViewer, entryViewport } from './shell/entry-overlay.ts';
 import { Help, Palette, Settings, helpViewport, settingsViewport } from './shell/overlays.ts';
 import { collectionToLoad, countsOf, historyError, memoryInput, retryGraph, retryHistory, type RequestMemoryAction } from './app-input.ts';
 import { fit, t } from './view/parts.ts';
@@ -111,7 +112,7 @@ export function App(props: AppProps): ReactElement {
   const heightRef = useRef(bodyHeight);
   heightRef.current = bodyHeight;
 
-  useAppKeys({ props, uiRef, dataRef, viewRef, heightRef, size, copy, apply });
+  useAppKeys({ props, uiRef, dataRef, viewRef, heightRef, size, measure, copy, apply });
 
   useTerminalTitle(terminalTitle(ui, data));
   const connectionBanner = banner(data.connection, size.width, props.endpoint, measure);
@@ -126,14 +127,14 @@ export function App(props: AppProps): ReactElement {
     h(HistoryError, { collection: failure, width: size.width }),
     h(Column, { grow: 1, paddingX: 1 }, view.render()),
     h(Text, { line: footerLine(ui, size.width, measure) }),
-    ...overlays(ui, data, input, size));
+    ...overlays(ui, data, input, { size, entries: view.entries ?? [] }));
 }
 
 interface AppKeys {
   props: AppProps; uiRef: { current: UiState }; dataRef: { current: Data }; viewRef: { current: SectionView }; heightRef: { current: number };
-  size: ReturnType<typeof useSize>; copy: ReturnType<typeof useClipboard>; apply: (ui: UiState) => void;
+  size: ReturnType<typeof useSize>; measure: ReturnType<typeof useTextWidth>; copy: ReturnType<typeof useClipboard>; apply: (ui: UiState) => void;
 }
-function useAppKeys({ props, uiRef, dataRef, viewRef, heightRef, size, copy, apply }: AppKeys): void {
+function useAppKeys({ props, uiRef, dataRef, viewRef, heightRef, size, measure, copy, apply }: AppKeys): void {
   useKeys(key => {
     retryHistory({ ui: uiRef.current, data: dataRef.current, key: neutralKey(key), length: viewRef.current.length, loadMore: props.loadMore });
     retryGraph({ ui: uiRef.current, data: dataRef.current, key: neutralKey(key), retry: props.retryGraph });
@@ -141,7 +142,8 @@ function useAppKeys({ props, uiRef, dataRef, viewRef, heightRef, size, copy, app
     if (memory) { apply(memory); return; }
     const current = viewRef.current;
     const settingsInput = { endpoint: props.endpoint, tokenSource: props.tokenSource, ...dataRef.current.connection, now: (props.clock ?? Date.now)(), counts: countsOf(dataRef.current) };
-    const bounds = { ...boundsOf(current, heightRef.current), help: helpViewport(size).bounds, settings: settingsViewport(size, settingsInput, dataRef.current.health).bounds };
+    const bounds = { ...boundsOf(current, heightRef.current), help: helpViewport(size).bounds, settings: settingsViewport(size, settingsInput, dataRef.current.health).bounds,
+      entry: entryViewport(size, { entries: current.entries ?? [], entryKey: uiRef.current.entryKey, search: uiRef.current.search }, measure).bounds };
     const paging = transcriptNavigation({ ui: uiRef.current, data: dataRef.current, key: neutralKey(key), layout: bounds.transcript, viewport: bounds.viewport, load: props.pageTranscript });
     const next = paging ?? nextState(uiRef.current, key, { palette: dataRef.current, view: current, bounds, copy, needsYouError: dataRef.current.needsYouError, retryNeedsYou: props.retryNeedsYou });
     apply(keepHistorical(next, dataRef.current, bounds.transcript, bounds.viewport));
@@ -167,7 +169,9 @@ function frameSize(data: ReturnType<Store['getSnapshot']>, height: number, failu
 
 interface Size { width: number; height: number }
 
-function overlays(ui: UiState, data: ReturnType<Store['getSnapshot']>, input: Parameters<typeof Settings>[0]['input'], size: Size): ReactElement[] {
+function overlays(ui: UiState, data: ReturnType<Store['getSnapshot']>, input: Parameters<typeof Settings>[0]['input'], shown: { size: Size; entries: SectionView['entries'] }): ReactElement[] {
+  const { size } = shown;
+  if (ui.overlay === 'entry') return [h(EntryViewer, { ui, entries: shown.entries ?? [], size })];
   if (ui.overlay === 'palette') return [h(Palette, { ui, data, width: size.width, height: size.height })];
   if (ui.overlay === 'help') return [h(Help, { width: size.width, height: size.height, scroll: ui.helpScroll })];
   if (ui.overlay === 'settings') return [h(Settings, { input, health: data.health, width: size.width, height: size.height, scroll: ui.settingsScroll })];

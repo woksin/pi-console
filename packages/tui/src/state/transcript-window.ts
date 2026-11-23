@@ -71,6 +71,15 @@ export function transcriptWindow(layout: TranscriptLayout, view: TranscriptView,
   return { start, end, below: all - end, paused: true, dropped };
 }
 
+/** The entry shown at the top of the viewport: the one `Enter` opens in full. The blank spacer row that ends an entry belongs to the entry below it. */
+export function topEntryKey(layout: TranscriptLayout, view: TranscriptView, height: number): number | undefined {
+  const { start } = transcriptWindow(layout, view, height);
+  const found = layout.ends.findIndex(end => end > start);
+  if (found < 0) return layout.keys.at(-1);
+  const spacer = layout.ends[found] - start === 1 && layout.ends[found] - startOf(layout, found) > 1;
+  return layout.keys[spacer && found + 1 < layout.keys.length ? found + 1 : found];
+}
+
 /** Pauses at the current view; an empty transcript has nothing to hold still, so it keeps showing the tail. */
 export function pauseTranscript(layout: TranscriptLayout, view: TranscriptView, height: number): TranscriptView {
   const position = positionAt(layout, transcriptWindow(layout, view, height).start, limitOf(layout, view));

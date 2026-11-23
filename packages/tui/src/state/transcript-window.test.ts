@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { TranscriptEntry } from '@pi-console/contract';
 import { transcriptLines } from '@pi-console/viewmodels';
-import { pauseTranscript, resumeTranscript, scrollTranscript, transcriptWindow, type TranscriptLayout, type TranscriptView } from './transcript-window.ts';
+import { pauseTranscript, resumeTranscript, scrollTranscript, topEntryKey, transcriptWindow, type TranscriptLayout, type TranscriptView } from './transcript-window.ts';
 
 /** Entries with the given wrapped heights and keys `first`, `first + 1`, …. */
 const layout = (heights: number[], first = 1): TranscriptLayout => {
@@ -156,4 +156,17 @@ test('an anchor on a run line survives eviction of older entries', () => {
     assert.equal(after.keys[0], RUN, `evicted ${String(evicted)}`);
     assert.equal(after.window.dropped, false);
   }
+});
+
+test('topEntryKey names the entry at the top of the view, handing the blank spacer row to the entry below', () => {
+  const l = layout([3, 3, 3]);
+  const at = (key: number, offset: number) => topEntryKey(l, { follow: false, anchor: { key, offset, limit: 3 } }, 2);
+  assert.equal(at(1, 0), 1);
+  assert.equal(at(1, 1), 1);
+  assert.equal(at(1, 2), 2);
+  assert.equal(at(2, 0), 2);
+  assert.equal(at(2, 2), 3);
+  assert.equal(at(3, 0), 3);
+  assert.equal(topEntryKey(layout([]), resumeTranscript, HEIGHT), undefined);
+  assert.equal(topEntryKey(l, resumeTranscript, 20), 1);
 });

@@ -11,6 +11,12 @@ test('no key is bound twice within one context', () => {
   }
 });
 
+test('Enter opens the full transcript entry in the TUI only', () => {
+  assert.equal(resolve('transcript', 'Enter', 'tui'), 'entry.open');
+  assert.equal(resolve('transcript', 'Enter', 'web'), undefined);
+  assert.ok(keymapGroups('tui').find(group => group.title === 'Transcript')?.bindings.some(binding => binding.action === 'entry.open'));
+});
+
 test('resolve falls back to global bindings except while typing', () => {
   assert.equal(resolve('fleet', '2'), 'section.2');
   assert.equal(resolve('fleet', 'j'), 'move.down');
