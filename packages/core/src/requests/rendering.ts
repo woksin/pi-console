@@ -12,12 +12,27 @@ interface Runtime {
 }
 const runtimes = new WeakMap<DerivationState, Runtime>();
 
-function register(runtime: Runtime, state: DerivationState, sessionId: string, observation: Observation): void {
-  if (observation.kind !== 'prompt') return;
-  if (runtime.rawOwners.has(observation.requestId)) runtime.unsafe = true;
-  runtime.rawOwners.set(observation.requestId, sessionId);
-  const stated = find(state.explicit, observation.requestId)?.request;
+function registerPrompt(runtime: Runtime, state: DerivationState, sessionId: string, requestId: string): void {
+  if (runtime.rawOwners.has(requestId)) runtime.unsafe = true;
+  runtime.rawOwners.set(requestId, sessionId);
+  const stated = find(state.explicit, requestId)?.request;
   if (stated && stated.sessionId !== sessionId) runtime.unsafe = true;
+}
+
+function register(runtime: Runtime, state: DerivationState, sessionId: string, observation: Observation): void {
+  if (observation.kind === 'prompt') registerPrompt(runtime, state, sessionId, observation.requestId);
+}
+
+/** Lazy restore: seeds the collision index from streamed prompt owners, so no deferred observation is ever read. */
+export function seedRawOwners(state: DerivationState, owners: Iterable<{ sessionId: string; requestId: string }>): void {
+  const runtime: Runtime = { sessions: new Map(), rawOwners: new Map(), unsafe: false };
+  for (const { sessionId, requestId } of owners) registerPrompt(runtime, state, sessionId, requestId);
+  runtimes.set(state, runtime);
+}
+
+/** Renderers are reconstructible caches; the collision index stays. Called once changes are durable. */
+export function releaseRenderers(state: DerivationState): void {
+  runtimes.get(state)?.sessions.clear();
 }
 
 function runtimeFor(state: DerivationState): Runtime {

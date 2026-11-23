@@ -19,12 +19,12 @@ function rowLine(row: RequestsRow, env: Env, width: number, selected: boolean): 
   const text = t(row.text, row.withheld ? 'faint' : 'text', row.withheld ? { italic: true } : {});
   return selectable(split(
     [...statusParts(row.status, env.phase, false), t(' '), t(pad(row.status.label, 12), row.status.color), t(` ${originGlyph[row.origin]} `, originColor(row)), ...flags(row), text],
-    [t(pad(row.session, width >= 100 ? 22 : 14), 'muted'), t(row.age.padStart(4), 'faint')], width - 1), width, selected);
+    [t(pad(row.session, width >= 100 ? 22 : 14, env.measure), 'muted'), t(row.age.padStart(4), 'faint')], width - 1, { measure: env.measure }), width, selected, { measure: env.measure });
 }
 
 const summaryLine = (model: RequestsViewModel): Line => [t(` ${describeRequestFilter(model)}`, 'muted'), t(`  ${String(model.rows.length)} shown · ${String(model.uncertain)} uncertain · ${String(model.possiblyUnseen)} unseen?`, 'faint')];
 
-const detailPanel = (request: Request | undefined | false, env: Env) => h(Panel, { title: 'Provenance', width: DETAIL_WIDTH }, h(Lines, { lines: requestDetailLines(request, env, DETAIL_WIDTH).map(line => fit(line, DETAIL_WIDTH - 4)) }));
+const detailPanel = (request: Request | undefined | false, env: Env) => h(Panel, { title: 'Provenance', width: DETAIL_WIDTH }, h(Lines, { lines: requestDetailLines(request, env, DETAIL_WIDTH).map(line => fit(line, DETAIL_WIDTH - 4, undefined, env.measure)) }));
 
 /** Requests and answers: list, filters (`[` `]` state, `o` origin, `S` session, `/` text) and the detail of the selected row; Enter opens the transcript at the prompt. */
 export function requestsView(env: Env): SectionView {
@@ -44,7 +44,7 @@ export function requestsView(env: Env): SectionView {
     idAt: index => rows[index]?.id ?? null,
     render: () => h(Column, { grow: 1 }, h(Lines, { lines: [fit(legend, env.width)], height: 1 }), h(Row, { grow: 1, gap: 1 },
       h(Panel, { title: `Requests and answers · ${String(model.open)} open · ${String(rows.length)} of ${String(env.data.requests.length)}${shownOf(env.data, 'requests', model.rows.length)}`, focused: true, grow: 1 },
-        h(Lines, { lines: [fit(summaryLine(model), width)] }),
+        h(Lines, { lines: [fit(summaryLine(model), width, undefined, env.measure)] }),
         h(Lines, { lines: lines.length ? lines : whenLoaded(env.data.loaded, () => env.data.requests.length ? [[t(' No request matches. Esc clears the filter.', 'muted')]] : emptyLines(emptyStates.requests, env.width - 4)), grow: 1, onLineClick: index => { env.click(start + index); } })),
       ...(wide ? [detailPanel(selected, env)] : []))),
   };

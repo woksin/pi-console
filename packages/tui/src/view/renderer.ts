@@ -3,8 +3,9 @@
  * Column, Lines, Clickable) and talks to the terminal through `useKeys`, `useSize`, `useTick`, `launch` and
  * `mountHeadless`. Swapping the renderer (the Bubble Tea fallback in ADR-0003) means re-implementing this file.
  */
-import { act, createElement, useEffect, type ReactElement, type ReactNode } from 'react';
-import { createCliRenderer, decodePasteBytes, RGBA, stripAnsiSequences, TextAttributes, type CapturedFrame, type CliRenderer } from '@opentui/core';
+import { act, createElement, useEffect, useMemo, type ReactElement, type ReactNode } from 'react';
+import { createCliRenderer, decodePasteBytes, measureEditText, RGBA, stripAnsiSequences, TextAttributes, type CapturedFrame, type CliRenderer, type WidthMethod } from '@opentui/core';
+import type { TextWidth } from '@pi-console/viewmodels';
 import { createRoot, useKeyboard, usePaste, useTerminalDimensions, useAnimationTick, useRenderer } from '@opentui/react';
 import { testRender } from '@opentui/react/test-utils';
 import type { KeyInput } from '../state/keys.ts';
@@ -82,6 +83,12 @@ export const useKeys = (handler: (key: KeyInput) => void, onPaste?: (text: strin
   });
 };
 export const useSize = (): { width: number; height: number } => useTerminalDimensions();
+/** Use OpenTUI's actual mode, including wcwidth in headless and pre-2027 terminals. */
+export const textWidth = (widthMethod: WidthMethod): TextWidth => text => measureEditText(text, { widthMethod });
+export function useTextWidth(): TextWidth {
+  const { widthMethod } = useRenderer();
+  return useMemo(() => textWidth(widthMethod), [widthMethod]);
+}
 /** Calls `callback` at `fps` on the renderer's shared clock; `undefined` pauses it. */
 export const useTick = (fps: number | undefined, callback: () => void): void => { useAnimationTick(fps, callback); };
 export const useClipboard = (): ((text: string) => boolean) => {
@@ -127,9 +134,13 @@ export interface Headless {
   destroy: () => void;
 }
 
-/** Mounts in OpenTUI's in-memory test renderer: the same layout engine, no terminal. */
-export async function mountHeadless(node: ReactNode, size: { width: number; height: number }): Promise<Headless> {
-  const ui = await testRender(node, { width: size.width, height: size.height, kittyKeyboard: false });
+/** Mounts in OpenTUI's in-memory test renderer; width-specific fixtures can opt out of host terminal detection. */
+export async function mountHeadless(node: ReactNode, size: { width: number; height: number; widthMethod?: 'wcwidth' | 'unicode' }): Promise<Headless> {
+  const widthOptions = size.widthMethod === undefined ? {} : {
+    forwardEnvKeys: [],
+    environment: { [size.widthMethod === 'wcwidth' ? 'OPENTUI_FORCE_WCWIDTH' : 'OPENTUI_FORCE_UNICODE']: '1' },
+  };
+  const ui = await testRender(node, { width: size.width, height: size.height, kittyKeyboard: false, ...widthOptions });
   const flags = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean };
   /** React work is drained inside act so a key press has been rendered when the call resolves; store updates arrive outside it. */
   const inAct = async (work: () => Promise<void> | void) => {

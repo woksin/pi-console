@@ -14,8 +14,8 @@ function listView(env: Env): SectionView {
   const cursor = Math.min(env.ui.cursor.messages, Math.max(0, rows.length - 1));
   const { start, end } = windowOf(rows.length, cursor, Math.max(1, env.height - 4));
   const lines = rows.slice(start, end).map((row, offset): Line => selectable(split(
-    [t(row.time, 'faint'), t('  '), t(pad(row.from, 7), 'cyan'), t('→ ', 'faint'), t(pad(row.to, 7), 'violet'), t(`${row.deliveryGlyph} ${pad(row.delivery, 10)}`, deliveryColor[row.delivery]), t(row.text, 'text')],
-    [t(row.age.padStart(4), 'faint')], width - 1), width, start + offset === cursor, env.data.fresh.has(row.id)));
+    [t(row.time, 'faint'), t('  '), t(pad(row.from, 7, env.measure), 'cyan'), t('→ ', 'faint'), t(pad(row.to, 7, env.measure), 'violet'), t(`${row.deliveryGlyph} ${pad(row.delivery, 10)}`, deliveryColor[row.delivery]), t(row.text, 'text')],
+    [t(row.age.padStart(4), 'faint')], width - 1, { measure: env.measure }), width, start + offset === cursor, { flash: env.data.fresh.has(row.id), measure: env.measure }));
   return {
     length: rows.length,
     rowAt: index => ({ sessionId: rows[index]?.fromSessionId ?? null, groupId: null }),
@@ -63,9 +63,9 @@ function edgeLine(edge: DisplayEdge, group: DisplayGroup, env: Env, layout: { wi
   const recent = env.now - Date.parse(edge.lastAt) < 10_000;
   const link = arrow(edge, recent);
   return selectable([
-    t('  '), t(pad(from?.label ?? edge.from, 18), from?.color ?? 'muted'), t(' '), t(link.text, link.color, { bold: recent }), t(' '), t(pad(to?.label ?? edge.to, 18), to?.color ?? 'muted'),
+    t('  '), t(pad(from?.label ?? edge.from, 18, env.measure), from?.color ?? 'muted'), t(' '), t(link.text, link.color, { bold: recent }), t(' '), t(pad(to?.label ?? edge.to, 18, env.measure), to?.color ?? 'muted'),
     t(edgeCount(edge), edge.kind === 'spawn' ? 'violet' : 'text'), t(`  ${age(edge.lastAt, env.now)} ago`, 'faint'),
-  ], layout.width, layout.selected);
+  ], layout.width, layout.selected, { measure: env.measure });
 }
 
 function graphLines(groups: DisplayGroup[], cursor: number, env: Env, width: number): { lines: Line[]; edgeLine: number[] } {
@@ -73,7 +73,7 @@ function graphLines(groups: DisplayGroup[], cursor: number, env: Env, width: num
   const positions: number[] = [];
   let index = 0;
   for (const group of groups) {
-    lines.push(fit([t('◆ ', 'cyan'), t(group.title, 'text', { bold: true })], width));
+    lines.push(fit([t('◆ ', 'cyan'), t(group.title, 'text', { bold: true })], width, undefined, env.measure));
     for (const edge of group.edges) {
       positions.push(lines.length);
       lines.push(edgeLine(edge, group, env, { width, selected: index === cursor }));
@@ -94,7 +94,7 @@ function conversation(env: Env, edge: DisplayEdge | undefined, width: number): L
   const messages = env.data.messages.filter(message => laneOf(message.fromSessionId) === edge.from && laneOf(message.toSessionId) === edge.to).sort((a, b) => Date.parse(b.sentAt) - Date.parse(a.sentAt)).slice(0, 8);
   return [
     [t(`${lanes.get(edge.from) ?? edge.from} → ${lanes.get(edge.to) ?? edge.to}`, 'text', { bold: true })], [t(`${String(edge.count)} ${edge.kind === 'message' ? 'messages' : edge.kind}`, 'muted')], blank, heading('Recent'),
-    ...messages.flatMap((message): Line[] => [[t(`${message.sentAt.slice(11, 19)} `, 'faint'), t(message.status, deliveryColor[message.status])], ...wrap(message.text, width - 4, 2).map((text): Line => [t('  ' + text, 'text')])]),
+    ...messages.flatMap((message): Line[] => [[t(`${message.sentAt.slice(11, 19)} `, 'faint'), t(message.status, deliveryColor[message.status])], ...wrap(message.text, width - 4, 2, env.measure).map((text): Line => [t('  ' + text, 'text')])]),
   ];
 }
 
