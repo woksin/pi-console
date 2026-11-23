@@ -67,7 +67,7 @@ test('the screen snapshot holds every active item plus the newest window, in the
   assert.equal(ids.length, new Set([...activeIds, ...full.slice(-recentWindow).map(job => job.id)]).size);
   assert.deepEqual(snapshot.jobs, full.filter(job => ids.includes(job.id)));
   assert.ok(queries.messages().filter(message => message.status !== 'read').every(message => snapshot.messages.some(item => item.id === message.id)));
-  assert.ok(queries.requests('unanswered').every(request => snapshot.requests.some(item => item.id === request.id)));
+  assert.ok(queries.requests().filter(request => request.status === 'open').every(request => snapshot.requests.some(item => item.id === request.id)));
   assert.ok(queries.questions().filter(question => question.status === 'open').every(question => snapshot.questions.some(item => item.id === question.id)));
 });
 

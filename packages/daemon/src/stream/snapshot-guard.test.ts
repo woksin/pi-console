@@ -48,11 +48,11 @@ const hub = (snapshot: (activeOnly?: boolean) => unknown, warnings: string[]) =>
   base: 0, persist: () => undefined, ringSize: 10, heartbeatMs: 60_000, maxBufferedBytes: 1000, snapshot, warn: message => warnings.push(message),
 });
 
-test('a snapshot above half the buffer cap is rebuilt once as active-only, with a warning', () => {
+test('a snapshot above the full buffer cap is rebuilt once as active-only, with a warning', () => {
   const written: string[] = [];
   const warnings: string[] = [];
   const calls: (boolean | undefined)[] = [];
-  const stream = hub(activeOnly => { calls.push(activeOnly); return { text: activeOnly ? 'small' : 'x'.repeat(600) }; }, warnings);
+  const stream = hub(activeOnly => { calls.push(activeOnly); return { text: activeOnly ? 'small' : 'x'.repeat(1200) }; }, warnings);
   stream.connect(fakeClient(written), undefined);
   stream.close();
   assert.deepEqual(calls, [undefined, true]);

@@ -2,6 +2,7 @@ import type { ServerResponse } from 'node:http';
 import type { Snapshot } from '@pi-console/contract';
 import { HttpError } from '../security/guard.ts';
 import { safeJson } from '../http/output.ts';
+import { packSnapshot, snapshotLimits } from './snapshot-packing.ts';
 
 export interface StreamOptions {
   /** First delta id is `base + 1`; the daemon reserves a durable restart barrier as the base. */
@@ -128,33 +129,36 @@ export class StreamHub {
     return replay;
   }
 
-  /** Prefer half the slow-client cap; even an oversized active window cannot bypass the hard limit. */
+  /** Prefer half-cap snapshots; active-only and compact fallbacks also reserve HTTP chunk framing. */
   #snapshotFrame(): string {
-    const limit = this.#options.maxBufferedBytes / 2;
-    const text = this.#frame(this.#seq, 'snapshot', this.#options.snapshot()).text;
+    const { preferred: limit, hard } = snapshotLimits(this.#options.maxBufferedBytes);
+    const occurredAt = this.#now();
+    const encode = (payload: unknown) => this.#frame(this.#seq, 'snapshot', payload, occurredAt).text;
+    const normal = this.#options.snapshot();
+    const text = encode(normal);
     const size = Buffer.byteLength(text);
     if (size <= limit) return text;
     const payload = this.#options.snapshot(true);
-    const active = this.#frame(this.#seq, 'snapshot', payload).text;
+    const active = encode(payload);
     const activeSize = Buffer.byteLength(active);
-    if (activeSize <= this.#options.maxBufferedBytes) {
+    if (activeSize <= hard) {
       this.#options.warn?.(`snapshot frame of ${size} bytes exceeds ${limit}; sending active items only (${activeSize} bytes)`);
       return active;
     }
-    const minimal = this.#frame(this.#seq, 'snapshot', minimalSnapshot(payload, this.#now())).text;
-    const minimalSize = Buffer.byteLength(minimal);
-    this.#options.warn?.(`snapshot frames of ${size} bytes and active-only ${activeSize} bytes exceed ${this.#options.maxBufferedBytes}; sending minimal snapshot (${minimalSize} bytes)`);
+    const minimal = minimalSnapshot(payload, occurredAt);
+    const packed = packSnapshot(normal, payload, minimal, { encode, preferred: limit, hard });
     // A cap too small even for the empty envelope cannot carry a snapshot: fail before sending SSE headers or bytes.
-    if (minimalSize > this.#options.maxBufferedBytes) throw new HttpError(503, 'Snapshot frame exceeds buffer cap');
-    return minimal;
+    if (!packed) throw new HttpError(503, 'Snapshot frame exceeds buffer cap');
+    const kind = packed === encode(minimal) ? 'minimal' : 'compact';
+    this.#options.warn?.(`snapshot frames of ${size} bytes and active-only ${activeSize} bytes exceed ${hard}; sending ${kind} snapshot (${Buffer.byteLength(packed)} bytes)`);
+    return packed;
   }
 
   #now(): string {
     return (this.#options.now ?? (() => new Date()))().toISOString();
   }
 
-  #frame(seq: number, type: string, payload: unknown): Frame {
-    const occurredAt = this.#now();
+  #frame(seq: number, type: string, payload: unknown, occurredAt = this.#now()): Frame {
     return { seq, text: `id: ${seq}\nevent: ${type}\ndata: ${safeJson({ seq, type, occurredAt, payload })}\n\n` };
   }
 
