@@ -51,7 +51,7 @@ test('Work keyboard paging and bottom jump keep the selected row visible', async
   const page = await rig.open('/work', { width: 1440, height: 400 });
   try {
     const rows = page.locator('.grid[aria-label="Work"] tbody tr');
-    await rows.nth(39).waitFor();
+    await rows.first().waitFor();
     for (const [key, index] of [['PageDown', 10], ['G', 39]] as const) {
       await page.keyboard.press(key);
       await page.locator('.grid tr.selected').filter({ hasText: `Work row ${String(index)}` }).waitFor();
@@ -62,6 +62,118 @@ test('Work keyboard paging and bottom jump keep the selected row visible', async
       }, undefined, { timeout: 2000 });
     }
   } finally { fixture.jobs = original; await page.context().close(); }
+});
+
+/** Rows mounted by a virtualized table body (spacers carry no index). */
+const mountedRows = (page: Page, table: string): Promise<number> => page.locator(`table[aria-label="${table}"] tbody tr[data-vindex]`).count();
+
+/** The logical row count the table announces, excluding its header row. */
+async function loadedRows(page: Page, table: string): Promise<number> {
+  const count = await page.locator(`table[aria-label="${table}"]`).getAttribute('aria-rowcount');
+  return Number(count) - 1;
+}
+
+test('a large Work list mounts a bounded window; distant scroll, keyboard jumps, filter, open and copy still work', async () => {
+  const fixture = rig.daemon.store.fixture;
+  const original = fixture.jobs;
+  fixture.jobs = Array.from({ length: 3000 }, (_, index) => ({ ...original[0], id: `work-big-${String(index).padStart(4, '0')}`, name: `Big work ${String(index)}`, status: 'running' }));
+  const page = await rig.open('/work', { width: 1440, height: 600 });
+  try {
+    const table = 'Work';
+    await page.locator('table[aria-label="Work"] tbody tr[data-vindex]').first().waitFor();
+    const total = await loadedRows(page, table);
+    assert.ok(total > 200, `the snapshot loads a large list (${String(total)})`);
+    const mounted = await mountedRows(page, table);
+    assert.ok(mounted > 0 && mounted < 60, `mounted rows are bounded by viewport plus overscan, not ${String(total)} (got ${String(mounted)})`);
+
+    await page.keyboard.press('G');
+    const last = page.locator(`table[aria-label="Work"] tr.selected[data-vindex="${String(total - 1)}"]`);
+    await last.waitFor();
+    assert.equal(await last.getAttribute('aria-rowindex'), String(total + 1), 'the header is row 1');
+    assert.ok(await mountedRows(page, table) < 60);
+
+    await page.locator('#content').evaluate(node => { node.scrollTop = node.scrollHeight / 2; });
+    await page.waitForFunction(count => [...document.querySelectorAll('table[aria-label="Work"] tr[data-vindex]')].some(row => Math.abs(Number(row.getAttribute('data-vindex')) - count / 2) < 40), total);
+    const middle = await page.locator('#content').evaluate(node => node.scrollTop);
+    await page.waitForTimeout(300);
+    assert.ok(Math.abs(await page.locator('#content').evaluate(node => node.scrollTop) - middle) < 2, 'manual scrolling is not pulled back to the selection');
+    assert.ok(await mountedRows(page, table) < 60);
+
+    await page.locator('#content').evaluate(node => { node.scrollTop = node.scrollHeight; });
+    await page.locator(`table[aria-label="Work"] tr[data-vindex="${String(total - 1)}"]`).waitFor();
+
+    await page.keyboard.press('/');
+    await page.getByRole('searchbox').fill('work-big-0007');
+    await page.waitForFunction(() => document.querySelector('table[aria-label="Work"]')?.getAttribute('aria-rowcount') === '2');
+    await page.getByRole('searchbox').fill('');
+    await page.waitForFunction(count => document.querySelector('table[aria-label="Work"]')?.getAttribute('aria-rowcount') === String(count + 1), total);
+
+    await page.getByRole('searchbox').evaluate(node => { node.blur(); });
+    await page.keyboard.press('G');
+    await last.waitFor();
+    await page.keyboard.press('y');
+    await page.getByTestId('copy-notice').filter({ hasText: /Copied id|Could not copy id/ }).waitFor();
+    await page.keyboard.press('Enter');
+    await page.waitForURL(`**/#/session/${original[0].sessionId}`);
+  } finally { fixture.jobs = original; await page.context().close(); }
+});
+
+test('a large Fleet mounts a bounded window and keeps native group toggles and keyboard jumps', async () => {
+  const fixture = rig.daemon.store.fixture;
+  const original = fixture.sessions;
+  const repositories = fixture.repositories.map(repository => repository.id);
+  // The mock stream drops a client whose first snapshot exceeds 1 MiB, so keep each session lean.
+  fixture.sessions = Array.from({ length: 400 }, (_, index) => ({
+    ...original[0], samples: original[0].samples.slice(-2), id: `fleet-big-${String(index).padStart(4, '0')}`, name: `Fleet big ${String(index).padStart(4, '0')}`, parentSessionId: null, repositoryId: repositories[index % repositories.length],
+  }));
+  const page = await rig.open('/fleet', { width: 1440, height: 600 });
+  try {
+    const table = 'Fleet';
+    await page.locator('table[aria-label="Fleet"] tbody tr[data-vindex]').first().waitFor();
+    const total = await loadedRows(page, table);
+    assert.ok(total > 200, `the snapshot loads a large list (${String(total)})`);
+    assert.ok(await mountedRows(page, table) < 60, 'mounted rows are bounded by viewport plus overscan');
+
+    await page.keyboard.press('G');
+    const last = page.locator(`table[aria-label="Fleet"] tr[aria-current="true"][data-vindex="${String(total - 1)}"]`);
+    await last.waitFor();
+    assert.equal(await last.getAttribute('aria-rowindex'), String(total + 1));
+    assert.equal(await page.locator('table[aria-label="Fleet"] tr[aria-current="true"]').count(), 1, 'exactly one current row');
+    assert.equal(await page.locator('table[aria-label="Fleet"] [aria-selected]').count(), 0);
+
+    await page.keyboard.press('g');
+    await page.locator('table[aria-label="Fleet"] tr[aria-current="true"][data-vindex="0"]').waitFor();
+    const toggle = page.locator('.group-toggle').first();
+    await toggle.focus();
+    await page.keyboard.press('Space');
+    await toggle.and(page.locator('[aria-expanded="false"]')).waitFor();
+    assert.ok(await loadedRows(page, table) < total, 'collapsing a group removes its rows from the logical list');
+    await page.keyboard.press('Enter');
+    await toggle.and(page.locator('[aria-expanded="true"]')).waitFor();
+    assert.equal(await loadedRows(page, table), total);
+
+    await page.keyboard.press('Tab');
+    const focusedRow = page.locator('table[aria-label="Fleet"] tbody tr[data-vindex="1"] a');
+    await focusedRow.and(page.locator(':focus')).waitFor();
+  } finally { fixture.sessions = original; await page.context().close(); }
+});
+
+test('advancing the clock updates visible ages without remounting rows', async () => {
+  const page = await rig.open('/work', { token: null, width: 1440, height: 600 });
+  try {
+    await page.clock.install({ time: new Date('2026-11-20T10:00:00.000Z') });
+    await page.clock.pauseAt(new Date('2026-11-20T10:00:00.000Z'));
+    await connect(page);
+    const row = page.locator('table[aria-label="Work"] tbody tr[data-vindex="0"]');
+    await row.waitFor();
+    await row.evaluate(node => { node.setAttribute('data-probe', 'kept'); });
+    const before = await row.locator('td').last().innerText();
+    const mounted = await mountedRows(page, 'Work');
+    await page.clock.fastForward(2 * 86_400_000);
+    await page.waitForFunction(text => document.querySelector('table[aria-label="Work"] tbody tr[data-vindex="0"] td:last-child')?.textContent !== text, before);
+    assert.equal(await row.getAttribute('data-probe'), 'kept', 'the row element is updated in place, not remounted');
+    assert.equal(await mountedRows(page, 'Work'), mounted);
+  } finally { await page.context().close(); }
 });
 
 test('questions distinguish blocking and urgent, with read-only lettered options', async () => {

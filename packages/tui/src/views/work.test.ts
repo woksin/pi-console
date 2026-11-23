@@ -118,3 +118,19 @@ test('a Work filter with no matches has no selectable row', () => {
   assert.equal(view.idAt(0), null);
   assert.equal(reduce(state, 'open', boundsOf(view)).sessionId, null);
 });
+
+test('Work keeps the same rows and navigation for any clock and only changes the formatted age', async () => {
+  const at = async (now: number) => {
+    const view = workView({ data, ui: workUi, width: 140, height: 24, now, phase: 0, click: () => undefined });
+    const ui = await mountHeadless(h(Screen, {}, view.render()), { width: 140, height: 24 });
+    try { await ui.settle(); return { view, frame: ui.frame() }; } finally { ui.destroy(); }
+  };
+  const start = Date.parse(base.updatedAt);
+  const first = await at(start + 5_000);
+  const later = await at(start + 7_200_000);
+  assert.equal(first.view.length, later.view.length);
+  assert.deepEqual(sessionIds(first.view), sessionIds(later.view));
+  assert.deepEqual([0, 1, 2].map(index => first.view.idAt(index)), [0, 1, 2].map(index => later.view.idAt(index)));
+  assert.match(first.frame, /\b5s\b/);
+  assert.match(later.frame, /\b2h\b/);
+});

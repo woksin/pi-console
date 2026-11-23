@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { fleetViewModel } from './fleet.ts';
+import { fleetEntryKey, fleetRowAt, fleetStructure, fleetViewModel } from './fleet.ts';
 import { fixture, golden, now } from '../test-support.ts';
 
 test('fleet groups by repository with subagents under their parent', () => {
@@ -20,4 +20,24 @@ test('collapsing hides a group and the query filters with fuzzy match', () => {
   const filtered = fleetViewModel({ sessions: fixture.sessions, now, query: 'review' });
   assert.ok(filtered.matched < fixture.sessions.length);
   assert.ok(filtered.rows.some(row => row.kind === 'session' && row.name.includes('review')));
+});
+
+test('the clock-free structure formats the same rows for any clock and matches the wrapper', () => {
+  const input = { sessions: fixture.sessions, collapsed: new Set(['aurora']), query: '' };
+  const structure = fleetStructure(input);
+  assert.deepEqual(structure.entries.map(entry => fleetRowAt(entry, now)), fleetViewModel({ ...input, now }).rows);
+  assert.deepEqual(structure.keys, structure.entries.map(fleetEntryKey));
+  const later = structure.entries.map(entry => fleetRowAt(entry, now + 3_600_000));
+  assert.deepEqual(later.map(row => row.id), structure.entries.map(entry => entry.id), 'order and ids do not depend on the clock');
+  assert.ok(later.some((row, index) => row.kind === 'session' && row.age !== (fleetRowAt(structure.entries[index], now) as typeof row).age));
+});
+
+test('a 30k-session structure keeps group counts and selection keys without formatting any session', () => {
+  const template = fixture.sessions[0];
+  const sessions = Array.from({ length: 30_000 }, (_, index) => ({ ...template, id: `bulk-${String(index)}`, parentSessionId: null, repositoryId: `repo-${String(index % 3)}` }));
+  const structure = fleetStructure({ sessions });
+  assert.equal(structure.entries.length, 30_003);
+  assert.equal(structure.keys.length, 30_003);
+  assert.equal(structure.entries.filter(entry => entry.kind === 'group').reduce((sum, entry) => sum + entry.sessions, 0), 30_000);
+  assert.equal(fleetStructure({ sessions, collapsed: new Set(['repo-0']) }).entries.length, 20_003);
 });

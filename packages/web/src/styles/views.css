@@ -82,6 +82,17 @@
 .grid[aria-label='Fleet'] thead th:nth-child(6) { width: 8%; }
 .grid[aria-label='Fleet'] thead th:nth-child(7) { width: 7%; }
 .grid[aria-label='Fleet'] td:first-child a, .grid[aria-label='Fleet'] td:first-child > div { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Virtualized tables: fixed column layout and single-line cells keep row heights stable, so measured offsets stay valid as rows mount and unmount. */
+.grid[aria-label='Fleet'] td { white-space: nowrap; }
+.grid[aria-label='Work'] { table-layout: fixed; }
+.grid[aria-label='Work'] td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.grid[aria-label='Work'] thead th:first-child { width: 32%; }
+.grid[aria-label='Work'] thead th:nth-child(2) { width: 8%; }
+.grid[aria-label='Work'] thead th:nth-child(3) { width: 14%; }
+.grid[aria-label='Work'] thead th:nth-child(4) { width: 24%; }
+.grid[aria-label='Work'] thead th:nth-child(5) { width: 10%; }
+.grid[aria-label='Work'] thead th:nth-child(6) { width: 12%; }
+.grid tr.virtual-spacer td { padding: 0; border: 0; }
 .grid th { text-align: left; font-size: var(--type-caption); text-transform: uppercase; letter-spacing: 0.06em; color: var(--muted); padding: var(--space-2) var(--space-3); background: var(--raised); position: sticky; top: 0; }
 .grid th.num, .grid td.num { text-align: right; }
 .grid td { padding: 8px 12px; border-top: 1px solid color-mix(in oklab, var(--border) 60%, transparent); vertical-align: middle; }
