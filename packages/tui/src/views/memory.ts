@@ -15,7 +15,7 @@ function itemLines(item: MemoryPanelItem, layout: Layout): Line[] {
     ...wrapped(`${item.kind} · ${item.statusLabel} · ${item.scope}`, 'amber', layout),
     ...wrapped(item.text, 'text', layout, '  '),
     ...(item.review ? wrapped(item.review.message, 'amber', layout) : []),
-    ...(item.command ? [[t('  Run in a pi session:', 'muted')] as Line, ...wrapped(item.command, 'cyan', layout, '  '), ...wrapped(item.rejectCommand ?? '', 'cyan', layout, '  ')] : []),
+    ...(item.command ? [[t('  Run in a pi session:', 'muted')] as Line, ...wrapped(item.command, 'cyan', layout, '  '), ...(item.rejectCommand ? wrapped(item.rejectCommand, 'cyan', layout, '  ') : [])] : []),
   ];
 }
 
