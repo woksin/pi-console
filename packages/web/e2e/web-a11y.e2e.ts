@@ -63,7 +63,7 @@ test('expanded and collapsed navigation names include attention and question bad
     assert.match(attention ?? '', /^\d+ need you$/);
     assert.match(questions ?? '', /^\d+ waiting$/);
     for (const collapsed of [false, true]) {
-      if (collapsed) await page.getByRole('button', { name: 'Collapse navigation' }).click();
+      if (collapsed) await nav.getByRole('button', { name: '« Collapse', exact: true }).click();
       await nav.getByRole('link', { name: `Overview ${attention}`, exact: true }).waitFor();
       await nav.getByRole('link', { name: `Questions ${questions}`, exact: true }).waitFor();
       await nav.getByRole('link', { name: 'Fleet', exact: true }).waitFor();
@@ -120,7 +120,7 @@ test('motion follows OS changes, unrelated saves do not override it, and explici
   try {
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.locator('html[data-motion="reduced"]').waitFor();
-    await page.getByRole('button', { name: 'Collapse navigation' }).click();
+    await page.getByRole('navigation').getByRole('button', { name: '« Collapse', exact: true }).click();
     await page.getByRole('button', { name: 'dawn theme', exact: true }).click();
     const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('pi-console.prefs') ?? '{}') as Record<string, unknown>);
     assert.equal(Object.hasOwn(saved, 'reducedMotion'), false);
@@ -137,6 +137,14 @@ test('motion follows OS changes, unrelated saves do not override it, and explici
     await page.getByLabel('Reduce motion').check();
     await page.reload();
     await page.locator('html[data-motion="reduced"]').waitFor();
+    await page.getByRole('button', { name: 'Follow system motion', exact: true }).click();
+    await page.locator('html[data-motion="full"]').waitFor();
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.locator('html[data-motion="reduced"]').waitFor();
+    await page.reload();
+    await page.locator('html[data-motion="reduced"]').waitFor();
+    const following = await page.evaluate(() => JSON.parse(localStorage.getItem('pi-console.prefs') ?? '{}') as Record<string, unknown>);
+    assert.equal(Object.hasOwn(following, 'reducedMotion'), false);
   } finally { await page.context().close(); }
 });
 
@@ -169,7 +177,7 @@ test('silent live streams announce a stable warning while the visible frame age 
     const now = new Date('2026-11-20T10:00:00.000Z');
     await page.clock.install({ time: now });
     await page.clock.pauseAt(now);
-    await page.getByLabel('Read token').fill(silentRig.daemon.token);
+    await page.getByLabel('Access token', { exact: true }).fill(silentRig.daemon.token);
     await page.getByRole('button', { name: 'Connect', exact: true }).click();
     await page.locator('.conn[data-connection="live"]').waitFor();
     await page.clock.runFor(21_000);
