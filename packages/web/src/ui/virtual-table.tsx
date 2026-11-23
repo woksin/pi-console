@@ -1,70 +1,9 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { bodyView, boundaryTab, focusRequested, measuredHeights, rowOf, type FocusRequest } from './virtual-dom.ts';
-import { clampRange, createGeometry, planSegments, revealOffset, sameRange, visibleRange, type Geometry, type Range, type Segment } from './virtual-geometry.ts';
-
-export interface VirtualTable {
-  /** Spread onto the `<tbody>`: tracks the scroll container, the focused row and boundary Tab navigation. */
-  bodyProps: { ref: (element: HTMLTableSectionElement | null) => void; onFocus: (event: React.FocusEvent<HTMLElement>) => void; onBlur: (event: React.FocusEvent<HTMLElement>) => void; onKeyDown: (event: React.KeyboardEvent<HTMLElement>) => void };
-  /** Mounted rows and the `aria-hidden` spacers standing in for the rest, in document order. */
-  segments: readonly Segment[];
-  /** Total logical rows, for `aria-rowcount` (add one for the header). */
-  count: number;
-  /** Attributes every mounted row carries: its logical index and kind, and its `aria-rowindex` (the header is row 1). */
-  rowAttributes: (index: number) => { 'data-vindex': number; 'data-vkind': number; 'aria-rowindex': number };
-  /** Reveals a logical row, mounted or not, with the least scrolling. */
-  scrollToIndex: (index: number) => void;
-}
-
-export type VirtualRowAttributes = ReturnType<VirtualTable['rowAttributes']>;
-
-const movesWithin = (event: React.FocusEvent<HTMLElement>): boolean => event.relatedTarget instanceof Node && event.currentTarget.contains(event.relatedTarget);
-
-/** Re-measures on scroll and on container or table resizes. */
-function useScrollObservers(body: HTMLTableSectionElement | null, update: () => void): void {
-  useEffect(() => {
-    if (!body) return undefined;
-    const container = body.closest<HTMLElement>('.content');
-    let frame = 0;
-    const schedule = (): void => { if (frame === 0) frame = requestAnimationFrame(() => { frame = 0; update(); }); };
-    const target: HTMLElement | Window = container ?? window;
-    target.addEventListener('scroll', schedule, { passive: true });
-    const observer = new ResizeObserver(schedule);
-    observer.observe(container ?? document.documentElement);
-    if (body.parentElement) observer.observe(body.parentElement);
-    return () => { target.removeEventListener('scroll', schedule); observer.disconnect(); cancelAnimationFrame(frame); };
-  }, [body, update]);
-}
-
-/** Pins the focused row so scrolling never unmounts it, and carries Tab across unmounted rows. */
-function useRowFocus(geometry: Geometry, scrollToIndex: (index: number) => void) {
-  const [focused, setFocused] = useState<number | null>(null);
-  const pending = useRef<FocusRequest | null>(null);
-  const latest = useRef(geometry);
-  latest.current = geometry;
-  const handlers = {
-    onFocus: (event: React.FocusEvent<HTMLElement>): void => {
-      pending.current = null;
-      const row = rowOf(event.target);
-      setFocused(row ? Number(row.dataset.vindex) : null);
-    },
-    onBlur: (event: React.FocusEvent<HTMLElement>): void => {
-      if (!movesWithin(event)) setFocused(null);
-    },
-    onKeyDown: (event: React.KeyboardEvent<HTMLElement>): void => {
-      const request = boundaryTab(event, latest.current.count);
-      if (!request) return;
-      event.preventDefault();
-      pending.current = request;
-      scrollToIndex(request.index);
-    },
-  };
-  const flush = (body: HTMLElement | null): void => {
-    const request = pending.current;
-    if (!body || !request) return;
-    if (focusRequested(body, request)) pending.current = null;
-  };
-  return { focused, handlers, flush };
-}
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { bodyView, measuredHeights } from './virtual-dom.ts';
+import type { VirtualTable } from './virtual-types.ts';
+import { useRowFocus, useScrollObservers } from './virtual-hooks.ts';
+import { clampRange, createGeometry, planSegments, revealOffset, sameRange, visibleRange, type Range } from './virtual-geometry.ts';
+export type { VirtualRowAttributes, VirtualTable } from './virtual-types.ts';
 
 /**
  * Windowing for a native table body whose page scroll container is `.content`. `kinds[i]` is row i's kind (an index into the

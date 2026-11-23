@@ -60,3 +60,10 @@ export function focusRequested(body: ParentNode, request: FocusRequest): boolean
   (request.edge === 'first' ? controls.item(0) : controls.item(controls.length - 1)).focus();
   return true;
 }
+
+/** True when a blur moves focus to another element inside the same body. */
+export function focusStaysIn(event: React.FocusEvent<HTMLElement>): boolean {
+  const next = event.relatedTarget;
+  if (!(next instanceof Node)) return false;
+  return event.currentTarget.contains(next);
+}

@@ -122,8 +122,9 @@ test('a large Fleet mounts a bounded window and keeps native group toggles and k
   const fixture = rig.daemon.store.fixture;
   const original = fixture.sessions;
   const repositories = fixture.repositories.map(repository => repository.id);
-  fixture.sessions = Array.from({ length: 2000 }, (_, index) => ({
-    ...original[0], id: `fleet-big-${String(index).padStart(4, '0')}`, name: `Fleet big ${String(index).padStart(4, '0')}`, parentSessionId: null, repositoryId: repositories[index % repositories.length],
+  // The mock stream drops a client whose first snapshot exceeds 1 MiB, so keep each session lean.
+  fixture.sessions = Array.from({ length: 400 }, (_, index) => ({
+    ...original[0], samples: original[0].samples.slice(-2), id: `fleet-big-${String(index).padStart(4, '0')}`, name: `Fleet big ${String(index).padStart(4, '0')}`, parentSessionId: null, repositoryId: repositories[index % repositories.length],
   }));
   const page = await rig.open('/fleet', { width: 1440, height: 600 });
   try {
