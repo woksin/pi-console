@@ -1,14 +1,14 @@
 import { cycleRequestFilter, requestFilterAction, resolve, type Action, type KeyContext, type RequestsFilter } from '@pi-console/viewmodels';
 import { defaultStaleDays, questionSorts, staleDayPresets, type QuestionSort, type TimeWindow } from '@pi-console/viewmodels';
 import { scrubKey, timeControl } from './time-controls.ts';
-import { pauseTranscript, resumeTranscript, scrollTranscript, type TranscriptAnchor, type TranscriptLayout, type TranscriptMotion } from './transcript-window.ts';
+import { pauseTranscript, resumeTranscript, scrollTranscript, topEntryKey, type TranscriptAnchor, type TranscriptLayout, type TranscriptMotion } from './transcript-window.ts';
 import { terminalContentWidth } from './session-layout.ts';
 
 export type Section = 'overview' | 'fleet' | 'requests' | 'questions' | 'messages' | 'timeline' | 'work';
 export const sections: readonly Section[] = ['overview', 'fleet', 'requests', 'questions', 'messages', 'timeline', 'work'];
-export type Overlay = 'none' | 'palette' | 'filter' | 'help' | 'settings' | 'search';
-const scrollableOverlay = (overlay: Overlay): overlay is 'help' | 'settings' => overlay === 'help' || overlay === 'settings';
-const overlayScroll = { help: 'helpScroll', settings: 'settingsScroll' } as const;
+export type Overlay = 'none' | 'palette' | 'filter' | 'help' | 'settings' | 'search' | 'entry';
+const scrollableOverlay = (overlay: Overlay): overlay is 'help' | 'settings' | 'entry' => overlay === 'help' || overlay === 'settings' || overlay === 'entry';
+const overlayScroll = { help: 'helpScroll', settings: 'settingsScroll', entry: 'entryScroll' } as const;
 export type SidePane = 'requests' | 'questions' | 'jobs' | 'resets' | 'memory';
 export const sidePanes: readonly SidePane[] = ['requests', 'questions', 'jobs', 'resets', 'memory'];
 
@@ -21,6 +21,9 @@ export interface UiState {
   overlay: Overlay;
   helpScroll: number;
   settingsScroll: number;
+  /** The transcript entry the full-entry viewer shows, by stable key; its scroll row, where `null` means "first search match, else the top". */
+  entryKey: number | null;
+  entryScroll: number | null;
   /** The text being typed in the palette, filter or transcript search. */
   input: string;
   paletteIndex: number;
@@ -56,13 +59,13 @@ export interface UiState {
 }
 
 export const initial: UiState = {
-  terminalWidth: 80, section: 'overview', sessionId: null, overlay: 'none', helpScroll: 0, settingsScroll: 0, input: '', paletteIndex: 0, recents: [], filter: '',
+  terminalWidth: 80, section: 'overview', sessionId: null, overlay: 'none', helpScroll: 0, settingsScroll: 0, entryKey: null, entryScroll: null, input: '', paletteIndex: 0, recents: [], filter: '',
   cursor: { overview: 0, fleet: 0, requests: 0, questions: 0, messages: 0, timeline: 0, work: 0 },
   collapsed: [], follow: true, anchor: null, requestFilter: { state: 'all', origin: 'all', sessionId: null }, focusEntry: null, search: '', questionSort: 'priority', questionStaleDays: defaultStaleDays, questionDetail: false, questionExpanded: false, detailScroll: 0, pane: 'requests', memoryIndex: 0, messagesGraph: false, window: null, scrub: false, scrubColumn: 0, quit: false, notice: '',
 };
 
 /** What the reducer needs to know about the rendered world; supplied by the view layer. */
-export interface Bounds { length: number; page: number; fit: TimeWindow; width: number; rowAt: (index: number) => { sessionId: string | null; groupId: string | null; entryId?: string | null }; sessionIds?: readonly string[]; transcript: TranscriptLayout; viewport: number; detail?: { max: number; page: number }; help?: { max: number; page: number }; settings?: { max: number; page: number } }
+export interface Bounds { length: number; page: number; fit: TimeWindow; width: number; rowAt: (index: number) => { sessionId: string | null; groupId: string | null; entryId?: string | null }; sessionIds?: readonly string[]; transcript: TranscriptLayout; viewport: number; detail?: { max: number; page: number }; help?: { max: number; page: number }; settings?: { max: number; page: number }; entry?: { max: number; page: number; start: number } }
 
 interface ActionBounds extends Bounds { questionDetailShown: boolean }
 
@@ -122,7 +125,7 @@ function open(state: UiState, bounds: ActionBounds): UiState {
 }
 
 function back(state: UiState, bounds: ActionBounds): UiState {
-  if (state.overlay !== 'none') return { ...state, overlay: 'none', input: '' };
+  if (state.overlay !== 'none') return { ...state, overlay: 'none', input: '', entryKey: null };
   if (bounds.questionDetailShown) return withoutQuestionDetail(state);
   if (state.scrub) return { ...state, scrub: false };
   if (state.sessionId) return { ...state, sessionId: null, search: '', focusEntry: null, questionDetail: false, questionExpanded: false, detailScroll: 0 };
@@ -167,6 +170,12 @@ function toggleView(state: UiState, bounds: Bounds): UiState {
   return questionDetailShown(state) ? withoutQuestionDetail(state) : { ...state, questionDetail: true, questionExpanded: true, detailScroll: 0 };
 }
 
+/** `Enter` in a transcript: the entry at the top of the view opens in full. Scroll and follow state are left alone, so closing returns to the same place. */
+function openEntry(state: UiState, bounds: ActionBounds): UiState {
+  const entryKey = state.sessionId && state.overlay === 'none' ? topEntryKey(bounds.transcript, state, bounds.viewport) : undefined;
+  return entryKey === undefined ? state : { ...state, overlay: 'entry', entryKey, entryScroll: null };
+}
+
 const moveHandler: Handler = (state, bounds, action) => (state.sessionId ? moveTranscript(state, action, bounds) : moveList(state, action, bounds));
 
 const handlers: Partial<Record<Action, Handler>> = {
@@ -178,6 +187,7 @@ const handlers: Partial<Record<Action, Handler>> = {
   'back': (state, bounds) => back(state, bounds),
   'open': (state, bounds) => open(state, bounds),
   'filter.next': requestFilters, 'filter.previous': requestFilters, 'filter.origin': requestFilters, 'filter.session': requestFilters,
+  'entry.open': openEntry,
   'follow.toggle': (state, bounds) => ({ ...state, focusEntry: null, ...(state.follow ? pauseTranscript(bounds.transcript, state, bounds.viewport) : resumeTranscript) }),
   'question.sort': questionPreference, 'question.stale': questionPreference,
   'view.toggle': (state, bounds) => toggleView(state, bounds),
@@ -199,13 +209,19 @@ function detailPosition(position: number, action: Action, bounds: Bounds['detail
   return next === undefined ? undefined : Math.max(0, Math.min(max, next));
 }
 
+/** The scroll row an overlay shows now: its own, or (before the first scroll) the row its viewer opened at. */
+function overlayRow(state: UiState, overlay: 'help' | 'settings' | 'entry', viewport: { max: number; start?: number } | undefined): number {
+  return Math.min(state[overlayScroll[overlay]] ?? viewport?.start ?? 0, viewport?.max ?? 0);
+}
+
+function scrollOverlay(state: UiState, overlay: 'help' | 'settings' | 'entry', action: Action, bounds: ActionBounds): UiState | undefined {
+  const viewport = bounds[overlay];
+  const position = detailPosition(overlayRow(state, overlay, viewport), action, viewport);
+  return position === undefined ? undefined : { ...state, [overlayScroll[overlay]]: position };
+}
+
 function scrollDetail(state: UiState, action: Action, bounds: ActionBounds): UiState | undefined {
-  if (scrollableOverlay(state.overlay)) {
-    const field = overlayScroll[state.overlay];
-    const viewport = bounds[state.overlay];
-    const position = detailPosition(Math.min(state[field], viewport?.max ?? 0), action, viewport);
-    return position === undefined ? undefined : { ...state, [field]: position };
-  }
+  if (scrollableOverlay(state.overlay)) return scrollOverlay(state, state.overlay, action, bounds);
   if (!bounds.questionDetailShown || state.overlay !== 'none') return undefined;
   const position = detailPosition(state.detailScroll, action, bounds.detail);
   if (position === undefined) return undefined;

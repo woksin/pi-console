@@ -9,7 +9,11 @@
  */
 
 /** Rendered shape of the retained transcript: per entry its stable key (see TranscriptLine.key) and the cumulative end line (exclusive). */
-export interface TranscriptLayout { keys: readonly number[]; ends: readonly number[] }
+export interface TranscriptLayout {
+  keys: readonly number[]; ends: readonly number[];
+  /** Per entry: whether its last row is a blank spacer rather than content. Absent means no entry has one. */
+  spacers?: readonly boolean[];
+}
 export const emptyLayout: TranscriptLayout = { keys: [], ends: [] };
 
 export interface TranscriptAnchor { key: number; offset: number; limit: number }
@@ -69,6 +73,15 @@ export function transcriptWindow(layout: TranscriptLayout, view: TranscriptView,
   const start = clamp(topOf(layout, anchor), 0, Math.max(0, bottom - rows));
   const end = Math.min(bottom, start + rows);
   return { start, end, below: all - end, paused: true, dropped };
+}
+
+/** The entry shown at the top of the viewport: the one `Enter` opens in full. The blank spacer row that ends an entry belongs to the entry below it. */
+export function topEntryKey(layout: TranscriptLayout, view: TranscriptView, height: number): number | undefined {
+  const { start } = transcriptWindow(layout, view, height);
+  const found = layout.ends.findIndex(end => end > start);
+  if (found < 0) return layout.keys.at(-1);
+  const spacer = layout.ends[found] - start === 1 && layout.spacers?.[found] === true;
+  return layout.keys[spacer && found + 1 < layout.keys.length ? found + 1 : found];
 }
 
 /** Pauses at the current view; an empty transcript has nothing to hold still, so it keeps showing the tail. */

@@ -14,9 +14,21 @@ test('mock graph includes waiting-on and barred-by dependencies to known parent/
   ];
   fixture.messages = [];
   assert.deepEqual(graph(fixture).edges, [
-    { fromLane: 'L192', toLane: 'L0', kind: 'waiting-on', count: 1, lastAt: base.updatedAt },
     { fromLane: 'L193', toLane: 'L0', kind: 'barred-by', count: 1, lastAt: base.updatedAt },
+    { fromLane: 'L192', toLane: 'L0', kind: 'waiting-on', count: 1, lastAt: base.updatedAt },
   ]);
+});
+
+test('mock graph orders edges by the composite kind|from|to key, like the core query', () => {
+  const fixture = generate().fixture;
+  const base = fixture.sessions[0];
+  fixture.sessions = [
+    { ...base, id: 'parent', laneId: 'L0', status: 'working', parentSessionId: null, orchestratorSessionId: 'parent' },
+    { ...base, id: 'one', laneId: 'L1', status: 'waiting', parentSessionId: 'parent', orchestratorSessionId: 'parent' },
+    { ...base, id: 'ten', laneId: 'L10', status: 'waiting', parentSessionId: 'parent', orchestratorSessionId: 'parent' },
+  ];
+  fixture.messages = [];
+  assert.deepEqual(graph(fixture).edges.map(edge => edge.fromLane), ['L10', 'L1']);
 });
 
 test('mock graph retains raw lane endpoints with no sessions and aggregates directed counts', () => {

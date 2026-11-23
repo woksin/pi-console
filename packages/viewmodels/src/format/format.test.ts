@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { age, cells, clip, clipCells, clock, compactNumber, displayWidth, fuzzy, graphemes, money, pad, padStart, pressure, sanitize, sparkline, wrap } from './format.ts';
+import { age, cells, clip, clipCells, clock, compactNumber, displayWidth, fuzzy, graphemes, money, pad, padStart, pressure, sanitize, sparkline, wrap, wrapWithSources, type TextWidth } from './format.ts';
 
 test('sanitize removes CSI, OSC, DCS and control characters but keeps text', () => {
   const hostile = 'a\u001b[31mred\u001b[0m b\u001b]0;pwned\u0007c \u001b]52;c;QUJD\u001b\\d \u001bPq\u001b\\e\u0000f\u009bg\ttab';
@@ -113,6 +113,68 @@ test('fuzzy matching keeps case-insensitive scores, empty queries and missing ma
   assert.equal(fuzzy('ft', 'Fleet'), 2);
   assert.equal(fuzzy('', 'Fleet'), 0);
   assert.equal(fuzzy('ff', 'Fleet'), undefined);
+});
+
+test('word wrapping records original UTF-16 positions and marks replacements as synthetic', () => {
+  assert.deepEqual(wrapWithSources('a\n  needle 😀界', 8), [
+    { text: 'a', source: [0] },
+    { text: 'needle', source: [4, 5, 6, 7, 8, 9] },
+    { text: '😀界', source: [11, 12, 13] },
+  ]);
+  assert.deepEqual(wrapWithSources('a  b\tc', 20), [{ text: 'a b c', source: [0, 2, 3, -1, 5] }]);
+  assert.deepEqual(wrapWithSources('👩‍💻', 1), [{ text: ' ', source: [-1] }]);
+  assert.deepEqual(wrapWithSources('界', 0), [{ text: '', source: [] }]);
+  assert.deepEqual(wrapWithSources('a\n\nb', 4), [{ text: 'a', source: [0] }, { text: '', source: [] }, { text: 'b', source: [3] }]);
+});
+
+/** Frozen pre-source-map algorithm: an independent oracle for the shared wrapper's existing row breaks. */
+function legacyPieces(word: string, width: number, measure: TextWidth): string[] {
+  const pieces: string[] = [];
+  let piece = '';
+  let used = 0;
+  for (const item of graphemes(word)) {
+    const size = measure(item);
+    if (used + size > width && piece) { pieces.push(piece); piece = ''; used = 0; }
+    piece += size > width ? ' '.repeat(width) : item;
+    used += Math.min(size, width);
+  }
+  if (piece) pieces.push(piece);
+  return pieces;
+}
+
+function legacyAppend(lines: string[], line: string, pieces: string[], budget: { width: number; measure: TextWidth }): string {
+  for (const piece of pieces) {
+    if (line && budget.measure(line) + 1 + budget.measure(piece) > budget.width) { lines.push(line); line = piece; }
+    else line = line ? `${line} ${piece}` : piece;
+  }
+  return line;
+}
+
+function legacyWrap(text: string, width: number, measure: TextWidth): string[] {
+  if (width <= 0) return [''];
+  const lines: string[] = [];
+  for (const paragraph of text.split('\n')) {
+    let line = '';
+    for (const word of paragraph.split(/\s+/).filter(Boolean)) line = legacyAppend(lines, line, legacyPieces(word, width, measure), { width, measure });
+    lines.push(line);
+  }
+  return lines;
+}
+
+test('source-aware wrapping preserves legacy row breaks for all other callers', () => {
+  const alphabet = ['a', 'bc', ' ', '   ', '\n', '\n  ', '\t', '\r', '😀', '👩🏽‍💻', '界', '𠀀', 'e\u0301', '\u0301'];
+  let seed = 0x180;
+  const next = (): string => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return alphabet[seed % alphabet.length];
+  };
+  const custom: TextWidth = text => graphemes(text).reduce((sum, item) => sum + (item === '👩🏽‍💻' ? 4 : displayWidth(item)), 0);
+  for (let sample = 0; sample < 80; sample++) {
+    const text = Array.from({ length: sample }, next).join('');
+    for (const width of [-1, 0, 1, 2, 3, 7, 16, 80]) for (const measure of [displayWidth, custom]) {
+      assert.deepEqual(wrap(text, width, Infinity, measure), legacyWrap(text, width, measure));
+    }
+  }
 });
 
 test('age, sparkline, pressure and fuzzy', () => {

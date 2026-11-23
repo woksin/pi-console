@@ -1,30 +1,14 @@
 import { glyphs, clip, memoryPanelViewModel, sessionViewModel, wrap, type ResetRequest, type SessionViewModel, type TranscriptLine, type TextWidth } from '@pi-console/viewmodels';
 import { Column, Lines, Panel, Row, h, type Line, type Part } from '../view/renderer.ts';
-import type { Color } from '../view/theme.ts';
 import { pressureBar, blank, fit, pressureTone, rule, split, statusParts, t, type CellBudget } from '../view/parts.ts';
 import { sidePanes, type SidePane, type UiState } from '../state/ui.ts';
 import { sessionSideWidth } from '../state/session-layout.ts';
 import { transcriptViewport, transcriptWindow, type TranscriptAnchor, type TranscriptLayout } from '../state/transcript-window.ts';
 import type { Env, SectionView } from './common.ts';
 import { memoryLines } from './session-memory.ts';
+import { LIMITS, diffColor, entryStyle, previewNote } from './entry.ts';
 
-const LIMITS: Record<TranscriptLine['kind'], number> = { user: 8, thinking: 2, assistant: 14, tool: 1, result: 3, diff: 12, reset: 1 };
-
-function diffLine(text: string): Line {
-  const color = text.startsWith('+') ? 'green' : text.startsWith('-') ? 'red' : text.startsWith('@') ? 'violet' : 'muted';
-  return [t(text, color)];
-}
-
-interface EntryStyle { color: Color; italic?: true; bold?: true }
-
-function entryStyle(entry: TranscriptLine): EntryStyle {
-  switch (entry.kind) {
-    case 'thinking': return { color: 'faint', italic: true };
-    case 'result': return { color: entry.tool?.resultKind === 'error' ? 'red' : 'muted' };
-    case 'user': return { color: 'blue', bold: true };
-    default: return { color: 'text' };
-  }
-}
+const diffLine = (text: string): Line => [t(text, diffColor(text))];
 
 function entryRows(entry: TranscriptLine, body: number, measure?: TextWidth): string[] {
   return entry.kind === 'diff' ? entry.text.split('\n').slice(0, LIMITS.diff).map(text => clip(text, body, measure)) : wrap(entry.text, body, LIMITS[entry.kind], measure);
@@ -58,11 +42,17 @@ export function renderEntry(entry: TranscriptLine, width: number, measure?: Text
   const stamp = t(`${entry.time} `, 'faint');
   const body = width - 12;
   if (entry.kind === 'reset') return resetDividerLines(entry, stamp, width, measure);
-  if (entry.kind === 'tool' && entry.tool) return [toolLine({ ...entry, tool: entry.tool }, stamp, body, measure)];
+  if (entry.kind === 'tool' && entry.tool) return [toolLine({ ...entry, tool: entry.tool }, stamp, body, measure), ...footerLines(entry, stamp, body, measure)];
   const lines = bodyLines(entry, stamp, body, measure);
   if (entry.streaming && lines.length > 0) lines[lines.length - 1] = [...lines[lines.length - 1], t(' ▍', 'cyan')];
-  if (entry.kind === 'assistant' || entry.kind === 'user') lines.push([t('')]);
-  return lines;
+  return [...lines, ...footerLines(entry, stamp, body, measure)];
+}
+
+/** Under a preview: the "… N more lines" row when it was cut short, and the blank spacer after prose entries. */
+function footerLines(entry: TranscriptLine, stamp: Part, body: number, measure?: TextWidth): Line[] {
+  const note = previewNote(entry, body, measure);
+  const spacer: Line[] = entry.kind === 'assistant' || entry.kind === 'user' ? [[t('')]] : [];
+  return note ? [[...gutterOf(entry, stamp, false), t(note, 'amber')], ...spacer] : spacer;
 }
 
 const gutterOf = (entry: TranscriptLine, stamp: Part, first: boolean): Part[] => (first ? [stamp, t(`${glyphs[entry.kind]} `, entry.color, { bold: true })] : [t(' '.repeat(10)), t('  ')]);
@@ -77,9 +67,11 @@ interface Rendered { lines: Line[]; layout: TranscriptLayout }
 let linesCache: ({ key: unknown; width: number; search: string; measure?: TextWidth } & Rendered) | undefined;
 let modelCache: { deps: readonly unknown[]; model: SessionViewModel } | undefined;
 
+const isBlank = (line: Line | undefined): boolean => line?.every(part => part.text === '') === true;
+
 function layoutOf(entries: TranscriptLine[], rendered: Line[][]): TranscriptLayout {
   let end = 0;
-  return { keys: entries.map(entry => entry.key), ends: rendered.map(lines => (end += lines.length)) };
+  return { keys: entries.map(entry => entry.key), ends: rendered.map(lines => (end += lines.length)), spacers: rendered.map(lines => isBlank(lines.at(-1))) };
 }
 
 function transcriptLines(env: Env, model: SessionViewModel, key: unknown, width: number): Rendered {
@@ -196,7 +188,7 @@ export function sessionView(env: Env): SectionView {
   const { viewport, following, status, lines } = transcriptContent(env, model, rendered, transcriptWidth);
   return {
     length: rendered.lines.length,
-    transcript: rendered.layout, transcriptRows: viewport,
+    transcript: rendered.layout, transcriptRows: viewport, entries: model.transcript,
     focus: () => focusAnchor(ui.focusEntry, model.transcript, rendered.layout),
     rowAt: () => ({ sessionId: null, groupId: null }),
     idAt: () => model.id,

@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react';
-import { firstRunChecklist, wrap, type EmptyStateModel, type FlashTracker, type LookTracker, type TimeWindow, type WindowedCollection, type TextWidth } from '@pi-console/viewmodels';
+import { firstRunChecklist, wrap, type EmptyStateModel, type FlashTracker, type LookTracker, type TimeWindow, type TranscriptLine, type WindowedCollection, type TextWidth } from '@pi-console/viewmodels';
 import type { Line } from '../view/renderer.ts';
 import { blank, t } from '../view/parts.ts';
 import type { Data } from '../store/store.ts';
@@ -37,6 +37,8 @@ export interface SectionView {
   /** Session view only: the rendered shape of the transcript, which the reducer scrolls through. */
   transcript?: TranscriptLayout;
   transcriptRows?: number;
+  /** Session view only: the entries behind the layout, for the full-entry viewer. */
+  entries?: readonly TranscriptLine[];
   /** Id shown by `y copy id`. */
   idAt: (index: number) => string | null;
 }
