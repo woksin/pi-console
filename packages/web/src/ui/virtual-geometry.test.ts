@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createGeometry, indexAt, planSegments, revealOffset, visibleRange, clampRange } from './virtual-geometry.ts';
+import { createGeometry, indexAt, planSegments, revealOffset, visibleRange, clampRange, resolvePinned } from './virtual-geometry.ts';
 
 const uniform = (count: number, height = 40) => createGeometry(new Uint8Array(count), [height]);
 const mounted = (segments: ReturnType<typeof planSegments>) => segments.filter(segment => segment.kind === 'row').length;
@@ -66,4 +66,15 @@ test('revealing a row far outside the slice moves the least distance and respect
   assert.equal(revealOffset(geometry, 0, { scroll: 5000, viewport: 600, inset: 28 }), -28);
   assert.equal(revealOffset(geometry, 10, { scroll: 0, viewport: 600, inset: 28 }), 0, 'already visible rows do not scroll');
   assert.equal(revealOffset(geometry, 1, { scroll: 40, viewport: 600, inset: 28 }), 12, 'a row under the sticky header is brought below it');
+});
+
+test('a pinned row is followed by key when rows are inserted above it and dropped when its key disappears', () => {
+  const before = new Map(['a', 'b', 'c', 'd'].map((key, index) => [key, index]));
+  assert.equal(resolvePinned(before, 'd'), 3);
+  const after = new Map(['new', 'a', 'b', 'c', 'd'].map((key, index) => [key, index]));
+  assert.equal(resolvePinned(after, 'd'), 4, 'the same row, not the neighbour now at the old index');
+  assert.equal(resolvePinned(new Map([['a', 0]]), 'd'), null, 'a removed row is no longer pinned');
+  assert.equal(resolvePinned(after, null), null);
+  const geometry = uniform(5);
+  assert.equal(mounted(planSegments(geometry, { start: 0, end: 2 }, resolvePinned(after, 'd'))), 3);
 });

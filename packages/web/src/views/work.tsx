@@ -20,7 +20,7 @@ export function WorkView({ state, now }: ViewProps) {
   const entries = useMemo(() => filterWorkRows(structure.entries, query), [structure, query]);
   const ids = useMemo(() => entries.map(entry => entry.id), [entries]);
   const kinds = useMemo(() => new Uint8Array(entries.length), [entries]);
-  const table = useVirtualTable({ kinds, fallbackHeights });
+  const table = useVirtualTable({ keys: ids, kinds, fallbackHeights });
   const { nav, indexOfKey } = useVirtualSelection(ids, table, {
     trigger: query,
     onOpen: id => { const index = indexOfKey.get(id); if (index !== undefined) navigate(sessionHref(entries[index].sessionId)); },

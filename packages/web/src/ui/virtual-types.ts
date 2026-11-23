@@ -8,7 +8,7 @@ export interface VirtualTable {
   /** Total logical rows, for `aria-rowcount` (add one for the header). */
   count: number;
   /** Attributes every mounted row carries: its logical index and kind, and its `aria-rowindex` (the header is row 1). */
-  rowAttributes: (index: number) => { 'data-vindex': number; 'data-vkind': number; 'aria-rowindex': number };
+  rowAttributes: (index: number) => { 'data-vindex': number; 'data-vkind': number; 'data-vkey': string; 'aria-rowindex': number };
   /** Reveals a logical row, mounted or not, with the least scrolling. */
   scrollToIndex: (index: number) => void;
 }

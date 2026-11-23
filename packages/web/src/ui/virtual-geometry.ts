@@ -79,3 +79,8 @@ export function revealOffset(geometry: Geometry, index: number, view: ScrollView
   if (bottom > view.scroll + view.viewport) return bottom - view.viewport;
   return view.scroll;
 }
+
+/** The current index of a row identified by its stable key, or null when the key is unset or its row is gone (the pin is then dropped). */
+export function resolvePinned(indexOfKey: ReadonlyMap<string, number>, key: string | null): number | null {
+  return key === null ? null : indexOfKey.get(key) ?? null;
+}

@@ -37,7 +37,7 @@ export function FleetView({ state, now }: ViewProps) {
   const structure = useMemo(() => fleetStructure({ sessions: state.sessions, query, collapsed }), [state.sessions, query, collapsed]);
   const { entries, keys } = structure;
   const kinds = useMemo(() => Uint8Array.from(entries, kindOf), [entries]);
-  const table = useVirtualTable({ kinds, fallbackHeights });
+  const table = useVirtualTable({ keys, kinds, fallbackHeights });
   const trigger = useMemo(() => ({ query, collapsed }), [query, collapsed]);
   const toggle = (group: string): void => { setCollapsed(current => toggled(current, group)); };
   const { nav } = useVirtualSelection(keys, table, {

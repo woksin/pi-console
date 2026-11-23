@@ -222,3 +222,27 @@ test('virtualized Work keeps table row counts, a focused row mounted, and Tab re
     await focused(table.locator('tbody tr[data-vindex="3"] a'));
   } finally { fixture.jobs = original; await page.context().close(); }
 });
+
+test('virtualized Work keeps focus on the same job when a live update inserts a row above it', async () => {
+  const fixture = rig.daemon.store.fixture;
+  const original = fixture.jobs;
+  fixture.jobs = Array.from({ length: 2000 }, (_, index) => ({ ...original[0], id: `shift-${String(index).padStart(4, '0')}`, name: `Shift work ${String(index)}`, status: 'running', startedAt: new Date(Date.parse('2026-11-20T09:00:00Z') - index * 1000).toISOString() }));
+  const page = await rig.open('/work', { width: 1440, height: 600 });
+  try {
+    const table = page.getByRole('table', { name: 'Work' });
+    await table.locator('tbody tr[data-vindex="0"]').waitFor();
+    const row = table.locator('tbody tr[data-vkey="shift-0003"]');
+    const link = row.locator('a');
+    await link.focus();
+    await page.locator('#content').evaluate(node => { node.scrollTop = node.scrollHeight / 2; });
+    await page.waitForFunction(() => document.querySelector('table[aria-label="Work"] tr[data-vindex="0"]') === null);
+    await focused(link);
+    rig.daemon.store.publish('job.updated', { ...original[0], id: 'shift-newest', name: 'Shift newest', status: 'running', startedAt: '2026-11-20T10:00:00Z' });
+    await page.waitForFunction(() => document.querySelector('table[aria-label="Work"] tr[data-vkey="shift-0003"]')?.getAttribute('data-vindex') === '4');
+    await focused(link);
+    assert.equal(await row.getAttribute('data-vindex'), '4', 'the focused job moved down by one and is still the pinned row');
+    assert.ok(await table.locator('tbody tr[data-vindex]').count() < 60);
+    await page.keyboard.press('Tab');
+    await focused(table.locator('tbody tr[data-vkey="shift-0004"] a'));
+  } finally { fixture.jobs = original; await page.context().close(); }
+});

@@ -2,15 +2,15 @@ import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { bodyView, measuredHeights } from './virtual-dom.ts';
 import type { VirtualTable } from './virtual-types.ts';
 import { useRowFocus, useScrollObservers } from './virtual-hooks.ts';
-import { clampRange, createGeometry, planSegments, revealOffset, sameRange, visibleRange, type Range } from './virtual-geometry.ts';
+import { clampRange, createGeometry, planSegments, resolvePinned, revealOffset, sameRange, visibleRange, type Range } from './virtual-geometry.ts';
 export type { VirtualRowAttributes, VirtualTable } from './virtual-types.ts';
 
 /**
  * Windowing for a native table body whose page scroll container is `.content`. `kinds[i]` is row i's kind (an index into the
  * measured heights); only rows within the viewport, a little overscan and the focused row are mounted.
  */
-export function useVirtualTable(options: { kinds: ArrayLike<number>; fallbackHeights: readonly number[]; overscan?: number }): VirtualTable {
-  const { kinds, fallbackHeights, overscan = 5 } = options;
+export function useVirtualTable(options: { keys: readonly string[]; kinds: ArrayLike<number>; fallbackHeights: readonly number[]; overscan?: number }): VirtualTable {
+  const { keys, kinds, fallbackHeights, overscan = 5 } = options;
   const bodyRef = useRef<HTMLTableSectionElement | null>(null);
   const [body, setBody] = useState<HTMLTableSectionElement | null>(null);
   const [heights, setHeights] = useState(fallbackHeights);
@@ -41,12 +41,14 @@ export function useVirtualTable(options: { kinds: ArrayLike<number>; fallbackHei
   const rowFocus = useRowFocus(geometry, scrollToIndex);
   useLayoutEffect(() => { update(); rowFocus.flush(bodyRef.current); });
   useScrollObservers(body, update);
-  const segments = useMemo(() => planSegments(geometry, clampRange(range, geometry.count), rowFocus.focused), [geometry, range, rowFocus.focused]);
+  const indexOfKey = useMemo(() => new Map(keys.map((key, index) => [key, index])), [keys]);
+  const pinned = resolvePinned(indexOfKey, rowFocus.focused);
+  const segments = useMemo(() => planSegments(geometry, clampRange(range, geometry.count), pinned), [geometry, range, pinned]);
   const ref = useCallback((element: HTMLTableSectionElement | null) => { bodyRef.current = element; setBody(element); }, []);
 
   return {
     bodyProps: { ref, ...rowFocus.handlers }, segments, count: geometry.count, scrollToIndex,
-    rowAttributes: index => ({ 'data-vindex': index, 'data-vkind': kinds[index], 'aria-rowindex': index + 2 }),
+    rowAttributes: index => ({ 'data-vindex': index, 'data-vkind': kinds[index], 'data-vkey': keys[index], 'aria-rowindex': index + 2 }),
   };
 }
 

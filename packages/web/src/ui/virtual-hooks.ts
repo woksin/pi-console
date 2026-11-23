@@ -18,9 +18,9 @@ export function useScrollObservers(body: HTMLTableSectionElement | null, update:
   }, [body, update]);
 }
 
-/** Pins the focused row so scrolling never unmounts it, and carries Tab across unmounted rows. */
+/** Tracks the focused row by its stable key (indexes shift on live inserts) so scrolling never unmounts it, and carries Tab across unmounted rows. */
 export function useRowFocus(geometry: Geometry, scrollToIndex: (index: number) => void) {
-  const [focused, setFocused] = useState<number | null>(null);
+  const [focused, setFocused] = useState<string | null>(null);
   const pending = useRef<FocusRequest | null>(null);
   const latest = useRef(geometry);
   latest.current = geometry;
@@ -28,7 +28,7 @@ export function useRowFocus(geometry: Geometry, scrollToIndex: (index: number) =
     onFocus: (event: React.FocusEvent<HTMLElement>): void => {
       pending.current = null;
       const row = rowOf(event.target);
-      setFocused(row ? Number(row.dataset.vindex) : null);
+      setFocused(row?.dataset.vkey ?? null);
     },
     onBlur: (event: React.FocusEvent<HTMLElement>): void => { if (!focusStaysIn(event)) setFocused(null); },
     onKeyDown: (event: React.KeyboardEvent<HTMLElement>): void => {
