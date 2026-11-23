@@ -24,9 +24,18 @@ export function referencedBy(attention: readonly AttentionItem[]): Referenced {
 
 const inactiveSession = new Set<Session['status']>(['done', 'idle', 'failed']);
 
-export function sessionEntries(models: ReadModels, attention: readonly AttentionItem[]): Entry<Session>[] {
+export function attentionSessionIds(attention: readonly AttentionItem[]): ReadonlySet<string> {
+  const ids = new Set<string>();
+  for (const item of attention) {
+    const id = item.sessionId;
+    if (id !== null) ids.add(id);
+  }
+  return ids;
+}
+
+export function sessionEntries(models: ReadModels, attentionSessionIds: ReadonlySet<string>): Entry<Session>[] {
   return Object.values(models.sessions.sessions).map(row => {
-    const session = toSession(models, row, attention);
+    const session = toSession(models, row, attentionSessionIds);
     return { key: session.startedAt, id: session.id, active: !inactiveSession.has(session.status), build: () => session };
   });
 }

@@ -10,9 +10,9 @@ interface CardMarks { selected: boolean; isNew: boolean; flash: boolean }
 function cardLines(card: AttentionCard, width: number, marks: CardMarks, env: Env): Line[] {
   const head: Line = split(
     [...statusParts(card.status, env.phase, false), t(' '), t(card.reasonLabel, card.status.color, { bold: true }), t('  '), t(card.title, 'text'), ...(marks.isNew ? [t(' new', 'cyan', { bold: true })] : [])],
-    [t(card.age, 'faint')], width - 1);
-  const text = wrap(card.text, width - 3, 1)[0] ?? '';
-  return [selectable(head, width, marks.selected, marks.flash), selectable([t('  '), t(text, 'muted')], width, marks.selected, marks.flash), [t('')]];
+    [t(card.age, 'faint')], width - 1, { measure: env.measure });
+  const text = wrap(card.text, width - 3, 1, env.measure)[0] ?? '';
+  return [selectable(head, width, marks.selected, { flash: marks.flash, measure: env.measure }), selectable([t('  '), t(text, 'muted')], width, marks.selected, { flash: marks.flash, measure: env.measure }), [t('')]];
 }
 
 function attentionLoaded(env: Env): boolean {

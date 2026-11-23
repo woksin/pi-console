@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type EffectCallback, type ReactElement } from 'react';
 import { FlashTracker, LookTracker, paletteItems, pulseViewModel, rememberPick, resolve, type Action, type PaletteInput, type WindowedCollection } from '@pi-console/viewmodels';
-import { Column, Screen, Text, h, useClipboard, useKeys, useSize, useTerminalTitle, useTick } from './view/renderer.ts';
+import { Column, Screen, Text, h, useClipboard, useKeys, useSize, useTextWidth, useTerminalTitle, useTick } from './view/renderer.ts';
 import type { Data, Store } from './store/store.ts';
 import { commit, contextOf, handleKey, initial, reduce, resizeUi, typing, type Bounds, type Section, type UiState } from './state/ui.ts';
 import { terminalContentWidth } from './state/session-layout.ts';
@@ -80,6 +80,7 @@ function useUiState(width: number, seed: AppProps['initialState']) {
 export function App(props: AppProps): ReactElement {
   const data = useSyncExternalStore(props.store.subscribe, props.store.getSnapshot);
   const size = useSize();
+  const measure = useTextWidth();
   const copy = useClipboard();
   const { ui, uiRef, apply } = useUiState(size.width, props.initialState);
   const [clock, setClock] = useState({ now: (props.clock ?? Date.now)(), phase: 0 });
@@ -93,7 +94,7 @@ export function App(props: AppProps): ReactElement {
   const onOverview = ui.section === 'overview' && !ui.sessionId;
   useEffect(() => { if (!onOverview) trackers.look.leave(); }, [onOverview, trackers]);
   const env: Env = {
-    data, ui, now: clock.now, width: terminalContentWidth(size.width), height: bodyHeight, phase: clock.phase, changes: { ...trackers, motion: props.animate },
+    data, ui, measure, now: clock.now, width: terminalContentWidth(size.width), height: bodyHeight, phase: clock.phase, changes: { ...trackers, motion: props.animate },
     click: index => { apply(openAt(uiRef.current, index, boundsOf(viewRef.current, bodyHeight))); },
   };
   const view = (ui.sessionId ? sessionView : sectionViews[ui.section])(env);
@@ -113,7 +114,7 @@ export function App(props: AppProps): ReactElement {
   useAppKeys({ props, uiRef, dataRef, viewRef, heightRef, size, copy, apply });
 
   useTerminalTitle(terminalTitle(ui, data));
-  const connectionBanner = banner(data.connection, size.width, props.endpoint);
+  const connectionBanner = banner(data.connection, size.width, props.endpoint, measure);
   const input = { endpoint: props.endpoint, tokenSource: props.tokenSource, ...data.connection, now: clock.now,
     counts: countsOf(data) };
   const selectSection = (section: Section) => { apply(reduce(uiRef.current, `section.${String(sectionOrder.indexOf(section) + 1)}` as Action, boundsOf(viewRef.current, heightRef.current))); };
@@ -124,7 +125,7 @@ export function App(props: AppProps): ReactElement {
     ...(connectionBanner ? [h(Text, { line: connectionBanner })] : []),
     h(HistoryError, { collection: failure, width: size.width }),
     h(Column, { grow: 1, paddingX: 1 }, view.render()),
-    h(Text, { line: footerLine(ui, size.width) }),
+    h(Text, { line: footerLine(ui, size.width, measure) }),
     ...overlays(ui, data, input, size));
 }
 

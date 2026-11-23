@@ -6,13 +6,13 @@ import { gridPart, inWindow, nearby } from './timeline-grid.ts';
 
 const LABEL = 24;
 
-interface LaneRow { width: number; ticks: ReadonlySet<number>; scrub: number | undefined; phase: number }
+interface LaneRow { measure?: Env['measure']; width: number; ticks: ReadonlySet<number>; scrub: number | undefined; phase: number }
 
 function laneLine(lane: TimelineLane, selected: boolean, row: LaneRow): Line {
   const byColumn = new Map(lane.cells.map(cell => [cell.column, cell]));
   const style = { scrub: row.scrub, ticks: row.ticks, selected };
   const parts = Array.from({ length: row.width }, (_, column) => gridPart(byColumn.get(column), column, style));
-  return [t(selected ? '▌' : ' ', 'cyan'), ...statusParts({ ...lane.status }, row.phase, false), t(' '), t(pad(lane.label, LABEL - 3), selected ? 'text' : 'muted', { bold: selected }), ...parts];
+  return [t(selected ? '▌' : ' ', 'cyan'), ...statusParts({ ...lane.status }, row.phase, false), t(' '), t(pad(lane.label, LABEL - 3, row.measure), selected ? 'text' : 'muted', { bold: selected }), ...parts];
 }
 
 function axisLine(axis: readonly { column: number; label: string }[], width: number, scrub: number | undefined, scrubLabel: string): Line {
@@ -28,15 +28,15 @@ function scrubOf(ui: Env['ui'], width: number, window: { start: number; span: nu
   return { scrub, scrubAt: scrub === undefined ? 0 : window.start + window.span * scrub / Math.max(1, width - 1) };
 }
 
-function markerLines(marker: Marker, gridWidth: number): Line[] {
+function markerLines(marker: Marker, gridWidth: number, measure?: Env['measure']): Line[] {
   return [
     [t(`${clock(new Date(marker.at).toISOString())} `, 'faint'), t(`${marker.glyph} `, marker.color, { bold: true }), t(marker.kind, marker.color)],
-    ...wrap(clip(marker.text, 200), gridWidth - 6, 1).map((text): Line => [t('         ' + text, 'text')]),
+    ...wrap(clip(marker.text, 200, measure), gridWidth - 6, 1, measure).map((text): Line => [t('         ' + text, 'text')]),
   ];
 }
 
-function detailLines(heading: string, focus: readonly Marker[], gridWidth: number): Line[] {
-  const body = focus.length === 0 ? [[t('Nothing here. Zoom out with -, pan with h and l.', 'faint')] as Line] : focus.flatMap(marker => markerLines(marker, gridWidth)).slice(0, 8);
+function detailLines(heading: string, focus: readonly Marker[], gridWidth: number, measure?: Env['measure']): Line[] {
+  const body = focus.length === 0 ? [[t('Nothing here. Zoom out with -, pan with h and l.', 'faint')] as Line] : focus.flatMap(marker => markerLines(marker, gridWidth, measure)).slice(0, 8);
   return [[t(heading, 'muted', { bold: true })], ...body];
 }
 
@@ -50,13 +50,13 @@ export function timelineView(env: Env): SectionView {
   const cursor = Math.min(ui.cursor.timeline, Math.max(0, model.lanes.length - 1));
   const { scrub, scrubAt } = scrubOf(ui, width, model.window);
   const lane = model.lanes[cursor];
-  const row: LaneRow = { width, ticks: new Set(model.axis.map(tick => tick.column)), scrub, phase: env.phase };
+  const row: LaneRow = { measure: env.measure, width, ticks: new Set(model.axis.map(tick => tick.column)), scrub, phase: env.phase };
   const { start, end } = windowOf(model.lanes.length, cursor, Math.max(1, env.height - 4 - 2 - 9));
   const focus = scrub === undefined ? inWindow(all, lane?.sessionId, model.window) : nearby(all, lane?.sessionId, scrubAt, model.window.span / width * 3);
   const label = lane?.label ?? '';
   const heading = scrub === undefined ? `${label} · last markers in view` : `scrub ${clock(new Date(scrubAt).toISOString())} · ${label} · nearest markers`;
   const legend: Line = [t(' ', 'faint'), ...markerLegend.flatMap(entry => [t(entry.glyph, entry.color, { bold: true }), t(` ${entry.label}  `, 'muted')])];
-  const detail = whenLoaded(data.loaded, () => model.lanes.length === 0 ? emptyLines(emptyStates.timeline, env.width - 4) : detailLines(heading, focus, env.width - 4));
+  const detail = whenLoaded(data.loaded, () => model.lanes.length === 0 ? emptyLines(emptyStates.timeline, env.width - 4) : detailLines(heading, focus, env.width - 4, env.measure));
   const spanSeconds = Math.round(model.window.span / 1000);
   return {
     length: model.lanes.length,
