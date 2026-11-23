@@ -6,7 +6,7 @@ import { Screen, Text, h, mountHeadless } from '../view/renderer.ts';
 import type { Connection } from '../store/store.ts';
 import type { Session } from '@pi-console/contract';
 import { palette } from '../view/theme.ts';
-import { pulseViewModel, tokenRejectedError } from '@pi-console/viewmodels';
+import { displayWidth, pulseViewModel, tokenRejectedError } from '@pi-console/viewmodels';
 import { generate, needsYou } from '@pi-console/testkit';
 
 const items = needsYou(generate().fixture).items;
@@ -56,6 +56,32 @@ for (const theme of ['midnight', 'contrast', 'mono'] as const) {
     }
   }
 }
+
+for (const width of [40, 60]) {
+  for (const state of attentionStates) {
+    test(`narrow header: ${state.name} at ${String(width)} columns keeps attention visible`, async () => {
+      const ui = await mountHeadless(h(Screen, {}, h(Header, { ui: initial, width, attention: state.attention, connection: offline, select: () => undefined })), { width, height: 2 });
+      try {
+        await ui.settle();
+        const frame = ui.frame();
+        assert.match(frame, state.expected);
+        assert.match(frame, /1\s+Overview/);
+        for (const line of frame.split('\n')) assert.ok(displayWidth(line) <= width);
+        if (!state.attention.needsYouLoaded) assert.doesNotMatch(frame, /all clear/);
+      } finally { ui.destroy(); }
+    });
+  }
+}
+
+test('a 40-column header gives a large attention count priority over the connection pill', async () => {
+  const attention = { ...loadedAttention, needsYou: Array.from({ length: 1234 }, () => items[0]) };
+  const ui = await mountHeadless(h(Screen, {}, h(Header, { ui: { ...initial, section: 'fleet' }, width: 40, attention, connection: offline, select: () => undefined })), { width: 40, height: 2 });
+  try {
+    const frame = await ui.waitFor('! 1234');
+    assert.match(frame, /2\s+Fleet/);
+    assert.doesNotMatch(frame, /◌ offline/);
+  } finally { ui.destroy(); }
+});
 
 test('100-column header keeps all tab numbers, the active label and an explicit attention glyph', async () => {
   const ui = await mountHeadless(h(Screen, {}, h(Header, { ui: { ...initial, section: 'fleet' }, width: 100, attention: { ...loadedAttention, needsYou: Array.from({ length: 19 }, () => items[0]) }, connection: { ...offline, connected: true }, select: () => undefined })), { width: 100, height: 30 });
