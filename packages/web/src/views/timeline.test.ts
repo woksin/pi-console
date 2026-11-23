@@ -20,7 +20,7 @@ before(async () => {
 after(async () => { await server.close(); });
 
 test('real timeline resolves the last indexed marker and replacement-array text', () => {
-  const state = emptyState();
+  const state = { ...emptyState(), snapshotLoaded: true };
   state.sessions = [{ id: 's1', repositoryId: 'repo', name: 'Session one', laneId: 'L1', role: 'main', parentSessionId: null, orchestratorSessionId: 's1', branch: '', cwd: '', model: '', status: 'idle', startedAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', contextPercent: 0, samples: [] }];
   state.resets = [{ id: 'last', sessionId: 's1', at: '2026-01-01T00:00:00Z', kind: 'compaction', carriedRequestIds: ['last marker'], interruptedRequestIds: [] }];
   const render = () => renderToStaticMarkup(createElement(StoreContext.Provider, { value: new ConsoleStore(createApi('unused')) }, createElement(TimelineView, { state, now: 0 })));

@@ -2,7 +2,7 @@ import type { Request } from '@pi-console/contract';
 import { describeRequestFilter, emptyStates, pad, requestsViewModel, type RequestsRow, type RequestsViewModel } from '@pi-console/viewmodels';
 import { Column, Lines, Panel, Row, h, type Line } from '../../view/renderer.ts';
 import { fit, selectable, split, statusParts, t, windowOf } from '../../view/parts.ts';
-import { emptyLines, shownOf, type Env, type SectionView } from '../common.ts';
+import { emptyLines, shownOf, whenLoaded, type Env, type SectionView } from '../common.ts';
 import { requestDetailLines } from './detail.ts';
 import { listFilter } from '../../state/ui.ts';
 
@@ -45,7 +45,7 @@ export function requestsView(env: Env): SectionView {
     render: () => h(Column, { grow: 1 }, h(Lines, { lines: [fit(legend, env.width)], height: 1 }), h(Row, { grow: 1, gap: 1 },
       h(Panel, { title: `Requests and answers · ${String(model.open)} open · ${String(rows.length)} of ${String(env.data.requests.length)}${shownOf(env.data, 'requests', model.rows.length)}`, focused: true, grow: 1 },
         h(Lines, { lines: [fit(summaryLine(model), width)] }),
-        h(Lines, { lines: lines.length ? lines : env.data.requests.length ? [[t(' No request matches. Esc clears the filter.', 'muted')]] : emptyLines(emptyStates.requests, env.width - 4), grow: 1, onLineClick: index => { env.click(start + index); } })),
+        h(Lines, { lines: lines.length ? lines : whenLoaded(env.data.loaded, () => env.data.requests.length ? [[t(' No request matches. Esc clears the filter.', 'muted')]] : emptyLines(emptyStates.requests, env.width - 4)), grow: 1, onLineClick: index => { env.click(start + index); } })),
       ...(wide ? [detailPanel(selected, env)] : []))),
   };
 }

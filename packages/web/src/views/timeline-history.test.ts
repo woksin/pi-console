@@ -23,7 +23,7 @@ before(async () => {
 after(async () => { await server.close(); });
 
 function boundedState(): ConsoleState {
-  const state = emptyState();
+  const state = { ...emptyState(), snapshotLoaded: true };
   state.bounded = collections;
   state.totals = { sessions: 10, requests: 20, questions: 30, messages: 40, resets: 50, jobs: 0 };
   state.sessions = [{ id: 's1', repositoryId: 'repo', name: 'Session', laneId: 'L1', role: 'main', parentSessionId: null, orchestratorSessionId: 's1', branch: '', cwd: '', model: '', status: 'idle', startedAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z', contextPercent: 0, samples: [] }];

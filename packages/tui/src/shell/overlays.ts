@@ -1,4 +1,4 @@
-import { keyLabel, keymapGroups, pad, paletteScopes, paletteView, settingsViewModel, themePreview, wrap, type KeymapGroup, type PaletteItem, type PaletteView, type SettingsInput, type SettingsRow, type Tone } from '@pi-console/viewmodels';
+import { keyLabel, keymapGroups, pad, paletteScopes, paletteView, daemonHealthRows, settingsViewModel, themePreview, wrap, type KeymapGroup, type PaletteItem, type PaletteView, type SettingsInput, type SettingsRow, type Tone } from '@pi-console/viewmodels';
 import { Lines, Overlay, Panel, h, type Line, type Part } from '../view/renderer.ts';
 import { blank, fit, gap, heading, rule, selectable, split, t, windowOf } from '../view/parts.ts';
 import type { Data } from '../store/store.ts';
@@ -105,14 +105,15 @@ function themeLines(): Line[] {
     blank];
 }
 
-export function settingsViewport(size: { width: number; height: number }, input: SettingsInput) {
+export function settingsViewport(size: { width: number; height: number }, input: SettingsInput, health: Record<string, unknown> | null = null) {
   const model = settingsViewModel(input);
-  const lines = [...section('Health', model.health), ...section('Data', model.data), ...section('Sources', model.sources), ...themeLines()];
+  const daemon = daemonHealthRows(health);
+  const lines = [...section('Health', model.health), ...(daemon.length > 0 ? section('Daemon health', daemon) : []), ...section('Data', model.data), ...section('Sources', model.sources), ...themeLines()];
   return overlayViewport(size, lines, { width: 76, height: 27 });
 }
 
-export function Settings(props: { input: SettingsInput; width: number; height: number; scroll?: number }) {
-  const viewport = settingsViewport(props, props.input);
+export function Settings(props: { input: SettingsInput; health?: Record<string, unknown> | null; width: number; height: number; scroll?: number }) {
+  const viewport = settingsViewport(props, props.input, props.health);
   const { lines, position } = visibleViewport(viewport, props.scroll);
   return h(Overlay, viewport.box, h(Panel, { title: 'Settings', right: `${position}esc closes`, focused: true, grow: 1, background: 'raised' }, h(Lines, { lines, grow: 1 })));
 }

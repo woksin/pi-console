@@ -38,3 +38,13 @@ test('status dependency styles differ from message/spawn edges in both color and
   assert.match(css, /\.edge\.waiting-on \{ stroke: var\(--amber\); stroke-dasharray: 10 5; \}/);
   assert.match(css, /\.edge\.barred-by \{ stroke: var\(--red\); stroke-dasharray: 1 5; \}/);
 });
+
+test('a failed graph read renders a retry alert instead of the empty state; the first read renders a skeleton', () => {
+  const store = new ConsoleStore(createApi('unused'));
+  const html = (state: ConsoleState) => renderToStaticMarkup(createElement(StoreContext.Provider, { value: store }, createElement(GraphView, { state })));
+  assert.match(html({ ...emptyState(), graph: null }), /aria-busy|skeleton/i);
+  const failed = html({ ...emptyState(), graph: null, graphError: true });
+  assert.match(failed, /role="alert"/);
+  assert.match(failed, /Retry/);
+  assert.match(html({ ...emptyState(), graph: graph(generate().fixture), graphError: true }), /Showing the last loaded graph/);
+});

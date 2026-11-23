@@ -98,8 +98,11 @@ export class ConsoleStore {
   #createGraphRefresh(): GraphRefreshController {
     return new GraphRefreshController(async () => {
       const requests = this.#requests;
-      const graph = await this.#api.graph();
-      if (graph && this.#requestActive(requests)) this.#set({ ...this.#state, graph });
+      // `null` is a 404: a daemon without the route has no graph, which is not a failure. A thrown read is.
+      const read = await this.#api.graph().then(graph => ({ graph, failed: false }), () => ({ graph: null, failed: true }));
+      if (!this.#requestActive(requests)) return;
+      const graph = read.graph ?? this.#state.graph ?? (read.failed ? null : { nodes: [], edges: [] });
+      this.#set({ ...this.#state, graph, graphError: read.failed });
     }, this.#clock);
   }
 
@@ -339,7 +342,7 @@ export class ConsoleStore {
     }));
   }
 
-  /** Loads the next page of a windowed collection's history (the first call starts from the newest); a no-op once it is complete or when the snapshot was not windowed. Concurrent calls share one request; a failed page is simply retried on the next call. */
+  /** Loads the next page of a windowed collection's history (the first call starts from the newest); a no-op once it is complete or when the snapshot was not windowed. Concurrent calls share one request; a failed page is recorded in `pageStatus` and retried on the next call. */
   loadMore(collection: WindowedCollection): Promise<void> {
     const state = this.#state;
     const progress = state.history[collection];
@@ -348,6 +351,7 @@ export class ConsoleStore {
     const requests = this.#requests;
     const existing = requests.paging.get(collection);
     if (existing) return existing;
+    this.#setPageStatus(collection, 'loading');
     const task = this.#fetchPage(requests, collection, progress?.cursor ?? null).finally(() => { requests.paging.delete(collection); });
     requests.paging.set(collection, task);
     return task;
@@ -357,6 +361,12 @@ export class ConsoleStore {
     const page = await this.#api.page(collection, { limit: listPageSize, order: 'desc', after }).catch(() => null);
     if (!this.#requestActive(requests)) return;
     if (page) this.#set(mergePage(this.#state, collection, page));
+    this.#setPageStatus(collection, page ? 'idle' : 'failed');
+  }
+
+  #setPageStatus(collection: WindowedCollection, status: 'loading' | 'failed' | 'idle'): void {
+    const pageStatus = Object.fromEntries(Object.entries({ ...this.#state.pageStatus, [collection]: status }).filter(([, value]) => (value as string) !== 'idle'));
+    this.#set({ ...this.#state, pageStatus });
   }
 
   /** Detail requests have their own status: an absent snapshot row is not evidence of a 404. */

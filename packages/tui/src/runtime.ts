@@ -11,7 +11,7 @@ import { launch } from './view/renderer.ts';
 import { MemoryRefreshController, MemoryReviewController, type WindowedCollection } from '@pi-console/viewmodels';
 import { detectDepth, palette, themeFromEnv } from './view/theme.ts';
 
-export interface Runtime { store: Store; client: DaemonClient; loadTranscript: TranscriptLoader['load']; pageTranscript: TranscriptLoader['page']; focusTranscript: TranscriptLoader['focus']; reviews: Pick<MemoryReviewController, 'load' | 'request'>; loadMemory: (id: string) => Promise<void>; loadMoreMemory: MemoryLoader['more']; retryNeedsYou: Refresher['request']; watchMemory: (id: string) => () => void; stop: () => void }
+export interface Runtime { store: Store; client: DaemonClient; loadTranscript: TranscriptLoader['load']; pageTranscript: TranscriptLoader['page']; focusTranscript: TranscriptLoader['focus']; reviews: Pick<MemoryReviewController, 'load' | 'request'>; loadMemory: (id: string) => Promise<void>; loadMoreMemory: MemoryLoader['more']; retryNeedsYou: Refresher['request']; retryGraph: Refresher['request']; watchMemory: (id: string) => () => void; stop: () => void }
 
 const NEEDS_YOU_REFRESH_MS = 2000;
 const NEEDS_YOU_POLL_MS = 60_000;
@@ -31,7 +31,7 @@ export function connect(credentials: Credentials): Runtime {
   const reviews: Runtime['reviews'] = { load: (id, options) => current.load(id, options), request: (id, itemId, action) => current.request(id, itemId, action) };
   const transcripts = new TranscriptLoader(store, client);
   const refresher = attentionRequests(store, client);
-  const graph = graphRefresher(client, value => { store.setGraph(value); });
+  const graph = graphRefresher(client, value => { store.setGraph(value); }, () => { store.markGraphFailed(); });
   const refresh = refresher.request;
   void client.stream({
     onEvent: event => {
@@ -51,7 +51,7 @@ export function connect(credentials: Credentials): Runtime {
     },
     onState: state => { store.setConnection(state.connected, state.error); refresher.setConnected(state.connected); if (state.connected) graph.request(); },
   });
-  return { store, client, loadTranscript: transcripts.load, pageTranscript: transcripts.page, focusTranscript: transcripts.focus, reviews, loadMemory, loadMoreMemory, retryNeedsYou: refresh, watchMemory: id => memory.watch(id), stop: () => { stopped = true; transcripts.stop(); memoryLoader.stop(); memory.dispose(); current.dispose(); refresher.stop(); graph.stop(); client.stop(); store.dispose(); } };
+  return { store, client, loadTranscript: transcripts.load, pageTranscript: transcripts.page, focusTranscript: transcripts.focus, reviews, loadMemory, loadMoreMemory, retryNeedsYou: refresh, retryGraph: () => { graph.request(); }, watchMemory: id => memory.watch(id), stop: () => { stopped = true; transcripts.stop(); memoryLoader.stop(); memory.dispose(); current.dispose(); refresher.stop(); graph.stop(); client.stop(); store.dispose(); } };
 }
 
 function olderMemory(store: Store, loader: () => MemoryLoader, refresh: MemoryRefreshController): Runtime['loadMoreMemory'] {
@@ -66,7 +66,14 @@ function olderMemory(store: Store, loader: () => MemoryLoader, refresh: MemoryRe
 
 function attentionRequests(store: Store, client: DaemonClient): ConnectedRefresher {
   let stopped = false;
+  const loadHealth = async () => {
+    try {
+      const health = await client.health();
+      if (!stopped) store.setHealth(health);
+    } catch { /* Settings keeps the last health record; the connection banner reports an unreachable daemon. */ }
+  };
   const load = async () => {
+    void loadHealth();
     store.setNeedsYouError(false);
     try {
       const items = await client.needsYou();
@@ -106,6 +113,7 @@ export async function run(options: RunOptions = {}): Promise<number> {
     const node = createElement(App, {
       store: runtime.store, endpoint: credentials.baseUrl, tokenSource: credentials.tokenSource, animate, clock,
       retryNeedsYou: runtime.retryNeedsYou,
+      retryGraph: runtime.retryGraph,
       loadMore: collection => { void loadMore(runtime, collection); },
       loadTranscript: runtime.loadTranscript, pageTranscript: runtime.pageTranscript, focusTranscript: runtime.focusTranscript,
       loadMemory: id => { void runtime.loadMemory(id); }, watchMemory: runtime.watchMemory,

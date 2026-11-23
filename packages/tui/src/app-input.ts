@@ -30,6 +30,15 @@ export function retryHistory(input: { ui: UiState; data: Data; key: string; leng
   if (key === 'r' || forwardAtEnd) loadMore?.(collection);
 }
 
+/** Retries a failed graph read with r while the Messages graph is showing. */
+export function retryGraph(input: { ui: UiState; data: Data; key: string; retry?: () => void }): void {
+  const { ui, data, key, retry } = input;
+  const failed = data.graphError && showingGraph(ui);
+  if (failed && key === 'r') retry?.();
+}
+
+const showingGraph = (ui: UiState): boolean => ui.section === 'messages' && ui.messagesGraph && ui.overlay === 'none' && !ui.sessionId;
+
 /** A collection's full size: the daemon's total when the snapshot was bounded, otherwise what is loaded. */
 const sizeOf = (data: Data, collection: WindowedCollection): number => data.totals?.[collection] ?? data[collection].length;
 

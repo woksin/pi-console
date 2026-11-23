@@ -5,6 +5,7 @@ import { useActions } from '../app/commands.ts';
 import { useListNav } from '../app/hooks.ts';
 import { TimelineHistory } from './timeline-history.tsx';
 import { EmptyFor } from '../ui/empty.tsx';
+import { SkeletonRows } from '../ui/primitives.tsx';
 import { groupHeight, laneHeight, timelineGroups } from './timeline-groups.ts';
 import { indexMarkers } from './timeline-markers.ts';
 import { TimelineMarker } from './timeline-marker.tsx';
@@ -36,6 +37,7 @@ export function TimelineView({ state, now }: ViewProps) {
   const ticks = timelineTicks(view.window, columns);
   const nowColumn = columnOf(now, view.window, columns);
   const names = new Map(state.sessions.map(session => [session.id, laneLabel(session.repositoryId, session.laneId)]));
+  if (!state.snapshotLoaded) return <div className="page"><SkeletonRows label="timeline" columns={4} /></div>;
   const history = <TimelineHistory state={state} />;
   if (view.lanes.length === 0) return <><EmptyFor view="timeline" />{history}</>;
   const height = view.lanes.length * laneHeight + groups.length * groupHeight + 44;

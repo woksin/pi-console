@@ -2,7 +2,7 @@ import { emptyStates, filterQuestionRows, questionsViewModel, wrap, pad, type Qu
 import { questionDetailShown } from '../state/ui.ts';
 import { Lines, Panel, Row, h, type Line } from '../view/renderer.ts';
 import { blank, heading, selectable, split, statusParts, t, windowOf } from '../view/parts.ts';
-import { emptyLines, shownOf, type Env, type SectionView } from './common.ts';
+import { emptyLines, listBody, shownOf, type Env, type SectionView } from './common.ts';
 
 function optionLines(options: string[], width: number, full: boolean): Line[] {
   return options.flatMap((option, index) => (full ? wrap(option, Math.max(1, width - 8)) : [option]).map((text, line): Line => [t(line === 0 ? `  ${String(index + 1)} ` : '    ', 'cyan'), t(text, 'text')]));
@@ -15,7 +15,7 @@ function detail(row: QuestionRow | undefined, width: number, full = false): Line
     [t(row.kind, 'violet', { bold: true }), ...(row.urgent ? [t('  urgent', 'red', { bold: true })] : []), ...(row.blocking ? [t('  blocking', 'amber', { bold: true })] : [])], blank,
     ...wrap(row.text, width - 4, full ? Infinity : 8).map((text): Line => [t(text, 'text')]), blank,
     ...(row.options.length ? [heading('Options'), ...optionLines(row.options, width, full)] : []), blank,
-    [t('Answering from the console arrives in M4.', 'faint', { italic: true })],
+    [t('Read-only in this version: answer in the session itself.', 'faint', { italic: true })],
   ];
 }
 
@@ -44,7 +44,7 @@ export function questionsView(env: Env): SectionView {
     rowAt: index => ({ sessionId: rows[index]?.sessionId ?? null, groupId: null }),
     idAt: index => rows[index]?.id ?? null,
     render: questionDetailShown(env.ui) ? full.render : () => h(Row, { grow: 1, gap: 1 },
-      h(Panel, { title: `Questions · ${String(model.open)} open · ${String(model.blocking)} blocking${shownOf(env.data, 'questions', rows.length)}`, focused: true, grow: 1 }, h(Lines, { lines: lines.length ? lines : emptyLines(emptyStates.questions, env.width - 4), grow: 1, onLineClick: index => { env.click(start + index); } })),
+      h(Panel, { title: `Questions · ${String(model.open)} open · ${String(model.blocking)} blocking${shownOf(env.data, 'questions', rows.length)}`, focused: true, grow: 1 }, h(Lines, { lines: listBody({ loaded: env.data.loaded, lines, query: env.ui.filter, noun: 'question', anyRows: model.rows.length > 0, empty: () => emptyLines(emptyStates.questions, env.width - 4) }), grow: 1, onLineClick: index => { env.click(start + index); } })),
       ...(wide ? [h(Panel, { title: 'Question · v expand', width: 48 }, h(Lines, { lines: detail(rows[cursor], 48) }))] : [])),
   };
 }

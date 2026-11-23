@@ -1117,3 +1117,59 @@ test('a refused resume starts fresh: the open transcript is reloaded and reviews
   assert.ok(availability > before);
   assert.equal(store.getState().memoryReviews.get('s1')?.availability?.available, true, 'unchanged availability is still published to the fresh state');
 });
+
+test('a failed older-history page is recorded, retried on the next call and cleared once it lands', async () => {
+  let fail = true;
+  const snapshot = windowedSnapshot([job('j4', 'running', '2026-01-04T00:00:00Z')], 2);
+  const api = {
+    graph: () => Promise.resolve(null),
+    page: () => fail ? Promise.reject(new Error('offline')) : Promise.resolve({ ...emptyList, items: [job('j3', 'done', '2026-01-03T00:00:00Z')], total: 2 }),
+    stream: snapshotStream(snapshot),
+    needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null),
+  } as unknown as Api;
+  const store = new ConsoleStore(api, clock);
+  store.start();
+  await store.loadMore('jobs');
+  assert.equal(store.getState().pageStatus.jobs, 'failed');
+  fail = false;
+  await store.loadMore('jobs');
+  assert.equal(store.getState().pageStatus.jobs, undefined);
+  assert.deepEqual(store.getState().jobs.map(item => item.id), ['j3', 'j4']);
+  store.stop();
+});
+
+test('a graph route the daemon does not have (404, null) is an empty graph, not a failure; a thrown read is a failure', async t => {
+  let mode: 'missing' | 'throws' = 'missing';
+  const { store } = streamingStore(t, { graph: () => mode === 'missing' ? Promise.resolve(null) : Promise.reject(new Error('offline')) });
+  await store.refresh();
+  assert.deepEqual(store.getState().graph, { nodes: [], edges: [] });
+  assert.equal(store.getState().graphError, false);
+  mode = 'throws';
+  await store.refresh();
+  assert.equal(store.getState().graphError, true);
+  assert.deepEqual(store.getState().graph, { nodes: [], edges: [] }, 'the last graph is kept');
+});
+
+test('a snapshot that voids a pending history page does not leave Load older stuck loading', async () => {
+  let emit: (frame: unknown) => void = () => undefined;
+  let release: (page: unknown) => void = () => undefined;
+  const api = {
+    graph: () => Promise.resolve(null),
+    page: () => new Promise(resolve => { release = resolve; }),
+    stream: (_seq: number, _signal: AbortSignal, onFrame: (frame: unknown) => void) => { emit = onFrame; onFrame(windowedSnapshot([job('j4', 'running', '2026-01-04T00:00:00Z')], 2)); return new Promise<void>(() => undefined); },
+    needsYou: () => Promise.resolve([]), health: () => Promise.resolve(null),
+  } as unknown as Api;
+  const store = new ConsoleStore(api, clock);
+  store.start();
+  const stale = store.loadMore('jobs');
+  assert.equal(store.getState().pageStatus.jobs, 'loading');
+  emit({ ...windowedSnapshot([job('j5', 'running', '2026-01-05T00:00:00Z')], 2), seq: 9 });
+  release({ ...emptyList, items: [job('j1', 'done', '2026-01-01T00:00:00Z')], total: 2 });
+  await stale;
+  assert.equal(store.getState().pageStatus.jobs, undefined, 'the voided page no longer holds the loading state');
+  const next = store.loadMore('jobs');
+  release({ ...emptyList, items: [job('j1', 'done', '2026-01-01T00:00:00Z')], total: 2 });
+  await next;
+  assert.ok(store.getState().jobs.some(item => item.id === 'j1'), 'Load older works again');
+  store.stop();
+});

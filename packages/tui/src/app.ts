@@ -8,7 +8,7 @@ import { emptyLayout, resumeTranscript, transcriptViewport } from './state/trans
 import { neutralKey, typedCharacter, type KeyInput } from './state/keys.ts';
 import { Header, banner, footerLine, pulseLine, terminalTitle } from './shell/chrome.ts';
 import { Help, Palette, Settings, helpViewport, settingsViewport } from './shell/overlays.ts';
-import { collectionToLoad, countsOf, historyError, memoryInput, retryHistory, type RequestMemoryAction } from './app-input.ts';
+import { collectionToLoad, countsOf, historyError, memoryInput, retryGraph, retryHistory, type RequestMemoryAction } from './app-input.ts';
 import { fit, t } from './view/parts.ts';
 import { keepHistorical, transcriptNavigation, useTranscriptLoads, useTranscriptWindow, type PageTranscript } from './transcript-controls.ts';
 import type { Env, SectionView } from './views/common.ts';
@@ -39,6 +39,7 @@ export interface AppProps {
   /** Fetches the next older page of a list the snapshot only windowed; called when the cursor reaches the end of a list. */
   loadMore?: (collection: WindowedCollection) => void;
   retryNeedsYou?: () => void;
+  retryGraph?: () => void;
   onQuit: () => void;
   /** Spinner and pulse motion; off for reduced-motion and tests. */
   animate: boolean;
@@ -134,11 +135,12 @@ interface AppKeys {
 function useAppKeys({ props, uiRef, dataRef, viewRef, heightRef, size, copy, apply }: AppKeys): void {
   useKeys(key => {
     retryHistory({ ui: uiRef.current, data: dataRef.current, key: neutralKey(key), length: viewRef.current.length, loadMore: props.loadMore });
+    retryGraph({ ui: uiRef.current, data: dataRef.current, key: neutralKey(key), retry: props.retryGraph });
     const memory = memoryInput(uiRef.current, neutralKey(key), dataRef.current, size.width, { request: props.requestMemoryAction, loadMore: props.loadMoreMemory });
     if (memory) { apply(memory); return; }
     const current = viewRef.current;
     const settingsInput = { endpoint: props.endpoint, tokenSource: props.tokenSource, ...dataRef.current.connection, now: (props.clock ?? Date.now)(), counts: countsOf(dataRef.current) };
-    const bounds = { ...boundsOf(current, heightRef.current), help: helpViewport(size).bounds, settings: settingsViewport(size, settingsInput).bounds };
+    const bounds = { ...boundsOf(current, heightRef.current), help: helpViewport(size).bounds, settings: settingsViewport(size, settingsInput, dataRef.current.health).bounds };
     const paging = transcriptNavigation({ ui: uiRef.current, data: dataRef.current, key: neutralKey(key), layout: bounds.transcript, viewport: bounds.viewport, load: props.pageTranscript });
     const next = paging ?? nextState(uiRef.current, key, { palette: dataRef.current, view: current, bounds, copy, needsYouError: dataRef.current.needsYouError, retryNeedsYou: props.retryNeedsYou });
     apply(keepHistorical(next, dataRef.current, bounds.transcript, bounds.viewport));
@@ -167,7 +169,7 @@ interface Size { width: number; height: number }
 function overlays(ui: UiState, data: ReturnType<Store['getSnapshot']>, input: Parameters<typeof Settings>[0]['input'], size: Size): ReactElement[] {
   if (ui.overlay === 'palette') return [h(Palette, { ui, data, width: size.width, height: size.height })];
   if (ui.overlay === 'help') return [h(Help, { width: size.width, height: size.height, scroll: ui.helpScroll })];
-  if (ui.overlay === 'settings') return [h(Settings, { input, width: size.width, height: size.height, scroll: ui.settingsScroll })];
+  if (ui.overlay === 'settings') return [h(Settings, { input, health: data.health, width: size.width, height: size.height, scroll: ui.settingsScroll })];
   return [];
 }
 

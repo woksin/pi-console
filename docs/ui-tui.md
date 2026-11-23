@@ -34,6 +34,8 @@ Number keys jump, clicks work on tabs and rows. Everything except explicit memor
 
 `Tab` / `Shift+Tab` (session panes) and `t` on the Timeline exist only in the TUI; the web console does not list or handle them. `y` copies the id of the selected row, or the session id inside a session.
 
+Lists show `Loading…` until the first snapshot arrives and a "No … matches" line when a filter hides every row. If the graph read fails, the Messages graph shows `Could not load the graph` (noting when it is the last loaded graph) and `r` retries; a daemon without the `/graph` route shows the empty graph. Settings adds a `Daemon health` section from `/health` once it has been read.
+
 Opening an available session from Questions or Messages shows its latest entries; it does not locate or highlight the originating question or message, because those sources carry no reliable transcript entry reference. Only a jump that has a valid transcript pointer (for example from Requests) opens at that entry.
 
 The graph scrubber starts at the newest lane-edge activity and shows edges whose last activity is at or before the cutoff. Counts remain all-time; session spawn relationships are not filtered. At wide widths, selecting a lane edge shows known messages between its sessions in the Conversation panel's Recent list.

@@ -5,7 +5,7 @@ import { navigate, useListNav, useSearchFocus } from '../app/hooks.ts';
 import { useActions } from '../app/commands.ts';
 import { hrefFor, sessionHref } from '../app/routes.ts';
 import { EmptyList } from '../ui/empty.tsx';
-import { SearchBox } from '../ui/primitives.tsx';
+import { SearchBox, SkeletonRows } from '../ui/primitives.tsx';
 import { useScrollIntoView } from '../ui/hooks.ts';
 import { GraphView } from './graph.tsx';
 import { LoadOlder } from './load-older.tsx';
@@ -40,9 +40,7 @@ export function MessagesView({ state, now, mode }: ViewProps & { mode: Mode }) {
         <span className="muted">{view.rows.length} messages</span>
       </div>
       {mode === 'list' && <LoadOlder state={state} collection="messages" shown={total} noun="messages" />}
-      {mode === 'graph' ? <GraphView state={state} /> : view.rows.length === 0
-        ? <EmptyList view="messages" none={total === 0} noun="messages" />
-        : <ol className="stack" aria-label="Messages">{view.rows.map(row => <MessageCard key={row.id} row={row} selected={nav.selected === row.id} onSelect={() => { nav.select(row.id); }} />)}</ol>}
+      {mode === 'graph' ? <GraphView state={state} /> : <MessageList loaded={state.snapshotLoaded} rows={view.rows} total={total} nav={nav} />}
     </div>
   );
 }
@@ -55,4 +53,10 @@ function MessageCard({ row, selected, onSelect }: { row: MessageRow; selected: b
       <p className="card-text">{row.text}</p>
     </li>
   );
+}
+
+function MessageList({ loaded, rows, total, nav }: { loaded: boolean; rows: MessageRow[]; total: number; nav: { selected: string | null; select: (id: string) => void } }) {
+  if (!loaded) return <SkeletonRows label="messages" />;
+  if (rows.length === 0) return <EmptyList view="messages" none={total === 0} noun="messages" />;
+  return <ol className="stack" aria-label="Messages">{rows.map(row => <MessageCard key={row.id} row={row} selected={nav.selected === row.id} onSelect={() => { nav.select(row.id); }} />)}</ol>;
 }

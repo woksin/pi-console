@@ -14,7 +14,7 @@ const child: Session = { ...base, id: 'child', name: 'child worker', status: 'ne
 for (const width of [80, 120, 139, 140, 160]) {
   test(`Fleet aligns status after indented names at ${String(width)} columns`, async () => {
     const store = new Store();
-    const view = fleetView({ data: { ...store.getSnapshot(), sessions: [parent, child] }, ui: { ...initial, section: 'fleet' }, width, height: 24, now: Date.parse(base.updatedAt), phase: 0, click: () => undefined });
+    const view = fleetView({ data: { ...store.getSnapshot(), loaded: true, sessions: [parent, child] }, ui: { ...initial, section: 'fleet' }, width, height: 24, now: Date.parse(base.updatedAt), phase: 0, click: () => undefined });
     const ui = await mountHeadless(h(Screen, {}, view.render()), { width, height: 24 });
     try {
       await ui.settle();
@@ -34,7 +34,7 @@ for (const width of [80, 120, 139, 140, 160]) {
 
 test('an empty fleet shows the shared empty state and the first-run checklist', async () => {
   const store = new Store();
-  const view = fleetView({ data: { ...store.getSnapshot(), sessions: [] }, ui: { ...initial, section: 'fleet' }, width: 100, height: 30, now: Date.parse(base.updatedAt), phase: 0, click: () => undefined });
+  const view = fleetView({ data: { ...store.getSnapshot(), loaded: true, sessions: [] }, ui: { ...initial, section: 'fleet' }, width: 100, height: 30, now: Date.parse(base.updatedAt), phase: 0, click: () => undefined });
   const ui = await mountHeadless(h(Screen, {}, view.render()), { width: 100, height: 30 });
   try {
     await ui.settle();

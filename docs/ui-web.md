@@ -69,6 +69,8 @@ The bindings are defined once in `packages/viewmodels/src/keymap` (press `?` for
 | `o` | Requests: next origin filter (all, human, launch, unproven) |
 | `S` | Requests: next session filter (all, then each session that has requests) |
 
+Lists (Questions, Messages, Timeline, the graph) show a loading skeleton until the first snapshot or graph read arrives, never an empty state that is really "not loaded yet". A failed graph read shows an alert with **Retry** and keeps the last loaded graph; a daemon without the `/graph` route (404) simply has an empty graph. **Load older** shows a loading state while a page is in flight and turns into **Retry** with an alert if the page fails.
+
 The messages graph reads canonical lane nodes and directed, counted edges from `/graph`, including lanes without sessions. Session spawn relationships appear separately; only session nodes open session detail. The graph's time scrubber filters edges by their latest activity, retaining all-time counts (not historical message replay). Zoom and pan are timeline-only; the web timeline has no `t` scrubber.
 
 ## Screenshots
@@ -86,4 +88,4 @@ Animations: [command palette](media/web-palette.gif), [keyboard tour](media/web-
 
 ## Session memory panel
 
-The session rail has a read-only Memory panel: counts by status, the unresolved lower bound with the last handoff figure, the newest items and handoff figures. A proposed item shows the exact `/memory confirm <id>` and `/memory reject <id>` text with a button that only copies it; confirming needs an interactive pi session. Needs-you lists `proposed-memory` entries and opens the session.
+The session rail has a Memory panel: counts by status, the unresolved lower bound with the last handoff figure, the newest items and handoff figures. A proposed item offers **Confirm…** / **Reject…**, which only request a review (see above); the native confirmation happens in the owning interactive pi session. When review is unavailable it shows the exact `/memory confirm <id>` and `/memory reject <id>` text with **Copy command**. Needs-you lists `proposed-memory` entries and opens the session.

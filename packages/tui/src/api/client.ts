@@ -68,7 +68,15 @@ export class DaemonClient {
     return (await this.json<NeedsYou>('/needs-you')).items;
   }
 
-  async graph(): Promise<Graph> { return await this.json<Graph>('/graph'); }
+  async health(): Promise<Record<string, unknown>> { return await this.json<Record<string, unknown>>('/health'); }
+
+  /** A daemon without the `/graph` route (404) has no graph: that is an empty graph, not a failure. */
+  async graph(): Promise<Graph> {
+    const response = await this.get('/graph');
+    if (response.status === 404) return { nodes: [], edges: [] };
+    if (!response.ok) throw new Error(`Daemon answered HTTP ${String(response.status)} for /graph`);
+    return await response.json() as Graph;
+  }
 
   /** One page of a list endpoint, newest first when `order` is `desc`. */
   async page(collection: WindowedCollection, after: string | null, limit = 500): Promise<{ items: { id: string }[]; nextCursor: string | null; hasMore: boolean; total: number }> {
