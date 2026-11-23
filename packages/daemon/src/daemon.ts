@@ -164,7 +164,7 @@ async function openDaemon(options: DaemonOptions, cleanups: Cleanup[]): Promise<
     discard: () => stream.invalidateIfIdle(),
   });
   cleanups.push(() => { batcher.flush(); });
-  const stopDeltas = projector.onApplied(event => { batcher.add(event); });
+  const stopDeltas = projector.onApplied((event, changes) => { batcher.add(event, changes); });
   cleanups.push(stopDeltas);
   const checkpoints = new CheckpointCache(log);
   const fileTranscripts = new FileTranscriptReader(new TranscriptSources(checkpoints, options.sessionRoots));

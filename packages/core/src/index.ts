@@ -5,7 +5,7 @@ export { MemoryProjectionStore, type AnyProjection, type Projection, type Projec
 export { SqliteProjectionStore } from './projector/sqlite-projection-store.ts';
 export { createCompletedWorkRuntime } from './projector/completed-work-runtime.ts';
 export { createRequestHistoryRuntime } from './requests/history-runtime.ts';
-export { Projector, type AppliedListener, type SkippedEvents } from './projector/projector.ts';
+export { Projector, type AppliedListener, type ProjectionChanges, type SkippedEvents } from './projector/projector.ts';
 export { projection, type Handlers } from './projector/handlers.ts';
 export { consoleProjections, readModels, type ReadModels } from './projections/index.ts';
 export type { RequestDerivation, RequestModel, RequestsState } from './projections/requests.ts';
@@ -13,6 +13,7 @@ export { requestDerivation } from './requests/derivation.ts';
 export { needsYou, type AttentionItem, type AttentionOptions, type AttentionReason } from './attention/needs-you.ts';
 export type { MemoryItemStatus } from './projections/memory.ts';
 export { ConsoleQueries, memoryStatuses, requestFilters, type PageQuery, type RequestFilter } from './queries/console-queries.ts';
+export { IncrementalQueries, type IncrementalChanges } from './queries/incremental.ts';
 export { deltaFor, type Delta } from './queries/deltas.ts';
 export { InvalidCursorError, type Page, type PageCollection, type PageOrder, type PageParams } from './queries/paging.ts';
 export { recentWindow, sessionCap } from './queries/screen-snapshot.ts';

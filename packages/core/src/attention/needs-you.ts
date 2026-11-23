@@ -1,6 +1,7 @@
 import type { SourceRef } from '@pi-console/contract';
 import { compareText } from '../projector/canonical.ts';
 import type { ReadModels } from '../projections/index.ts';
+import type { QuestionModel } from '../projections/questions.ts';
 import type { RequestModel } from '../projections/requests.ts';
 import { proposedMemoryAttention } from '../queries/memory.ts';
 import type { SessionModel } from '../projections/sessions.ts';
@@ -29,7 +30,7 @@ export interface AttentionOptions {
 
 /** `waitingOn` values that mean the owner, not another lane. */
 const userPattern = /^(user|human|owner)(:|$)/i;
-const defaultStaleMs = 30 * 60 * 1000;
+export const defaultStaleMs = 30 * 60 * 1000;
 
 const pointer = (sessionId: string | null, ref: SourceRef | null): AttentionPointer | null =>
   sessionId && ref?.entryId ? { sessionId, entryId: ref.entryId, fileOffset: ref.offset } : null;
@@ -38,7 +39,7 @@ const pointer = (sessionId: string | null, ref: SourceRef | null): AttentionPoin
  * Open requests, and answered requests whose answer a reset may have hidden (`answerPossiblyUnseen`, set by the
  * request derivation), human or launch only: an `unproven` request never raises a badge (ADR-0008).
  */
-function requestItem(request: RequestModel): AttentionItem | null {
+export function requestItem(request: RequestModel): AttentionItem | null {
   if (request.origin === 'unproven') return null;
   const item = { sessionId: request.sessionId, laneId: null, text: request.text, pointer: pointer(request.sessionId, request.ref) };
   if (request.status === 'open') return { ...item, id: `request:${request.id}`, reason: 'open-request', since: request.createdAt };
@@ -53,13 +54,17 @@ function openRequests(models: ReadModels): AttentionItem[] {
 /** The asker is a session id only when the console knows that session (askers may also be lanes or people). */
 const knownSession = (models: ReadModels, asker: string | null) => (asker !== null && asker in models.sessions.sessions ? asker : null);
 
+export function questionItem(models: ReadModels, question: QuestionModel): AttentionItem | null {
+  if (!question.blocking || question.status !== 'open') return null;
+  const sessionId = knownSession(models, question.asker);
+  return {
+    id: `question:${question.id}`, reason: 'blocking-question', sessionId,
+    laneId: null, text: question.text, since: question.createdAt, pointer: pointer(sessionId, question.ref),
+  };
+}
+
 function blockingQuestions(models: ReadModels): AttentionItem[] {
-  return Object.values(models.questions.questions)
-    .filter(question => question.blocking && question.status === 'open')
-    .map(question => ({
-      id: `question:${question.id}`, reason: 'blocking-question', sessionId: knownSession(models, question.asker),
-      laneId: null, text: question.text, since: question.createdAt, pointer: pointer(knownSession(models, question.asker), question.ref),
-    }));
+  return Object.values(models.questions.questions).flatMap(question => questionItem(models, question) ?? []);
 }
 
 function lanesWaitingOnUser(models: ReadModels): AttentionItem[] {
@@ -73,14 +78,16 @@ function lanesWaitingOnUser(models: ReadModels): AttentionItem[] {
 
 const isStale = (session: SessionModel, cutoff: string) => session.endedAt === null && session.openTurnId !== null && session.updatedAt < cutoff;
 
-function staleSessions(models: ReadModels, options: AttentionOptions): AttentionItem[] {
+export function staleItem(session: SessionModel, options: AttentionOptions): AttentionItem | null {
   const cutoff = new Date(options.now.getTime() - (options.staleAfterMs ?? defaultStaleMs)).toISOString();
-  return Object.values(models.sessions.sessions)
-    .filter(session => isStale(session, cutoff))
-    .map(session => ({
-      id: `session:${session.id}`, reason: 'stale-session', sessionId: session.id, laneId: null,
-      text: 'Turn running with no activity', since: session.updatedAt, pointer: pointer(session.id, session.lastRef),
-    }));
+  return isStale(session, cutoff) ? {
+    id: `session:${session.id}`, reason: 'stale-session', sessionId: session.id, laneId: null,
+    text: 'Turn running with no activity', since: session.updatedAt, pointer: pointer(session.id, session.lastRef),
+  } : null;
+}
+
+function staleSessions(models: ReadModels, options: AttentionOptions): AttentionItem[] {
+  return Object.values(models.sessions.sessions).flatMap(session => staleItem(session, options) ?? []);
 }
 
 /**
