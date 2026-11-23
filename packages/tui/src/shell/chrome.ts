@@ -63,7 +63,7 @@ const cellGlyph = (cell: PulseCell): string => (fullCells.has(cell.status.status
 function pulseCells(cells: readonly PulseCell[], room: number): Part[] {
   const shown = cells.length <= room ? cells : cells.slice(0, Math.max(0, room - 4));
   const more = cells.slice(shown.length).reduce((sum, cell) => sum + cell.count, 0);
-  return [...shown.map(cell => t(palette.theme === 'mono' ? cell.monoGlyph : cellGlyph(cell), cell.status.color)), ...(more > 0 ? [t(` +${String(more)}`, 'muted')] : [])];
+  return [...shown.map(cell => t(palette.monochrome ? cell.monoGlyph : cellGlyph(cell), cell.status.color)), ...(more > 0 ? [t(` +${String(more)}`, 'muted')] : [])];
 }
 
 /** Bounded status runs under the tabs, braille fleet activity when there is room, and counts in words. */
