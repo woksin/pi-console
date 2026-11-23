@@ -239,8 +239,10 @@ test('a possibly-moot question is marked in text with inspectable evidence, advi
   const fixture = rig.daemon.store.fixture;
   const original = fixture.questions;
   const seed = original[0];
-  const closedAt = new Date(Date.now() - 86_400_000).toISOString();
-  const fetchedAt = new Date(Date.now() - 60_000).toISOString();
+  // The page shows the daemon's clock (the newest snapshot time), which the mock holds at its fixture date, not the test machine's: evidence dated by the wall clock would be "future" and withheld.
+  const shown = Math.max(Date.parse(fixture.generatedAt), ...fixture.messages.map(message => Date.parse(message.sentAt)), ...fixture.sessions.map(session => Date.parse(session.updatedAt)));
+  const closedAt = new Date(shown - 86_400_000).toISOString();
+  const fetchedAt = new Date(shown - 60_000).toISOString();
   const evidence = (target: string, state: string) => ({ target, kind: 'issue', state, closedAt: state === 'open' ? null : closedAt, fetchedAt, source: 'github-gh' });
   const questions: (typeof seed & { links?: string[]; linkEvidence?: unknown[] })[] = [
     { ...seed, id: 'moot-ux', text: 'Moot question', status: 'open', blocking: false, links: ['a/b#1'], linkEvidence: [evidence('a/b#1', 'closed')] },
