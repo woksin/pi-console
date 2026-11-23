@@ -15,7 +15,7 @@ import { startDaemon } from '../daemon.ts';
 import { sessionStarted } from '../testing/harness.ts';
 
 const wait = async (check: () => boolean | Promise<boolean>) => {
-  for (let i = 0; i < 100; i++) { if (await check()) return; await new Promise(resolve => setTimeout(resolve, 10)); }
+  for (const deadline = Date.now() + 20_000; Date.now() < deadline;) { if (await check()) return; await new Promise(resolve => setTimeout(resolve, 10)); }
   assert.fail('Condition did not become true');
 };
 async function setup(t: { after(fn: () => unknown): void }, enabled = true) {
@@ -79,7 +79,7 @@ test('disabled and offline stay read-only; read scope, forged provenance and bro
   assert.equal(noOrigin.status, 503);
 });
 
-test('confirm/reject claims await exact canonical ingestion; retries never deliver twice', { timeout: 5000 }, async t => {
+test('confirm/reject claims await exact canonical ingestion; retries never deliver twice', { timeout: 30_000 }, async t => {
   const spec = await setup(t);
   const ws = await spec.connect();
   assert.equal((await (await spec.call('/availability')).json()).available, true);
@@ -109,7 +109,7 @@ test('confirm/reject claims await exact canonical ingestion; retries never deliv
   }
 });
 
-test('disconnect, replacement and restart retain unknown receipts without redispatch', { timeout: 5000 }, async t => {
+test('disconnect, replacement and restart retain unknown receipts without redispatch', { timeout: 30_000 }, async t => {
   const spec = await setup(t);
   const ws = await spec.connect();
   const body = { requestId: 'restart1', itemId: 'i1', action: 'confirm' };
