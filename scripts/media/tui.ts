@@ -8,6 +8,7 @@ import { startPty, type Pty } from '../../packages/tui/src/testing/pty.ts';
 import { screenToSvg } from '../../packages/tui/src/testing/svg.ts';
 import type { Rig } from '../../packages/web/e2e/harness.ts';
 import { fixedNow } from './scenes.ts';
+import { withStaleQuestion } from './questions.ts';
 import { FrameSet, wanted, writeStill, type Work } from './capture.ts';
 
 const main = fileURLToPath(new URL('../../packages/tui/src/main.ts', import.meta.url));
@@ -106,11 +107,14 @@ async function monoStill(rig: Rig, work: Work): Promise<void> {
 }
 
 async function questionStill(rig: Rig, work: Work): Promise<void> {
-  await withTerminal(rig, { cols: 140, rows: 24, scale: 2, opaque: false }, async term => {
+  await withStaleQuestion(rig, () => withTerminal(rig, { cols: 140, rows: 30, scale: 2, opaque: false }, async term => {
     term.pty.send('4'); await term.pty.waitFor('Questions');
+    if (wanted(work, 'tui-questions')) writeStill(work, 'tui-questions', await snap(term, 'pi-console TUI questions with a stale marker'));
+    // The first row is the stale one; the second carries the long text and three history entries.
+    term.pty.send('j'); await pause(200);
     term.pty.send('v'); await term.pty.waitFor('Keep the cache bounded');
     writeStill(work, 'tui-question-expanded', await snap(term, 'pi-console TUI expanded question'));
-  });
+  }));
 }
 
 async function settingsStill(rig: Rig, work: Work): Promise<void> {
@@ -189,7 +193,7 @@ const scenes = [
   { ids: ['tui-overview', 'tui-palette'], capture: stills },
   { ids: ['tui-session-resets'], capture: sessionStill },
   { ids: ['tui-mono'], capture: monoStill },
-  { ids: ['tui-question-expanded'], capture: questionStill },
+  { ids: ['tui-question-expanded', 'tui-questions'], capture: questionStill },
   { ids: ['tui-settings-scroll'], capture: settingsStill },
   { ids: ['tui-memory-paging', 'tui-memory-review'], capture: memoryStills },
   { ids: ['tui-attention-retry'], capture: attentionStill },
