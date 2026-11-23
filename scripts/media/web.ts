@@ -21,6 +21,8 @@ export async function startFrozenRig(): Promise<Rig> {
     item.scope = { kind: 'session', key: 's2' };
   }
   const rig = await startRig({ speed: 1e-9 });
+  // Web ages follow snapshot/stream time, not the pinned browser wall clock alone.
+  rig.daemon.store.fixture.generatedAt = fixedNow;
   const question = rig.daemon.store.fixture.questions[0];
   question.text += '\n\nKeep the cache bounded while preserving enough history to inspect a completed checkpoint. The selected window must apply consistently to the worker queue and its retry budget.\n\nWhich option should the synthetic coordinator use before the next migration checkpoint?';
   question.options = question.options.map(option => `${option} — retain completed checkpoint metadata for this window, then expire the synthetic cache entries without changing pending decisions or the worker retry budget.`);

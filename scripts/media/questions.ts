@@ -1,5 +1,5 @@
 // Gallery-only synthetic question history and one idle open question, so Questions shows History, "Last activity" and a Stale chip.
-// The web clock follows the stream (about 09:22 on the fixture day); the TUI's is fixed at 12:00.
+// Both clients use the shared capture time, including the web's snapshot clock.
 import type { Rig } from '../../packages/web/e2e/harness.ts';
 
 interface GalleryQuestion { id: string; createdAt: string; updatedAt?: string; history?: unknown[] }

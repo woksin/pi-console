@@ -4,6 +4,7 @@ import { spawnSync } from 'node:child_process';
 import process from 'node:process';
 import { URL } from 'node:url';
 import { shots, webViews, budget } from './scenes.ts';
+import './clock.test.mjs';
 
 const ids = new Set(shots.map(shot => shot.id));
 test('every registered shot has a unique id and output path', () => {
