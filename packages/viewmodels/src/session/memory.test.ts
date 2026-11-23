@@ -21,7 +21,7 @@ const items = [item('item-1'), item('item-2', { status: 'active', statusBasis: '
 test('memory panel: counts, unresolved bound with the last handoff figure, items, commands and handoffs', () => {
   const model = memoryPanelViewModel({ memory, items, now });
   assert.equal(model.available, true);
-  assert.equal(model.unresolved.text, 'unresolved: 2+ (lower bound) · last handoff: 3');
+  assert.equal(model.unresolved.text, 'At least 2 unresolved · 3 at last handoff');
   assert.deepEqual(model.items.map(row => [row.statusLabel, row.command, row.rejectCommand]), [
     ['proposed', '/memory confirm item-1', '/memory reject item-1'], ['active (assumed)', null, null], ['rejected', null, null],
   ]);
@@ -35,5 +35,32 @@ test('memory panel is unavailable without a summary or a detected store, and san
   assert.equal(memoryPanelViewModel({ memory: { ...memory, storeDetected: false }, items: [], now }).available, false);
   const dirty = memoryPanelViewModel({ memory, items: [item('item-9', { text: 'a\u001b[31mred\u0007' })], now });
   assert.equal(dirty.items[0].text, 'ared');
-  assert.equal(memoryPanelViewModel({ memory: { ...memory, unresolved: { lowerBound: 0, atLastHandoff: null } }, items: [], now }).unresolved.text, 'unresolved: 0+ (lower bound) · last handoff: unknown');
+  });
+
+test('unresolved wording is plain and stays truthful about the lower bound', () => {
+  const text = (lowerBound: number, atLastHandoff: SessionMemory['unresolved']['atLastHandoff'] = null) =>
+    memoryPanelViewModel({ memory: { ...memory, unresolved: { lowerBound, atLastHandoff } }, items: [], now }).unresolved.text;
+  assert.equal(text(0), 'No unresolved items found');
+  assert.equal(text(4), 'At least 4 unresolved');
+  assert.equal(text(0, { count: 1, at: '2026-11-20T09:10:00.000Z' }), 'No unresolved items found · 1 at last handoff');
+  assert.equal(memoryPanelViewModel({ memory: null, items: [], now }).unresolved.text, '');
+});
+
+test('each item leads with a status badge and its text; scope, source and age go on a secondary line', () => {
+  const model = memoryPanelViewModel({ memory, items, now });
+  assert.deepEqual(model.items.map(row => row.badge), [
+    { label: 'proposed', tone: 'amber' }, { label: 'active (assumed)', tone: 'green' }, { label: 'rejected', tone: 'red' },
+  ]);
+  assert.equal(model.items[0].details, 'order · session s1 · from a coordinator order · 25m ago');
+  assert.equal(model.items[0].text, 'synthetic item-1');
+});
+
+test('a session scope shows the session name when known and a short id otherwise', () => {
+  const scoped = (key: string, names?: ReadonlyMap<string, string>) =>
+    memoryPanelViewModel({ memory, items: [item('item-1', { scope: { kind: 'session', key } })], now, sessionNames: names }).items[0].scope;
+  assert.equal(scoped('s2', new Map([['s2', 'Planner']])), 'session Planner');
+  assert.equal(scoped('s2', new Map()), 'session s2');
+  assert.equal(scoped('0123456789abcdef'), 'session 0123456…');
+  const repo = memoryPanelViewModel({ memory, items: [item('item-1', { scope: { kind: 'repo', key: 'app' } })], now }).items[0];
+  assert.equal(repo.scope, 'repo:app');
 });

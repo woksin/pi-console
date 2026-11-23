@@ -2,7 +2,7 @@ import type { MemoryItem, SessionMemory } from '@pi-console/contract';
 import { memoryPanelViewModel } from '@pi-console/viewmodels';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { memoryLines } from './session-memory.ts';
+import { itemHeadLines, memoryLines } from './session-memory.ts';
 import type { Line } from '../view/renderer.ts';
 
 const now = Date.parse('2026-11-20T09:25:00.000Z');
@@ -36,4 +36,33 @@ test('hostile memory text is inert next to review controls and contains no termi
 
 test('an unseen store renders a single explanatory line', () => {
   assert.match(plain(memoryLines(memoryPanelViewModel({ memory: null, items: [], now }), 60)), /No intent-memory store seen/);
+});
+
+const rows = (lines: Line[]) => lines.map(line => line.map(part => part.text).join(''));
+
+test('an item leads with a coloured status badge and its text, then a smaller details line', () => {
+  const lines = memoryLines(memoryPanelViewModel({ memory, items: [item], now, sessionNames: new Map([['s1', 'Planner']]) }), 70);
+  const text = rows(lines);
+  const head = lines.find(line => line[0]?.text === '[proposed]');
+  assert.ok(head);
+  assert.equal(head[0].color, 'amber');
+  assert.equal(head[0].bold, true);
+  assert.equal(head.length, 1);
+  assert.ok(text.includes('  synthetic order'));
+  assert.ok(text.includes('  order · session Planner · from a coordinator order · 25m ago'));
+  assert.match(text.join('\n'), /At least 1 unresolved/);
+  assert.doesNotMatch(text.join('\n'), /lower bound/);
+});
+
+test('narrow widths keep every row within the width with the text under the badge', () => {
+  const [row] = memoryPanelViewModel({ memory, items: [{ ...item, text: 'a long synthetic order that must wrap across several rows' }], now }).items;
+  for (const width of [14, 20, 30, 60]) {
+    const lines = rows(itemHeadLines(row, { width }));
+    for (const line of lines) assert.ok([...line].length <= width, `${String(width)}: "${line}"`);
+    assert.ok(lines.length >= 2);
+  }
+  assert.equal(rows(itemHeadLines(row, { width: 14 }))[0], '[proposed]');
+  assert.equal(rows(itemHeadLines(row, { width: 60 }))[1], '  a long synthetic order that must wrap across several rows');
+  const cjk = rows(itemHeadLines({ ...row, text: '漢字漢字漢字漢字漢字漢字' }, { width: 14, measure: text => [...text].length * 2 }));
+  assert.ok(cjk.filter(line => line.includes('漢')).every(line => 2 + [...line.trim()].length * 2 <= 14));
 });

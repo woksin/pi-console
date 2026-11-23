@@ -1,5 +1,5 @@
 import { memoryPanelViewModel, memoryReviewPending, type MemoryPanelItem } from '@pi-console/viewmodels';
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 import { copyWithNotice } from '../app/copy-notice.ts';
 import { clockNow, useConsole, useStore } from '../app/hooks.ts';
 import { Panel } from '../ui/primitives.tsx';
@@ -8,8 +8,11 @@ import type { MemoryReadStatus } from '../state/state.ts';
 export function MemoryItemView({ item, request }: { item: MemoryPanelItem; request: (action: 'confirm' | 'reject') => void }) {
   const busy = item.review !== null && memoryReviewPending(item.review.state);
   return <li className="memory-item" data-memory-item={item.id}>
-    <span className="small muted">{item.kind} · {item.statusLabel} · {item.scope} · {item.sourceNote}</span>
-    <span title={item.text}>{item.text}</span>
+    <span className="memory-head">
+      <span className={`badge memory-badge tone-${item.badge.tone}`} data-memory-status={item.status}>{item.badge.label}</span>
+      <span className="memory-text" title={item.text}>{item.text}</span>
+    </span>
+    <span className="small faint memory-details">{item.details}</span>
     {(item.canRequest || item.review) && <span className="memory-actions">
       <button type="button" className="btn" disabled={!item.canRequest} aria-busy={busy} onClick={() => { request('confirm'); }}>Confirm…</button>
       <button type="button" className="btn" disabled={!item.canRequest} aria-busy={busy} onClick={() => { request('reject'); }}>Reject…</button>
@@ -46,7 +49,8 @@ export function SessionMemory({ id }: { id: string }) {
   const now = clockNow(state, Date.now());
   useEffect(() => store.watchSessionMemory(id), [store, id]);
   const memory = state.memory[id] ?? null;
-  const view = memoryPanelViewModel({ memory, items: state.memoryItems[id] ?? [], now, review: state.memoryReviews.get(id) });
+  const sessionNames = useMemo(() => new Map(state.sessions.map(session => [session.id, session.name])), [state.sessions]);
+  const view = memoryPanelViewModel({ memory, items: state.memoryItems[id] ?? [], now, review: state.memoryReviews.get(id), sessionNames });
   const status = state.memoryStatus[id];
   const notice = <MemoryNotice status={status} stale={view.available} retry={() => { void store.loadSessionMemory(id); }} />;
   if (!view.available) return <UnavailableMemory title={view.title} status={status} notice={notice} />;

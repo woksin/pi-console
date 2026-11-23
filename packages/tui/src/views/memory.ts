@@ -3,7 +3,7 @@ import type { Line } from '../view/renderer.ts';
 import type { MemoryHistory } from '../store/store.ts';
 import type { Color } from '../view/theme.ts';
 import { blank, t } from '../view/parts.ts';
-import { historyLines, selectionLines } from './session-memory.ts';
+import { historyLines, itemHeadLines, selectionLines } from './session-memory.ts';
 
 interface Layout { width: number; measure?: TextWidth }
 
@@ -12,8 +12,7 @@ const wrapped = (text: string, color: Color, { width, measure }: Layout, indent 
 
 function itemLines(item: MemoryPanelItem, layout: Layout): Line[] {
   return [
-    ...wrapped(`${item.kind} · ${item.statusLabel} · ${item.scope}`, 'amber', layout),
-    ...wrapped(item.text, 'text', layout, '  '),
+    ...itemHeadLines(item, layout),
     ...(item.review ? wrapped(item.review.message, 'amber', layout) : []),
     ...(item.command ? [[t('  Run in a pi session:', 'muted')] as Line, ...wrapped(item.command, 'cyan', layout, '  '), ...(item.rejectCommand ? wrapped(item.rejectCommand, 'cyan', layout, '  ') : [])] : []),
   ];

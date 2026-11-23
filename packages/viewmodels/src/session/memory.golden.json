@@ -34,15 +34,20 @@
     }
   ],
   "unresolved": {
-    "text": "unresolved: 2+ (lower bound) · last handoff: 3"
+    "text": "At least 2 unresolved · 3 at last handoff"
   },
   "items": [
     {
       "id": "item-1",
       "kind": "order",
-      "scope": "session:s1",
+      "scope": "session s1",
       "status": "proposed",
       "statusLabel": "proposed",
+      "badge": {
+        "label": "proposed",
+        "tone": "amber"
+      },
+      "details": "order · session s1 · from a coordinator order · 25m ago",
       "text": "synthetic item-1",
       "command": "/memory confirm item-1",
       "rejectCommand": "/memory reject item-1",
@@ -53,9 +58,14 @@
     {
       "id": "item-2",
       "kind": "directive",
-      "scope": "session:s1",
+      "scope": "session s1",
       "status": "active",
       "statusLabel": "active (assumed)",
+      "badge": {
+        "label": "active (assumed)",
+        "tone": "green"
+      },
+      "details": "directive · session s1 · from a user message · 25m ago",
       "text": "synthetic item-2",
       "command": null,
       "rejectCommand": null,
@@ -66,9 +76,14 @@
     {
       "id": "item-3",
       "kind": "order",
-      "scope": "session:s1",
+      "scope": "session s1",
       "status": "rejected",
       "statusLabel": "rejected",
+      "badge": {
+        "label": "rejected",
+        "tone": "red"
+      },
+      "details": "order · session s1 · from a coordinator order · 25m ago",
       "text": "[withheld: secret-shaped content]",
       "command": null,
       "rejectCommand": null,
