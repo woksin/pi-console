@@ -191,8 +191,11 @@ function timedDocument(matches: number): { elapsed: number; document: ReturnType
 
 test('entry document cost grows linearly with the number of matches', () => {
   timedDocument(2000);
-  const small = timedDocument(10000).elapsed;
-  const { elapsed: large, document } = timedDocument(20000);
+  // The fastest of three runs filters out pauses from garbage collection and machine load.
+  const fastest = (matches: number): number => Math.min(...[1, 2, 3].map(() => timedDocument(matches).elapsed));
+  const small = fastest(10000);
+  const large = fastest(20000);
+  const { document } = timedDocument(20000);
   // Scaling, not wall-clock time, is the contract: a quadratic sweep is about 4x here; linear is about 2x.
   // The absolute bound only catches catastrophic regressions on a loaded machine.
   assert.ok(large < Math.max(small, 20) * 3.2, `20k matches took ${String(large)} ms versus ${String(small)} ms for 10k`);

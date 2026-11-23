@@ -32,3 +32,23 @@ test('opening Settings resets only its scroll and leaves the current session and
   const state = { ...initial, sessionId: 's1', helpScroll: 8, settingsScroll: 12 };
   assert.deepEqual(reduce(state, 'settings.open', bounds), { ...state, overlay: 'settings', settingsScroll: 0 });
 });
+
+const memoryBounds: Bounds = { ...bounds, memory: { page: 6, max: 30 } };
+const inSession: UiState = { ...initial, sessionId: 's1' };
+
+test('memory: opens only from a session with no overlay, resetting only its own scroll', () => {
+  const state: UiState = { ...inSession, memoryScroll: 9, helpScroll: 4, entryScroll: 2, follow: false, anchor: { key: 3, offset: 1, limit: 10 }, search: 'needle', pane: 'jobs', memoryIndex: 2 };
+  assert.deepEqual(reduce(state, 'memory.open', memoryBounds), { ...state, overlay: 'memory', memoryScroll: 0 });
+  assert.equal(reduce({ ...initial, memoryScroll: 9 }, 'memory.open', memoryBounds).overlay, 'none', 'no session');
+  for (const overlay of ['help', 'settings', 'palette', 'filter', 'search', 'entry'] as const) assert.equal(reduce({ ...state, overlay }, 'memory.open', memoryBounds).overlay, overlay);
+  assert.deepEqual(handleKey(state, 'm', memoryBounds).overlay, 'memory');
+});
+
+test('memory: the Help scroll keys move only the Memory view and Esc returns to the transcript', () => {
+  const state: UiState = { ...inSession, overlay: 'memory', memoryScroll: 10, follow: false, anchor: { key: 3, offset: 1, limit: 10 }, search: 'needle', pane: 'memory' };
+  const positions = { ArrowUp: 9, k: 9, ArrowDown: 11, j: 11, PageUp: 4, PageDown: 16, Home: 0, g: 0, End: 30, G: 30 };
+  for (const [key, position] of Object.entries(positions)) assert.deepEqual(handleKey(state, key, memoryBounds), { ...state, memoryScroll: position }, key);
+  assert.deepEqual(handleKey({ ...state, memoryScroll: 30 }, 'ArrowDown', memoryBounds), { ...state, memoryScroll: 30 });
+  assert.deepEqual(handleKey(state, 'ArrowUp', { ...memoryBounds, memory: { page: 40, max: 5 } }), { ...state, memoryScroll: 4 }, 'a stale offset is clamped after resize');
+  assert.deepEqual(handleKey(state, 'Esc', memoryBounds), { ...state, overlay: 'none', input: '' });
+});

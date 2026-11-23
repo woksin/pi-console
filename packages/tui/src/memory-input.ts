@@ -7,6 +7,8 @@ export type RequestMemoryAction = (sessionId: string, itemId: string, action: 'c
 export interface MemoryCallbacks { request?: RequestMemoryAction; loadMore?: (sessionId: string) => void }
 interface MemoryContext extends MemoryCallbacks { sessionId: string; data: Data }
 
+const memoryActions: ReadonlySet<Action> = new Set<Action>(['memory.next', 'memory.previous', 'memory.confirm', 'memory.reject']);
+
 /** Memory keys apply only to the visible memory pane, outside text capture/overlays. */
 export function memoryInput(ui: UiState, key: string, data: Data, width: number, callbacks: RequestMemoryAction | MemoryCallbacks = {}): UiState | null {
   if (!ui.sessionId) return null;
@@ -15,8 +17,7 @@ export function memoryInput(ui: UiState, key: string, data: Data, width: number,
   const context = { sessionId: ui.sessionId, data, ...actions };
   if (retryMemory(key, context)) return ui;
   const action = resolve('memory', key);
-  if (!action?.startsWith('memory.')) return null;
-  return memoryAction(ui, action, context);
+  return action && memoryActions.has(action) ? memoryAction(ui, action, context) : null;
 }
 
 function memoryAction(ui: UiState, action: Action, context: MemoryContext): UiState {
@@ -24,12 +25,14 @@ function memoryAction(ui: UiState, action: Action, context: MemoryContext): UiSt
   if (action === 'memory.next') {
     const next = Math.max(0, Math.min(length - 1, index + 1));
     if (next === Math.max(0, length - 1)) loadOlder(context);
-    return { ...ui, memoryIndex: next };
+    return selected(ui, next, index);
   }
-  if (action === 'memory.previous') return { ...ui, memoryIndex: Math.max(0, index - 1) };
+  if (action === 'memory.previous') return selected(ui, Math.max(0, index - 1), index);
   requestSelected(context, index, action);
   return ui;
 }
+/** A different item starts at the top of the full Memory view; the same one keeps its scroll. */
+const selected = (ui: UiState, next: number, from: number): UiState => ({ ...ui, memoryIndex: next, ...(next === from ? {} : { memoryScroll: 0 }) });
 function memorySelection(ui: UiState, { sessionId, data }: MemoryContext): { index: number; length: number } {
   const length = (data.memoryItems.get(sessionId) ?? []).length;
   return { length, index: Math.min(ui.memoryIndex, Math.max(0, length - 1)) };
@@ -49,7 +52,9 @@ function requestSelected(context: MemoryContext, index: number, action: Action):
   const item = memoryPanel(context).items[index];
   if (item?.canRequest && context.request) context.request(context.sessionId, item.id, action === 'memory.confirm' ? 'confirm' : 'reject');
 }
+/** The full Memory view at any width, or the selected memory rail when it is drawn and unobscured. */
 function memoryVisible(ui: UiState, width: number): boolean {
+  if (ui.overlay === 'memory') return true;
   if (ui.overlay !== 'none') return false;
   return ui.pane === 'memory' && sessionSideWidth(terminalContentWidth(width)) > 0;
 }

@@ -3,7 +3,7 @@ import type { Line } from '../view/renderer.ts';
 import type { MemoryHistory } from '../store/store.ts';
 import { blank, fit, t, type CellBudget } from '../view/parts.ts';
 
-function selectionLines(panel: MemoryPanelViewModel, selected: number | undefined, inner: number): Line[] {
+export function selectionLines(panel: MemoryPanelViewModel, selected: number | undefined, inner: number): Line[] {
   if (selected === undefined || panel.items.length === 0) return [];
   const index = Math.max(0, Math.min(selected, panel.items.length - 1));
   const lines = [fit([t(`[ ] item ${String(index + 1)} of ${String(panel.items.length)}`, 'cyan')], inner)];
@@ -11,7 +11,7 @@ function selectionLines(panel: MemoryPanelViewModel, selected: number | undefine
   return lines;
 }
 
-function historyLines(progress: MemoryHistory | undefined, loaded: number, inner: number): Line[] {
+export function historyLines(progress: MemoryHistory | undefined, loaded: number, inner: number): Line[] {
   if (!progress) return [];
   const count = `${String(loaded)}/${progress.total === undefined ? '?' : String(progress.total)} loaded`;
   const lines: Line[] = [fit([t(`${count}${progress.more ? ' · more · ] older' : ''}`, 'faint')], inner)];
@@ -22,6 +22,8 @@ function historyLines(progress: MemoryHistory | undefined, loaded: number, inner
   }
   return lines;
 }
+
+const fullViewHint = (panel: MemoryPanelViewModel, selected: number | undefined): Line[] => (selected !== undefined && panel.items.length > 0 ? [[t('m full view', 'cyan')]] : []);
 
 /** Memory remains producer-owned. Keys only request a review in the owning interactive pi session. */
 export function memoryLines(panel: MemoryPanelViewModel, budget: number | CellBudget, selected?: number, progress?: MemoryHistory): Line[] {
@@ -34,6 +36,7 @@ export function memoryLines(panel: MemoryPanelViewModel, budget: number | CellBu
   return [
     ...history,
     ...selectionLines(panel, selected, inner),
+    ...fullViewHint(panel, selected),
     fit([t(counts || 'no items', 'muted')], inner), fit([t(panel.unresolved.text, 'muted')], inner, undefined, measure), blank,
     ...items.flatMap((item): Line[] => [
       fit([t(`${item.kind} · ${item.statusLabel}`, 'amber'), t(` · ${item.scope}`, 'faint')], inner, undefined, measure),
