@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import type { Job } from '@pi-console/contract';
+import type { Job, Request } from '@pi-console/contract';
 import { isActive, mergeHistory, mergeSnapshot } from './window.ts';
 
 const job = (id: string, status: Job['status'], startedAt: string): Job => ({ id, sessionId: 's1', kind: 'job', name: id, status, startedAt, exitCode: null });
@@ -17,10 +17,22 @@ test('history rows never overwrite rows already held, and the list stays sorted'
   assert.deepEqual(merged.map(item => `${item.id}:${item.status}`), ['a:done', 'b:running']);
 });
 
+test('request activity requires an open request or a proven possibly-unseen answer', () => {
+  const row = { id: 'r', status: 'answered', origin: 'human', answerPossiblyUnseen: true, answer: { id: 'a' } } as Request;
+  const active = (row: Request) => isActive('requests', row);
+  assert.ok(active(row));
+  assert.ok(active({ ...row, origin: 'launch' }));
+  assert.ok(!active({ ...row, origin: 'unproven' }));
+  assert.ok(!active({ ...row, answer: null }));
+  assert.ok(!active({ ...row, answerPossiblyUnseen: false }));
+  assert.ok(!active({ ...row, status: 'interrupted', answerPossiblyUnseen: false }));
+  assert.deepEqual(mergeSnapshot('requests', [row], []), [], 'an omitted actionable row is not retained as stale live state');
+});
+
 test('the active rule matches the daemon for every collection', () => {
   assert.ok(isActive('jobs', { id: 'j', status: 'running' } as never));
   assert.ok(!isActive('jobs', { id: 'j', status: 'queued' } as never));
-  assert.ok(isActive('requests', { id: 'r', status: 'unanswered' } as never) && !isActive('requests', { id: 'r', status: 'answered' } as never));
+  assert.ok(isActive('requests', { id: 'r', status: 'open' } as never) && !isActive('requests', { id: 'r', status: 'unanswered' } as never));
   assert.ok(isActive('questions', { id: 'q', status: 'open' } as never) && !isActive('questions', { id: 'q', status: 'closed' } as never));
   assert.ok(isActive('messages', { id: 'm', status: 'sent' } as never) && !isActive('messages', { id: 'm', status: 'read' } as never));
   assert.ok(isActive('sessions', { id: 's', status: 'working' } as never) && !isActive('sessions', { id: 's', status: 'idle' } as never));
