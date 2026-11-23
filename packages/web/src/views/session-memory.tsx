@@ -1,20 +1,22 @@
-import { memoryPanelViewModel, type MemoryPanelItem } from '@pi-console/viewmodels';
+import { memoryPanelViewModel, memoryReviewPending, type MemoryPanelItem } from '@pi-console/viewmodels';
 import { useEffect, type ReactNode } from 'react';
-import { clockNow, copyText, useConsole, useStore } from '../app/hooks.ts';
+import { copyWithNotice } from '../app/copy-notice.ts';
+import { clockNow, useConsole, useStore } from '../app/hooks.ts';
 import { Panel } from '../ui/primitives.tsx';
 import type { MemoryReadStatus } from '../state/state.ts';
 
-function MemoryItemView({ item, request }: { item: MemoryPanelItem; request: (action: 'confirm' | 'reject') => void }) {
+export function MemoryItemView({ item, request }: { item: MemoryPanelItem; request: (action: 'confirm' | 'reject') => void }) {
+  const busy = item.review !== null && memoryReviewPending(item.review.state);
   return <li className="memory-item" data-memory-item={item.id}>
     <span className="small muted">{item.kind} · {item.statusLabel} · {item.scope} · {item.sourceNote}</span>
     <span title={item.text}>{item.text}</span>
     {(item.canRequest || item.review) && <span className="memory-actions">
-      <button type="button" disabled={!item.canRequest} onClick={() => { request('confirm'); }}>Confirm…</button>{' '}
-      <button type="button" disabled={!item.canRequest} onClick={() => { request('reject'); }}>Reject…</button>
+      <button type="button" className="btn" disabled={!item.canRequest} aria-busy={busy} onClick={() => { request('confirm'); }}>Confirm…</button>
+      <button type="button" className="btn" disabled={!item.canRequest} aria-busy={busy} onClick={() => { request('reject'); }}>Reject…</button>
     </span>}
     {item.review && <span role="status" className="small muted">{item.review.message}</span>}
-    {item.command && <span className="mono small">Run in a pi session: <code>{item.command}</code> or <code>{item.rejectCommand}</code>{' '}
-      <button type="button" className="memory-copy" onClick={() => { void copyText(item.command ?? ''); }}>Copy command</button></span>}
+    {item.command && <span className="mono small">Run in a pi session: <code>{item.command}</code> or <code>{item.rejectCommand}</code>
+      <span className="memory-actions"><button type="button" className="btn memory-copy" onClick={() => { void copyWithNotice(item.command ?? '', 'memory command'); }}>Copy command</button></span></span>}
   </li>;
 }
 

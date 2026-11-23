@@ -324,6 +324,14 @@ test('memory review exposes every unavailability fallback and preserves copy com
       assert.equal(await page.getByRole('button', { name: 'Confirm…', exact: true }).count(), 0);
       assert.equal(await page.getByRole('button', { name: 'Copy command', exact: true }).count(), 1);
     }
+    const copyButton = page.getByRole('button', { name: 'Copy command', exact: true });
+    for (const theme of ['dawn', 'contrast']) {
+      await page.evaluate(value => { document.documentElement.dataset.theme = value; }, theme);
+      assert.match(await copyButton.getAttribute('class') ?? '', /\bbtn\b/, `Copy command is a themed button in ${theme}`);
+    }
+    await page.evaluate(() => { Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: () => Promise.reject(new Error('denied')) } }); });
+    await copyButton.click();
+    await page.getByTestId('copy-notice').filter({ hasText: 'Could not copy memory command' }).waitFor();
   } finally { await page.context().close(); }
 });
 
