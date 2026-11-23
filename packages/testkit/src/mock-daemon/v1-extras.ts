@@ -21,7 +21,10 @@ export function graph(fixture: Fixture): Graph {
 }
 
 function compareEdges(a: GraphEdge, b: GraphEdge): number {
-  return a.kind.localeCompare(b.kind) || a.fromLane.localeCompare(b.fromLane) || a.toLane.localeCompare(b.toLane);
+  const key = (edge: GraphEdge): string => `${edge.kind}|${edge.fromLane}|${edge.toLane}`;
+  const left = key(a);
+  const right = key(b);
+  return left < right ? -1 : left > right ? 1 : 0;
 }
 
 function messageEdges(fixture: Fixture, endpoint: (id: string) => string): GraphEdge[] {
