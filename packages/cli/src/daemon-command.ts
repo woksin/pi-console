@@ -35,13 +35,15 @@ export interface DaemonCommandIo {
   env?: NodeJS.ProcessEnv;
 }
 
+const argumentError = (message: string): Error => Object.assign(new Error(message), { code: 'ERR_PARSE_ARGS_INVALID_OPTION_VALUE' });
+
 const integer = (flag: string, text: string): number => {
-  if (!/^\d+$/.test(text)) throw new Error(`--${flag} must be a non-negative integer`);
+  if (!/^\d+$/.test(text)) throw argumentError(`--${flag} must be a non-negative integer`);
   return Number(text);
 };
 
 const sourceOf = (id: string): SourceId => {
-  if (!(sourceIds as readonly string[]).includes(id)) throw new Error(`--no-source: unknown source "${id}"; valid ids: ${sourceIds.join(', ')}`);
+  if (!(sourceIds as readonly string[]).includes(id)) throw argumentError(`--no-source: unknown source "${id}"; valid ids: ${sourceIds.join(', ')}`);
   return id as SourceId;
 };
 

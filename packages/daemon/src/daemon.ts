@@ -71,9 +71,13 @@ async function openCore(dataDir: string, cleanups: Cleanup[]): Promise<Core> {
 
 function listen(server: Server, port: number): Promise<number> {
   return new Promise((resolve, reject) => {
-    server.once('error', reject);
+    const onError = (error: NodeJS.ErrnoException) => {
+      if (error.code === 'EADDRINUSE') error.message = `Port ${port} on 127.0.0.1 is in use; another daemon may be running. Stop it or use --port <n>.`;
+      reject(error);
+    };
+    server.once('error', onError);
     server.listen(port, '127.0.0.1', () => {
-      server.removeListener('error', reject);
+      server.removeListener('error', onError);
       resolve((server.address() as { port: number }).port);
     });
   });

@@ -5,7 +5,7 @@ The web console is a React app with request-only memory review (`packages/web`) 
 ## Run
 
 ```
-npm run build -w @pi-console/web            # typecheck + vite build into packages/web/dist
+npm run build -w @pi-console/web            # vite build into packages/web/dist
 npm run serve -w @pi-console/web -- --port 4780 --daemon 127.0.0.1:4777
 ```
 

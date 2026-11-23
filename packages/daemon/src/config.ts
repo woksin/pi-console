@@ -93,7 +93,10 @@ function checked(file: Record<string, unknown>, dataDir: string): Record<string,
 function checkedOverrides(overrides: ConfigOverrides): void {
   for (const [name, field] of Object.entries(fields)) {
     const value = (overrides as Record<string, unknown>)[name];
-    if (value !== undefined && !field.valid(value)) throw new Error(`--${name.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`)} must be ${field.expected}`);
+    if (value !== undefined && !field.valid(value)) {
+      const flag = name === 'backfillWindowDays' ? 'backfill-days' : name.replace(/[A-Z]/g, letter => `-${letter.toLowerCase()}`);
+      throw Object.assign(new Error(`--${flag} must be ${field.expected}`), { code: 'ERR_PARSE_ARGS_INVALID_OPTION_VALUE' });
+    }
   }
 }
 

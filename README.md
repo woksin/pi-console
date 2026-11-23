@@ -160,7 +160,7 @@ With a usable `--web-dist` the daemon prints one launch link, `http://127.0.0.1:
 
 On startup the daemon prints the resolved agent root and each source directory with its state (`available`, `missing`, `unavailable` or `disabled`) and a warning for every missing or unavailable enabled one. If your pi directory is elsewhere, start with `--agent-root <path>` (or create the intended directory); the daemon never creates it, and ingestion picks a directory up automatically once it exists. Health shows `degraded` and Settings names the affected source until then.
 
-CLI errors print a short message to stderr and exit non-zero. Set `PI_CONSOLE_DEBUG=1` to include a stack trace for diagnosis (for example, `PI_CONSOLE_DEBUG=1 node packages/cli/bin/pi-console.mjs daemon --port banana`).
+CLI errors print a short message to stderr and exit non-zero. Invalid daemon flags exit 2 with a `pi-console daemon --help` hint; startup failures exit 1. The launcher checks the Node version required by `package.json` before loading the CLI. Set `PI_CONSOLE_DEBUG=1` to include a stack trace for diagnosis (for example, `PI_CONSOLE_DEBUG=1 node packages/cli/bin/pi-console.mjs daemon --port banana`).
 
 ### Install the pi extension (optional)
 

@@ -41,6 +41,15 @@ function daemonOrigin(endpoint: string): string {
   return url.origin;
 }
 
+function tokenFileError(file: string, error: unknown): CredentialError {
+  if (error instanceof CredentialError) return error;
+  if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+    return new CredentialError(`No daemon token at ${file}. Start the daemon first, or set PI_CONSOLE_TOKEN / PI_CONSOLE_TOKEN_FILE.`);
+  }
+  const reason = error instanceof Error ? error.message : String(error);
+  return new CredentialError(`Cannot read daemon token at ${file}: ${reason}. Check the file and its permissions, or set PI_CONSOLE_TOKEN_FILE.`);
+}
+
 /** Resolution order: PI_CONSOLE_TOKEN, PI_CONSOLE_TOKEN_FILE, `<data dir>/token`. The URL is always loopback HTTP. */
 export function resolveCredentials(env: NodeJS.ProcessEnv = process.env): Credentials {
   const dataDir = resolve(env.PI_CONSOLE_DATA_DIR ?? defaultDataDir());
@@ -50,7 +59,6 @@ export function resolveCredentials(env: NodeJS.ProcessEnv = process.env): Creden
   try {
     return checked({ baseUrl, token: readTokenFile(file), tokenSource: file });
   } catch (error) {
-    if (error instanceof CredentialError) throw error;
-    throw new CredentialError(`No daemon token at ${file}. Start the daemon first, or set PI_CONSOLE_TOKEN / PI_CONSOLE_TOKEN_FILE.`);
+    throw tokenFileError(file, error);
   }
 }

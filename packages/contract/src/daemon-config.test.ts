@@ -53,6 +53,15 @@ for (const port of [undefined, null, -1, 65_536, 5.5, '5888', true]) {
   });
 }
 
+test('invalid JSON names the config file and suggests repairing its syntax without echoing its content', t => {
+  const path = directory(t);
+  const file = join(path, 'config.json');
+  writeFileSync(file, '{broken-json-content');
+  assert.throws(() => readDaemonConfigFile(path), {
+    name: 'SyntaxError', message: `Invalid JSON in ${file}; fix the JSON syntax and restart the daemon.`,
+  });
+});
+
 test('an unreadable config file falls back for clients', t => {
   const path = directory(t);
   mkdirSync(join(path, 'config.json'));
