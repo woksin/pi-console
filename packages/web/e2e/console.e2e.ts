@@ -323,8 +323,9 @@ describe('web console e2e', () => {
     await page.waitForFunction(() => window.location.hash === '#/timeline');
     await page.getByRole('dialog').waitFor({ state: 'detached' });
     await page.waitForFunction(() => document.querySelector('input[type=search]') === null, undefined, { timeout: 10000 });
+    await page.locator('#content-heading:focus').waitFor();
     await page.keyboard.press('/');
-    assert.equal(await page.evaluate(() => document.activeElement?.tagName), 'BODY', 'a view without a search box ignores the filter key');
+    assert.equal(await page.evaluate(() => document.activeElement?.id), 'content-heading', 'a view without a search box ignores the filter key and retains heading focus');
     await page.context().close();
   });
 

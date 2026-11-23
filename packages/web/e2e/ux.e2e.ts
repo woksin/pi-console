@@ -209,8 +209,8 @@ test('1100px navigation is an icon rail, Fleet fits, and transcript controls do 
 test('request state filters wrap at 768px and every filter stays inside the viewport and clickable', async () => {
   const page = await rig.open('/requests', { width: 768, height: 900 });
   try {
-    const filters = page.getByRole('tablist', { name: 'Request state' });
-    const tabs = filters.getByRole('tab');
+    const filters = page.getByRole('group', { name: 'Request state' });
+    const tabs = filters.getByRole('button');
     await tabs.last().waitFor();
     assert.deepEqual(await tabs.allTextContents(), ['All', 'Open', 'Answered', 'Unanswered', 'Interrupted', 'Uncertain', 'Possibly unseen']);
     assert.equal(await filters.evaluate(node => {
@@ -223,7 +223,7 @@ test('request state filters wrap at 768px and every filter stays inside the view
         return rect.left >= 0 && rect.right <= innerWidth && rect.top >= 0 && rect.bottom <= innerHeight;
       }), true, `${await tab.innerText()} is inside the viewport before clicking`);
       await tab.click();
-      assert.equal(await tab.getAttribute('aria-selected'), 'true');
+      assert.equal(await tab.getAttribute('aria-pressed'), 'true');
     }
   } finally { await page.context().close(); }
 });

@@ -20,7 +20,7 @@
 .empty h2 { color: var(--text); font-size: var(--type-section); } .empty-mark { font-size: 34px; color: var(--cyan); animation: breathe 3.2s ease-in-out infinite; }
 .tabs { display: inline-flex; gap: 2px; padding: 3px; border-radius: 9px; background: var(--panel); border: 1px solid var(--border); }
 .tab { background: none; border: 0; padding: 4px 12px; border-radius: 6px; color: var(--muted); display: inline-flex; gap: 6px; }
-.tab[aria-selected='true'] { background: var(--select); color: var(--text); } .tab-count { color: var(--faint); font-size: var(--type-caption); }
+.tab[aria-pressed='true'] { background: var(--select); color: var(--text); } .tab-count { color: var(--faint); font-size: var(--type-caption); }
 .seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; background: var(--panel); align-items: center; }
 .seg button { background: none; border: 0; padding: 4px 10px; color: var(--muted); border-right: 1px solid var(--border); } .seg button:last-child { border-right: 0; }
 .seg button[aria-pressed='true'] { background: var(--select); color: var(--text); } .seg-label { padding: 0 10px; }

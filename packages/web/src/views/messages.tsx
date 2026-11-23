@@ -48,7 +48,7 @@ export function MessagesView({ state, now, mode }: ViewProps & { mode: Mode }) {
 function MessageCard({ row, selected, onSelect }: { row: MessageRow; selected: boolean; onSelect: () => void }) {
   const ref = useScrollIntoView<HTMLLIElement>(selected);
   return (
-    <li ref={ref} className={`card msg${selected ? ' selected' : ''}`} onClick={onSelect} data-message={row.id}>
+    <li ref={ref} className={`card msg${selected ? ' selected' : ''}`} onClick={onSelect} data-message={row.id} aria-current={selected ? 'true' : undefined}>
       <div className="card-head"><a href={sessionHref(row.fromSessionId)}>{row.from}</a><span className="faint" aria-hidden="true">→</span><a href={sessionHref(row.toSessionId)}>{row.to}</a><span className="grow" /><span className="chip" title={row.delivery}><span aria-hidden="true">{row.deliveryGlyph}</span> {row.delivery}</span><span className="faint tnum">{row.age}</span></div>
       <p className="card-text">{row.text}</p>
     </li>

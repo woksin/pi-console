@@ -30,6 +30,13 @@ button:disabled { cursor: not-allowed; opacity: 0.5; }
 :focus-visible { outline: none; box-shadow: var(--focus); border-radius: 4px; }
 code, .mono, pre { font-family: var(--mono); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.skip-link { position: fixed; top: 8px; left: 8px; z-index: 100; padding: 8px 12px; background: var(--panel); color: var(--text); transform: translateY(calc(-100% - 12px)); }
+.skip-link:focus { transform: none; }
+@media (forced-colors: active) {
+  /* Override component outline resets, including search fields and SVG controls. */
+  :focus-visible { outline: 2px solid Highlight !important; outline-offset: 2px; }
+  .selected, [aria-current='page'], [aria-pressed='true'], [aria-selected='true'] { outline: 2px solid Highlight !important; outline-offset: -2px; }
+}
 .muted { color: var(--muted); } .faint { color: var(--faint); } .small { font-size: var(--type-caption); }
 .tnum { font-variant-numeric: tabular-nums; } .grow { flex: 1 1 auto; } .end { text-align: right; }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }

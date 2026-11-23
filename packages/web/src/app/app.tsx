@@ -14,10 +14,13 @@ import { View } from './view.tsx';
 import { CopyNotice } from './copy-notice-view.tsx';
 import { useTick } from '../ui/hooks.ts';
 
+const focusElement = (id: string): void => { document.getElementById(id)?.focus(); };
+
 export function App() {
   const state = useConsole();
   const route = useRoute();
   const prefs = usePrefs();
+  useEffect(() => { focusElement('content-heading'); }, [route.view, route.id]);
   const [overlay, setOverlay] = useState<Overlay>(null);
   const [recents, setRecents] = useState<readonly string[]>([]);
   useEffect(() => { applyTheme(document.documentElement, prefs.theme, prefs.reducedMotion); }, [prefs.theme, prefs.reducedMotion]);
@@ -37,11 +40,12 @@ export function App() {
   const now = clockNow(state, wall);
   return (
     <div className="app" data-stale={staleData(state, wall)}>
+      <a className="skip-link" href="#content" onClick={event => { event.preventDefault(); focusElement('content'); }}>Skip to main content</a>
       <Sidebar active={sectionFor(route.view)} settings={route.view === 'settings'} attention={attention} questions={state.questions.filter(q => q.status === 'open').length} collapsed={prefs.sidebarCollapsed} onCollapse={() => { setPrefs({ sidebarCollapsed: !prefs.sidebarCollapsed }); }} />
       <div className="main">
         <TopBar title={route.view === 'session' ? 'Session' : titleFor(route.view)} hint={sectionFor(route.view) ? sectionMeta[sectionFor(route.view) ?? 'overview'].hint : ''} state={state} wall={wall} session={route.view === 'session' ? state.sessions.find(session => session.id === route.id) : undefined} onPalette={() => { setOverlay('palette'); }} onHelp={() => { setOverlay('help'); }} />
         <Banner state={state} wall={wall} />
-        <main className={`content${staleData(state, wall) ? ' stale' : ''}`} data-stale={staleData(state, wall)} id="content" tabIndex={-1}><View route={route} state={state} now={now} /></main>
+        <main className={`content${staleData(state, wall) ? ' stale' : ''}`} data-stale={staleData(state, wall)} id="content" aria-labelledby="content-heading" tabIndex={-1}><View route={route} state={state} now={now} /></main>
         <CopyNotice />
         <Hints items={hints(context, 'web')} />
       </div>

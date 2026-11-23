@@ -58,7 +58,7 @@ export function FleetView({ state, now }: ViewProps) {
 
 function GroupRow({ row, selected, onToggle }: { row: Extract<FleetRow, { kind: 'group' }>; selected: boolean; onToggle: () => void }) {
   return (
-    <tr className={`group-row${selected ? ' selected' : ''}`}><th colSpan={7} scope="colgroup">
+    <tr className={`group-row${selected ? ' selected' : ''}`} aria-current={selected ? 'true' : undefined}><th colSpan={7} scope="colgroup">
       <button type="button" className="group-toggle" aria-expanded={!row.collapsed} onClick={onToggle}>
         <span aria-hidden="true">{row.collapsed ? '▸' : '▾'}</span> {row.label} <span className="pill">{row.sessions}</span>{row.attention > 0 && <span className="pill amber">{row.attention} need attention</span>}
       </button>
@@ -71,7 +71,7 @@ function SessionLine({ row, selected }: { row: SessionRow; selected: boolean }) 
   const flash = useChangeFlash(row.status.status);
   const attention = row.status.status === 'needs-you' || row.status.status === 'blocked' || row.status.status === 'failed';
   return (
-    <tr ref={ref} className={`row${selected ? ' selected' : ''}${flash ? ' flash' : ''}${attention ? ' attention' : ''}`} data-session={row.id} aria-selected={selected}>
+    <tr ref={ref} className={`row${selected ? ' selected' : ''}${flash ? ' flash' : ''}${attention ? ' attention' : ''}`} data-session={row.id} aria-current={selected ? 'true' : undefined}>
       <td><a href={sessionHref(row.id)} style={{ paddingLeft: `${String(row.depth * 18)}px` }}>{row.depth > 0 && <span className="faint" aria-hidden="true">↳ </span>}{row.name}</a><div className="faint small" style={{ paddingLeft: `${String(row.depth * 18)}px` }}>{row.lane} · {row.branch}</div></td>
       <td><StatusBadge cell={row.status} /></td>
       <td><PressureBar percent={row.contextPercent} pressure={row.pressure} /></td>
