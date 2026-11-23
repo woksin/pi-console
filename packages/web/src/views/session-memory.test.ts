@@ -19,9 +19,9 @@ before(async () => {
 after(async () => { copy.cancelExpiry(); await server.close(); });
 
 const item = (patch: Partial<MemoryPanelItem>): MemoryPanelItem => ({
-  id: 'm1', kind: 'decision', statusLabel: 'proposed', scope: 'repo', sourceNote: 'recorded', text: 'Use X',
+  id: 'm1', kind: 'decision', status: 'proposed', statusLabel: 'proposed', badge: { label: 'proposed', tone: 'amber' }, details: 'decision · repo · recorded · 1m ago', scope: 'repo', sourceNote: 'recorded', text: 'Use X',
   canRequest: true, review: null, command: '/memory confirm m1', rejectCommand: '/memory reject m1', ...patch,
-} as MemoryPanelItem);
+});
 const render = (patch: Partial<MemoryPanelItem>): string => renderToStaticMarkup(createElement(MemoryItemView, { item: item(patch), request: () => undefined }));
 
 test('confirm, reject and copy use the themed button class', () => {
@@ -29,6 +29,11 @@ test('confirm, reject and copy use the themed button class', () => {
   assert.match(html, /<button type="button" class="btn" aria-busy="false">Confirm…<\/button>/);
   assert.match(html, /<button type="button" class="btn" aria-busy="false">Reject…<\/button>/);
   assert.match(html, /<button type="button" class="btn memory-copy">Copy command<\/button>/);
+});
+
+test('an item leads with a toned status badge and its text, with details on a smaller second line', () => {
+  const html = render({});
+  assert.match(html, /<span class="memory-head"><span class="badge memory-badge tone-amber" data-memory-status="proposed">proposed<\/span><span class="memory-text" title="Use X">Use X<\/span><\/span><span class="small faint memory-details">decision · repo · recorded · 1m ago<\/span>/);
 });
 
 test('a pending review disables both actions and marks them busy', () => {
