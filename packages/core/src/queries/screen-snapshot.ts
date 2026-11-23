@@ -1,7 +1,7 @@
 import type { Snapshot } from '@pi-console/contract';
 import type { AttentionItem } from '../attention/needs-you.ts';
 import type { ReadModels } from '../projections/index.ts';
-import { jobEntries, messageEntries, questionEntries, referencedBy, requestEntries, resetEntries, sessionEntries } from './collections.ts';
+import { attentionSessionIds, jobEntries, messageEntries, questionEntries, referencedBy, requestEntries, resetEntries, sessionEntries } from './collections.ts';
 import { compareEntries, newest, sortedEntries, windowOf } from './paging.ts';
 import { repositoryName } from './entities.ts';
 import { compareText } from '../projector/canonical.ts';
@@ -23,7 +23,7 @@ export function screenSnapshot(models: ReadModels, attention: readonly Attention
   const requests = windowOf(requestEntries(models, referenced), recent);
   const questions = windowOf(questionEntries(models, referenced), recent);
   const messages = windowOf(messageEntries(models), recent);
-  const everySession = sessionEntries(models, attention);
+  const everySession = sessionEntries(models, attentionSessionIds(attention));
   const owners = new Set<string>([...jobs.items, ...requests.items, ...questions.items].map(item => item.sessionId));
   for (const message of messages.items) { owners.add(message.fromSessionId); owners.add(message.toSessionId); }
   const keep = everySession.length <= sessionCap ? everySession : withAncestors(everySession, owners, recent);

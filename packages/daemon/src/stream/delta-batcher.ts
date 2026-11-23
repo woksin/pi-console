@@ -12,6 +12,7 @@ class BatchQueries extends ConsoleQueries {
   }
 
   override needsYou(): AttentionItem[] { return this.#memo('needsYou', () => super.needsYou()); }
+  protected override attentionSessionIds(): ReadonlySet<string> { return this.#memo('attentionSessionIds', () => super.attentionSessionIds()); }
   override sessions(): Session[] { return this.#memo('sessions', () => super.sessions()); }
   override requests(filter: RequestFilter = 'all'): Request[] { return this.#memo(`requests:${filter}`, () => super.requests(filter)); }
   override questions(): Question[] { return this.#memo('questions', () => super.questions()); }

@@ -4,7 +4,7 @@ import { compareText } from '../projector/canonical.ts';
 import type { ReadModels } from '../projections/index.ts';
 import { graphOf } from './graph.ts';
 import { sparkline } from './sparkline.ts';
-import { jobEntries, messageEntries, questionEntries, referencedBy, requestEntries, resetEntries, sessionEntries } from './collections.ts';
+import { attentionSessionIds, jobEntries, messageEntries, questionEntries, referencedBy, requestEntries, resetEntries, sessionEntries } from './collections.ts';
 import { pageOf, type Entry, type Page, type PageCollection, type PageParams } from './paging.ts';
 import { memoryEntries, memoryStatuses, sessionMemory } from './memory.ts';
 import type { MemoryItemStatus } from '../projections/memory.ts';
@@ -49,18 +49,21 @@ export class ConsoleQueries {
     return needsYou(this.#models(), { now: this.#now() });
   }
 
+  /** Fresh for ordinary queries; a fixed-model batch may memoize this alongside needsYou(). */
+  protected attentionSessionIds(): ReadonlySet<string> { return attentionSessionIds(this.needsYou()); }
+
   sessions(): Session[] {
     const models = this.#models();
-    const attention = this.needsYou();
+    const attentionSessionIds = this.attentionSessionIds();
     return Object.values(models.sessions.sessions)
-      .map(session => toSession(models, session, attention))
+      .map(session => toSession(models, session, attentionSessionIds))
       .sort(by(session => session.startedAt, session => session.id));
   }
 
   sessionById(id: Session['id']): Session | undefined {
     const models = this.#models();
     const row = own(models.sessions.sessions, id);
-    return row ? toSession(models, row, this.needsYou()) : undefined;
+    return row ? toSession(models, row, this.attentionSessionIds()) : undefined;
   }
 
   session(id: Session['id']): SessionDetail | undefined {
@@ -185,7 +188,7 @@ export class ConsoleQueries {
     const owned = (entry: { build: () => { sessionId: string | null } }) => session === undefined || entry.build().sessionId === session;
     const between = (entry: { build: () => Message }) => session === undefined || [entry.build().fromSessionId, entry.build().toSessionId].includes(session);
     const lists: Record<PageCollection, () => Entry<Listed>[]> = {
-      sessions: () => sessionEntries(models, this.needsYou()),
+      sessions: () => sessionEntries(models, this.attentionSessionIds()),
       requests: () => requestEntries(models, referencedBy([]), query.filter).filter(owned),
       questions: () => questionEntries(models, referencedBy([])).filter(owned),
       messages: () => messageEntries(models).filter(between),
