@@ -87,41 +87,70 @@ export const pad = (text: DisplayText, width: CellCount, measure: TextWidth = di
 };
 export const padStart = (text: DisplayText, width: CellCount, measure: TextWidth = displayWidth): string => ' '.repeat(Math.max(0, width - measure(text))) + text;
 
-function wordPieces(word: DisplayText, width: CellCount, measure: TextWidth): string[] {
-  const pieces: string[] = [];
-  let piece = '';
+/** A wrapped row with one original UTF-16 index per text unit; -1 denotes synthetic text. */
+export interface WrappedText { text: string; source: number[] }
+interface WrapWord { text: string; at: number; space: number }
+interface WrapBudget { width: CellCount; measure: TextWidth }
+
+function wordPieces(word: WrapWord, { width, measure }: WrapBudget): WrappedText[] {
+  const pieces: WrappedText[] = [];
+  let piece: WrappedText = { text: '', source: [] };
   let used = 0;
-  for (const item of graphemes(word)) {
+  let at = word.at;
+  for (const item of graphemes(word.text)) {
     const size = measure(item);
-    if (used + size > width && piece) { pieces.push(piece); piece = ''; used = 0; }
-    // A grapheme wider than the column cannot be displayed; leave spaces, never half a glyph.
-    piece += size > width ? ' '.repeat(width) : item;
+    if (used + size > width && piece.text) { pieces.push(piece); piece = { text: '', source: [] }; used = 0; }
+    // A grapheme wider than the column cannot be displayed; leave synthetic spaces, never half a glyph.
+    const rendered = size > width ? ' '.repeat(width) : item;
+    piece.text += rendered;
+    for (let unit = 0; unit < rendered.length; unit++) piece.source.push(size > width ? -1 : at + unit);
+    at += item.length;
     used += Math.min(size, width);
   }
-  if (piece) pieces.push(piece);
+  if (piece.text) pieces.push(piece);
   return pieces;
 }
 
-function appendWord(lines: DisplayText[], line: DisplayText, word: DisplayText, budget: { width: CellCount; measure: TextWidth }): string {
+function joinPiece(line: WrappedText, piece: WrappedText, space: number): WrappedText {
+  line.text += ` ${piece.text}`;
+  line.source.push(space);
+  for (const index of piece.source) line.source.push(index);
+  return line;
+}
+
+function appendWord(lines: WrappedText[], line: WrappedText, word: WrapWord, budget: WrapBudget): WrappedText {
   const { width, measure } = budget;
-  const pieces = wordPieces(word, width, measure);
   let current = line;
-  for (const piece of pieces) {
-    if (current && measure(current) + 1 + measure(piece) > width) { lines.push(current); current = piece; }
-    else current = current ? `${current} ${piece}` : piece;
+  let space = word.space;
+  for (const piece of wordPieces(word, budget)) {
+    if (current.text && measure(current.text) + 1 + measure(piece.text) > width) { lines.push(current); current = piece; }
+    else current = current.text ? joinPiece(current, piece, space) : piece;
+    space = -1;
   }
   return current;
+}
+
+/** The same word wrapping as `wrap`, recording source indices while consuming the original paragraphs and words. */
+export function wrapWithSources(text: DisplayText, width: CellCount, measure: TextWidth = displayWidth): WrappedText[] {
+  if (width <= 0) return [{ text: '', source: [] }];
+  const lines: WrappedText[] = [];
+  let at = 0;
+  for (const paragraph of text.split('\n')) {
+    let line: WrappedText = { text: '', source: [] };
+    for (const word of paragraph.matchAll(/\S+/g)) {
+      const start = at + word.index;
+      line = appendWord(lines, line, { text: word[0], at: start, space: text[start - 1] === ' ' ? start - 1 : -1 }, { width, measure });
+    }
+    lines.push(line);
+    at += paragraph.length + 1;
+  }
+  return lines;
 }
 
 /** Word-wraps to `width` cells and at most `maxLines` lines, ending the last with an ellipsis when cut. */
 export function wrap(text: DisplayText, width: CellCount, maxLines = Number.POSITIVE_INFINITY, measure: TextWidth = displayWidth): string[] {
   if (width <= 0) return [''];
-  const lines: string[] = [];
-  for (const paragraph of text.split('\n')) {
-    let line = '';
-    for (const word of paragraph.split(/\s+/).filter(Boolean)) line = appendWord(lines, line, word, { width, measure });
-    lines.push(line);
-  }
+  const lines = wrapWithSources(text, width, measure).map(line => line.text);
   if (lines.length <= maxLines) return lines;
   const kept = lines.slice(0, maxLines);
   kept[maxLines - 1] = clip(`${kept[maxLines - 1]}…`, width, measure);

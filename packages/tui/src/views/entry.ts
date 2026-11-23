@@ -1,4 +1,4 @@
-import { displayWidth, graphemes, searchNeedle, searchRanges, wrap, type TextRange, type TextWidth, type TranscriptLine } from '@pi-console/viewmodels';
+import { displayWidth, graphemes, searchNeedle, searchRanges, wrap, wrapWithSources, type TextRange, type TextWidth, type TranscriptLine, type WrappedText } from '@pi-console/viewmodels';
 import type { Line, Part } from '../view/renderer.ts';
 import type { Color } from '../view/theme.ts';
 import { t } from '../view/parts.ts';
@@ -44,47 +44,39 @@ export function previewNote(entry: TranscriptLine, body: number, measure?: TextW
   return parts.length === 0 ? undefined : `… ${parts.join(', ')} · ⏎ opens the full entry`;
 }
 
-/** One wrapped row of the full entry, with the style its logical line carries. `source` gives, for each UTF-16 unit of `text`, its index in the entry text the search matches against; rows that are not entry text have none. */
+/** One wrapped row of the full entry, with the style its logical line carries. `source` gives each UTF-16 unit's index in the entry text the search matches against; synthetic units use -1. */
 export interface EntryRow { text: string; color: Color; bold?: boolean; italic?: boolean; source?: readonly number[] }
 
-const isSpace = (char: string | undefined): boolean => char !== undefined && /\s/.test(char);
-
-/** Records where each row unit came from in `text`. Wrapping only drops or collapses whitespace and cuts words, so the rows read back in order out of `text`. */
-function withSources(rows: readonly EntryRow[], text: string): EntryRow[] {
-  let at = 0;
-  const skipSpace = (): void => { while (isSpace(text[at])) at++; };
-  return rows.map(row => {
-    const source: number[] = [];
-    for (const char of row.text) {
-      if (!isSpace(char)) skipSpace();
-      const start = at;
-      if (text.startsWith(char, at)) at += char.length;
-      else skipSpace();
-      for (let unit = 0; unit < char.length; unit++) source.push(start + unit);
-    }
-    return { ...row, source };
-  });
-}
-
-/** Wraps at the cell edge and keeps every space, so code, diffs and tool output keep their shape. */
-function hardWrap(text: string, width: number, measure: TextWidth): string[] {
-  const rows: string[] = [];
-  let row = '';
+/** Wraps at the cell edge and records source units as they are consumed, retaining indentation verbatim. */
+function hardWrap(input: { text: string; at: number }, width: number, measure: TextWidth): WrappedText[] {
+  const rows: WrappedText[] = [];
+  let row: WrappedText = { text: '', source: [] };
   let used = 0;
-  for (const item of graphemes(text)) {
+  let at = input.at;
+  for (const item of graphemes(input.text)) {
     const size = measure(item);
-    if (used + size > width && row) { rows.push(row); row = ''; used = 0; }
-    row += item;
+    if (used + size > width && row.text) { rows.push(row); row = { text: '', source: [] }; used = 0; }
+    row.text += item;
+    for (let unit = 0; unit < item.length; unit++) row.source.push(at < 0 ? -1 : at + unit);
+    if (at >= 0) at += item.length;
     used += size;
   }
   return [...rows, row];
 }
 
-const plainRows = (text: string, width: number, measure: TextWidth, style: EntryStyle): EntryRow[] =>
-  text.split('\n').flatMap(line => hardWrap(line, width, measure).map((row): EntryRow => ({ text: row, color: style.color, bold: style.bold, italic: style.italic })));
+interface RowLayout { width: number; measure: TextWidth; sourced?: boolean }
 
-const diffRows = (text: string, width: number, measure: TextWidth): EntryRow[] =>
-  text.split('\n').flatMap(line => hardWrap(line, width, measure).map((row): EntryRow => ({ text: row, color: diffColor(line) })));
+function cellRows(text: string, { width, measure, sourced }: RowLayout, style: (line: string) => EntryStyle): EntryRow[] {
+  let at = 0;
+  return text.split('\n').flatMap(line => {
+    const rows = hardWrap({ text: line, at: sourced ? at : -1 }, width, measure).map(row => ({ ...row, ...style(line) }));
+    at += line.length + 1;
+    return rows;
+  });
+}
+
+const plainRows = (text: string, width: number, measure: TextWidth, style: EntryStyle): EntryRow[] =>
+  cellRows(text, { width, measure }, () => style);
 
 function resetRows(entry: TranscriptLine, width: number, measure: TextWidth): EntryRow[] {
   const { reset } = entry;
@@ -95,23 +87,24 @@ function resetRows(entry: TranscriptLine, width: number, measure: TextWidth): En
 
 /** The call's arguments, then (when it differs) the entry text the search matches against; whichever is the entry text carries the sources. */
 function toolRows(entry: TranscriptLine, width: number, measure: TextWidth): EntryRow[] {
-  const name: EntryRow = { text: entry.tool?.name ?? 'tool', color: 'cyan', bold: true };
+  const label = entry.tool?.name ?? 'tool';
+  const name: EntryRow = { text: label, source: Array.from({ length: label.length }, () => -1), color: 'cyan', bold: true };
   const args = entry.tool?.args ?? '';
-  const rows = (text: string): EntryRow[] => plainRows(text, width, measure, { color: 'muted' });
+  const rows = (text: string, sourced = false): EntryRow[] => cellRows(text, { width, measure, sourced }, () => ({ color: 'muted' }));
   if (!entry.text) return [name, ...rows(args)];
-  if (entry.text === args) return [name, ...withSources(rows(args), entry.text)];
-  return [name, ...(args ? [...rows(args), ...rows('')] : []), ...withSources(rows(entry.text), entry.text)];
+  if (entry.text === args) return [name, ...rows(args, true)];
+  return [name, ...(args ? [...rows(args), ...rows('')] : []), ...rows(entry.text, true)];
 }
 
 /** The complete entry, wrapped to `width`; nothing is capped. Prose wraps at words, everything else at the cell edge. */
 export function fullRows(entry: TranscriptLine, width: number, measure: TextWidth): EntryRow[] {
   const style = entryStyle(entry);
   switch (entry.kind) {
-    case 'diff': return withSources(diffRows(entry.text, width, measure), entry.text);
+    case 'diff': return cellRows(entry.text, { width, measure, sourced: true }, line => ({ color: diffColor(line) }));
     case 'reset': return resetRows(entry, width, measure);
     case 'tool': return toolRows(entry, width, measure);
-    case 'result': return withSources(plainRows(entry.text, width, measure, style), entry.text);
-    default: return withSources(wrap(entry.text, width, undefined, measure).map((text): EntryRow => ({ text, color: style.color, bold: style.bold, italic: style.italic })), entry.text);
+    case 'result': return cellRows(entry.text, { width, measure, sourced: true }, () => style);
+    default: return wrapWithSources(entry.text, width, measure).map(row => ({ ...row, ...style }));
   }
 }
 
@@ -131,10 +124,29 @@ function marked(row: EntryRow, spans: readonly Span[] = []): Part[] {
   return at < row.text.length ? [...parts, base(row.text.slice(at))] : parts;
 }
 
-/** The part of a row that lies inside a match range of the entry text. */
-function spanIn(row: EntryRow, [from, to]: TextRange): Span | undefined {
-  const columns = (row.source ?? []).flatMap((index, column) => (index >= from && index < to ? [column] : []));
-  return columns.length === 0 ? undefined : [columns[0], columns[columns.length - 1] + 1];
+interface MatchCursor { at: number; ranges: readonly TextRange[] }
+
+/** The cursor only moves forwards, once per match, even across dropped whitespace or synthetic cells. */
+function rangeAt(source: number, cursor: MatchCursor): number {
+  if (source < 0) return -1;
+  while (cursor.at < cursor.ranges.length && source >= cursor.ranges[cursor.at][1]) cursor.at++;
+  const range = cursor.ranges[cursor.at];
+  return range && source >= range[0] ? cursor.at : -1;
+}
+
+function spansIn(row: EntryRow, cursor: MatchCursor): Span[] {
+  const spans: Span[] = [];
+  let start = 0;
+  let active = -1;
+  (row.source ?? []).forEach((source, column) => {
+    const hit = rangeAt(source, cursor);
+    if (hit === active) return;
+    if (active >= 0) spans.push([start, column]);
+    start = column;
+    active = hit;
+  });
+  if (active >= 0) spans.push([start, row.text.length]);
+  return spans;
 }
 
 /**
@@ -143,12 +155,12 @@ function spanIn(row: EntryRow, [from, to]: TextRange): Span | undefined {
  */
 export function matchSpans(rows: readonly EntryRow[], entryText: string, search: string): Map<number, Span[]> {
   const found = new Map<number, Span[]>();
-  for (const range of searchRanges(entryText, searchNeedle(search))) {
-    rows.forEach((row, index) => {
-      const span = spanIn(row, range);
-      if (span) found.set(index, [...(found.get(index) ?? []), span]);
-    });
-  }
+  const ranges = searchRanges(entryText, searchNeedle(search));
+  const cursor = { at: 0, ranges };
+  rows.forEach((row, index) => {
+    const spans = spansIn(row, cursor);
+    if (spans.length > 0) found.set(index, spans);
+  });
   return found;
 }
 
@@ -158,5 +170,5 @@ export interface EntryDocument { lines: Line[]; match: number | null }
 export function entryDocument(entry: TranscriptLine, view: { width: number; search: string; measure: TextWidth }): EntryDocument {
   const rows = fullRows(entry, view.width, view.measure);
   const spans = matchSpans(rows, entry.text, view.search);
-  return { lines: rows.map((row, index) => marked(row, spans.get(index))), match: spans.size === 0 ? null : Math.min(...spans.keys()) };
+  return { lines: rows.map((row, index) => marked(row, spans.get(index))), match: spans.keys().next().value ?? null };
 }

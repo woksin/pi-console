@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { displayWidth, matchesSearch, searchNeedle, type TextWidth, type TranscriptLine } from '@pi-console/viewmodels';
-import { entryDocument, fullRows, matchSpans, previewNote } from './entry.ts';
+import { displayWidth, graphemes, matchesSearch, searchNeedle, searchRanges, type TextWidth, type TranscriptLine } from '@pi-console/viewmodels';
+import { entryDocument, fullRows, matchSpans, previewNote, type EntryDocument, type EntryRow } from './entry.ts';
 
 const cells = (text: string): number => [...text].length;
 const entry = (kind: TranscriptLine['kind'], text: string): TranscriptLine => ({ key: 1, time: '12:00', kind, glyph: '', label: kind, color: 'text', text, streaming: false, tool: null, reset: null }) as unknown as TranscriptLine;
@@ -85,4 +85,109 @@ test('entryDocument highlights the match and reports its row', () => {
   const document = entryDocument(entry('assistant', text), { width: 60, search: 'needle', measure: cells });
   assert.equal(document.match, 22);
   assert.ok(document.lines[22].some(part => part.text === 'NEEDLE' && part.bold === true));
+});
+
+test('indentation after a dropped newline has its exact source indices', () => {
+  const text = 'a\n  needle';
+  const rows = fullRows(entry('result', text), 80, displayWidth);
+  assert.deepEqual(rows.map(row => row.source), [[0], [2, 3, 4, 5, 6, 7, 8, 9]]);
+  assert.deepEqual(highlighted('result', text, 'needle', 80).marked, ['', 'needle']);
+});
+
+test('Greek capitals fold the same way with and without an expanding dotted I', () => {
+  for (const kind of ['assistant', 'result', 'diff'] as const) {
+    assert.deepEqual(highlighted(kind, 'ΟΣ İ', 'ΟΣ', 80).marked, ['ΟΣ']);
+    assert.deepEqual(highlighted(kind, '😀ΟΣ İ😀', '😀ΟΣ', 2, displayWidth).marked, ['😀', 'ΟΣ', '', '']);
+  }
+});
+
+test('synthetic tool labels, arguments and reset descriptions never receive highlights', () => {
+  const tool = { name: 'needle', args: 'needle', resultKind: 'text', withheld: false, truncated: false };
+  for (const item of [{ ...entry('tool', ''), tool }, { ...entry('tool', 'actual needle'), tool }, entry('reset', 'needle')]) {
+    const rows = fullRows(item, 4, displayWidth);
+    const document = entryDocument(item, { width: 4, search: 'needle', measure: displayWidth });
+    const sources = underlinedSources(document, rows);
+    assert.ok(sources.every(index => index >= 0));
+    assert.equal(sources.length, item.kind === 'tool' && item.text ? 6 : 0);
+  }
+});
+
+/** Fixed-seed samples include indentation, blank lines, combining marks, astral CJK and joined emoji. */
+function generatedTexts(): string[] {
+  let seed = 0x180;
+  const next = (limit: number): number => {
+    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+    return seed % limit;
+  };
+  const alphabet = ['a', 'b', 'N', 'e', ' ', '  ', '\n', '\n  ', '😀', '👩🏽‍💻', '界', '𠀀', 'e\u0301', 'İ', 'Ο', 'Σ', '-'];
+  return Array.from({ length: 60 }, () => Array.from({ length: 15 + next(45) }, () => alphabet[next(alphabet.length)]).join(''));
+}
+
+/** Every retained unit is original, in order; only whitespace may have disappeared at these widths. */
+function retainedSources(rows: readonly EntryRow[], text: string): number[] {
+  const indices: number[] = [];
+  let retained = '';
+  for (const row of rows) {
+    assert.equal(row.source?.length, row.text.length);
+    row.source?.forEach((source, column) => {
+      if (source < 0) return;
+      assert.equal(row.text[column], text[source]);
+      assert.ok(source > (indices.at(-1) ?? -1));
+      indices.push(source);
+      retained += row.text[column];
+    });
+  }
+  const kept = new Set(indices);
+  const expected = text.split('').filter((unit, index) => {
+    if (kept.has(index)) return true;
+    assert.match(unit, /\s/);
+    return false;
+  }).join('');
+  assert.equal(retained, expected);
+  return indices;
+}
+
+/** Read the actual styled parts, not just the intermediate match spans. */
+function underlinedSources(document: EntryDocument, rows: readonly EntryRow[]): number[] {
+  return document.lines.flatMap((line, index) => {
+    assert.equal(line.map(part => part.text).join(''), rows[index].text);
+    let column = 0;
+    return line.flatMap(part => {
+      const from = column;
+      column += part.text.length;
+      return part.underline ? (rows[index].source ?? []).slice(from, column) : [];
+    });
+  });
+}
+
+function checkHighlights(item: TranscriptLine, { width, rows, retained }: { width: number; rows: EntryRow[]; retained: number[] }, search: string): void {
+  const needle = searchNeedle(search);
+  const ranges = searchRanges(item.text, needle);
+  assert.equal(matchesSearch(item.text, needle), ranges.length > 0);
+  const matched = new Set<number>();
+  for (const [from, to] of ranges) for (let index = from; index < to; index++) matched.add(index);
+  const document = entryDocument(item, { width, search, measure: displayWidth });
+  assert.deepEqual(underlinedSources(document, rows), retained.filter(index => matched.has(index)));
+  const first = rows.findIndex(row => row.source?.some(index => matched.has(index)));
+  assert.equal(document.match, first < 0 ? null : first);
+}
+
+test('seeded source-map properties hold across generated text, widths, kinds and needles', () => {
+  for (const text of generatedTexts()) for (const width of [2, 3, 7, 16, 40]) for (const kind of ['assistant', 'result', 'diff'] as const) {
+    const item = entry(kind, text);
+    const rows = fullRows(item, width, displayWidth);
+    const retained = retainedSources(rows, text);
+    const needles = ['', 'a', ' ', '\n  ', '😀', '界', 'ΟΣ', ...graphemes(text).slice(0, 2), graphemes(text).slice(-3).join('')];
+    for (const search of needles) checkHighlights(item, { width, rows, retained }, search);
+  }
+});
+
+test('twenty thousand matches build the entry document in under 500 ms', () => {
+  const item = entry('assistant', 'a '.repeat(20000));
+  const start = performance.now();
+  const document = entryDocument(item, { width: 80, search: 'a', measure: displayWidth });
+  const elapsed = performance.now() - start;
+  assert.ok(elapsed < 500, `entryDocument took ${String(elapsed)} ms`);
+  assert.equal(document.match, 0);
+  assert.equal(document.lines.flat().filter(part => part.underline).map(part => part.text).join(''), 'a'.repeat(20000));
 });
