@@ -182,12 +182,21 @@ test('seeded source-map properties hold across generated text, widths, kinds and
   }
 });
 
-test('twenty thousand matches build the entry document in under 500 ms', () => {
-  const item = entry('assistant', 'a '.repeat(20000));
+function timedDocument(matches: number): { elapsed: number; document: ReturnType<typeof entryDocument> } {
+  const item = entry('assistant', 'a '.repeat(matches));
   const start = performance.now();
   const document = entryDocument(item, { width: 80, search: 'a', measure: displayWidth });
-  const elapsed = performance.now() - start;
-  assert.ok(elapsed < 500, `entryDocument took ${String(elapsed)} ms`);
+  return { elapsed: performance.now() - start, document };
+}
+
+test('entry document cost grows linearly with the number of matches', () => {
+  timedDocument(2000);
+  const small = timedDocument(10000).elapsed;
+  const { elapsed: large, document } = timedDocument(20000);
+  // Scaling, not wall-clock time, is the contract: a quadratic sweep is about 4x here; linear is about 2x.
+  // The absolute bound only catches catastrophic regressions on a loaded machine.
+  assert.ok(large < Math.max(small, 20) * 3.2, `20k matches took ${String(large)} ms versus ${String(small)} ms for 10k`);
+  assert.ok(large < 3000, `entryDocument took ${String(large)} ms`);
   assert.equal(document.match, 0);
   assert.equal(document.lines.flat().filter(part => part.underline).map(part => part.text).join(''), 'a'.repeat(20000));
 });
