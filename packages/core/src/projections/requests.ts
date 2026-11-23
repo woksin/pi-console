@@ -86,4 +86,4 @@ export const requestsProjection: RequestDerivation = projection<RequestsState>('
     latest(row, 'interrupted', event, () => { row.interruptedResetId = payload.resetId ?? null; });
     status(row);
   },
-}, ['requests']);
+});

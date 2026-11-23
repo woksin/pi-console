@@ -85,6 +85,7 @@ export class DeltaBatcher {
 
   #requestDeltas(queries: IncrementalQueries, ids: Iterable<string>, deltas: Map<string, Delta>): void {
     for (const id of ids) {
+      if (deltas.has(`request.observed:${id}`) || deltas.has(`request.interrupted:${id}`)) continue;
       const request = queries.requestById(id);
       if (request) {
         const delta: Delta = { type: request.status === 'interrupted' ? 'request.interrupted' : 'request.observed', payload: request };

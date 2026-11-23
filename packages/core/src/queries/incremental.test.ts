@@ -31,6 +31,41 @@ function mergeCollections(rows: Map<string, Set<string>>, collections: ReadonlyM
   }
 }
 
+const reset = (n: number, sessionId: string, date: string) => ({
+  ...testEvent(n, 'ResetOccurred', { sessionId, resetId: 'same', kind: 'compaction' }), occurredAt: `${date}T08:00:00.000Z`,
+});
+
+for (const bootstrap of [false, true]) test(`colliding reset IDs retain canonical earliest sightings and stable owner ties (${bootstrap ? 'bootstrap' : 'incremental'})`, async t => {
+  const log = new SqliteEventLog(':memory:');
+  const events = [
+    reset(3, 'z', '2026-11-21'), reset(4, 'a', '2026-11-20'),
+    reset(5, 'z', '2026-11-19'), reset(6, 'a', '2026-11-19'), reset(7, 'z', '2026-11-22'),
+    started(8, '2'), reset(9, '2', '2026-11-19'), started(10, '1'), reset(11, '1', '2026-11-19'),
+    started(12, '01'), reset(13, '01', '2026-11-19'), reset(14, 'a', '2026-11-18'),
+  ];
+  const seeded = bootstrap ? 2 : 0;
+  await log.append([started(1, 'z'), started(2, 'a'), ...events.slice(0, seeded)]);
+  const projector = new Projector(log, consoleProjections());
+  await projector.start();
+  t.after(() => { projector.stop(); log.close(); });
+  const models = () => readModels(projector);
+  const now = new Date('2026-11-23T08:00:00Z');
+  const full = new ConsoleQueries(models, () => now);
+  const incremental = new IncrementalQueries(models, now);
+  const changes = new Map<string, Map<string, Set<string>>>();
+  projector.onApplied((_event, dirty) => { merge(changes, dirty); });
+  assert.deepEqual(incremental.resetById('same'), full.resetById('same'));
+  assert.equal(incremental.resetById('missing'), undefined);
+  for (const event of events.slice(seeded)) {
+    changes.clear();
+    await log.append([event]);
+    const owners = event.type === 'ResetOccurred' ? [(event.payload as { sessionId: string }).sessionId] : [];
+    incremental.update(changes, now, owners);
+    assert.deepEqual(incremental.resetById('same'), full.resetById('same'), event.id);
+    assert.deepEqual(new IncrementalQueries(models, now).resetById('same'), full.resetById('same'), `rebase ${event.id}`);
+  }
+});
+
 test('incremental views match canonical queries through late owners, lineage, raw pairing, memory and clock changes', async t => {
   const log = new SqliteEventLog(':memory:');
   const projector = new Projector(log, consoleProjections());

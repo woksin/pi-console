@@ -1,6 +1,9 @@
+import type { Reset } from '@pi-console/contract';
 import { questionItem, requestItem } from '../attention/needs-you.ts';
+import { compareText } from '../projector/canonical.ts';
 import type { ProjectionChanges } from '../projector/projector.ts';
 import type { ReadModels } from '../projections/index.ts';
+import type { ResetModel } from '../projections/sessions.ts';
 import { ConsoleQueries } from './console-queries.ts';
 import { toSession } from './entities.ts';
 import { IncrementalAttention } from './incremental-attention.ts';
@@ -20,6 +23,12 @@ function bootstrapChanges(models: ReadModels): ProjectionChanges {
   return changes;
 }
 
+/** Integer property keys precede other session keys in canonical Object.values order. */
+function sessionOrder(id: string, insertion: number): number {
+  const index = Number(id) >>> 0;
+  return String(index) === id && index < 0xffff_ffff ? index : 0x1_0000_0000 + insertion;
+}
+
 export const changedIds = (changes: ProjectionChanges, projection: string, collection: string): ReadonlySet<string> => changes.get(projection)?.get(collection) ?? new Set();
 
 /** Bootstrap once, then update only dirty rows and their reverse dependencies. Full REST queries remain canonical. */
@@ -32,7 +41,8 @@ export class IncrementalQueries extends ConsoleQueries {
   readonly #requests = new Map<string, string>();
   readonly #sessions = new Map<string, string>();
   readonly #resets = new Map<string, string>();
-  readonly #resetOwners = new Map<string, string>();
+  readonly #resetWinners = new Map<string, Reset>();
+  readonly #sessionOrder = new Map<string, number>();
 
   constructor(models: () => ReadModels, now: Date) {
     super(models, () => now);
@@ -48,11 +58,8 @@ export class IncrementalQueries extends ConsoleQueries {
   }
 
   override resetById(id: string) {
-    const owner = this.#resetOwners.get(id);
-    if (owner === undefined) return undefined;
-    const session = rowOf(this.#models().sessions.sessions, owner);
-    const reset = session?.resets.find(row => row.id === id);
-    return reset ? { ...reset, sessionId: owner } : undefined;
+    const reset = this.#resetWinners.get(id);
+    return reset ? { ...reset } : undefined;
   }
 
   override sessionMemory(id: string) { return rowOf(this.#models().sessions.sessions, id) ? this.#memory.summary(id) : undefined; }
@@ -75,7 +82,9 @@ export class IncrementalQueries extends ConsoleQueries {
   }
 
   #newSessionMemory(models: ReadModels, id: string, changed: Set<string>): void {
-    if (!this.#sessions.has(id) && rowOf(models.sessions.sessions, id)) changed.add(id);
+    if (this.#sessions.has(id) || !rowOf(models.sessions.sessions, id)) return;
+    changed.add(id);
+    this.#sessionOrder.set(id, sessionOrder(id, this.#sessionOrder.size));
   }
 
   #changedSessions(sessions: Iterable<string>, attention: Set<string>): Set<string> {
@@ -105,10 +114,19 @@ export class IncrementalQueries extends ConsoleQueries {
     }
   }
 
-  #indexResets(owner: string, resets: { id: string }[]): void {
+  #indexResets(owner: string, resets: ResetModel[]): void {
     for (const reset of resets) {
-      if (!this.#resetOwners.has(reset.id)) this.#resetOwners.set(reset.id, owner);
+      const next = { ...reset, sessionId: owner };
+      const current = this.#resetWinners.get(reset.id);
+      // Session reducers only retain earlier sightings; exact ties keep canonical session order.
+      if (!current || this.#compareResets(next, current) < 0) this.#resetWinners.set(reset.id, next);
     }
+  }
+
+  #compareResets(next: Reset, current: Reset): number {
+    const nextOwner = this.#sessionOrder.get(next.sessionId) ?? 0;
+    const currentOwner = this.#sessionOrder.get(current.sessionId) ?? 0;
+    return compareText(next.at, current.at) || nextOwner - currentOwner;
   }
 
   #updateRequests(models: ReadModels, changes: ProjectionChanges, attention: Set<string>): Set<string> {

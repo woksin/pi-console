@@ -53,6 +53,35 @@ test('coalescing publishes only the final entity and net derived changes, not sn
   } finally { spec.log.close(); }
 });
 
+test('a request observed and reset in one batch emits only its routed final request delta', async () => {
+  const spec = await batchSpec();
+  try {
+    const deltas = await spec.apply([
+      testEvent(3, 'RequestObserved', { raw: true, sessionId: 's1', entryId: 'p1', requestId: 'q', origin: 'unproven', originEvidence: 'spec' }),
+      testEvent(4, 'ResetOccurred', { sessionId: 's1', resetId: 'reset', kind: 'compaction', interruptedRequestIds: ['q'] }),
+    ]);
+    const requests = deltas.filter(delta => delta.type.startsWith('request.'));
+    assert.deepEqual(requests.map(delta => delta.type), ['request.observed']);
+    assert.equal((requests[0].payload as Request).id, 'q');
+    assert.equal((requests[0].payload as Request).status, 'interrupted');
+  } finally { spec.log.close(); }
+});
+
+test('an interim answer on an interrupted request emits only one request delta', async () => {
+  const spec = await batchSpec();
+  try {
+    await spec.apply([
+      request(3, 's1'),
+      testEvent(4, 'RequestInterrupted', { requestId: 'r1', sessionId: 's1', resetId: 'reset', reason: 'aborted' }),
+    ]);
+    const deltas = await spec.apply([testEvent(5, 'AnswerObserved', { requestId: 'r1', answerId: 'interim', interim: true })]);
+    const requests = deltas.filter(delta => delta.type.startsWith('request.'));
+    assert.deepEqual(requests.map(delta => delta.type), ['request.observed']);
+    assert.equal((requests[0].payload as Request).status, 'interrupted');
+    assert.equal((requests[0].payload as Request).interimAnswers.length, 1);
+  } finally { spec.log.close(); }
+});
+
 for (const [type, payload, status] of [
   ['AnswerObserved', { raw: true, sessionId: 's1', entryId: 'a1', answerId: 's1:a1', excerpt: 'answer', withheld: false, interim: false }, 'answered'],
   ['RequestInterrupted', { raw: true, sessionId: 's1', entryId: 'abort', reason: 'aborted' }, 'interrupted'],
