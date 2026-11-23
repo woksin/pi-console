@@ -2,6 +2,15 @@
   "name": "@pi-console/tui",
   "version": "0.0.0",
   "private": true,
+  "description": "OpenTUI terminal client for observing pi agent fleets and requesting opt-in memory review.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/woksin/pi-console.git",
+    "directory": "packages/tui"
+  },
+  "homepage": "https://github.com/woksin/pi-console",
+  "keywords": ["pi", "ai-agents", "observability", "tui", "opentui", "memory-review"],
+  "license": "MIT",
   "type": "module",
   "exports": {
     ".": "./src/index.ts",

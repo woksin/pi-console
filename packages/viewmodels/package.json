@@ -2,6 +2,15 @@
   "name": "@pi-console/viewmodels",
   "version": "0.0.0",
   "private": true,
+  "description": "Shared presentation models, formatting and navigation for pi-console web and terminal clients.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/woksin/pi-console.git",
+    "directory": "packages/viewmodels"
+  },
+  "homepage": "https://github.com/woksin/pi-console",
+  "keywords": ["pi", "ai-agents", "observability", "viewmodels", "web", "tui"],
+  "license": "MIT",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"

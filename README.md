@@ -230,6 +230,8 @@ Acceptance criteria per milestone: [docs/milestones.md](docs/milestones.md).
 
 | Document | Content |
 |---|---|
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Setup, checks and release notes for contributors |
+| [SECURITY.md](SECURITY.md) | Security policy and private vulnerability reporting |
 | [docs/index.md](docs/index.md) | Table of contents and reading order |
 | [docs/vision.md](docs/vision.md) | Problem, vision, principles, personas, non-goals |
 | [docs/information-architecture.md](docs/information-architecture.md) | Entities, navigation, status taxonomy, screens, keyboard map, visual style |

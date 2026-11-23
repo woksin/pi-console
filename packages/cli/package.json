@@ -2,6 +2,15 @@
   "name": "@pi-console/cli",
   "version": "0.0.0",
   "private": true,
+  "description": "Command-line entry point for the pi-console daemon and terminal UI.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/woksin/pi-console.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/woksin/pi-console",
+  "keywords": ["pi", "ai-agents", "observability", "cli", "tui"],
+  "license": "MIT",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"

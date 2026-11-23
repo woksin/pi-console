@@ -2,6 +2,15 @@
   "name": "@pi-console/adapters",
   "version": "0.0.0",
   "private": true,
+  "description": "Read-only source adapters, file tailers and secret redaction for pi-console.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/woksin/pi-console.git",
+    "directory": "packages/adapters"
+  },
+  "homepage": "https://github.com/woksin/pi-console",
+  "keywords": ["pi", "ai-agents", "observability", "adapters", "redaction"],
+  "license": "MIT",
   "type": "module",
   "exports": {
     ".": "./src/index.ts"
