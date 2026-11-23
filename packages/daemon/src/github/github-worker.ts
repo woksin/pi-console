@@ -123,7 +123,9 @@ export class GithubClosureWorker {
   #due(entries: Association[], state: GithubState, at: number): LinkTarget[] {
     const byKey = new Map(entries.map(item => [item.target.key, item.target]));
     const fetched = (target: LinkTarget): number => { const entry = entryOf(state, target.key); return entry ? timeOf(entry.fetchedAt) : 0; };
-    return [...byKey.values()].filter(target => (entryOf(state, target.key)?.nextAt ?? 0) <= at).sort((a, b) => fetched(a) - fetched(b));
+    const admits = this.#evictable(state) !== null;
+    const due = (target: LinkTarget): boolean => { const entry = entryOf(state, target.key); return entry ? entry.nextAt <= at : admits; };
+    return [...byKey.values()].filter(due).sort((a, b) => fetched(a) - fetched(b));
   }
 
   #mayStart(state: GithubState, at: number): boolean {
@@ -150,25 +152,29 @@ export class GithubClosureWorker {
   }
 
   #record(state: GithubState, key: string, result: Lookup, at: number): void {
+    state.pausedUntil = Math.max(state.pausedUntil, pauseOf(result, at));
     const known = state.targets[key] as TargetEntry | undefined;
     if (!known && !this.#room(state)) return;
     const failures = result.ok ? 0 : (known?.failures ?? 0) + 1;
     const nextAt = at + (result.ok ? this.#policy.ttlMs : this.#backoff(failures));
     const fetchedAt = iso(at);
     state.targets[key] = result.ok ? { kind: result.kind, state: result.state, closedAt: result.closedAt, fetchedAt, failures, nextAt } : { kind: null, state: 'unknown', closedAt: null, fetchedAt, failures, nextAt };
-    state.pausedUntil = Math.max(state.pausedUntil, pauseOf(result, at));
   }
 
   #backoff(failures: number): number { return Math.min(this.#policy.maxBackoffMs, this.#policy.backoffMs * 2 ** Math.min(failures - 1, 10)); }
 
-  /** Makes room for a new target by dropping the oldest one no current question links; without any, the new target stays unverified. */
-  #room(state: GithubState): boolean {
+  /** The key to drop to admit a new target: '' when there is room, null when the cache is full of still-linked targets (the new target is then not queried and stays unverified). */
+  #evictable(state: GithubState): string | null {
     const keys = Object.keys(state.targets);
-    if (keys.length < maxTargets) return true;
+    if (keys.length < maxTargets) return '';
     const current = new Set([...this.#eligible()].flatMap(question => question.targets.map(target => target.key)));
-    const oldest = first(keys.filter(key => !current.has(key)).sort((a, b) => timeOf(state.targets[a].fetchedAt) - timeOf(state.targets[b].fetchedAt)));
-    if (oldest === undefined) return false;
-    Reflect.deleteProperty(state.targets, oldest);
+    return first(keys.filter(key => !current.has(key)).sort((a, b) => timeOf(state.targets[a].fetchedAt) - timeOf(state.targets[b].fetchedAt))) ?? null;
+  }
+
+  #room(state: GithubState): boolean {
+    const drop = this.#evictable(state);
+    if (drop === null) return false;
+    if (drop !== '') Reflect.deleteProperty(state.targets, drop);
     return true;
   }
 

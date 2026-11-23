@@ -73,3 +73,13 @@ test('the clock moving backwards withholds rather than extends the advisory', ()
   assert.equal(assessMoot(['a/b#1'], [closed('a/b#1')], now - 2 * evidenceMaxAgeMs).moot, false);
   assert.equal(assessMoot(['a/b#1'], [closed('a/b#1')], now + evidenceMaxAgeMs).moot, false);
 });
+
+test('hostile padding and control characters beside a closed link never produce moot', () => {
+  const padded = 'a/b#2' + ' '.repeat(195) + 'junk';
+  for (const other of [padded, 'a/b#2\u0000', 'a/b#2\u2026', padded.slice(0, 198) + '\u2026']) {
+    const result = assessMoot(['a/b#1', other], [closed('a/b#1'), closed('a/b#2')], now);
+    assert.equal(result.moot, false, JSON.stringify(other).slice(0, 30));
+    assert.equal(result.reason, 'unsupported-links');
+  }
+  assert.equal(analyzeLinks([padded]).coverage, 'unsupported');
+});

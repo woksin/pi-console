@@ -65,7 +65,7 @@ function fullDetail(row: QuestionRow | undefined, env: Env) {
 const preferenceTitle = (env: Env): string => ` · ${questionSortLabels[env.ui.questionSort].toLowerCase()} · stale ${String(env.ui.questionStaleDays)}d`;
 
 function rowLine(row: QuestionRow, env: Env, width: number, selected: boolean): Line {
-  const left = [...statusParts(row.status, env.phase, false), t(row.urgent ? ' ‼ ' : '   ', 'red'), t(row.text, row.status.status === 'done' ? 'muted' : 'text')];
+  const left = [...statusParts(row.status, env.phase, false), t(row.urgent ? ' ‼ ' : '   ', 'red'), ...(row.moot?.label ? [t(`${row.moot.label} · `, 'amber', { bold: true })] : []), t(row.text, row.status.status === 'done' ? 'muted' : 'text')];
   const right = [t(row.stale ? 'stale ' : '', 'amber'), t(pad(row.session, 22, env.measure), 'muted'), t(row.age.padStart(4), 'faint')];
   return selectable(split(left, right, width - 1, { measure: env.measure }), width, selected, { measure: env.measure });
 }

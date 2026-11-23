@@ -227,3 +227,15 @@ test('unknown enums and future source versions are warnings, not normalized gues
   ];
   for (const [row, mapper, source] of unsupported) assert.equal(map(row, mapper, source)[0].type, 'SourceSchemaUnknown');
 });
+
+test('links that are not whole recognised references can never parse after truncation or control stripping', async () => {
+  const { parseLink } = await import('@pi-console/contract');
+  const hostile = ['a/b#1' + ' '.repeat(195) + 'junk', 'a/b#1\u0000', 'a/b#1\u0000'.repeat(3), 'x'.repeat(300), 'plain prose'];
+  const row = { ...fixture.question, links: ['a/b#1', 'https://github.com/a/b/pull/2?x=1', ...hostile] };
+  const stored = questionEvents(row).find(event => event.type === 'QuestionSnapshotObserved')?.payload.links as string[];
+  assert.deepEqual(stored.slice(0, 2), ['a/b#1', 'https://github.com/a/b/pull/2?x=1']);
+  for (const link of stored.slice(2)) {
+    assert.equal(parseLink(link), null);
+    assert.equal(parseLink(link.slice(0, 200).split('\u0000').join('')), null);
+  }
+});

@@ -202,3 +202,51 @@ test('prototype-like repository and question names cannot corrupt the cache', as
   assert.equal(test.lookups.length, 1);
   assert.equal(({} as Record<string, unknown>).fetchedAt, undefined);
 });
+
+const cachedEntry = (nextAt: number) => ({ kind: 'issue' as const, state: 'closed' as const, closedAt: '2025-12-31T00:00:00Z', fetchedAt: '2025-12-31T23:00:00Z', failures: 0, nextAt });
+function fullCache(options: { reply?: (target: QueryTarget) => Lookup; due?: number[]; unlinked?: boolean } = {}) {
+  const questions = Array.from({ length: 501 }, (_, index) => question(`q${String(index)}`, [`a/b#${String(index + 1)}`]));
+  const test = setup(questions, { reply: options.reply });
+  const state = freshState(start);
+  for (let index = 0; index < 500; index++) state.targets[`a/b#${String(index + 1)}`] = cachedEntry(options.due?.includes(index) ? 0 : start + 86_400_000);
+  if (options.unlinked) { Reflect.deleteProperty(state.targets, 'a/b#500'); state.targets['a/b#9999'] = cachedEntry(start + 86_400_000); }
+  test.world.saved = state;
+  return test;
+}
+
+test('a full cache of still-linked targets never queries an uncached target, and does not busy-retry', async () => {
+  const test = fullCache();
+  await test.poll();
+  for (let index = 0; index < 30; index++) await test.poll(10_000);
+  assert.equal(test.lookups.length, 0);
+  assert.equal(test.events.some(event => (event.payload as { target: string }).target === 'a/b#501'), false);
+});
+
+test('cached targets still refresh when the cache is full, and an uncached one is still not queried', async () => {
+  const test = fullCache({ due: [0, 1] });
+  await test.poll();
+  for (let index = 0; index < 10; index++) await test.poll(10_000);
+  assert.deepEqual(test.lookups.map(item => item.number).sort(), [1, 2]);
+  assert.equal(test.lookups.some(item => item.number === 501), false);
+});
+
+test('a rate limit reported while the cache is full still pauses every request, and an evictable entry admits a new target', async () => {
+  const limited = fullCache({ due: [0, 1], reply: () => ({ ok: false, failure: 'rate-limited', resumeAt: null }) });
+  await limited.poll(); await limited.poll(1_000);
+  for (let index = 0; index < 20; index++) await limited.poll(10_000);
+  assert.equal(limited.lookups.length, 1);
+  assert.ok(limited.world.saved!.pausedUntil >= start + 3_600_000);
+  const room = fullCache({ unlinked: true });
+  await room.poll();
+  for (let index = 0; index < 8; index++) await room.poll(10_000);
+  assert.deepEqual(room.lookups.map(item => item.number), [500]);
+  assert.equal(Object.keys(room.world.saved!.targets).length, 500);
+  assert.equal(room.world.saved!.targets['a/b#9999'], undefined);
+});
+
+test('padded or control-character links are never queried, even beside a clean one', async () => {
+  const test = setup([question('q1', ['a/b#1', 'a/b#2' + ' '.repeat(195) + 'junk']), question('q2', ['a/b#3\u0000', 'a/b#1'])]);
+  await test.poll(); for (let index = 0; index < 5; index++) await test.poll(10_000);
+  assert.equal(test.lookups.length, 0);
+  assert.equal(test.events.length, 0);
+});

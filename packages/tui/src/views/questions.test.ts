@@ -279,3 +279,21 @@ test('80x24: long actor labels wrap in history and shortened notes are labelled'
     assert.match(ui.frame(), /partial note… \(shortened\)/);
   } finally { ui.destroy(); store.dispose(); }
 });
+
+const mootEvidence = (target: string, state: string) => ({ target, kind: 'issue', state, closedAt: state === 'open' ? null : '2026-01-01T00:00:00Z', fetchedAt: new Date(Date.now() - 60_000).toISOString(), source: 'github-gh' });
+const mootQuestions = [
+  { ...question, id: 'q-moot', text: 'Moot candidate question', options: [], links: ['a/b#1'], linkEvidence: [mootEvidence('a/b#1', 'closed')] },
+  { ...question, id: 'q-live', text: 'Still live question', options: [], links: ['a/b#2'], linkEvidence: [mootEvidence('a/b#2', 'open')] },
+] as Question[];
+
+for (const width of [80, 120, 160]) {
+  test(`${String(width)} columns: the list row says "Possibly moot" only for the fully closed question, advisory only`, async () => {
+    const { ui, store } = await setup(width, mootQuestions);
+    try {
+      const lines = ui.frame().split('\n');
+      assert.equal(lines.filter(line => line.includes('Possibly moot')).length, 1);
+      assert.ok(lines.find(line => line.includes('Possibly moot'))?.includes('Moot candidate'));
+      assert.ok(!lines.find(line => line.includes('Still live'))?.includes('Possibly moot'));
+    } finally { ui.destroy(); store.dispose(); }
+  });
+}

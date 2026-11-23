@@ -6,6 +6,11 @@ export const maxLinkLength = 512;
 export const maxTargets = 50;
 /** Closure evidence is advisory for one hour after it was fetched. */
 export const evidenceMaxAgeMs = 3_600_000;
+/**
+ * Tolerance between the clocks involved (GitHub's, the daemon's and a client's): a closure up to five minutes after its fetch,
+ * or a fetch up to five minutes ahead of the viewer's clock, is still accepted. Anything further out is withheld. Documented in
+ * docs/security.md.
+ */
 export const clockSkewMs = 300_000;
 export const githubSource = 'github-gh';
 

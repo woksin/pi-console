@@ -96,7 +96,9 @@ Off by default. When `sources.github-closures` is on and `githubRepositories` li
 - `gh` is started with an argument array (never a shell), fixed read-only GraphQL, closed stdin, bounded output, a timeout, and SIGTERM then SIGKILL on timeout or shutdown. Prompts, pagers and debug output are disabled.
 - One request at a time, at least 10 s apart, at most 120 per rolling hour, reserved in a private state file before the child starts; a lost or corrupt state file means a one-hour cooldown. Failures back off 15 to 60 minutes; rate limits pause for at least an hour.
 - Tokens, stderr and response text are never logged, stored or served; failures are recorded as the category `unknown` only.
-- The marker is advisory, is withheld for evidence older than an hour, and never changes question status.
+- The marker is advisory, is withheld for evidence older than an hour, and never changes question status. Clocks may differ by up to five minutes (a closure up to five minutes after its fetch, a fetch up to five minutes ahead of the viewer) before evidence is withheld; anything further out is ignored.
+- Only links that are whole, recognised github.com references count. Link text is classified before ingestion truncates it or the API strips control characters; anything else is marked unsupported, so padding or control characters can never make a different link look recognised.
+- **What is stored and served:** the allowlisted repository name, issue or pull request number, observed state, `closedAt` and `fetchedAt` (and the question they belong to) are written to the local event log and the private cache file, and are served by the authenticated loopback API. Retention follows the event log. Turning the source off, or emptying the allowlist, stops new queries but does not delete observations already recorded.
 
 ## Intent-memory store (read-only)
 

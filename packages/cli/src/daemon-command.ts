@@ -22,7 +22,7 @@ Options:
   -h, --help            Show this help
 
 Memory review is off by default; set "memoryActions": true in <data-dir>/config.json and restart to enable it.
-Possibly-moot GitHub lookups are off by default and use your own gh login: set "sources": {"github-closures": true} and "githubRepositories": ["owner/repo"] in <data-dir>/config.json (private repositories you list are queried too; see docs/security.md).
+Possibly-moot GitHub lookups are off by default and use your own gh login: set "sources": {"github-closures": true} and "githubRepositories": ["owner/repo"] in <data-dir>/config.json (private repositories you list are queried too; their names, numbers and states are stored in the local event log, which keeps them after you turn the feature off; see docs/security.md).
 
 The token is in <data-dir>/token (owner-only). With --web-dist the daemon prints this launch link; open it once: http://127.0.0.1:<port>/#token=<token>.`;
 
