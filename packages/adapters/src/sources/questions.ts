@@ -1,4 +1,4 @@
-import { parseLink } from '@pi-console/contract';
+import { parseLink, stripUnsafeCharacters } from '@pi-console/contract';
 import type { Fact, Mapper } from '../tailing/events.ts';
 import { excerpt, fact, integer, list, object, text, timestamp } from '../values.ts';
 import { entries, recorded, status, type Entry } from './question-history.ts';
@@ -26,20 +26,15 @@ function strings(value: unknown, pick: (item: unknown) => unknown = item => item
   return (value as unknown[]).map(item => text(pick(item)));
 }
 
-function withoutControls(text: string): string {
-  let kept = '';
-  for (const char of text) if (char.charCodeAt(0) > 31 && char.charCodeAt(0) !== 127) kept += char;
-  return kept;
-}
-
 /**
- * Link text is classified before ingestion truncates it (200 characters) or the API strips control characters. A link that is not a
- * whole recognised reference but would become one after either step keeps its text and ends in an ellipsis, so no truncated or
- * stripped form can ever parse as a target: server and clients then agree it is unsupported. Every other link passes unchanged.
+ * Link text is classified before ingestion truncates it (200 characters) or the API strips unsafe characters. A link whose target
+ * would differ after either step (becoming one, or naming another number) keeps its text and ends in an ellipsis, so no truncated or
+ * stripped form can ever parse as a different target: server and clients then agree it is unsupported. Every other link passes unchanged.
  */
 function linkText(item: unknown): unknown {
-  if (typeof item !== 'string' || parseLink(item)) return item;
-  return parseLink(withoutControls(item.slice(0, 200))) ? `${item.slice(0, 198)}\u2026` : item;
+  if (typeof item !== 'string') return item;
+  const stored = parseLink(stripUnsafeCharacters(item.slice(0, 200)))?.key;
+  return stored === parseLink(item)?.key ? item : `${item.slice(0, 198)}\u2026`;
 }
 
 const optionText = (item: unknown): unknown => (typeof item === 'string' ? item : object(item).text);
