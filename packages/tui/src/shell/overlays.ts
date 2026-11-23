@@ -1,5 +1,5 @@
-import { keyLabel, keymapGroups, pad, paletteScopes, paletteView, daemonHealthRows, settingsViewModel, themePreview, wrap, type KeymapGroup, type PaletteItem, type PaletteView, type SettingsInput, type SettingsRow, type Tone } from '@pi-console/viewmodels';
-import { Lines, Overlay, Panel, h, type Line, type Part } from '../view/renderer.ts';
+import { keyLabel, keymapGroups, pad, paletteScopes, paletteView, daemonHealthRows, settingsViewModel, themePreview, wrap, type KeymapGroup, type PaletteItem, type PaletteView, type SettingsInput, type SettingsRow, type Tone, type TextWidth } from '@pi-console/viewmodels';
+import { Lines, Overlay, Panel, h, useTextWidth, type Line, type Part } from '../view/renderer.ts';
 import { blank, fit, gap, heading, rule, selectable, split, t, windowOf } from '../view/parts.ts';
 import type { Data } from '../store/store.ts';
 import type { UiState } from '../state/ui.ts';
@@ -12,21 +12,21 @@ const frame = (width: number, height: number, wanted: { width: number; height: n
 
 type PaletteData = Pick<Data, 'sessions' | 'requests' | 'questions' | 'messages'>;
 
-const paletteRow = (item: PaletteItem, width: number, selected: boolean): Line => {
+const paletteRow = (item: PaletteItem, width: number, selected: boolean, measure: TextWidth): Line => {
   const label: Part[] = item.segments.map(segment => t(segment.text, segment.hit ? 'cyan' : 'text', segment.hit ? { bold: true, underline: true } : {}));
   const right: Part[] = [t(item.detail, 'muted'), t(item.key ? `  ${item.key}` : '', 'faint')];
-  return selectable(split([t(item.glyph, item.tone, { bold: true }), gap(), ...label], right, width - 2), width, selected);
+  return selectable(split([t(item.glyph, item.tone, { bold: true }), gap(), ...label], right, width - 2, { measure }), width, selected, { measure });
 };
 
 /** The sections as lines, with the line index of the highlighted row so the list can scroll to it. */
-function paletteLines(view: PaletteView, index: number, width: number): { lines: Line[]; cursor: number } {
+function paletteLines(view: PaletteView, index: number, width: number, measure: TextWidth): { lines: Line[]; cursor: number } {
   const lines: Line[] = [];
   let cursor = 0;
   for (const section of view.sections) {
     lines.push([t(' '), t(section.title.toUpperCase(), 'muted', { bold: true })]);
     for (const item of section.items) {
       if (view.items.indexOf(item) === index) cursor = lines.length;
-      lines.push(paletteRow(item, width, view.items.indexOf(item) === index));
+      lines.push(paletteRow(item, width, view.items.indexOf(item) === index, measure));
     }
   }
   return { lines, cursor };
@@ -37,12 +37,13 @@ const paletteFooter = (view: PaletteView, width: number): Line =>
 
 /** Jump anywhere: the shared palette view model with typed groups, prefixes, match highlight and recents. */
 export function Palette(props: { ui: UiState; data: PaletteData; width: number; height: number }) {
+  const measure = useTextWidth();
   const box = frame(props.width, props.height, { width: 96, height: 26 });
   const inner = box.width - 4;
   const view = paletteView({ ...props.data, query: props.ui.input, recents: props.ui.recents, client: 'tui' });
   const index = Math.min(props.ui.paletteIndex, Math.max(0, view.items.length - 1));
-  const prompt: Line = fit([t('❯ ', 'cyan', { bold: true }), t(props.ui.input, 'text'), t('▌', 'cyan')], inner, 'panel');
-  const { lines, cursor } = paletteLines(view, index, inner);
+  const prompt: Line = fit([t('❯ ', 'cyan', { bold: true }), t(props.ui.input, 'text'), t('▌', 'cyan')], inner, 'panel', measure);
+  const { lines, cursor } = paletteLines(view, index, inner, measure);
   const room = Math.max(1, box.height - 6);
   const shown = windowOf(lines.length, cursor, room);
   const body = view.items.length === 0 ? [[t(`  No matches in ${view.scope}. Try another word or prefix.`, 'muted')]] : lines.slice(shown.start, shown.end);

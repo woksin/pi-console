@@ -56,6 +56,22 @@ Any number of resets in a row behave like one, except that each adds evidence an
    id, and for a raw prompt of the same transcript entry. An explicit interruption never undoes an answer. This is how an
    extension, or later the intent-memory store, states what the transcript cannot show.
 
+## Storage and startup residency
+
+Every public request row stays resident, because every query reads them. The auxiliary session histories (ordered
+observations, explicit ids, contributed request ids) that derivation needs to pair and re-derive a session are stored
+per session; a long session keeps them in normalized rows rather than inline.
+
+- **Warm start** restores the public rows and session facts but does not read normalized histories, and the daemon
+  indexes raw prompt owners by streaming them, so memory at restore does not grow with that history.
+- **An event** that touches a session reads back only that session (and, for an explicit move or reset, the previous
+  or named owner), derives as usual, and releases the history again once the change is saved. Queries, screens and
+  transcript reads never read it. Re-deriving one very large session still needs all of that session in memory.
+- **Catch-up** processes the event log in slices of at most `sliceEvents` (250) events and lets timers and I/O run
+  between slices. The daemon still listens only after catch-up finishes, and a single event is not interrupted.
+- Not bounded: the number and size of public request rows, startup time (still linear in stored history), and
+  snapshots written by older versions, which contain their histories inline.
+
 ## Uncertain pairings
 
 Labelled `uncertain` with a reason, and the evidence entries (prompt, later prompt, reset, answer, boundary, each with

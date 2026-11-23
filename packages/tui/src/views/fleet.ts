@@ -1,12 +1,12 @@
-import { emptyStates, fleetColumns, fleetViewModel, pad, padStart, type FleetRow, type SessionRow } from '@pi-console/viewmodels';
+import { emptyStates, fleetColumns, fleetViewModel, pad, padStart, type FleetRow, type SessionRow, type TextWidth } from '@pi-console/viewmodels';
 import { Lines, Panel, Row, h, type Line } from '../view/renderer.ts';
 import { pressureBar, blank, fit, heading, pressureTone, selectable, statusParts, t, windowOf } from '../view/parts.ts';
 import { checklistLines, emptyLines, loadingLines, noMatchLines, type Env, type SectionView } from './common.ts';
 import { listFilter } from '../state/ui.ts';
 
-function groupLine(row: Extract<FleetRow, { kind: 'group' }>, width: number, selected: boolean) {
+function groupLine(row: Extract<FleetRow, { kind: 'group' }>, width: number, selected: boolean, measure?: TextWidth) {
   const attention = row.attention > 0 ? [t(`  ${String(row.attention)} need attention`, 'amber')] : [];
-  return selectable([t(row.collapsed ? '▸ ' : '▾ ', 'cyan'), t(row.label, 'text', { bold: true }), t(`  ${String(row.sessions)}`, 'faint'), ...attention], width, selected);
+  return selectable([t(row.collapsed ? '▸ ' : '▾ ', 'cyan'), t(row.label, 'text', { bold: true }), t(`  ${String(row.sessions)}`, 'faint'), ...attention], width, selected, { measure });
 }
 
 const columns = (width: number) => {
@@ -24,19 +24,19 @@ function columnHeadings(layout: Columns): Line {
   return fit([t('   '), ...cells], layout.width);
 }
 
-function sessionName(row: SessionRow, width: number): Line {
+function sessionName(row: SessionRow, width: number, measure?: TextWidth): Line {
   const indent = row.depth > 0 ? `${'  '.repeat(row.depth)}└ ` : '';
-  return [t(pad(indent + row.name, width), row.role === 'subagent' ? 'muted' : 'text')];
+  return [t(pad(indent + row.name, width, measure), row.role === 'subagent' ? 'muted' : 'text')];
 }
 
 function sessionLine(row: SessionRow, layout: Columns, env: Env, selected: boolean) {
   return selectable([
-    t('  '), ...sessionName(row, layout.name), t(' '),
+    t('  '), ...sessionName(row, layout.name, env.measure), t(' '),
     ...statusParts(row.status, env.phase, false), t(' '), t(pad(row.status.label, 10), row.status.color), t(' '),
     ...pressureBar(row.contextPercent, layout.context - 5), t(padStart(`${String(row.contextPercent)}%`, 5), pressureTone(row.pressure)),
     ...(layout.spark ? [t(' '), t(row.spark.padEnd(12), 'faint')] : []),
     ...(layout.details ? [t(padStart(row.cost, 7), 'faint'), t(padStart(row.age, 6), 'muted')] : []),
-  ], layout.width, selected, env.data.fresh.has(row.id));
+  ], layout.width, selected, { flash: env.data.fresh.has(row.id), measure: env.measure });
 }
 
 function preview(row: FleetRow | undefined, sessions: number): ReturnType<typeof h> {
@@ -59,7 +59,7 @@ function groupSummary(row: Exclude<FleetRow, SessionRow> | undefined, sessions: 
 function fleetLines(rows: FleetRow[], env: Env, window: { layout: Columns; cursor: number; start: number }): Line[] {
   const { layout, cursor, start } = window;
   return rows.map((row, offset) => row.kind === 'group'
-    ? groupLine(row, layout.width, start + offset === cursor)
+    ? groupLine(row, layout.width, start + offset === cursor, env.measure)
     : sessionLine(row, layout, env, start + offset === cursor));
 }
 

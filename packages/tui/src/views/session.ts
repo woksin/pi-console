@@ -1,7 +1,7 @@
-import { glyphs, clip, memoryPanelViewModel, sessionViewModel, wrap, type ResetRequest, type SessionViewModel, type TranscriptLine } from '@pi-console/viewmodels';
+import { glyphs, clip, memoryPanelViewModel, sessionViewModel, wrap, type ResetRequest, type SessionViewModel, type TranscriptLine, type TextWidth } from '@pi-console/viewmodels';
 import { Column, Lines, Panel, Row, h, type Line, type Part } from '../view/renderer.ts';
 import type { Color } from '../view/theme.ts';
-import { pressureBar, blank, fit, pressureTone, rule, split, statusParts, t } from '../view/parts.ts';
+import { pressureBar, blank, fit, pressureTone, rule, split, statusParts, t, type CellBudget } from '../view/parts.ts';
 import { sidePanes, type SidePane, type UiState } from '../state/ui.ts';
 import { sessionSideWidth } from '../state/session-layout.ts';
 import { transcriptViewport, transcriptWindow, type TranscriptAnchor, type TranscriptLayout } from '../state/transcript-window.ts';
@@ -26,12 +26,12 @@ function entryStyle(entry: TranscriptLine): EntryStyle {
   }
 }
 
-function entryRows(entry: TranscriptLine, body: number): string[] {
-  return entry.kind === 'diff' ? entry.text.split('\n').slice(0, LIMITS.diff).map(text => clip(text, body)) : wrap(entry.text, body, LIMITS[entry.kind]);
+function entryRows(entry: TranscriptLine, body: number, measure?: TextWidth): string[] {
+  return entry.kind === 'diff' ? entry.text.split('\n').slice(0, LIMITS.diff).map(text => clip(text, body, measure)) : wrap(entry.text, body, LIMITS[entry.kind], measure);
 }
 
-function toolLine(entry: TranscriptLine & { tool: NonNullable<TranscriptLine['tool']> }, stamp: Part, body: number): Line {
-  return [stamp, t(`${glyphs.tool} `, 'cyan'), t(entry.tool.name, 'cyan', { bold: true }), t(' ' + clip(entry.tool.args, Math.max(4, body - entry.tool.name.length - 1)), 'muted')];
+function toolLine(entry: TranscriptLine & { tool: NonNullable<TranscriptLine['tool']> }, stamp: Part, body: number, measure?: TextWidth): Line {
+  return [stamp, t(`${glyphs.tool} `, 'cyan'), t(entry.tool.name, 'cyan', { bold: true }), t(' ' + clip(entry.tool.args, Math.max(4, body - entry.tool.name.length - 1), measure), 'muted')];
 }
 
 /** The last `cells` samples of the context sparkline; a sample with a reset tick is drawn pink. */
@@ -42,24 +42,24 @@ function contextSpark(context: SessionViewModel['context'], cells: number): Part
 }
 
 /** A request list under a reset rule: `carried  r1 Compare the queue…`, one request per line. */
-const resetRequestLines = (label: string, requests: readonly ResetRequest[], width: number): Line[] => requests.map((request, index): Line =>
-  [t(' '.repeat(10)), t('┊ ', 'pink'), t((index === 0 ? label : '').padEnd(12), 'muted'), t(`${request.id} `, 'faint'), t(clip(request.text, Math.max(4, width - 26 - request.id.length)), 'text')]);
+const resetRequestLines = (label: string, requests: readonly ResetRequest[], width: number, measure?: TextWidth): Line[] => requests.map((request, index): Line =>
+  [t(' '.repeat(10)), t('┊ ', 'pink'), t((index === 0 ? label : '').padEnd(12), 'muted'), t(`${request.id} `, 'faint'), t(clip(request.text, Math.max(4, width - 26 - request.id.length), measure), 'text')]);
 
 /** The `⟲` divider: a bold pink rule naming the kind and counts, then what was carried over and what was interrupted. */
-function resetDividerLines(entry: TranscriptLine, stamp: Part, width: number): Line[] {
+function resetDividerLines(entry: TranscriptLine, stamp: Part, width: number, measure?: TextWidth): Line[] {
   const title = entry.reset ? entry.reset.summary : `reset · ${entry.text}`;
-  const head: Line = [stamp, ...rule(width - 9, `${glyphs.reset} ${title}`, 'pink').map(part => ({ ...part, bold: true }))];
+  const head: Line = [stamp, ...rule(width - 9, `${glyphs.reset} ${title}`, 'pink', measure).map(part => ({ ...part, bold: true }))];
   if (!entry.reset) return [head];
-  return [head, ...resetRequestLines('carried', entry.reset.carried, width), ...resetRequestLines('interrupted', entry.reset.interrupted, width), [t('')]];
+  return [head, ...resetRequestLines('carried', entry.reset.carried, width, measure), ...resetRequestLines('interrupted', entry.reset.interrupted, width, measure), [t('')]];
 }
 
 /** Turns one transcript entry into display lines for a column `width` cells wide. */
-export function renderEntry(entry: TranscriptLine, width: number): Line[] {
+export function renderEntry(entry: TranscriptLine, width: number, measure?: TextWidth): Line[] {
   const stamp = t(`${entry.time} `, 'faint');
   const body = width - 12;
-  if (entry.kind === 'reset') return resetDividerLines(entry, stamp, width);
-  if (entry.kind === 'tool' && entry.tool) return [toolLine({ ...entry, tool: entry.tool }, stamp, body)];
-  const lines = bodyLines(entry, stamp, body);
+  if (entry.kind === 'reset') return resetDividerLines(entry, stamp, width, measure);
+  if (entry.kind === 'tool' && entry.tool) return [toolLine({ ...entry, tool: entry.tool }, stamp, body, measure)];
+  const lines = bodyLines(entry, stamp, body, measure);
   if (entry.streaming && lines.length > 0) lines[lines.length - 1] = [...lines[lines.length - 1], t(' ▍', 'cyan')];
   if (entry.kind === 'assistant' || entry.kind === 'user') lines.push([t('')]);
   return lines;
@@ -67,14 +67,14 @@ export function renderEntry(entry: TranscriptLine, width: number): Line[] {
 
 const gutterOf = (entry: TranscriptLine, stamp: Part, first: boolean): Part[] => (first ? [stamp, t(`${glyphs[entry.kind]} `, entry.color, { bold: true })] : [t(' '.repeat(10)), t('  ')]);
 
-function bodyLines(entry: TranscriptLine, stamp: Part, body: number): Line[] {
+function bodyLines(entry: TranscriptLine, stamp: Part, body: number, measure?: TextWidth): Line[] {
   const style = entryStyle(entry);
   const content = (text: string): Line => (entry.kind === 'diff' ? diffLine(text) : [t(text, style.color, { bold: 'bold' in style, italic: 'italic' in style })]);
-  return entryRows(entry, body).map((text, index): Line => [...gutterOf(entry, stamp, index === 0), ...content(text)]);
+  return entryRows(entry, body, measure).map((text, index): Line => [...gutterOf(entry, stamp, index === 0), ...content(text)]);
 }
 
 interface Rendered { lines: Line[]; layout: TranscriptLayout }
-let linesCache: ({ key: unknown; width: number; search: string } & Rendered) | undefined;
+let linesCache: ({ key: unknown; width: number; search: string; measure?: TextWidth } & Rendered) | undefined;
 let modelCache: { deps: readonly unknown[]; model: SessionViewModel } | undefined;
 
 function layoutOf(entries: TranscriptLine[], rendered: Line[][]): TranscriptLayout {
@@ -84,51 +84,52 @@ function layoutOf(entries: TranscriptLine[], rendered: Line[][]): TranscriptLayo
 
 function transcriptLines(env: Env, model: SessionViewModel, key: unknown, width: number): Rendered {
   const hit = linesCache;
-  const wanted = { key, width, search: env.ui.search };
+  const wanted = { key, width, search: env.ui.search, measure: env.measure };
   if (hit && (Object.keys(wanted) as (keyof typeof wanted)[]).every(name => hit[name] === wanted[name])) return hit;
-  const rendered = model.transcript.map(entry => renderEntry(entry, width));
+  const rendered = model.transcript.map(entry => renderEntry(entry, width, env.measure));
   const fresh = { ...wanted, lines: rendered.flat(), layout: layoutOf(model.transcript, rendered) };
   linesCache = fresh;
   return fresh;
 }
 
-function header(model: SessionViewModel, width: number, phase: number): Line[] {
+function header(model: SessionViewModel, width: number, phase: number, measure?: TextWidth): Line[] {
   return [
-    split([...statusParts(model.status, phase), t('  '), t(model.title, 'text', { bold: true })], [t(`updated ${model.age} ago`, 'faint')], width),
-    fit([t(`${model.role} · `, 'muted'), t(model.branch, 'violet'), t(` · ${model.model} · `, 'muted'), t(model.cost, 'text'), t('  ctx ', 'muted'), ...pressureBar(model.context.percent, 14), t(` ${String(model.context.percent)}% `, pressureTone(model.context.pressure)), ...contextSpark(model.context, 16)], width),
+    split([...statusParts(model.status, phase), t('  '), t(model.title, 'text', { bold: true })], [t(`updated ${model.age} ago`, 'faint')], width, { measure }),
+    fit([t(`${model.role} · `, 'muted'), t(model.branch, 'violet'), t(` · ${model.model} · `, 'muted'), t(model.cost, 'text'), t('  ctx ', 'muted'), ...pressureBar(model.context.percent, 14), t(` ${String(model.context.percent)}% `, pressureTone(model.context.pressure)), ...contextSpark(model.context, 16)], width, undefined, measure),
   ];
 }
 
-type SidePaneBuilder = (model: SessionViewModel, inner: number) => Line[];
+type SidePaneBuilder = (model: SessionViewModel, inner: number, measure?: TextWidth) => Line[];
 
-const requestLines: SidePaneBuilder = (model, inner) => model.requests.flatMap(request => [
-  fit([...statusParts(request.status, 0, false), t(` ${request.originLabel}`, request.originLabel === 'Human request' ? 'blue' : 'amber'), t(` · ${request.status.label}`, request.status.color)], inner),
-  ...wrap(request.text, inner - 2, 2).map((text): Line => [t('  ' + text, 'text')]),
-  ...(request.answer ? [fit([t('  ✓ final: ', 'green'), t(request.answer.text, 'muted')], inner)] : []),
-  ...(request.partial ? [fit([t('  ◐ partial, not final: ', 'amber'), t(request.partial.text, 'muted')], inner)] : []),
+const requestLines: SidePaneBuilder = (model, inner, measure) => model.requests.flatMap(request => [
+  fit([...statusParts(request.status, 0, false), t(` ${request.originLabel}`, request.originLabel === 'Human request' ? 'blue' : 'amber'), t(` · ${request.status.label}`, request.status.color)], inner, undefined, measure),
+  ...wrap(request.text, inner - 2, 2, measure).map((text): Line => [t('  ' + text, 'text')]),
+  ...(request.answer ? [fit([t('  ✓ final: ', 'green'), t(request.answer.text, 'muted')], inner, undefined, measure)] : []),
+  ...(request.partial ? [fit([t('  ◐ partial, not final: ', 'amber'), t(request.partial.text, 'muted')], inner, undefined, measure)] : []),
   blank,
 ]);
 
-const questionLines: SidePaneBuilder = (model, inner) => model.questions.flatMap((question): Line[] => [
-  fit([t(question.blocking ? '! ' : '? ', 'amber'), t(question.text, 'text')], inner),
+const questionLines: SidePaneBuilder = (model, inner, measure) => model.questions.flatMap((question): Line[] => [
+  fit([t(question.blocking ? '! ' : '? ', 'amber'), t(question.text, 'text')], inner, undefined, measure),
   [t(`  ${question.status}${question.blocking ? ' · blocking' : ''}`, 'muted')],
 ]);
 
-const jobLines: SidePaneBuilder = (model, inner) => [
-  ...model.jobs.map(job => fit([...statusParts(job.status, 0, false), t(` ${job.name} `, 'text'), t(`${job.kind} ${job.exit}`, 'faint')], inner)),
-  ...model.subagents.map(sub => fit([...statusParts(sub.status, 0, false), t(` ↳ ${sub.name}`, 'muted')], inner)),
+const jobLines: SidePaneBuilder = (model, inner, measure) => [
+  ...model.jobs.map(job => fit([...statusParts(job.status, 0, false), t(` ${job.name} `, 'text'), t(`${job.kind} ${job.exit}`, 'faint')], inner, undefined, measure)),
+  ...model.subagents.map(sub => fit([...statusParts(sub.status, 0, false), t(` ↳ ${sub.name}`, 'muted')], inner, undefined, measure)),
 ];
 
-const resetLines: SidePaneBuilder = (model, inner) => model.resets.flatMap((reset): Line[] => [
-  fit([t('┃ ', 'pink'), t(`${reset.time} ${reset.kind}`, 'text')], inner),
+const resetLines: SidePaneBuilder = (model, inner, measure) => model.resets.flatMap((reset): Line[] => [
+  fit([t('┃ ', 'pink'), t(`${reset.time} ${reset.kind}`, 'text')], inner, undefined, measure),
   [t(`  carried ${String(reset.carried)} · interrupted ${String(reset.interrupted)}`, 'muted')],
 ]);
 
 const sidePaneBuilders: Record<Exclude<SidePane, 'memory'>, SidePaneBuilder> = { requests: requestLines, questions: questionLines, jobs: jobLines, resets: resetLines };
 
-function sideLines(model: SessionViewModel, pane: SidePane, width: number, memory: () => Line[]): Line[] {
+function sideLines(model: SessionViewModel, pane: SidePane, budget: CellBudget, memory: () => Line[]): Line[] {
+  const { width, measure } = budget;
   const tabs: Line = sidePanes.flatMap((name): Line => [t(` ${name} `, name === pane ? 'bg' : 'muted', { background: name === pane ? 'cyan' : undefined, bold: name === pane }), t(' ')]);
-  const body = pane === 'memory' ? memory() : sidePaneBuilders[pane](model, width - 4);
+  const body = pane === 'memory' ? memory() : sidePaneBuilders[pane](model, width - 4, measure);
   return [tabs, blank, ...(body.length === 0 ? [[t('Nothing here.', 'faint')]] : body)];
 }
 
@@ -152,7 +153,7 @@ function statusText({ search, paused, entries, above, newer }: { search: string;
   return !paused ? '● following tail' : newer ? '⏸ paused · f to follow' : `⏸ paused · ${String(above)} lines above live · f to follow`;
 }
 
-const contextPanel = (model: SessionViewModel, pane: SidePane, side: number, memory: () => Line[]) => (side ? [h(Panel, { title: 'Context', width: side }, h(Lines, { lines: sideLines(model, pane, side, memory) }))] : []);
+const contextPanel = (model: SessionViewModel, pane: SidePane, budget: CellBudget, memory: () => Line[]) => (budget.width ? [h(Panel, { title: 'Context', width: budget.width }, h(Lines, { lines: sideLines(model, pane, budget, memory) }))] : []);
 
 /** Where a jump from the Requests list lands: the entry's line at the top. `undefined` until the entry is in the transcript (live entries can arrive before the backfill page, so absence is not final). */
 function focusAnchor(entryId: string | null, lines: readonly TranscriptLine[], layout: TranscriptLayout): TranscriptAnchor | undefined {
@@ -200,11 +201,11 @@ export function sessionView(env: Env): SectionView {
     rowAt: () => ({ sessionId: null, groupId: null }),
     idAt: () => model.id,
     render: () => h(Column, { grow: 1 },
-      h(Panel, { height: 4, focused: false }, h(Lines, { lines: header(model, env.width - 4, env.phase) })),
+      h(Panel, { height: 4, focused: false }, h(Lines, { lines: header(model, env.width - 4, env.phase, env.measure) })),
       h(Row, { grow: 1, gap: 1 },
         h(Panel, { title: 'Transcript', right: status, grow: 1, focused: true, accent: following ? 'green' : 'amber' },
           h(Lines, { lines, grow: 1 })),
-        ...contextPanel(model, ui.pane, side, () => memoryLines(memoryPanelViewModel({ memory: data.memory.get(model.id) ?? null, items: data.memoryItems.get(model.id) ?? [], now: env.now, review: data.memoryReviews.get(model.id) }), side - 4, ui.memoryIndex, data.memoryHistory.get(model.id))))),
+        ...contextPanel(model, ui.pane, { width: side, measure: env.measure }, () => memoryLines(memoryPanelViewModel({ memory: data.memory.get(model.id) ?? null, items: data.memoryItems.get(model.id) ?? [], now: env.now, review: data.memoryReviews.get(model.id) }), { width: side - 4, measure: env.measure }, ui.memoryIndex, data.memoryHistory.get(model.id))))),
   };
 }
 

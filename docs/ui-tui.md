@@ -17,7 +17,7 @@ Needs Node 26 (the engine floor) because OpenTUI loads its native core through `
 
 ## Views
 
-At narrow widths, the header keeps the needs-you count visible by dropping the connection pill and inactive section shortcuts first. Fleet omits cost and age when they cannot fit and shows `+cost age hidden — widen terminal`; those columns return when there is room. Text clipping and wrapping use terminal-cell widths, keeping CJK characters, combining marks and joined emoji intact.
+At narrow widths, the header keeps the needs-you count visible by dropping the connection pill and inactive section shortcuts first. Fleet omits cost and age when they cannot fit and shows `+cost age hidden — widen terminal`; those columns return when there is room. Text clipping and wrapping use terminal-cell widths, keeping CJK characters, combining marks and joined emoji intact. The TUI measures with OpenTUI's active `widthMethod`: grapheme widths when the terminal supports mode 2027, `wcwidth` otherwise (including headless rendering). Joined emoji can take more than two cells in the fallback mode. Shared format helpers accept a client measurement function; their default grapheme budget, used by the web, is unchanged.
 
 Number keys jump, clicks work on tabs and rows. Everything except explicit memory-review requests is read-only; `q` only leaves the TUI.
 

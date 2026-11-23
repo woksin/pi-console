@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { age, cells, clip, clipCells, clock, compactNumber, displayWidth, fuzzy, money, pad, padStart, pressure, sanitize, sparkline, wrap } from './format.ts';
+import { age, cells, clip, clipCells, clock, compactNumber, displayWidth, fuzzy, graphemes, money, pad, padStart, pressure, sanitize, sparkline, wrap } from './format.ts';
 
 test('sanitize removes CSI, OSC, DCS and control characters but keeps text', () => {
   const hostile = 'a\u001b[31mred\u001b[0m b\u001b]0;pwned\u0007c \u001b]52;c;QUJD\u001b\\d \u001bPq\u001b\\e\u0000f\u009bg\ttab';
@@ -21,6 +21,20 @@ test('wrap breaks words, splits long tokens and marks truncation', () => {
   const cut = wrap('one two three four five six', 8, 2);
   assert.equal(cut.length, 2);
   assert.ok(cut[1].endsWith('…'));
+});
+
+test('clients can supply their width method while the default remains grapheme-based', () => {
+  const family = '👨‍👩‍👧‍👦';
+  const measure = (text: string) => graphemes(text).reduce((width, item) => width + (item === family ? 4 : displayWidth(item)), 0);
+  assert.equal(displayWidth(family), 2);
+  assert.equal(clipCells(`${family}abc`, 6, measure), `${family}a…`);
+  assert.equal(clip(`${family}  abc`, 6, measure), `${family} …`);
+  assert.equal(pad(family, 6, measure), `${family}  `);
+  assert.equal(padStart(family, 6, measure), `  ${family}`);
+  assert.deepEqual(wrap(`${family} abc`, 6, Infinity, measure), [family, 'abc']);
+  assert.deepEqual(wrap(`${family}abc`, 6, Infinity, measure), [`${family}ab`, 'c']);
+  assert.deepEqual(wrap(`${family} abc`, 6, 1, measure), [`${family}…`]);
+  assert.deepEqual(wrap(`${family} abc`, 6), [`${family} abc`]);
 });
 
 test('display helpers preserve Unicode, whitespace and width edge cases', () => {

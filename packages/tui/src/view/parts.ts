@@ -1,5 +1,5 @@
 import { displayWidth, clip, clipCells, graphemes, sanitize } from '@pi-console/viewmodels';
-import type { StatusCell } from '@pi-console/viewmodels';
+import type { StatusCell, TextWidth } from '@pi-console/viewmodels';
 import type { Color } from './theme.ts';
 import type { Line, Part } from './renderer.ts';
 
@@ -49,7 +49,7 @@ export function pressureBar(percent: number, width: number): Line {
   });
 }
 
-const total = (line: readonly Part[]) => displayWidth(line.map(part => part.text).join(''));
+const total = (line: readonly Part[], measure: TextWidth) => measure(line.map(part => part.text).join(''));
 
 /** Whether a style boundary divides a user-perceived character. */
 function crossesGrapheme(line: readonly Part[]): boolean {
@@ -59,31 +59,31 @@ function crossesGrapheme(line: readonly Part[]): boolean {
   return line.some(part => { offset += part.text.length; return !boundaries.has(offset); });
 }
 
-function fitJoined(line: readonly Part[], width: number, background?: Color): Line {
-  const clipped = clipCells(line.map(part => part.text).join(''), width);
+function fitJoined(line: readonly Part[], width: number, background: Color | undefined, measure: TextWidth): Line {
+  const clipped = clipCells(line.map(part => part.text).join(''), width, measure);
   let offset = 0;
   const out = line.flatMap(part => {
     const text = clipped.slice(offset, offset + part.text.length);
     offset += part.text.length;
     return text ? [{ ...part, text, background: part.background ?? background }] : [];
   });
-  const padding = Math.max(0, width - displayWidth(clipped));
+  const padding = Math.max(0, width - measure(clipped));
   if (padding) out.push({ text: ' '.repeat(padding), background });
   return out;
 }
 
 /** Clips a line to `width` cells (ellipsis on the cut part) and pads it with spaces; `background` fills the whole width. */
-export function fit(line: readonly Part[], width: number, background?: Color): Line {
-  if (crossesGrapheme(line)) return fitJoined(line, width, background);
+export function fit(line: readonly Part[], width: number, background?: Color, measure: TextWidth = displayWidth): Line {
+  if (crossesGrapheme(line)) return fitJoined(line, width, background, measure);
   const out: Part[] = [];
   let used = 0;
   for (const part of line) {
     const room = width - used;
     if (room <= 0) break;
-    const length = displayWidth(part.text);
-    const text = length > room ? clip(part.text, room) : part.text;
+    const length = measure(part.text);
+    const text = length > room ? clip(part.text, room, measure) : part.text;
     out.push({ ...part, text, background: part.background ?? background });
-    used += displayWidth(text);
+    used += measure(text);
     if (length > room) break;
   }
   if (used < width) out.push({ text: ' '.repeat(width - used), background });
@@ -91,15 +91,19 @@ export function fit(line: readonly Part[], width: number, background?: Color): L
 }
 
 /** Left part and right part on one line, with the gap between them filled. */
-export function split(left: readonly Part[], right: readonly Part[], width: number, background?: Color): Line {
-  const room = Math.max(0, width - total(right) - 1);
-  return fit([...fit(left, room), gap(), ...right], width, background);
+export interface CellBudget { width: number; measure?: TextWidth }
+interface SplitStyle { background?: Color; measure?: TextWidth }
+export function split(left: readonly Part[], right: readonly Part[], width: number, style?: Color | SplitStyle): Line {
+  const { background, measure = displayWidth } = typeof style === 'object' ? style : { background: style };
+  const room = Math.max(0, width - total(right, measure) - 1);
+  return fit([...fit(left, room, undefined, measure), gap(), ...right], width, background, measure);
 }
 
 /** Marks the selected row: a cyan bar in the first column and the `select` background across the row. */
-export function selectable(line: readonly Part[], width: number, selected: boolean, flash = false): Line {
+export function selectable(line: readonly Part[], width: number, selected: boolean, options: boolean | { flash?: boolean; measure?: TextWidth } = false): Line {
+  const { flash = false, measure = displayWidth } = typeof options === 'boolean' ? { flash: options } : options;
   const background: Color | undefined = selected ? 'select' : flash ? 'flash' : undefined;
-  return [t(selected ? '▌' : ' ', 'cyan', { background }), ...fit(line, width - 1, background)];
+  return [t(selected ? '▌' : ' ', 'cyan', { background }), ...fit(line, width - 1, background, measure)];
 }
 
 /** The visible window of `length` rows that keeps `cursor` on screen, scrolling like a list, not a paginator. */
@@ -111,8 +115,8 @@ export function windowOf(length: number, cursor: number, height: number): { star
 
 export const heading = (text: string, color: Color = 'muted'): Line => [t(text.toUpperCase(), color, { bold: true })];
 export const blank: Line = [t('')];
-export const rule = (width: number, label = '', color: Color = 'border'): Line => {
+export const rule = (width: number, label = '', color: Color = 'border', measure: TextWidth = displayWidth): Line => {
   const text = label ? ` ${label} ` : '';
-  const side = Math.max(0, Math.floor((width - displayWidth(text)) / 2));
-  return [t('─'.repeat(side) + text + '─'.repeat(Math.max(0, width - side - displayWidth(text))), color)];
+  const side = Math.max(0, Math.floor((width - measure(text)) / 2));
+  return [t('─'.repeat(side) + text + '─'.repeat(Math.max(0, width - side - measure(text))), color)];
 };
