@@ -58,12 +58,15 @@ function helpLines(groups: KeymapGroup[], width: number): Line[] {
   }), blank]);
 }
 
+const safetyText = 'Ordinary access is read-only. Opt-in memory review only requests a review; a human must confirm it in pi. The console never writes memory directly.';
+
 function helpContent({ width }: { width: number }): Line[] {
   const groups = keymapGroups('tui');
-  if (width < 100) return helpLines(groups, width - 4);
+  const safety: Line[] = [...wrap(safetyText, width - 4).map((text): Line => [t(text, 'muted')]), blank];
+  if (width < 100) return [...safety, ...helpLines(groups, width - 4)];
   const column = Math.floor((width - 6) / 2);
   const left = helpLines(groups.slice(0, 2), column), right = helpLines(groups.slice(2), column);
-  return Array.from({ length: Math.max(left.length, right.length) }, (_, index) => [...fit(left[index] ?? [], column), gap(2), ...fit(right[index] ?? [], column)]);
+  return [...safety, ...Array.from({ length: Math.max(left.length, right.length) }, (_, index) => [...fit(left[index] ?? [], column), gap(2), ...fit(right[index] ?? [], column)])];
 }
 
 function overlayViewport(size: { width: number; height: number }, lines: Line[], wanted: { width: number; height: number }, reserved = 2) {
@@ -81,7 +84,7 @@ function visibleViewport({ lines, bounds }: ReturnType<typeof overlayViewport>, 
 export function helpViewport(size: { width: number; height: number }) {
   const wanted = Math.min(116, size.width - 2);
   const lines = helpContent({ width: wanted });
-  return overlayViewport(size, lines, { width: wanted, height: lines.length + 5 }, 5);
+  return overlayViewport(size, lines, { width: wanted, height: lines.length + 4 }, 4);
 }
 
 export function Help(props: { width: number; height: number; scroll?: number }) {
@@ -89,8 +92,7 @@ export function Help(props: { width: number; height: number; scroll?: number }) 
   const { lines, position } = visibleViewport(viewport, props.scroll);
   return h(Overlay, viewport.box, h(Panel, { title: 'Help', right: `${position}? or esc closes`, focused: true, grow: 1, background: 'raised' },
     h(Lines, { lines: [heading('Keyboard map (shared with the web console)'), blank], height: 2 }),
-    h(Lines, { lines, grow: 1 }),
-    h(Lines, { lines: [[t('Read-only: nothing here can change a session.', 'faint')]], height: 1 })));
+    h(Lines, { lines, grow: 1 })));
 }
 
 const tone: Record<Tone, Color> = { good: 'green', warn: 'amber', bad: 'red', plain: 'text' };

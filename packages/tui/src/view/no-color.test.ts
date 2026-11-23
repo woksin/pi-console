@@ -58,6 +58,7 @@ test('NO_COLOR overlays cover the view below instead of letting it show through'
   const inside = (frame: string): string[] => frame.split('\n').slice(top + 1, bottom).map(row => row.slice(left + 1, right));
   const underneath = new Set(words(inside(below)));
   assert.ok(underneath.size > 0, 'the view below has text under the overlay');
-  assert.deepEqual(words(inside(above)).filter(word => underneath.has(word)), []);
+  const helpText = new Set(words(['Ordinary access is read-only. Opt-in memory review only requests a review; a human must confirm it in pi. The console never writes memory directly.']));
+  assert.deepEqual(words(inside(above)).filter(word => underneath.has(word) && !helpText.has(word)), []);
   assert.deepEqual(drawn(harness).filter(coloured).map(cell => cell.text), []);
 });

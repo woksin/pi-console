@@ -10,7 +10,7 @@ export type Action =
   | 'section.1' | 'section.2' | 'section.3' | 'section.4' | 'section.5' | 'section.6' | 'section.7'
   | 'palette.open' | 'filter.open' | 'settings.open' | 'help.toggle' | 'quit'
   | 'move.up' | 'move.down' | 'move.top' | 'move.bottom' | 'page.up' | 'page.down'
-  | 'attention.retry' | 'open' | 'entry.open' | 'back' | 'pane.next' | 'pane.previous' | 'follow.toggle' | 'copy.id' | 'view.toggle'
+  | 'attention.retry' | 'open' | 'entry.open' | 'memory.open' | 'back' | 'pane.next' | 'pane.previous' | 'follow.toggle' | 'copy.id' | 'view.toggle'
   | 'time.scrub' | 'time.zoomIn' | 'time.zoomOut' | 'time.left' | 'time.right'
   | 'group.toggle' | 'filter.next' | 'filter.previous' | 'filter.origin' | 'filter.session'
   | 'memory.next' | 'memory.previous' | 'memory.confirm' | 'memory.reject'
@@ -73,6 +73,7 @@ export const bindings: readonly Binding[] = [
   { keys: ['S'], action: 'filter.session', label: 'Next session filter (Requests)', contexts: ['requests'] },
   { keys: ['o'], action: 'question.sort', label: 'Next question sort: priority, last updated, last activity', hint: 'o sort', contexts: ['questions'], clients: ['tui'] },
   { keys: ['S'], action: 'question.stale', label: 'Next inactivity warning threshold (days)', hint: 'S stale', contexts: ['questions'], clients: ['tui'] },
+  { keys: ['m'], action: 'memory.open', label: 'Open the full Memory view', hint: 'm memory', contexts: ['transcript'], clients: ['tui'] },
   { keys: [']'], action: 'memory.next', label: 'Next memory item', contexts: ['memory'], clients: ['tui'] },
   { keys: ['['], action: 'memory.previous', label: 'Previous memory item', contexts: ['memory'], clients: ['tui'] },
   { keys: ['c'], action: 'memory.confirm', label: 'Request confirmation in pi', contexts: ['memory'], clients: ['tui'] },

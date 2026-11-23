@@ -43,14 +43,15 @@ const flat = (text: string) => text.replace(/[│╭╮╰╯─▌]/g, ' ').rep
 const lead = (text: string, length = 24) => text.slice(0, length).trim();
 
 let harness: Harness;
-before(async () => { harness = await startHarness({ width: 200, height: 160 }); });
+// Frozen replay: the goldens describe one moment, and a running replay changes the attention count under load.
+before(async () => { harness = await startHarness({ width: 200, height: 160 }, { speed: 0 }); });
 after(async () => { await harness.stop(); });
 
 const section = async (key: string, marker: string) => { await harness.ui.press(key); return flat(await harness.ui.waitFor(marker)); };
 
 test('overview shows the headline and every attention card', async () => {
   const model = golden('overview') as { headline: string; cards: { text: string }[] };
-  const frame = await section('1', 'need you');
+  const frame = await section('1', model.headline);
   assert.ok(frame.includes(model.headline), model.headline);
   for (const card of model.cards) assert.ok(frame.includes(lead(card.text)), card.text);
 });

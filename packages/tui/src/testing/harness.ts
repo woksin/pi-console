@@ -19,9 +19,9 @@ export interface Harness {
   daemon: Awaited<ReturnType<typeof startDaemon>>; ui: Headless; runtime: Runtime; quit: { requested: boolean }; stop: () => Promise<void> }
 
 /** The real app against the mock daemon in OpenTUI's in-memory renderer. Specs and the media generator share this. */
-export async function startHarness(size = { width: 140, height: 42 }, options: { rate?: number; theme?: TuiTheme } = {}): Promise<Harness> {
+export async function startHarness(size = { width: 140, height: 42 }, options: { rate?: number; speed?: number; theme?: TuiTheme } = {}): Promise<Harness> {
   const directory = mkdtempSync(join(tmpdir(), 'pi-console-tui-'));
-  const daemon = await startDaemon({ port: await freePort(), dataDirectory: directory, rate: options.rate });
+  const daemon = await startDaemon({ port: await freePort(), dataDirectory: directory, rate: options.rate, speed: options.speed });
   palette.configure('truecolor', options.theme ?? 'midnight');
   const runtime = connect({ baseUrl: `http://127.0.0.1:${String(daemon.port)}`, token: daemon.token, tokenSource: 'test' });
   const quit = { requested: false };

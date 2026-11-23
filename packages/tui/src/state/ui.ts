@@ -6,9 +6,10 @@ import { terminalContentWidth } from './session-layout.ts';
 
 export type Section = 'overview' | 'fleet' | 'requests' | 'questions' | 'messages' | 'timeline' | 'work';
 export const sections: readonly Section[] = ['overview', 'fleet', 'requests', 'questions', 'messages', 'timeline', 'work'];
-export type Overlay = 'none' | 'palette' | 'filter' | 'help' | 'settings' | 'search' | 'entry';
-const scrollableOverlay = (overlay: Overlay): overlay is 'help' | 'settings' | 'entry' => overlay === 'help' || overlay === 'settings' || overlay === 'entry';
-const overlayScroll = { help: 'helpScroll', settings: 'settingsScroll', entry: 'entryScroll' } as const;
+export type Overlay = 'none' | 'palette' | 'filter' | 'help' | 'settings' | 'search' | 'entry' | 'memory';
+type ScrollOverlay = 'help' | 'settings' | 'entry' | 'memory';
+const scrollableOverlay = (overlay: Overlay): overlay is ScrollOverlay => overlay === 'help' || overlay === 'settings' || overlay === 'entry' || overlay === 'memory';
+const overlayScroll = { help: 'helpScroll', settings: 'settingsScroll', entry: 'entryScroll', memory: 'memoryScroll' } as const;
 export type SidePane = 'requests' | 'questions' | 'jobs' | 'resets' | 'memory';
 export const sidePanes: readonly SidePane[] = ['requests', 'questions', 'jobs', 'resets', 'memory'];
 
@@ -24,6 +25,8 @@ export interface UiState {
   /** The transcript entry the full-entry viewer shows, by stable key; its scroll row, where `null` means "first search match, else the top". */
   entryKey: number | null;
   entryScroll: number | null;
+  /** The scroll row of the full-width Memory view; reset when it opens and when the selected item changes. */
+  memoryScroll: number;
   /** The text being typed in the palette, filter or transcript search. */
   input: string;
   paletteIndex: number;
@@ -59,13 +62,13 @@ export interface UiState {
 }
 
 export const initial: UiState = {
-  terminalWidth: 80, section: 'overview', sessionId: null, overlay: 'none', helpScroll: 0, settingsScroll: 0, entryKey: null, entryScroll: null, input: '', paletteIndex: 0, recents: [], filter: '',
+  terminalWidth: 80, section: 'overview', sessionId: null, overlay: 'none', helpScroll: 0, settingsScroll: 0, entryKey: null, entryScroll: null, memoryScroll: 0, input: '', paletteIndex: 0, recents: [], filter: '',
   cursor: { overview: 0, fleet: 0, requests: 0, questions: 0, messages: 0, timeline: 0, work: 0 },
   collapsed: [], follow: true, anchor: null, requestFilter: { state: 'all', origin: 'all', sessionId: null }, focusEntry: null, search: '', questionSort: 'priority', questionStaleDays: defaultStaleDays, questionDetail: false, questionExpanded: false, detailScroll: 0, pane: 'requests', memoryIndex: 0, messagesGraph: false, window: null, scrub: false, scrubColumn: 0, quit: false, notice: '',
 };
 
 /** What the reducer needs to know about the rendered world; supplied by the view layer. */
-export interface Bounds { length: number; page: number; fit: TimeWindow; width: number; rowAt: (index: number) => { sessionId: string | null; groupId: string | null; entryId?: string | null }; sessionIds?: readonly string[]; transcript: TranscriptLayout; viewport: number; detail?: { max: number; page: number }; help?: { max: number; page: number }; settings?: { max: number; page: number }; entry?: { max: number; page: number; start: number } }
+export interface Bounds { length: number; page: number; fit: TimeWindow; width: number; rowAt: (index: number) => { sessionId: string | null; groupId: string | null; entryId?: string | null }; sessionIds?: readonly string[]; transcript: TranscriptLayout; viewport: number; detail?: { max: number; page: number }; help?: { max: number; page: number }; settings?: { max: number; page: number }; entry?: { max: number; page: number; start: number }; memory?: { max: number; page: number } }
 
 interface ActionBounds extends Bounds { questionDetailShown: boolean }
 
@@ -176,6 +179,9 @@ function openEntry(state: UiState, bounds: ActionBounds): UiState {
   return entryKey === undefined ? state : { ...state, overlay: 'entry', entryKey, entryScroll: null };
 }
 
+/** `m` in a session: the full-width Memory view. Transcript scroll, follow and search are left alone, so closing returns to the same place. */
+const openMemory = (state: UiState): UiState => (state.sessionId && state.overlay === 'none' ? { ...state, overlay: 'memory', memoryScroll: 0 } : state);
+
 const moveHandler: Handler = (state, bounds, action) => (state.sessionId ? moveTranscript(state, action, bounds) : moveList(state, action, bounds));
 
 const handlers: Partial<Record<Action, Handler>> = {
@@ -187,7 +193,7 @@ const handlers: Partial<Record<Action, Handler>> = {
   'back': (state, bounds) => back(state, bounds),
   'open': (state, bounds) => open(state, bounds),
   'filter.next': requestFilters, 'filter.previous': requestFilters, 'filter.origin': requestFilters, 'filter.session': requestFilters,
-  'entry.open': openEntry,
+  'entry.open': openEntry, 'memory.open': openMemory,
   'follow.toggle': (state, bounds) => ({ ...state, focusEntry: null, ...(state.follow ? pauseTranscript(bounds.transcript, state, bounds.viewport) : resumeTranscript) }),
   'question.sort': questionPreference, 'question.stale': questionPreference,
   'view.toggle': (state, bounds) => toggleView(state, bounds),
@@ -210,11 +216,11 @@ function detailPosition(position: number, action: Action, bounds: Bounds['detail
 }
 
 /** The scroll row an overlay shows now: its own, or (before the first scroll) the row its viewer opened at. */
-function overlayRow(state: UiState, overlay: 'help' | 'settings' | 'entry', viewport: { max: number; start?: number } | undefined): number {
+function overlayRow(state: UiState, overlay: ScrollOverlay, viewport: { max: number; start?: number } | undefined): number {
   return Math.min(state[overlayScroll[overlay]] ?? viewport?.start ?? 0, viewport?.max ?? 0);
 }
 
-function scrollOverlay(state: UiState, overlay: 'help' | 'settings' | 'entry', action: Action, bounds: ActionBounds): UiState | undefined {
+function scrollOverlay(state: UiState, overlay: ScrollOverlay, action: Action, bounds: ActionBounds): UiState | undefined {
   const viewport = bounds[overlay];
   const position = detailPosition(overlayRow(state, overlay, viewport), action, viewport);
   return position === undefined ? undefined : { ...state, [overlayScroll[overlay]]: position };

@@ -8,6 +8,7 @@ import { emptyLayout, resumeTranscript, transcriptViewport } from './state/trans
 import { neutralKey, typedCharacter, type KeyInput } from './state/keys.ts';
 import { Header, banner, footerLine, pulseLine, terminalTitle } from './shell/chrome.ts';
 import { EntryViewer, entryViewport } from './shell/entry-overlay.ts';
+import { MemoryViewer, memoryViewport } from './shell/memory-overlay.ts';
 import { Help, Palette, Settings, helpViewport, settingsViewport } from './shell/overlays.ts';
 import { collectionToLoad, countsOf, historyError, memoryInput, retryGraph, retryHistory, type RequestMemoryAction } from './app-input.ts';
 import { fit, t } from './view/parts.ts';
@@ -127,7 +128,7 @@ export function App(props: AppProps): ReactElement {
     h(HistoryError, { collection: failure, width: size.width }),
     h(Column, { grow: 1, paddingX: 1 }, view.render()),
     h(Text, { line: footerLine(ui, size.width, measure) }),
-    ...overlays(ui, data, input, { size, entries: view.entries ?? [] }));
+    ...overlays(ui, data, input, { size, entries: view.entries ?? [], now: clock.now }));
 }
 
 interface AppKeys {
@@ -143,7 +144,8 @@ function useAppKeys({ props, uiRef, dataRef, viewRef, heightRef, size, measure, 
     const current = viewRef.current;
     const settingsInput = { endpoint: props.endpoint, tokenSource: props.tokenSource, ...dataRef.current.connection, now: (props.clock ?? Date.now)(), counts: countsOf(dataRef.current) };
     const bounds = { ...boundsOf(current, heightRef.current), help: helpViewport(size).bounds, settings: settingsViewport(size, settingsInput, dataRef.current.health).bounds,
-      entry: entryViewport(size, { entries: current.entries ?? [], entryKey: uiRef.current.entryKey, search: uiRef.current.search }, measure).bounds };
+      entry: entryViewport(size, { entries: current.entries ?? [], entryKey: uiRef.current.entryKey, search: uiRef.current.search }, measure).bounds,
+      memory: memoryViewport(size, { data: dataRef.current, sessionId: uiRef.current.sessionId, index: uiRef.current.memoryIndex, now: (props.clock ?? Date.now)() }, measure).bounds };
     const paging = transcriptNavigation({ ui: uiRef.current, data: dataRef.current, key: neutralKey(key), layout: bounds.transcript, viewport: bounds.viewport, load: props.pageTranscript });
     const next = paging ?? nextState(uiRef.current, key, { palette: dataRef.current, view: current, bounds, copy, needsYouError: dataRef.current.needsYouError, retryNeedsYou: props.retryNeedsYou });
     apply(keepHistorical(next, dataRef.current, bounds.transcript, bounds.viewport));
@@ -169,9 +171,10 @@ function frameSize(data: ReturnType<Store['getSnapshot']>, height: number, failu
 
 interface Size { width: number; height: number }
 
-function overlays(ui: UiState, data: ReturnType<Store['getSnapshot']>, input: Parameters<typeof Settings>[0]['input'], shown: { size: Size; entries: SectionView['entries'] }): ReactElement[] {
+function overlays(ui: UiState, data: ReturnType<Store['getSnapshot']>, input: Parameters<typeof Settings>[0]['input'], shown: { size: Size; entries: SectionView['entries']; now: number }): ReactElement[] {
   const { size } = shown;
   if (ui.overlay === 'entry') return [h(EntryViewer, { ui, entries: shown.entries ?? [], size })];
+  if (ui.overlay === 'memory') return [h(MemoryViewer, { ui, data, now: shown.now, size })];
   if (ui.overlay === 'palette') return [h(Palette, { ui, data, width: size.width, height: size.height })];
   if (ui.overlay === 'help') return [h(Help, { width: size.width, height: size.height, scroll: ui.helpScroll })];
   if (ui.overlay === 'settings') return [h(Settings, { input, health: data.health, width: size.width, height: size.height, scroll: ui.settingsScroll })];
@@ -224,11 +227,12 @@ function useFocusJump(ui: UiState, uiRef: { current: UiState }, viewRef: { curre
 }
 
 function useUiEffects(ui: UiState, props: AppProps, uiRef: { current: UiState }, apply: (next: UiState) => void): void {
+  const memoryShown = ui.pane === 'memory' || ui.overlay === 'memory';
   useEffect(() => {
-    if (!ui.sessionId || ui.pane !== 'memory') return;
+    if (!ui.sessionId || !memoryShown) return;
     if (props.watchMemory) return props.watchMemory(ui.sessionId);
     props.loadMemory(ui.sessionId);
-  }, [ui.sessionId, ui.pane]);
+  }, [ui.sessionId, memoryShown]);
   useEffect(() => { if (ui.quit) props.onQuit(); }, [ui.quit]);
   useEffect(() => {
     if (!ui.notice) return undefined;
