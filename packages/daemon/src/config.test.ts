@@ -67,9 +67,15 @@ test('config.json rejects unknown sources, non-boolean switches and a poll inter
 test('command-line overrides are validated like config.json: a poll interval or window out of range is refused', t => {
   const directory = dataDir(t);
   for (const bad of [{ sourcePollMs: 0 }, { sourcePollMs: 249 }, { sourcePollMs: 99_999_999 }, { port: 70_000 }, { backfillWindowDays: 1_000 }]) {
-    assert.throws(() => loadConfig(directory, bad), /--(source-poll-ms|port|backfill-window-days) must be/);
+    assert.throws(() => loadConfig(directory, bad), /--(source-poll-ms|port|backfill-days) must be/);
   }
   assert.equal(loadConfig(directory, { sourcePollMs: 250 }).sourcePollMs, 250);
+});
+
+test('an invalid backfill override names the real flag and its allowed range', t => {
+  assert.throws(() => loadConfig(dataDir(t), { backfillWindowDays: 366 }), {
+    message: '--backfill-days must be an integer 0-365', code: 'ERR_PARSE_ARGS_INVALID_OPTION_VALUE',
+  });
 });
 
 test('lane roots: no lanes root by default, the status directory follows agentRoot, both are settable and validated', t => {

@@ -32,7 +32,7 @@ The TUI and the web UI hold no business logic and never touch the database.
 
 ## 2. Process model
 
-- One long-lived daemon process per user. Start it with `pi-console daemon`. `pi-console install-service` is not implemented yet; for background supervision, configure your own launchd or systemd unit to run `pi-console daemon`.
+- One long-lived daemon process per user. Start it from the repository root with `node packages/cli/bin/pi-console.mjs daemon`. `pi-console install-service` is not implemented yet; for background supervision, configure your own launchd or systemd unit to run `node packages/cli/bin/pi-console.mjs daemon` from the repository root.
 - The daemon binds `127.0.0.1` on a configurable port; a second unix socket (0600) may serve the extension and the CLI.
 - Ingestion, projection and API run in one process. If backfill load affects the UI, backfill moves to a worker thread (decision deferred to M1 measurements).
   Backfill order and pacing (P1b volume): sessions first, then the other sources one at a time, smallest first; every source yields to the event loop after each 64 KiB batch, and shutdown aborts a running backfill at the next batch. Measured on a copy of a real tree, `/health` stayed under 200 ms with this single-process design (adapters README, "Scope and windows").

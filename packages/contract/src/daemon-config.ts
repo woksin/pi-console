@@ -10,7 +10,13 @@ const isObject = (value: unknown): value is Record<string, unknown> => value !==
 /** Node-only file reading shared by the daemon and local clients; daemon field validation stays server-side. */
 export function readDaemonConfigFile(dataDir: string): Record<string, unknown> {
   const path = join(dataDir, 'config.json');
-  const parsed: unknown = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : {};
+  let parsed: unknown;
+  try {
+    parsed = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : {};
+  } catch (error) {
+    if (!(error instanceof SyntaxError)) throw error;
+    throw new SyntaxError(`Invalid JSON in ${path}; fix the JSON syntax and restart the daemon.`, { cause: error });
+  }
   if (!isObject(parsed)) throw new Error('config.json must be a JSON object');
   return parsed;
 }
