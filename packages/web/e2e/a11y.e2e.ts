@@ -50,7 +50,7 @@ async function backgroundInert(page: Page, expected: boolean): Promise<void> {
   assert.deepEqual(await page.locator('.sidebar, .main').evaluateAll(nodes => nodes.map(node => node.hasAttribute('inert'))), [expected, expected]);
 }
 
-test('palette cycles Tab in both directions, inerts the background and restores focus after Escape or a pick', async () => {
+test('palette cycles Tab, inerts the background, restores on Escape and focuses the destination heading after a pick', async () => {
   const page = await rig.open('/requests');
   try {
     await page.locator('.conn[data-connection="live"]').waitFor();
@@ -77,7 +77,7 @@ test('palette cycles Tab in both directions, inerts the background and restores 
     await page.keyboard.press('Enter');
     await page.waitForURL('**/#/settings');
     await palette.waitFor({ state: 'detached' });
-    await focused(opener);
+    await page.locator('#content-heading:focus').waitFor();
     await backgroundInert(page, false);
   } finally { await page.context().close(); }
 });
@@ -169,7 +169,7 @@ test('help contains focus and restores its opener after Escape and its Close but
   } finally { await page.context().close(); }
 });
 
-test('mouse palette picks and Help backdrop dismissal restore focus without blocking palette input selection', async () => {
+test('mouse palette picks focus the destination; Help backdrop restores focus and palette text selection works', async () => {
   const page = await rig.open('/requests');
   try {
     await page.locator('.conn[data-connection="live"]').waitFor();
@@ -185,7 +185,7 @@ test('mouse palette picks and Help backdrop dismissal restore focus without bloc
     await palette.getByRole('option').first().click();
     await page.waitForURL('**/#/settings');
     await palette.waitFor({ state: 'detached' });
-    await focused(paletteOpener);
+    await page.locator('#content-heading:focus').waitFor();
     await backgroundInert(page, false);
 
     const helpOpener = page.getByRole('button', { name: /^Help/ });

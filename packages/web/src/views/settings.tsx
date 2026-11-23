@@ -2,7 +2,7 @@ import { daemonHealthRows, pressureGradient, settingsViewModel, themePreview, ty
 import type { CSSProperties } from 'react';
 import type { ViewProps } from '../app/view.tsx';
 import { Panel } from '../ui/primitives.tsx';
-import { setPrefs, usePrefs } from '../app/prefs.ts';
+import { followSystemMotion, setPrefs, usePrefs } from '../app/prefs.ts';
 import { colorsFor, themeIds, type ThemeId } from '../app/theme.ts';
 import { settingsTimestamp } from './settings-format.ts';
 
@@ -28,8 +28,18 @@ function SettingValue({ value }: { value: string }) {
 
 const rows = (items: SettingsRow[]) => <dl className="kv wide">{items.map(row => <div key={row.label}><dt>{row.label}</dt><dd className={`tone-text-${row.tone}`}><SettingValue value={row.value} /></dd></div>)}</dl>;
 
-export function SettingsView({ state, now }: ViewProps) {
+function Appearance() {
   const prefs = usePrefs();
+  return (
+    <Panel title="Appearance">
+      <div className="theme-cards" role="group" aria-label="Theme">{themeIds.map((id: ThemeId) => <ThemeCard key={id} id={id} current={prefs.theme === id} />)}</div>
+      <label className="check"><input type="checkbox" checked={prefs.reducedMotion} onChange={event => { setPrefs({ reducedMotion: event.target.checked }); }} /> Reduce motion</label>
+      <button type="button" className="btn" onClick={followSystemMotion}>Follow system motion</button>
+    </Panel>
+  );
+}
+
+export function SettingsView({ state, now }: ViewProps) {
   const view = settingsViewModel({
     endpoint: window.location.origin, connected: state.connection === 'live', error: state.connection === 'unauthorized' ? 'token rejected' : state.connection,
     tokenSource: 'this tab (session storage)', lastSeq: state.seq > 0 ? state.seq : undefined, lastEventAt: state.lastFrameAt > 0 ? state.lastFrameAt : undefined,
@@ -44,10 +54,7 @@ export function SettingsView({ state, now }: ViewProps) {
       <Panel title="Data">{rows(view.data)}</Panel>
       <Panel title="Sources">{rows(view.sources)}</Panel>
       {health.length > 0 && <Panel title="Daemon health">{rows(health)}</Panel>}
-      <Panel title="Appearance">
-        <div className="theme-cards" role="group" aria-label="Theme">{themeIds.map((id: ThemeId) => <ThemeCard key={id} id={id} current={prefs.theme === id} />)}</div>
-        <label className="check"><input type="checkbox" checked={prefs.reducedMotion} onChange={event => { setPrefs({ reducedMotion: event.target.checked }); }} /> Reduce motion</label>
-      </Panel>
+      <Appearance />
     </div>
   );
 }

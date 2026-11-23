@@ -15,11 +15,11 @@ export function Sidebar({ active, settings, attention, questions, collapsed, onC
       <ul>
         {sectionIds.map((id, index) => (
           <li key={id}>
-            <a href={hrefFor(id)} aria-label={sectionMeta[id].label} aria-current={active === id ? 'page' : undefined} title={sectionMeta[id].hint}>
+            <a href={hrefFor(id)} aria-labelledby={`nav-${id}-label nav-${id}-badge`} aria-current={active === id ? 'page' : undefined} title={sectionMeta[id].hint}>
               <span className="nav-icon" aria-hidden="true">{sectionMeta[id].icon}</span>
-              <span className="nav-label">{sectionMeta[id].label}</span>
-              {id === 'overview' && attention.badge && <span className={`nav-badge${attention.status === 'ready' ? ' hot' : ''}`} aria-label={attention.label} data-attention={attention.status}>{attention.badge}</span>}
-              {id === 'questions' && questions > 0 && <span className="nav-badge" aria-label={`${String(questions)} waiting`}>{questions}</span>}
+              <span className="nav-label" id={`nav-${id}-label`}>{sectionMeta[id].label}</span>
+              {id === 'overview' && attention.badge && <span id={`nav-${id}-badge`} className={`nav-badge${attention.status === 'ready' ? ' hot' : ''}`} aria-label={attention.label} data-attention={attention.status}>{attention.badge}</span>}
+              {id === 'questions' && questions > 0 && <span id={`nav-${id}-badge`} className="nav-badge" aria-label={`${String(questions)} waiting`}>{questions}</span>}
               <Kbd>{index + 1}</Kbd>
             </a>
           </li>
@@ -43,7 +43,7 @@ interface TopBarProps { title: string; hint: string; state: ConsoleState; wall: 
 export function TopBar({ title, hint, state, wall, session, onPalette, onHelp }: TopBarProps) {
   return (
     <header className="topbar">
-      <h1 className="crumb truncate" title={session ? `${session.repositoryId} / ${session.laneId} / ${session.name}` : title}>{session ? `${sanitize(session.repositoryId)} / ${sanitize(session.laneId)} / ${sanitize(session.name)}` : title}</h1>
+      <h1 id="content-heading" tabIndex={-1} className="crumb truncate" title={session ? `${session.repositoryId} / ${session.laneId} / ${session.name}` : title}>{session ? `${sanitize(session.repositoryId)} / ${sanitize(session.laneId)} / ${sanitize(session.name)}` : title}</h1>
       {session && <StatusBadge cell={statusCell(session.status)} />}
       {hint && <span className="muted">{hint}</span>}
       <span className="grow" />
@@ -61,9 +61,9 @@ export function Banner({ state, wall }: { state: ConsoleState; wall: number }) {
   const silent = state.lastFrameAt > 0 && wall - state.lastFrameAt > 20_000 && state.connection === 'live';
   if (state.connection === 'live' && !silent) return null;
   const text = state.connection === 'connecting' ? 'Connecting to the daemon…'
-    : silent ? `No frames for ${String(Math.round((wall - state.lastFrameAt) / 1000))}s: the data below may be stale.`
+    : silent ? 'No frames'
       : `Disconnected: showing the last data received${state.seq > 0 ? ` (event ${String(state.seq)})` : ''}. Reconnecting…`;
-  return <div className={`banner tone-${state.connection === 'connecting' ? 'amber' : 'red'}`} role="alert" data-testid="banner">{text}</div>;
+  return <div className={`banner tone-${state.connection === 'connecting' ? 'amber' : 'red'}`} data-testid="banner"><span role="alert">{text}</span>{silent && <> for {Math.round((wall - state.lastFrameAt) / 1000)}s: the data below may be stale.</>}</div>;
 }
 
 export function Hints({ items }: { items: string[] }) {
