@@ -9,7 +9,7 @@
   },
   "scripts": {
     "start": "node --experimental-ffi src/main.ts",
-    "test": "node --experimental-ffi --test \"src/**/*.test.ts\"",
+    "test": "TZ=UTC node --experimental-ffi --test \"src/**/*.test.ts\"",
     "build:check": "node --experimental-ffi -e \"await import('./src/index.ts')\"",
     "media": "node --experimental-ffi --disable-warning=ExperimentalWarning src/media.ts"
   },

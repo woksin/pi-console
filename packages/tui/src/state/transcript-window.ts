@@ -13,6 +13,8 @@ export interface TranscriptLayout {
   keys: readonly number[]; ends: readonly number[];
   /** Per entry: whether its last row is a blank spacer rather than content. Absent means no entry has one. */
   spacers?: readonly boolean[];
+  /** Per entry: decoration rows (a date rule) rendered above its content. Anchor offsets are content-relative, so they stay put when a rule appears or disappears; a negative offset anchors on the rule. Absent means none. */
+  leads?: readonly number[];
 }
 export const emptyLayout: TranscriptLayout = { keys: [], ends: [] };
 
@@ -37,6 +39,7 @@ export type TranscriptMotion = number | 'top' | 'bottom';
 
 const total = (layout: TranscriptLayout): number => layout.ends.at(-1) ?? 0;
 const startOf = (layout: TranscriptLayout, index: number): number => (index === 0 ? 0 : layout.ends[index - 1]);
+const leadOf = (layout: TranscriptLayout, index: number): number => layout.leads?.[index] ?? 0;
 const clamp = (value: number, low: number, high: number): number => Math.max(low, Math.min(high, value));
 
 /** End line of the newest entry at or before `limit`; at least the oldest retained entry, as the limit itself may be evicted. */
@@ -50,8 +53,9 @@ function limitEnd(layout: TranscriptLayout, limit: number): number {
 function topOf(layout: TranscriptLayout, anchor: TranscriptAnchor): number {
   const index = layout.keys.findIndex(key => key >= anchor.key);
   if (index < 0) return total(layout);
-  const offset = layout.keys[index] === anchor.key ? anchor.offset : 0;
-  return startOf(layout, index) + clamp(offset, 0, layout.ends[index] - startOf(layout, index) - 1);
+  const lead = leadOf(layout, index);
+  const offset = layout.keys[index] === anchor.key ? anchor.offset : -lead;
+  return startOf(layout, index) + lead + clamp(offset, -lead, layout.ends[index] - startOf(layout, index) - lead - 1);
 }
 
 const isDropped = (layout: TranscriptLayout, anchor: TranscriptAnchor): boolean => layout.keys.length > 0 && anchor.key < layout.keys[0];
@@ -60,7 +64,7 @@ const isDropped = (layout: TranscriptLayout, anchor: TranscriptAnchor): boolean 
 function positionAt(layout: TranscriptLayout, line: number, limit: number): TranscriptAnchor | null {
   if (layout.keys.length === 0) return null;
   const index = Math.max(0, layout.ends.findIndex(end => end > line));
-  return { key: layout.keys[index], offset: Math.max(0, line - startOf(layout, index)), limit };
+  return { key: layout.keys[index], offset: Math.max(0, line - startOf(layout, index)) - leadOf(layout, index), limit };
 }
 
 export function transcriptWindow(layout: TranscriptLayout, view: TranscriptView, height: number): TranscriptWindow {

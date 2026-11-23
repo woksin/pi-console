@@ -21,7 +21,7 @@ interface TerminalOptions { cols: number; rows: number; theme?: string; scale: n
 function launch(rig: Rig, size: { cols: number; rows: number }, theme: string): Pty {
   const env = {
     ...process.env, COLORTERM: 'truecolor', PI_CONSOLE_THEME: theme, PI_CONSOLE_URL: `http://127.0.0.1:${String(rig.daemon.port)}`,
-    PI_CONSOLE_TOKEN: rig.daemon.token, PI_CONSOLE_REDUCED_MOTION: '1', PI_CONSOLE_NOW: fixedNow,
+    PI_CONSOLE_TOKEN: rig.daemon.token, PI_CONSOLE_REDUCED_MOTION: '1', PI_CONSOLE_NOW: fixedNow, TZ: 'UTC',
   };
   return startPty(`exec node --experimental-ffi --disable-warning=ExperimentalWarning ${main}`, { ...size, env });
 }

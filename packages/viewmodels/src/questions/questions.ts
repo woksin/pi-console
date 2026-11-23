@@ -1,5 +1,6 @@
 import type { Question, Session } from '@pi-console/contract';
 import { age, sanitize } from '../format/format.ts';
+import { timeDisplay } from '../format/time.ts';
 import { questionMoot, type QuestionMoot } from './moot.ts';
 import { statusCell, type StatusCell } from '../format/status-cell.ts';
 
@@ -14,7 +15,7 @@ const dayMs = 86_400_000;
 
 /** One recorded history entry, newest first, safe to print: text and labels are sanitized. */
 export interface QuestionHistoryRow {
-  key: string; operation: string; at: string; age: string; actor: string; excerpt: string | null; withheld: boolean;
+  key: string; operation: string; at: string; /** Readable absolute local time with its zone. */ time: string; age: string; actor: string; excerpt: string | null; withheld: boolean;
   /** The note was cut at the source bound: `excerpt` then ends with an ellipsis and "(shortened)". */
   shortened: boolean;
 }
@@ -53,7 +54,7 @@ const noteText = (entry: HistoryEntry): string | null => (entry.excerpt === unde
 function historyRows(question: Question, now: number): QuestionHistoryRow[] | null {
   if (!question.history) return null;
   return question.history.map(entry => ({
-    key: String(entry.sequence), operation: verb(entry.operation), at: entry.at, age: age(entry.at, now), actor: sanitize(entry.actor ?? '') || 'unknown',
+    key: String(entry.sequence), operation: verb(entry.operation), at: entry.at, time: timeDisplay(entry.at).absolute, age: age(entry.at, now), actor: sanitize(entry.actor ?? '') || 'unknown',
     excerpt: noteText(entry), withheld: entry.withheld ?? false, shortened: entry.truncated === true,
   }));
 }

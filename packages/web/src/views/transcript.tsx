@@ -1,6 +1,7 @@
-import { glyphs, type ResetRequest, type TranscriptLine } from '@pi-console/viewmodels';
+import { glyphs, timeDisplay, type ResetRequest, type TranscriptLine } from '@pi-console/viewmodels';
 import { useListNav } from '../app/hooks.ts';
 import { focusKey } from './transcript-jump.ts';
+import { dayGroups } from './transcript-days.ts';
 import { useTranscriptScroll } from './transcript-scroll.ts';
 import { TranscriptEmptyState, TranscriptHistoryBar, useTranscriptHistoryPaging } from './transcript-history-bar.tsx';
 import type { TranscriptProgress } from '../state/transcript-history.ts';
@@ -25,17 +26,27 @@ export function Transcript({ lines, focusEntry, searching, progress, onPage, onL
       <TranscriptHistoryBar scroll={scroll} progress={progress} onPage={history.page} onLive={onLive} />
       <div ref={scroll.pane} onScroll={history.onScroll} className="transcript" role="log" aria-live="off" aria-label="Transcript lines">
       <TranscriptEmptyState empty={lines.length === 0} searching={searching} progress={progress} />
-      {lines.map(line => <Line key={line.key} line={line} selected={nav.selected === String(line.key)} focused={line.id === focusEntry} onSelect={() => { nav.select(String(line.key)); scroll.pause(); }} />)}
+      {dayGroups(lines).map(group => (
+        <section key={group.key} className="tday" aria-label={group.date || undefined}>
+          {group.date && <h3 className="tday-head">{group.date}</h3>}
+          {group.lines.map(line => <Line key={line.key} line={line} selected={nav.selected === String(line.key)} focused={line.id === focusEntry} onSelect={() => { nav.select(String(line.key)); scroll.pause(); }} />)}
+        </section>
+      ))}
       <div ref={scroll.end} />
       </div>
     </div>
   );
 }
 
+/** The compact local clock; the exact source timestamp and the absolute time with its zone are on demand. */
+function LineTime({ line }: { line: TranscriptLine }) {
+  return <time dateTime={line.at} title={timeDisplay(line.at).absolute}>{line.time}</time>;
+}
+
 function LineMeta({ line }: { line: TranscriptLine }) {
   const { tool } = line;
   return (
-    <div className="tmeta"><span className="tlabel">{line.label}</span><time>{line.time}</time>{line.streaming && <span className="live-dot">streaming</span>}
+    <div className="tmeta"><span className="tlabel">{line.label}</span><LineTime line={line} />{line.streaming && <span className="live-dot">streaming</span>}
       {tool && <span className="tool-name mono">{tool.name}</span>}{tool?.truncated && <span className="faint">truncated</span>}</div>
   );
 }
@@ -50,7 +61,7 @@ function ResetDividerLine({ line }: { line: TranscriptLine }) {
   const { reset } = line;
   return (
     <div id={`line-${line.key}`} className="reset-marker" role="separator" aria-label={`Context reset at ${line.time}: ${reset?.summary ?? line.text}`}>
-      <div className="reset-rule"><span className="reset-title">{glyphs.reset} {reset ? reset.summary : line.text || 'context reset'}</span><time>{line.time}</time></div>
+      <div className="reset-rule"><span className="reset-title">{glyphs.reset} {reset ? reset.summary : line.text || 'context reset'}</span><LineTime line={line} /></div>
       {reset && line.text && <p className="reset-note">{line.text}</p>}
       {reset && <dl className="reset-lists"><ResetRequests label="Carried over" requests={reset.carried} /><ResetRequests label="Interrupted" requests={reset.interrupted} /></dl>}
     </div>

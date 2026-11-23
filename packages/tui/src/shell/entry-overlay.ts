@@ -1,4 +1,4 @@
-import { glyphs, type TextWidth, type TranscriptLine } from '@pi-console/viewmodels';
+import { glyphs, timeDisplay, wrap, type TextWidth, type TranscriptLine } from '@pi-console/viewmodels';
 import { Lines, Overlay, Panel, h, useTextWidth, type Line } from '../view/renderer.ts';
 import { blank, t } from '../view/parts.ts';
 import type { UiState } from '../state/ui.ts';
@@ -24,10 +24,11 @@ export function entryViewport(size: Size, view: EntryView, measure: TextWidth) {
   const box = boxOf(size);
   const entry = view.entries.find(item => item.key === view.entryKey);
   const document = entry ? entryDocument(entry, { width: box.width - 4, search: view.search, measure }) : { lines: gone, match: null };
-  const page = Math.max(1, box.height - 4);
+  const meta = entry ? wrap(timeDisplay(entry.at).absolute, box.width - 4, Infinity, measure).map((text): Line => [t(text, 'faint')]) : [];
+  const page = Math.max(1, box.height - 4 - meta.length);
   const max = Math.max(0, document.lines.length - page);
   const start = document.match === null ? 0 : Math.min(max, Math.max(0, document.match - 2));
-  return { entry, box, lines: document.lines, match: document.match, bounds: { page, max, start } };
+  return { entry, box, meta, lines: document.lines, match: document.match, bounds: { page, max, start } };
 }
 
 const positionOf = (shown: { start: number; page: number; total: number }): string =>
@@ -41,6 +42,7 @@ export function EntryViewer(props: { ui: UiState; entries: readonly TranscriptLi
   const title = view.entry ? `${view.entry.time} ${glyphs[view.entry.kind]} ${view.entry.label}` : 'Entry';
   const right = `${positionOf({ start, page: view.bounds.page, total: view.lines.length })}esc closes`;
   return h(Overlay, view.box, h(Panel, { title, right, focused: true, grow: 1, background: 'raised' },
+    ...(view.meta.length ? [h(Lines, { lines: view.meta, height: view.meta.length })] : []),
     h(Lines, { lines: view.lines.slice(start, start + view.bounds.page), grow: 1 }),
     h(Lines, { lines: [blank, footerOf(view.entry, props.ui.search, view.match)], height: 2 })));
 }

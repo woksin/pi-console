@@ -8,7 +8,7 @@ function optionLines(options: string[], width: number, full: boolean, measure?: 
   return options.flatMap((option, index) => (full ? wrap(option, Math.max(1, width - 8), Infinity, measure) : [option]).map((text, line): Line => [t(line === 0 ? `  ${String(index + 1)} ` : '    ', 'cyan'), t(text, 'text')]));
 }
 
-const entryMeta = (entry: NonNullable<QuestionRow['history']>[number]): string => `${entry.at.replace('T', ' ').replace(/\.\d+Z$/, 'Z')} ${entry.operation} by ${entry.actor} · ${entry.age} ago`;
+const entryMeta = (entry: NonNullable<QuestionRow['history']>[number]): string => `${entry.time} ${entry.operation} by ${entry.actor} · ${entry.age} ago`;
 
 function historyLines(row: QuestionRow, width: number, measure?: TextWidth): Line[] {
   if (!row.history) return [heading('History'), [t('History unavailable: this question predates recorded history.', 'faint', { italic: true })]];
