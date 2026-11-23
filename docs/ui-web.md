@@ -85,6 +85,7 @@ Generated against the mock daemon's synthetic fixture by `npm run media`.
 | ![Session at a reset divider](media/web-session-resets.webp) Session at a reset divider | ![Timeline](media/web-timeline.webp) Timeline |
 | ![Messages graph](media/web-graph.webp) Messages graph | ![Theme preview](media/web-themes.webp) Theme preview |
 | ![Fleet pulse and pressure histogram](media/web-pulse.webp) Fleet pulse and pressure histogram | ![Overview, dawn theme](media/web-overview-light.webp) Overview, dawn theme |
+| ![Questions with history, Sort, Warn after and a Stale chip](media/web-questions.webp) Questions with history and a Stale chip | ![Questions, dawn theme](media/web-questions-light.webp) Questions, dawn theme |
 
 Animations: [command palette](media/web-palette.gif), [keyboard tour](media/web-tour.gif).
 

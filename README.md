@@ -46,6 +46,15 @@ Sessions, lanes, orchestrators and subagents with fixed status semantics, so a g
 
 <img src="docs/media/web-fleet.webp" alt="Fleet table grouped by repository with status badges, context bars, trend sparklines, model and cost per session" width="900">
 
+### Questions with history
+
+Open questions and decisions show when they were last touched and by whom, each with a recorded **History** you can open in place. Questions with no activity past your **Warn after** threshold get a text-labelled **Stale** chip, and Sort switches between priority, last update and last activity. The TUI has the same history, sort and stale threshold.
+
+<picture>
+  <source media="(prefers-color-scheme: light)" srcset="docs/media/web-questions-light.webp">
+  <img src="docs/media/web-questions.webp" alt="Web Questions with Sort and Warn after controls: a blocking approval marked Stale after eleven days with its opened History of two entries, above a question showing its last activity and a collapsed History" width="900">
+</picture>
+
 ### Resets, shown where they happen
 
 Every context reset is an inline `⟲` divider in the transcript: what kind it was, which requests were **carried over** and which were **interrupted**. Nothing is lost silently.
@@ -108,7 +117,7 @@ Midnight (default), dawn and high contrast, with a live preview in Settings. Sta
 
 The same views, models and keymap in a terminal. It runs on [OpenTUI](https://github.com/sst/opentui) and talks to the daemon over the same loopback API.
 
-The TUI also shows [expanded, wrapped questions](docs/media/tui-question-expanded.webp), [memory paging progress](docs/media/tui-memory-paging.webp), [an older memory proposal with review commands](docs/media/tui-memory-review.webp), [attention unavailable with a retry hint](docs/media/tui-attention-retry.webp), and [Settings scrolled in a short terminal](docs/media/tui-settings-scroll.webp). These terminal captures use midnight; the web gallery above pairs midnight and dawn.
+The TUI also shows [the questions list with its sort and stale marker](docs/media/tui-questions.webp), [an expanded question with wrapped text and its history](docs/media/tui-question-expanded.webp), [memory paging progress](docs/media/tui-memory-paging.webp), [an older memory proposal with review commands](docs/media/tui-memory-review.webp), [attention unavailable with a retry hint](docs/media/tui-attention-retry.webp), and [Settings scrolled in a short terminal](docs/media/tui-settings-scroll.webp). These terminal captures use midnight; the web gallery above pairs midnight and dawn.
 
 <img src="docs/media/tui-tour.gif" alt="Animation of the terminal UI: Overview, Fleet, a session filtered to its reset divider, the command palette and the Timeline" width="900">
 
@@ -202,7 +211,7 @@ pi sessions can run shell commands and hold credentials, so the console treats i
 
 ## Demo data and regenerating the media
 
-All demo data is synthetic: `npm run generate` rebuilds the fixture used by the media pipeline and demo launcher. Gallery-only extensions of that fixture demonstrate long questions, memory backfill and unavailable attention without reading local pi data. `npm run media` regenerates `docs/media/`, including every main web view and its history/retry scenes in midnight and dawn and the [VHS terminal recording](scripts/media/tui.tape). Intermediate frames are removed when the command exits. It needs Chromium, `ffmpeg` and `cwebp`; VHS additionally needs `vhs` and `ttyd`. Without VHS, the terminal recording falls back to the existing PTY frame capture and says so. See [docs/media/README.md](docs/media/README.md) for commands, the shot list, budget and determinism notes. Media generation is manual, not part of CI.
+All demo data is synthetic: `npm run generate` rebuilds the fixture used by the media pipeline and demo launcher. Gallery-only extensions of that fixture demonstrate long questions with recorded history and a stale one, memory backfill and unavailable attention without reading local pi data. `npm run media` regenerates `docs/media/`, including every main web view and its history/retry scenes in midnight and dawn and the [VHS terminal recording](scripts/media/tui.tape). Intermediate frames are removed when the command exits. It needs Chromium, `ffmpeg` and `cwebp`; VHS additionally needs `vhs` and `ttyd`. Without VHS, the terminal recording falls back to the existing PTY frame capture and says so. See [docs/media/README.md](docs/media/README.md) for commands, the shot list, budget and determinism notes. Media generation is manual, not part of CI.
 
 ## Status
 

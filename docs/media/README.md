@@ -17,7 +17,7 @@ The committed [tui.tape](../../scripts/media/tui.tape) records the real TUI agai
 
 ## Data and determinism
 
-- Only synthetic data: the mock daemon replays the checked-in fixture (`packages/testkit/src/fixture`) with a throwaway data directory. Gallery-only adaptations put that fixture's memory in its transcript session, extend a question and its options, advertise a synthetic live pi review provider for the web controls, and temporarily add 100 completed memory items so an older proposal requires backfill. The unavailable-attention scenes return a synthetic HTTP 503; the timeline-history scenes bound the initial message window to 10 of 40 rows. The VHS runner instead seeds the real demo daemon with generated synthetic events and disables all source ingestion. Nothing is read from `~/.pi`.
+- Only synthetic data: the mock daemon replays the checked-in fixture (`packages/testkit/src/fixture`) with a throwaway data directory. Gallery-only adaptations put that fixture's memory in its transcript session, extend a question and its options, give three questions synthetic history (one open for eleven days only while the Questions shots are taken, so it shows Stale without stretching the Timeline), advertise a synthetic live pi review provider for the web controls, and temporarily add 100 completed memory items so an older proposal requires backfill. The unavailable-attention scenes return a synthetic HTTP 503; the timeline-history scenes bound the initial message window to 10 of 40 rows. The VHS runner instead seeds the real demo daemon with generated synthetic events and disables all source ingestion. Nothing is read from `~/.pi`.
 - For Playwright/PTY captures, the daemon stream is frozen (`speed: 1e-9`), the clock is fixed (`2026-11-20T12:00:00Z`, also `PI_CONSOLE_NOW` for the TUI), `/api/v1/health` is mocked and motion is reduced. Animation frames have fixed holds.
 - VHS records wall-clock terminal rendering with scripted waits, not held screenshots; its timing and daemon health values can vary. Settings captures also show ephemeral loopback ports. The scripted `web-palette.gif` and `web-tour.gif` have also varied in byte-level comparisons across otherwise identical runs; their fixed fixture clock does not promise identical animation bytes. Fonts differ by OS. Regenerate on macOS and inspect the result; byte-identical output is not promised for these captures.
 - Raw PNG/GIF frames in `.ai-work/media-work/` are disposable and are removed on command exit, including failures. Only the encoded showcase files belong in `docs/media/`.
@@ -37,7 +37,7 @@ The list below mirrors `scripts/media/scenes.ts`, which drives capture, encoding
 | `web-pulse.webp` | web | Close-up of the fleet pulse, status strip and pressure histogram |
 | `web-fleet.webp`, `web-fleet-light.webp` | web | Fleet table, midnight and dawn |
 | `web-requests.webp`, `web-requests-light.webp` | web | Requests and answers, midnight and dawn |
-| `web-questions.webp`, `web-questions-light.webp` | web | Questions and decisions, midnight and dawn |
+| `web-questions.webp`, `web-questions-light.webp` | web | Questions and decisions with Sort, Warn after, a Stale chip and an opened History, midnight and dawn |
 | `web-messages.webp`, `web-messages-light.webp` | web | Messages list, midnight and dawn |
 | `web-work.webp`, `web-work-light.webp` | web | Jobs, phases and CI, midnight and dawn |
 | `web-session.webp`, `web-session-light.webp` | web | Transcript tail and producer-owned native pi review controls, midnight and dawn |
@@ -51,7 +51,8 @@ The list below mirrors `scripts/media/scenes.ts`, which drives capture, encoding
 | `web-themes.webp` | web | Theme preview cards (midnight, dawn, contrast) |
 | `web-palette.gif`, `web-tour.gif` | web | Palette typing `aur`; keyboard tour of four views |
 | `tui-overview.webp`, `tui-palette.webp`, `tui-session-resets.webp`, `tui-mono.webp` | tui | TUI stills, including the mono theme |
-| `tui-question-expanded.webp` | tui | Wide-terminal expanded question with wrapped text and options |
+| `tui-questions.webp` | tui | Questions list: sort and stale threshold in the title, a stale marker on an idle open question |
+| `tui-question-expanded.webp` | tui | Wide-terminal expanded question with wrapped text, options and recorded history |
 | `tui-memory-paging.webp`, `tui-memory-review.webp` | tui | 100/107 loaded; backfill to 107/107 and an older proposed item's review commands |
 | `tui-attention-retry.webp` | tui | Attention unavailable and retry hint, without a false all-clear |
 | `tui-settings-scroll.webp` | tui | Short-terminal Settings scrolled to the final rows with navigation hints |

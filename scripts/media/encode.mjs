@@ -25,7 +25,7 @@ export function encodeStill(png, out, width, quality = 84) {
 
 /** A genuine VHS recording -> the gallery's bounded-size terminal GIF. */
 export function encodeRecording(input, out) {
-  const filter = 'fps=8,scale=880:-2:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff:max_colors=96[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle';
+  const filter = 'fps=8,scale=880:-2:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff:max_colors=64[p];[b][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle';
   run('ffmpeg', ['-y', '-loglevel', 'error', '-i', input, '-filter_complex', filter, ...bitexact, '-loop', '0', out]);
 }
 

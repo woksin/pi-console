@@ -3,6 +3,7 @@ import type { Page } from 'playwright-core';
 import { startRig, type Rig } from '../../packages/web/e2e/harness.ts';
 import { memoryItems } from '../../packages/testkit/src/mock-daemon/memory.ts';
 import { fixedNow, shots, webViews } from './scenes.ts';
+import { recordQuestionHistory, withStaleQuestion } from './questions.ts';
 import { FrameSet, wanted, writeStill, type Work } from './capture.ts';
 
 type Theme = 'midnight' | 'dawn';
@@ -23,6 +24,7 @@ export async function startFrozenRig(): Promise<Rig> {
   const question = rig.daemon.store.fixture.questions[0];
   question.text += '\n\nKeep the cache bounded while preserving enough history to inspect a completed checkpoint. The selected window must apply consistently to the worker queue and its retry budget.\n\nWhich option should the synthetic coordinator use before the next migration checkpoint?';
   question.options = question.options.map(option => `${option} — retain completed checkpoint metadata for this window, then expire the synthetic cache entries without changing pending decisions or the worker retry budget.`);
+  recordQuestionHistory(rig.daemon.store.fixture.questions);
   return rig;
 }
 
@@ -82,10 +84,20 @@ async function showResetDivider(page: Page): Promise<void> {
   await settle(page);
 }
 
-async function captureWebViews(page: Page, work: Work, suffix: string): Promise<void> {
+/** Its own page: the idle question's old creation date would stretch the Timeline axis, so it only exists while this shot is taken. */
+const questionsStill = (rig: Rig, theme: Theme): Promise<Buffer> => withStaleQuestion(rig, async () => {
+  const page = await openConsole(rig, { theme, scale: 2, route: '/questions' });
+  await page.locator('.question-history summary').first().click();
+  const still = await png(page);
+  await page.context().close();
+  return still;
+});
+
+async function captureWebViews(rig: Rig, page: Page, work: Work, suffix: string): Promise<void> {
   for (const view of webViews) {
     const id = `web-${view.id}${suffix}`;
     if (!wanted(work, id)) continue;
+    if (view.id === 'questions') { writeStill(work, id, await questionsStill(rig, suffix === '-light' ? 'dawn' : 'midnight')); continue; }
     await go(page, view.route);
     if (view.id === 'session') {
       await showTranscriptTail(page);
@@ -147,7 +159,7 @@ async function historyStills(rig: Rig, work: Work, theme: Theme): Promise<void> 
 async function stillsFor(rig: Rig, work: Work, theme: Theme): Promise<void> {
   const suffix = theme === 'dawn' ? '-light' : '';
   const page = await openConsole(rig, { theme, scale: 2, route: '/overview' });
-  await captureWebViews(page, work, suffix);
+  await captureWebViews(rig, page, work, suffix);
   await go(page, '/overview');
   if (theme === 'midnight' && wanted(work, 'web-pulse')) writeStill(work, 'web-pulse', await page.screenshot({ clip: { x: 224, y: 0, width: 1056, height: 216 } }));
   if (theme === 'midnight') await darkOnlyStills(page, work);

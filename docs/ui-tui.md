@@ -56,6 +56,8 @@ Screenshots and a tour, captured from the real TUI on a pty against the mock dae
 ![Command palette](media/tui-palette.webp)
 ![Session filtered to a reset divider](media/tui-session-resets.webp)
 ![Mono theme](media/tui-mono.webp)
+![Questions with a stale marker and the sort and threshold in the title](media/tui-questions.webp)
+![Expanded question with its history](media/tui-question-expanded.webp)
 
 Animated tour: [tui-tour.gif](media/tui-tour.gif).
 
