@@ -81,7 +81,7 @@ const dateRule = (entry: TranscriptLine, width: number, measure?: TextWidth): Li
 function renderTranscript(entries: readonly TranscriptLine[], width: number, measure?: TextWidth): { rendered: Line[][]; leads: number[] } {
   const leads: number[] = [];
   const rendered = entries.map((entry, index): Line[] => {
-    const starts = startsNewDay(entries[index - 1]?.at, entry.at);
+    const starts = timeDisplay(entry.at).dayKey !== '' && startsNewDay(entries[index - 1]?.at, entry.at);
     leads.push(starts ? 1 : 0);
     return starts ? [dateRule(entry, width, measure), ...renderEntry(entry, width, measure)] : renderEntry(entry, width, measure);
   });
@@ -187,7 +187,8 @@ function transcriptContent(env: Env, model: SessionViewModel, rendered: Rendered
   const view = { ...env.ui, follow: following };
   const { padded, below } = visibleLines(rendered, view, viewport);
   const top = model.transcript.find(entry => entry.key === topEntryKey(rendered.layout, view, viewport));
-  const title = top ? `Transcript · ${timeDisplay(top.at).date}` : 'Transcript';
+  const day = top ? timeDisplay(top.at) : undefined;
+  const title = day?.dayKey ? `Transcript · ${day.date}` : 'Transcript';
   const status = statusText({ search: env.ui.search, paused: !following, entries: model.transcript.length, above: below, newer });
   const loading = !env.data.transcripts.has(model.id) && !progress;
   const body = loading ? [[t('Loading transcript…', 'muted')]] : padded;

@@ -190,7 +190,7 @@
 }
 .tline { content-visibility: auto; contain-intrinsic-size: auto 56px; }
 /* The tail line is always laid out: skipped rendering would size it at the 56px estimate, so following would stop short once it is painted at its real height. */
-.tline:nth-last-child(2) { content-visibility: visible; }
+.tline-tail { content-visibility: visible; }
 .memory-panel .memory-item { display: flex; flex-direction: column; gap: 2px; }
 .memory-panel code { overflow-wrap: anywhere; }
 .memory-panel .memory-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }

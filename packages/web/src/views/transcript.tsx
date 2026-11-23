@@ -27,9 +27,9 @@ export function Transcript({ lines, focusEntry, searching, progress, onPage, onL
       <div ref={scroll.pane} onScroll={history.onScroll} className="transcript" role="log" aria-live="off" aria-label="Transcript lines">
       <TranscriptEmptyState empty={lines.length === 0} searching={searching} progress={progress} />
       {dayGroups(lines).map(group => (
-        <section key={group.key} className="tday" aria-label={group.date || undefined}>
-          {group.date && <h3 className="tday-head">{group.date}</h3>}
-          {group.lines.map(line => <Line key={line.key} line={line} selected={nav.selected === String(line.key)} focused={line.id === focusEntry} onSelect={() => { nav.select(String(line.key)); scroll.pause(); }} />)}
+        <section key={group.key} className="tday">
+          {group.date && <h2 className="tday-head">{group.date}</h2>}
+          {group.lines.map(line => <Line key={line.key} line={line} selected={nav.selected === String(line.key)} focused={line.id === focusEntry} tail={line === lines.at(-1)} onSelect={() => { nav.select(String(line.key)); scroll.pause(); }} />)}
         </section>
       ))}
       <div ref={scroll.end} />
@@ -68,10 +68,10 @@ function ResetDividerLine({ line }: { line: TranscriptLine }) {
   );
 }
 
-function Line({ line, selected, focused, onSelect }: { line: TranscriptLine; selected: boolean; focused: boolean; onSelect: () => void }) {
+function Line({ line, selected, focused, tail, onSelect }: { line: TranscriptLine; selected: boolean; focused: boolean; tail: boolean; onSelect: () => void }) {
   if (line.kind === 'reset') return <ResetDividerLine line={line} />;
   return (
-    <div id={`line-${line.key}`} className={`tline kind-${line.kind} tone-${line.color}${selected ? ' selected' : ''}${focused ? ' target' : ''}${line.streaming ? ' streaming' : ''}`} onClick={onSelect} data-kind={line.kind}>
+    <div id={`line-${line.key}`} className={`tline kind-${line.kind} tone-${line.color}${selected ? ' selected' : ''}${focused ? ' target' : ''}${line.streaming ? ' streaming' : ''}${tail ? ' tline-tail' : ''}`} onClick={onSelect} data-kind={line.kind}>
       <span className="tglyph" aria-hidden="true">{glyphs[line.kind]}</span>
       <div className="tbody">
         <LineMeta line={line} />

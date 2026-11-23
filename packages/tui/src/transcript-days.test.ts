@@ -26,6 +26,16 @@ const acrossMidnight = [
   entry(1, '2026-11-19T23:59:50Z', 'before midnight'), entry(2, '2026-11-20T00:00:10Z', 'after midnight'), entry(3, '2026-11-20T00:05:00Z', 'same day again'),
 ];
 
+test('an entry with an unreadable time gets no date rule and the panel keeps its plain title', async () => {
+  const { ui, done } = await mount([entry(1, 'not a time', 'undated entry')]);
+  try {
+    const frame = ui.frame();
+    assert.match(frame, /undated entry/);
+    assert.doesNotMatch(frame, /──\s*–\s*──/);
+    assert.doesNotMatch(frame, /Transcript · /);
+  } finally { done(); }
+});
+
 for (const width of [80, 112]) test(`one date rule opens each displayed day at ${String(width)} columns, and the panel names the first visible day`, async () => {
   const { ui, done } = await mount(acrossMidnight, width);
   try {
