@@ -108,14 +108,14 @@ test('growing head on normal append is not a truncate-and-regrow warning', async
   assert.deepEqual(log.rows.map(row => row.type), ['SessionHeartbeat', 'SessionHeartbeat']);
 });
 
-test('discovery excludes old files and never follows directory symlinks', t => {
+test('discovery excludes old files and never follows directory symlinks', async t => {
   const { directory, file } = fixture(t);
   writeFileSync(file, line());
   const old = join(directory, 'old.jsonl');
   writeFileSync(old, line());
   utimesSync(old, 0, 0);
   symlinkSync(directory, join(directory, 'loop'));
-  assert.deepEqual(discover(directory), [file]);
+  assert.deepEqual(await discover(directory), [file]);
 });
 
 test('deny credentials, environment and browser profiles including symlink targets', async t => {

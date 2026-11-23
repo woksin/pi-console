@@ -1,5 +1,6 @@
-import { lstatSync, readdirSync, realpathSync, statSync } from 'node:fs';
+import { lstatSync, readdirSync, realpathSync, statSync, type Dirent } from 'node:fs';
 import { isAbsolute, join, relative, resolve } from 'node:path';
+import { setImmediate } from 'node:timers/promises';
 
 const denied = new Set(['auth.json', 'credentials', 'credentials.json', 'accounts', 'profiles', 'profiles-retired', 'browser', 'google', 'chromium', 'chrome', 'firefox', 'safari', 'brave-browser']);
 
@@ -39,15 +40,31 @@ interface DiscoveryLocation { path: string; onError?: DiscoveryErrorHandler }
  * No symlink traversal, including the root. Archives are bounded by mtime, not file size.
  * With an error handler, report each failed location and continue its siblings; otherwise errors still throw.
  */
-export function discover(directory: string, since = Date.now() - 14 * 86400_000, onError?: DiscoveryErrorHandler): string[] {
+export async function discover(directory: string, since = Date.now() - 14 * 86400_000, onError?: DiscoveryErrorHandler): Promise<string[]> {
   const paths: string[] = [];
-  for (const entry of directoryEntries({ path: directory, onError })) {
-    const path = join(directory, entry.name);
-    if (pathDenied(path) || entry.isSymbolicLink()) continue;
-    if (entry.isDirectory()) paths.push(...discover(path, since, onError));
-    if (entry.isFile() && path.endsWith('.jsonl') && modifiedSince({ path, onError }, since)) paths.push(path);
+  let visited = 0;
+  for (const path of walk({ path: directory, onError }, since)) {
+    if (path !== undefined) paths.push(path);
+    // Include old, denied and non-JSONL entries: a mostly unchanged archive must yield too.
+    if (++visited % 64 === 0) await setImmediate();
   }
   return paths.sort();
+}
+
+function* walk({ path: directory, onError }: DiscoveryLocation, since: number): Generator<string | undefined> {
+  for (const entry of directoryEntries({ path: directory, onError })) {
+    yield undefined;
+    const location = { path: join(directory, entry.name), onError };
+    if (pathDenied(location.path) || entry.isSymbolicLink()) continue;
+    if (entry.isDirectory()) yield* walk(location, since);
+    else yield sessionPath(entry, location, since);
+  }
+}
+
+function sessionPath(entry: Dirent, location: DiscoveryLocation, since: number): string | undefined {
+  if (!entry.isFile()) return undefined;
+  if (!location.path.endsWith('.jsonl')) return undefined;
+  return modifiedSince(location, since) ? location.path : undefined;
 }
 
 function directoryEntries({ path: directory, onError }: DiscoveryLocation) {
