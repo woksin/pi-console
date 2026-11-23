@@ -14,8 +14,8 @@ test('mock graph includes waiting-on and barred-by dependencies to known parent/
   ];
   fixture.messages = [];
   assert.deepEqual(graph(fixture).edges, [
-    { fromLane: 'L192', toLane: 'L0', kind: 'waiting-on', count: 1, lastAt: base.updatedAt },
     { fromLane: 'L193', toLane: 'L0', kind: 'barred-by', count: 1, lastAt: base.updatedAt },
+    { fromLane: 'L192', toLane: 'L0', kind: 'waiting-on', count: 1, lastAt: base.updatedAt },
   ]);
 });
 
