@@ -4,7 +4,7 @@
  * `mountHeadless`. Swapping the renderer (the Bubble Tea fallback in ADR-0003) means re-implementing this file.
  */
 import { act, createElement, useEffect, type ReactElement, type ReactNode } from 'react';
-import { createCliRenderer, decodePasteBytes, stripAnsiSequences, TextAttributes, type CliRenderer } from '@opentui/core';
+import { createCliRenderer, decodePasteBytes, RGBA, stripAnsiSequences, TextAttributes, type CapturedFrame, type CliRenderer } from '@opentui/core';
 import { createRoot, useKeyboard, usePaste, useTerminalDimensions, useAnimationTick, useRenderer } from '@opentui/react';
 import { testRender } from '@opentui/react/test-utils';
 import type { KeyInput } from '../state/keys.ts';
@@ -16,12 +16,16 @@ const element = createElement as unknown as (type: string, props: object | null,
 export interface Part { text: string; color?: Color; background?: Color; bold?: boolean; dim?: boolean; italic?: boolean; underline?: boolean }
 export type Line = readonly Part[];
 
+/** Plain (NO_COLOR) hands OpenTUI the terminal's own default colours, so no colour SGR is written. */
+const foreground = (token: Color | undefined): string | RGBA | undefined => (palette.plain ? RGBA.defaultForeground() : token === undefined ? undefined : palette.resolve(token));
+const background = (token: Color | undefined, filled = false): string | RGBA | undefined => (palette.plain ? (filled ? RGBA.defaultBackground() : undefined) : token === undefined ? undefined : palette.resolve(token));
+
 const attributes = (part: Part): number =>
-  (part.bold || (part.color !== undefined && palette.emphasised(part.color)) ? TextAttributes.BOLD : 0) | (part.dim ? TextAttributes.DIM : 0) | (part.italic ? TextAttributes.ITALIC : 0) | (part.underline ? TextAttributes.UNDERLINE : 0);
+  (part.bold || (part.color !== undefined && palette.emphasised(part.color)) ? TextAttributes.BOLD : 0) | (part.dim ? TextAttributes.DIM : 0) | (part.italic ? TextAttributes.ITALIC : 0) | (part.underline ? TextAttributes.UNDERLINE : 0) | (palette.inverted(part.background) ? TextAttributes.INVERSE : 0);
 
 function renderLine(line: Line, key: string | number, extra: object = {}): ReactElement {
-  return element('text', { key, wrapMode: 'none', ...extra }, ...line.map((part, index) => element('span', {
-    key: index, fg: part.color ? palette.resolve(part.color) : undefined, bg: part.background ? palette.resolve(part.background) : undefined, attributes: attributes(part),
+  return element('text', { key, wrapMode: 'none', fg: foreground(undefined), ...extra }, ...line.map((part, index) => element('span', {
+    key: index, fg: foreground(part.color), bg: background(part.background, palette.inverted(part.background)), attributes: attributes(part),
   }, part.text)));
 }
 
@@ -32,7 +36,7 @@ export interface BoxProps {
 }
 const layout = (props: BoxProps, direction: 'row' | 'column') => ({
   flexDirection: props.direction ?? direction, flexGrow: props.grow, flexShrink: props.grow === undefined ? 1 : undefined, width: props.width, height: props.height, gap: props.gap,
-  padding: props.padding, paddingLeft: props.paddingX, paddingRight: props.paddingX, backgroundColor: props.background ? palette.resolve(props.background) : undefined,
+  padding: props.padding, paddingLeft: props.paddingX, paddingRight: props.paddingX, backgroundColor: background(props.background),
   justifyContent: props.justify, alignItems: props.align, minWidth: 0, minHeight: 0,
 });
 
@@ -42,19 +46,19 @@ export const h = createElement;
 export interface OverlayProps { left: number; top: number; width: number; height: number; children?: ReactNode }
 /** A floating panel drawn above the screen (palette, help, settings). */
 export const Overlay = (props: OverlayProps): ReactElement => element('box', {
-  position: 'absolute', left: props.left, top: props.top, width: props.width, height: props.height, zIndex: 10, flexDirection: 'column', backgroundColor: palette.resolve('raised'),
+  position: 'absolute', left: props.left, top: props.top, width: props.width, height: props.height, zIndex: 10, flexDirection: 'column', backgroundColor: background('raised', true),
 }, props.children);
 
 export const Column = (props: BoxProps): ReactElement => element('box', layout(props, 'column'), props.children);
 export const Row = (props: BoxProps): ReactElement => element('box', layout(props, 'row'), props.children);
-export const Screen = (props: BoxProps): ReactElement => element('box', { ...layout(props, 'column'), width: '100%', height: '100%', backgroundColor: palette.resolve('bg') }, props.children);
+export const Screen = (props: BoxProps): ReactElement => element('box', { ...layout(props, 'column'), width: '100%', height: '100%', backgroundColor: background('bg', true) }, props.children);
 
 export interface PanelProps extends BoxProps { title?: string; right?: string; focused?: boolean; accent?: Color }
 /** A rounded, titled container; the border brightens when focused. */
 export const Panel = (props: PanelProps): ReactElement => element('box', {
-  ...layout(props, 'column'), border: true, borderStyle: 'rounded', borderColor: palette.resolve(props.focused ? (props.accent ?? 'cyan') : 'border'),
+  ...layout(props, 'column'), border: true, borderStyle: palette.plain && props.focused ? 'double' : 'rounded', borderColor: foreground(props.focused ? (props.accent ?? 'cyan') : 'border'),
   title: props.title ? ` ${props.title} ` : undefined, titleAlignment: 'left', bottomTitle: props.right ? ` ${props.right} ` : undefined, bottomTitleAlignment: 'right',
-  backgroundColor: palette.resolve(props.background ?? 'panel'), paddingLeft: 1, paddingRight: 1,
+  backgroundColor: background(props.background ?? 'panel', true), paddingLeft: 1, paddingRight: 1,
 }, props.children);
 
 export interface LinesProps { lines: readonly Line[]; grow?: number; onLineClick?: (index: number) => void; background?: Color; height?: number }
@@ -101,7 +105,7 @@ export interface Handle { renderer: CliRenderer; destroy: () => void }
 /** Starts the interactive renderer on the real terminal. */
 export async function launch(node: ReactNode, options: { fps: number; onDestroy: () => void }): Promise<Handle> {
   const renderer = await createCliRenderer({
-    targetFps: options.fps, maxFps: 30, useMouse: true, exitOnCtrlC: false, backgroundColor: palette.resolve('bg'), onDestroy: options.onDestroy,
+    targetFps: options.fps, maxFps: 30, useMouse: true, exitOnCtrlC: false, backgroundColor: background('bg'), onDestroy: options.onDestroy,
   });
   createRoot(renderer).render(node);
   return { renderer, destroy: () => { setTitle(renderer, ''); renderer.destroy(); } };
@@ -109,6 +113,8 @@ export async function launch(node: ReactNode, options: { fps: number; onDestroy:
 
 export interface Headless {
   frame: () => string;
+  /** Per-cell foreground, background and attributes as the renderer drew them. */
+  spans: () => CapturedFrame;
   /** Named keys use OpenTUI names (RETURN, ESCAPE, ARROW_DOWN, TAB, PAGE_UP); single characters are typed. */
   press: (key: string, modifiers?: { ctrl?: boolean; shift?: boolean }) => Promise<void>;
   type: (text: string) => Promise<void>;
@@ -137,6 +143,7 @@ export async function mountHeadless(node: ReactNode, size: { width: number; heig
   };
   return {
     frame: () => ui.captureCharFrame(),
+    spans: () => ui.captureSpans(),
     press: async (key, modifiers) => {
       await inAct(async () => { ui.mockInput.pressKey(key, modifiers); if (key === 'ESCAPE') await new Promise(resolve => setTimeout(resolve, 40)); });
       await settle();
