@@ -84,3 +84,15 @@ test('pane cycling and the timeline scrubber are TUI-only; the graph scrubber st
 test('the time scrubber is listed once per client', () => {
   for (const client of ['web', 'tui'] as const) assert.equal(bindingsFor(client).filter(binding => binding.action === 'time.scrub').length, 1, client);
 });
+
+test('m opens the full Memory view from a transcript in the TUI only, and Help lists it once', () => {
+  assert.equal(resolve('transcript', 'm', 'tui'), 'memory.open');
+  assert.equal(resolve('transcript', 'm', 'web'), undefined);
+  assert.equal(resolve('transcript', 'Enter', 'tui'), 'entry.open');
+  for (const context of [...listContexts, 'detail', 'memory', 'help', 'timeline'] as const) assert.equal(resolve(context, 'm'), undefined, context);
+  const listed = keymapGroups('tui').flatMap(group => group.bindings).filter(binding => binding.action === 'memory.open');
+  assert.equal(listed.length, 1);
+  assert.equal(keymapGroups('tui').find(group => group.title === 'Memory')?.bindings.includes(listed[0]), true);
+  assert.ok(hints('transcript').includes('m memory'));
+  assert.ok(!bindingsFor('web').some(binding => binding.action === 'memory.open'));
+});
