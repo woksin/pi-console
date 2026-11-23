@@ -259,7 +259,11 @@ test('a possibly-moot question is marked in text with inspectable evidence, advi
     await summary.focus();
     await page.keyboard.press('Enter');
     assert.match(await moot.locator('ul[aria-label^="GitHub evidence"]').innerText(), /a\/b#1 · issue closed · closed .* · github-gh/);
-    assert.match(await page.locator('[data-question="open-ux"] .question-moot').innerText(), /observed open/);
+    // The evidence is a collapsed disclosure on every card that has it, so innerText of a closed one is only its summary: open it as a user would.
+    const unproven = page.locator('[data-question="open-ux"] .question-moot');
+    await unproven.locator('summary').focus();
+    await page.keyboard.press('Enter');
+    assert.match(await unproven.innerText(), /observed open/);
     assert.match(page.url(), /#\/questions$/);
   } finally { fixture.questions = original; await page.context().close(); }
 });
