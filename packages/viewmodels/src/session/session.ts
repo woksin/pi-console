@@ -5,6 +5,7 @@ import { statusCell, type StatusCell } from '../format/status-cell.ts';
 import { requestListViewModel, type RequestRow } from '../request-list/request-list.ts';
 
 import { glyphs } from '../format/glyphs.ts';
+import { matchesSearch, searchNeedle } from './search.ts';
 
 export type LineKind = 'user' | 'thinking' | 'assistant' | 'tool' | 'result' | 'diff' | 'reset';
 export interface TranscriptLine {
@@ -113,7 +114,7 @@ export function resetMarks(samples: readonly { at: string }[], resets: readonly 
 
 export function sessionViewModel(input: { detail: SessionDetail; transcript: readonly TranscriptEntry[]; now: number; search?: string }): SessionViewModel {
   const { session } = input.detail;
-  const needle = input.search?.toLowerCase() ?? '';
+  const needle = searchNeedle(input.search);
   const requests: readonly Request[] = input.detail.requests;
   const all = withResetDividers(transcriptLines(input.transcript), input.detail.resets, requests);
   return {
@@ -123,6 +124,6 @@ export function sessionViewModel(input: { detail: SessionDetail; transcript: rea
     requests: requestListViewModel({ requests, sessions: [session], now: input.now }).rows, questions: questionRows(input.detail.questions), jobs: jobRows(input.detail.jobs),
     resets: input.detail.resets.map(reset => ({ id: reset.id, kind: reset.kind, time: clock(reset.at), carried: reset.carriedRequestIds.length, interrupted: reset.interruptedRequestIds.length })),
     subagents: input.detail.subagents.map(sub => ({ id: sub.id, name: sub.name, status: statusCell(sub.status) })),
-    transcript: needle ? all.filter(item => item.text.toLowerCase().includes(needle) || item.kind === 'reset') : all,
+    transcript: needle ? all.filter(item => matchesSearch(item.text, needle) || item.kind === 'reset') : all,
   };
 }
