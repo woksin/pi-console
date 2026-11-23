@@ -235,4 +235,4 @@ Acceptance criteria per milestone: [docs/milestones.md](docs/milestones.md).
 
 ## License
 
-License: to be announced.
+pi-console is released under the [MIT License](https://github.com/woksin/pi-console/blob/main/LICENSE).
