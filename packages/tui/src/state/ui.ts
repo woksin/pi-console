@@ -1,5 +1,5 @@
 import { cycleRequestFilter, requestFilterAction, resolve, type Action, type KeyContext, type RequestsFilter } from '@pi-console/viewmodels';
-import type { TimeWindow } from '@pi-console/viewmodels';
+import { defaultStaleDays, questionSorts, staleDayPresets, type QuestionSort, type TimeWindow } from '@pi-console/viewmodels';
 import { scrubKey, timeControl } from './time-controls.ts';
 import { pauseTranscript, resumeTranscript, scrollTranscript, type TranscriptAnchor, type TranscriptLayout, type TranscriptMotion } from './transcript-window.ts';
 import { terminalContentWidth } from './session-layout.ts';
@@ -38,6 +38,9 @@ export interface UiState {
   /** Transcript entry to scroll to once the opened session's transcript has loaded (from a request's pointer); null otherwise. */
   focusEntry: string | null;
   search: string;
+  /** Question list order and inactivity threshold: client-local, kept while this client runs (cycled with `o` and `S`). */
+  questionSort: QuestionSort;
+  questionStaleDays: number;
   questionDetail: boolean;
   /** Explicit expansion works at every width; automatic narrow detail keeps its resize behavior. */
   questionExpanded: boolean;
@@ -55,7 +58,7 @@ export interface UiState {
 export const initial: UiState = {
   terminalWidth: 80, section: 'overview', sessionId: null, overlay: 'none', helpScroll: 0, settingsScroll: 0, input: '', paletteIndex: 0, recents: [], filter: '',
   cursor: { overview: 0, fleet: 0, requests: 0, questions: 0, messages: 0, timeline: 0, work: 0 },
-  collapsed: [], follow: true, anchor: null, requestFilter: { state: 'all', origin: 'all', sessionId: null }, focusEntry: null, search: '', questionDetail: false, questionExpanded: false, detailScroll: 0, pane: 'requests', memoryIndex: 0, messagesGraph: false, window: null, scrub: false, scrubColumn: 0, quit: false, notice: '',
+  collapsed: [], follow: true, anchor: null, requestFilter: { state: 'all', origin: 'all', sessionId: null }, focusEntry: null, search: '', questionSort: 'priority', questionStaleDays: defaultStaleDays, questionDetail: false, questionExpanded: false, detailScroll: 0, pane: 'requests', memoryIndex: 0, messagesGraph: false, window: null, scrub: false, scrubColumn: 0, quit: false, notice: '',
 };
 
 /** What the reducer needs to know about the rendered world; supplied by the view layer. */
@@ -147,6 +150,17 @@ function requestFilters(state: UiState, bounds: Bounds, action: Action): UiState
   return { ...state, requestFilter: { state: next.state, origin: next.origin, sessionId: next.sessionId }, cursor: { ...state.cursor, requests: 0 } };
 }
 
+function nextOf<Value>(values: readonly Value[], current: Value): Value {
+  return values[(values.indexOf(current) + 1) % values.length];
+}
+
+/** `o` and `S` on the Questions list; a new order starts at the first row rather than leaving a stale cursor. */
+function questionPreference(state: UiState, _bounds: Bounds, action: Action): UiState {
+  if (!onQuestionsList(state)) return state;
+  const changed = action === 'question.sort' ? { questionSort: nextOf(questionSorts, state.questionSort) } : { questionStaleDays: nextOf<number>(staleDayPresets, state.questionStaleDays) };
+  return { ...state, ...changed, cursor: { ...state.cursor, questions: 0 }, detailScroll: 0 };
+}
+
 function toggleView(state: UiState, bounds: Bounds): UiState {
   if (!onQuestionsList(state)) return { ...state, messagesGraph: !state.messagesGraph, cursor: { ...state.cursor, messages: 0 } };
   if (bounds.length === 0) return state;
@@ -165,6 +179,7 @@ const handlers: Partial<Record<Action, Handler>> = {
   'open': (state, bounds) => open(state, bounds),
   'filter.next': requestFilters, 'filter.previous': requestFilters, 'filter.origin': requestFilters, 'filter.session': requestFilters,
   'follow.toggle': (state, bounds) => ({ ...state, focusEntry: null, ...(state.follow ? pauseTranscript(bounds.transcript, state, bounds.viewport) : resumeTranscript) }),
+  'question.sort': questionPreference, 'question.stale': questionPreference,
   'view.toggle': (state, bounds) => toggleView(state, bounds),
   'group.toggle': (state, bounds) => toggleGroup(state, bounds),
   'pane.next': state => cyclePane(state, 1),

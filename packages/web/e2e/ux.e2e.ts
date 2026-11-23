@@ -197,6 +197,44 @@ test('questions distinguish blocking and urgent, with read-only lettered options
   } finally { fixture.questions = original; await page.context().close(); }
 });
 
+test('question history discloses by keyboard, newest first, as text, with stale text and named sort and threshold controls', async () => {
+  const fixture = rig.daemon.store.fixture;
+  const original = fixture.questions;
+  const seed = original[0];
+  const old = new Date(Date.now() - 20 * 86_400_000).toISOString();
+  const recent = new Date().toISOString();
+  // The mock fixture type predates the optional v1 history fields; the daemon serves them through unchanged.
+  const questions: (typeof seed & { updatedAt?: string; history?: unknown[] })[] = [
+    { ...seed, id: 'history-ux', text: 'History question', status: 'open', blocking: false, createdAt: old, updatedAt: recent, history: [
+      { sequence: 2, operation: 'comment', at: recent, actor: 'L0', excerpt: '<b>not html</b>', withheld: false },
+      { sequence: 1, operation: 'created', at: old, actor: null, withheld: false }] },
+    { ...seed, id: 'stale-ux', text: 'Forgotten question', status: 'open', blocking: false, createdAt: old },
+  ];
+  fixture.questions = questions;
+  const page = await rig.open('/questions');
+  try {
+    const card = page.locator('[data-question="history-ux"]');
+    await card.waitFor();
+    await page.locator('[data-question="stale-ux"]').getByText(/Stale · no activity for/).waitFor();
+    assert.equal(await card.getByText(/Stale ·/).count(), 0, 'recent activity clears the badge');
+    assert.match(await page.locator('[data-question="stale-ux"]').innerText(), /History unavailable/);
+    const summary = card.locator('summary');
+    await summary.focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await card.locator('details').getAttribute('open'), '');
+    const entries = card.locator('ol[aria-label^="History of"] > li');
+    assert.equal(await entries.count(), 2);
+    assert.match(await entries.nth(0).innerText(), /commented by L0/);
+    assert.match(await entries.nth(1).innerText(), /created by unknown/);
+    assert.equal(await card.locator('.question-history b').count(), 0, 'note text is not interpreted as HTML');
+    assert.match(page.url(), /#\/questions$/, 'summary activation does not navigate');
+    await page.getByLabel('Sort').selectOption('activity');
+    assert.equal(await page.locator('[data-question]').first().getAttribute('data-question'), 'history-ux');
+    await page.getByLabel('Warn after').selectOption('30');
+    assert.equal(await page.getByText(/Stale ·/).count(), 0, 'a longer threshold clears the badge');
+  } finally { fixture.questions = original; await page.context().close(); }
+});
+
 test('memory review requests wait for pi and producer ingestion; actions never optimistically change status', async () => {
   const page = await rig.open('/session/s1');
   let phase = 'awaiting-human';

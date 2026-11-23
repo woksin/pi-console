@@ -19,8 +19,8 @@ const map = (value: unknown, mapper: Mapper, source: string) => mapLine(JSON.str
 const cases: [string, Mapper, string, number][] = [
   ['context', contextMapper, 'context-budget', 1], ['lanes', laneMapper, 'lane-messages', 3],
   ['roster', rosterMapper, 'lane-messages', 1], ['laneStatus', laneStatusMapper, 'lane-messages', 5], ['laneMessage', laneMessageMapper, 'lane-messages', 0],
-  ['orch', orchMapper, 'lane-messages', 2], ['question', questionMapper, 'question-store', 1],
-  ['legacyQuestion', questionMapper, 'question-store', 1],
+  ['orch', orchMapper, 'lane-messages', 2], ['question', questionMapper, 'question-store', 2],
+  ['legacyQuestion', questionMapper, 'question-store', 2],
   ['issue', issueMapper, 'issue-work', 1], ['phase', phaseMapper, 'phase-ledger', 3],
   ['jobLog', opaqueLogMapper, 'job-logs', 0], ['reviewLog', opaqueLogMapper, 'review-logs', 0],
 ];
@@ -93,29 +93,113 @@ test('orch heartbeat uses its session id; receipt acknowledgement is a documente
   assert.deepEqual(map(fixture.orch[1], orchMapper, 'lane-messages'), []);
 });
 
-test('question revisions emit only their last explicit operation and unsupported priority warns', () => {
+const questionEvents = (value: unknown) => map(value, questionMapper, 'question-store').map(event => ({ ...event, payload: event.payload as Record<string, unknown> }));
+const history = (events: ReturnType<typeof questionEvents>) => events.filter(event => event.type === 'QuestionHistoryRecorded').map(event => event.payload);
+
+test('a question revision maps to one current-state snapshot plus every history entry, whatever the revision number', () => {
   const base = fixture.question;
-  const edited = { ...base, rev: 2, history: [...base.history, { seq: 2, type: 'edited', ts: '2026-07-01T10:01:00Z' }] };
-  assert.equal(map(edited, questionMapper, 'question-store')[0].type, 'QuestionRevised');
-  for (const [type, expected] of [['answered', 'QuestionAnswered'], ['withdrawn', 'QuestionClosed'], ['deferred', 'QuestionDeferred']]) {
-    const row = { ...edited, answer: { text: 'Synthetic answer' }, history: [...base.history, { seq: 2, type, ts: '2026-07-01T10:01:00Z' }] };
-    assert.equal(map(row, questionMapper, 'question-store')[0].type, expected);
-  }
-  assert.equal(map({ ...base, priority: 'low' }, questionMapper, 'question-store')[0].type, 'SourceSchemaUnknown');
-  assert.equal(map({ ...base, rev: 99 }, questionMapper, 'question-store')[0].type, 'SourceSchemaUnknown');
+  const row = {
+    ...base, rev: 7, history: [
+      { seq: 1, type: 'created', ts: '2026-07-01T10:00:00Z' }, { seq: 2, type: 'comment', ts: '2026-07-01T10:01:00Z', text: 'first note', actor: { kind: 'agent', sessionId: 's-1', lane: 'L0' } },
+      { seq: 3, type: 'comment', ts: '2026-07-01T10:01:00Z', text: 'second note', actor: { kind: 'user', sessionId: 's-2' } },
+      { seq: 5, type: 'reopened', ts: '2026-07-01T10:02:00Z' }, { seq: 6, type: 'claimed', ts: '2026-07-01T10:03:00Z', actor: 'M1' },
+    ],
+  };
+  const events = questionEvents(row);
+  assert.deepEqual(events.map(event => event.type), ['QuestionSnapshotObserved', ...Array(5).fill('QuestionHistoryRecorded')]);
+  assert.deepEqual(history(events).map(item => [item.sequence, item.operation, item.actor, item.excerpt]), [
+    [1, 'created', null, undefined], [2, 'comment', 'L0', 'first note'], [3, 'comment', 'user', 'second note'], [5, 'reopened', null, undefined], [6, 'claimed', 'M1', undefined],
+  ]);
+  assert.deepEqual({ ...events[0].payload }, {
+    questionId: 'q-1', revision: 7, asker: null, kind: 'decision', urgency: 'normal', blocking: true, status: 'open', options: [], links: [],
+    createdAt: '2026-07-01T10:00:00Z', updatedAt: '2026-07-01T10:03:00Z', excerpt: 'Synthetic question?', withheld: false,
+  });
+  assert.equal(events[0].occurredAt, '2026-07-01T10:03:00Z');
 });
 
-test('unversioned local questions retain explicit timestamps, decisions, closures and comment gaps', () => {
-  const base = fixture.legacyQuestion;
-  assert.equal(map({ ...base, body: '' }, questionMapper, 'question-store')[0].type, 'QuestionAsked');
-  for (const [type, expected] of [['decided', 'QuestionAnswered'], ['closed', 'QuestionClosed'], ['edited', 'QuestionRevised']]) {
-    const row = { ...base, rev: 2, answer: { text: 'Synthetic choice' }, history: [...base.history, { seq: 2, type, at: '2026-07-01T10:01:00Z' }] };
-    const events = map(row, questionMapper, 'question-store');
-    assert.equal(events[0].type, expected);
-    assert.equal(events[0].occurredAt, '2026-07-01T10:01:00Z');
+test('question facts have logical identities: repeated or later revisions share history keys but not snapshot keys', () => {
+  const base = fixture.question;
+  const later = { ...base, rev: 4, history: [...base.history, { seq: 2, type: 'comment', ts: '2026-07-01T10:01:00Z', text: 'note' }] };
+  const first = questionEvents(base);
+  const second = questionEvents(later);
+  assert.equal(first[1].idempotencyKey, second[1].idempotencyKey);
+  assert.notEqual(first[0].idempotencyKey, second[0].idempotencyKey);
+  assert.notEqual(second[1].idempotencyKey, second[2].idempotencyKey);
+  assert.match(second[2].idempotencyKey, /^question-store\|[0-9a-f]{64}\|0\|2\|QuestionHistoryRecorded$/);
+  const moved = map(later, questionMapper, 'question-store');
+  assert.deepEqual(moved.map(event => event.idempotencyKey), second.map(event => event.idempotencyKey));
+});
+
+test('question status comes from the stored status, else the latest status-changing operation', () => {
+  const base = fixture.question;
+  const withOperation = (type: string, extra: object = {}) => ({ ...base, ...extra, history: [...base.history, { seq: 2, type, ts: '2026-07-01T10:01:00Z' }, { seq: 3, type: 'comment', ts: '2026-07-01T10:02:00Z' }] });
+  for (const [type, expected] of [['answered', 'answered'], ['decided', 'answered'], ['withdrawn', 'closed'], ['superseded', 'closed'], ['deferred', 'deferred'], ['closed', 'closed']]) {
+    assert.equal(questionEvents(withOperation(type))[0].payload.status, expected, type);
   }
-  const comment = { ...base, rev: 2, history: [...base.history, { seq: 2, type: 'comment', at: '2026-07-01T10:01:00Z' }] };
-  assert.deepEqual(map(comment, questionMapper, 'question-store'), []);
+  assert.equal(questionEvents(withOperation('answered', { status: 'deferred' }))[0].payload.status, 'deferred');
+  assert.equal(questionEvents(withOperation('answered', { status: 'invented' }))[0].type, 'SourceSchemaUnknown');
+});
+
+test('unversioned local questions map actor objects, options, links, stored times and answer notes per entry', () => {
+  const base = fixture.legacyQuestion;
+  const row = {
+    ...base, rev: 3, status: 'decided', createdAt: '2026-07-01T09:59:00Z', updatedAt: '2026-07-01T10:05:00Z', options: [{ key: 'a', text: 'Yes' }, { key: 'b', text: 'No' }],
+    links: ['https://example.invalid/issues/1'], answer: { text: 'Final answer' },
+    history: [...base.history, { seq: 2, type: 'edited', at: '2026-07-01T10:01:00Z', text: 'text', actor: { kind: 'agent', sessionId: 's', name: 'worker' } },
+      { seq: 3, type: 'decided', at: '2026-07-01T10:05:00Z', text: 'Chose yes', actor: { kind: 'user', sessionId: 'u' } }],
+  };
+  const events = questionEvents(row);
+  assert.deepEqual({ status: events[0].payload.status, options: events[0].payload.options, links: events[0].payload.links, createdAt: events[0].payload.createdAt, updatedAt: events[0].payload.updatedAt },
+    { status: 'answered', options: ['Yes', 'No'], links: ['https://example.invalid/issues/1'], createdAt: '2026-07-01T09:59:00Z', updatedAt: '2026-07-01T10:05:00Z' });
+  assert.deepEqual(history(events).map(item => [item.operation, item.actor, item.excerpt]), [['created', null, undefined], ['edited', 'worker', 'text'], ['decided', 'user', 'Chose yes']]);
+  assert.ok(events.every(event => !JSON.stringify(event.payload).includes('Final answer')));
+});
+
+test('question history labels and notes are bounded, stripped of control text and scanned for secrets', () => {
+  const hostile = { seq: 2, type: 'comment', ts: '2026-07-01T10:01:00Z', text: 'token=abcdef123456 \u001b]8;;http://evil\u0007x', actor: { kind: 'agent', sessionId: 's', lane: '\u001b[31mL0\u001b[0m' + 'x'.repeat(200) } };
+  const [entry] = history(questionEvents({ ...fixture.question, rev: 2, history: [...fixture.question.history, hostile] })).slice(1);
+  assert.ok(!String(entry.excerpt).includes('abcdef123456'));
+  assert.ok(String(entry.actor).length <= 64);
+  assert.ok(Array.from(String(entry.actor)).every(char => char.charCodeAt(0) >= 32));
+  const long = history(questionEvents({ ...fixture.question, rev: 2, history: [{ seq: 1, type: 'comment', ts: '2026-07-01T10:01:00Z', text: 'x'.repeat(5000) }] }))[0];
+  assert.equal(String(long.excerpt).length, 200);
+});
+
+test('credentials straddling a bound are redacted before truncation, for actor labels and notes', () => {
+  const credential = 'https://user:' + 'p'.repeat(51) + '@example.invalid';
+  const jwt = ['eyJhbGciOiJIUzI1NiJ9', 'eyJlbWFpbCI6ImFsaWNlQGNvcnAuZXhhbXBsZSJ9', 'c2lnbmF0dXJlc2lnbmF0dXJl'].join('.');
+  const note = 'x'.repeat(190) + ' ghp_' + 'a'.repeat(40);
+  const events = questionEvents({ ...fixture.question, rev: 2, history: [
+    { seq: 1, type: 'comment', ts: '2026-07-01T10:01:00Z', text: note, actor: { kind: 'agent', sessionId: 's', name: credential } },
+    { seq: 2, type: 'comment', ts: '2026-07-01T10:02:00Z', actor: { kind: 'agent', sessionId: 's', name: jwt } },
+  ] });
+  const stored = JSON.stringify(events);
+  for (const leak of ['ppppp', 'ghp_', 'aaaaa', 'eyJlbWFpbCI6', 'user:p']) assert.ok(!stored.includes(leak), leak);
+  assert.ok(history(events)[0].actor !== null);
+});
+
+test('a note cut at the bound carries an explicit truncated signal, a short note does not', () => {
+  const [long, short] = history(questionEvents({ ...fixture.question, rev: 2, history: [
+    { seq: 1, type: 'comment', ts: '2026-07-01T10:01:00Z', text: 'y'.repeat(500) }, { seq: 2, type: 'comment', ts: '2026-07-01T10:02:00Z', text: 'y'.repeat(200) }] }));
+  assert.equal(long.truncated, true);
+  assert.equal(String(long.excerpt).length, 200);
+  assert.equal('truncated' in short, false);
+});
+
+test('a credential in a question id never reaches the stored idempotency key', () => {
+  const id = 'ghp_' + 'b'.repeat(40);
+  const stored = JSON.stringify(questionEvents({ ...fixture.question, id, rev: 2 }));
+  assert.ok(!stored.includes('bbbbbbbb'));
+});
+
+test('question records that cannot be represented warn without their content', () => {
+  const base = fixture.question;
+  for (const bad of [{ ...base, priority: 'low' }, { ...base, v: 2 }, { ...base, rev: 'x' }, { ...base, history: [...base.history, { seq: 1, type: 'created', ts: '2026-07-01T10:00:00Z' }] },
+    { ...base, history: [{ seq: 1, type: 'teleported', ts: '2026-07-01T10:00:00Z' }] }, { ...base, history: [{ seq: 1, type: 'created', ts: 'nope' }] }, { ...base, options: 'x' }]) {
+    assert.equal(questionEvents(bad)[0].type, 'SourceSchemaUnknown');
+  }
+  assert.equal(questionEvents({ ...base, history: [], createdAt: '2026-07-01T10:00:00Z' })[0].type, 'QuestionSnapshotObserved');
+  assert.equal(questionEvents({ ...base, history: [] })[0].type, 'SourceSchemaUnknown');
 });
 
 test('S1 structured job deliveries retain each batch member, replay safely, and never invent turns', async () => {

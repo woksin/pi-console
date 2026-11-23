@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import { contextMapper, issueMapper, laneMapper, laneStatusMapper, memoryEventMapper, memoryJournalMapper, orchMapper, phaseMapper, questionMapper, rosterMapper, type Mapper } from '@pi-console/adapters';
+import { contextMapper, issueMapper, laneMapper, laneStatusMapper, memoryEventMapper, memoryJournalMapper, orchMapper, phaseMapper, questionMapper, questionMapperVersion, rosterMapper, type Mapper } from '@pi-console/adapters';
 import { laneStatusJson } from './lane-status.ts';
 import type { SourceId } from './source-ids.ts';
 import { SourceRoot } from './source-root.ts';
@@ -23,6 +23,8 @@ export interface Feed {
   recursive?: boolean;
   /** Turns a non-JSON file into the JSON line its mapper reads (snapshot feeds only). */
   decode?: (bytes: Buffer, path: string) => string;
+  /** Snapshot feeds only: namespaces checkpoints so an updated mapper rereads unchanged files once. */
+  mapperVersion?: string;
   /** Only files whose base name matches. */
   name?: RegExp;
   /**
@@ -68,7 +70,7 @@ export function sourceTable({ agentRoot, orchRoot, lanesRoot, laneStatusDir }: S
   const lanes = lanesRootScope === undefined ? [] : [snapshot(rosterMapper, false, lanesRootScope, '.state', 'roster'), { ...snapshot(laneMapper, false, lanesRootScope), name: /^lanes\.json$/ }];
   const status: Feed = { mapper: laneStatusMapper, kind: 'snapshot', extension: '.status', ...scope([statusRoot]), recursive: false, window: 'none', decode: laneStatusJson };
   return [
-    { id: 'question-store', feeds: [snapshot(questionMapper, true, agent, 'user-questions', 'items')] },
+    { id: 'question-store', feeds: [{ ...snapshot(questionMapper, true, agent, 'user-questions', 'items'), mapperVersion: questionMapperVersion }] },
     { id: 'lane-messages', feeds: [snapshot(orchMapper, true, orch, 'inbox'), ...lanes, status] },
     { id: 'lane-heartbeats', feeds: [snapshot(orchMapper, false, orch, 'heartbeats')] },
     { id: 'context-budget', feeds: [tail(contextMapper, /^events(-[0-9TZ]+)?\.jsonl$/, { seekBy: 'at', lineFilter: '"handoff_committed"' }, agent, 'context-budget')] },

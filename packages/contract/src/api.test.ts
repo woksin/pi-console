@@ -13,7 +13,7 @@ test('docs/api/schemas/api.json is valid JSON and v1 only adds to or replaces v0
   assert.deepEqual(published, apiV0Schema);
   for (const name of Object.keys(apiV0Schema.$defs)) assert.ok(name in apiV1Schema.$defs, name);
   const added = Object.keys(apiV1Schema.$defs).filter(name => !(name in apiV0Schema.$defs));
-  assert.deepEqual(added.sort(), ['attentionItem', 'attentionReason', 'graph', 'graphEdge', 'graphNode', 'health', 'jobPage', 'memoryActionAvailability', 'memoryActionReceipt', 'memoryActionRequest', 'memoryHandoff', 'memoryItem', 'memoryItemPage', 'memoryItems', 'memoryStatus', 'messagePage', 'needsYou', 'questionPage', 'requestEvidence', 'requestPage', 'requestUncertainty', 'resetPage', 'resets', 'sessionMemory', 'sessionPage', 'sessionUpdate', 'settings', 'sourcePointer', 'toolResult', 'transcriptQuery']);
+  assert.deepEqual(added.sort(), ['attentionItem', 'attentionReason', 'graph', 'graphEdge', 'graphNode', 'health', 'jobPage', 'memoryActionAvailability', 'memoryActionReceipt', 'memoryActionRequest', 'memoryHandoff', 'memoryItem', 'memoryItemPage', 'memoryItems', 'memoryStatus', 'messagePage', 'needsYou', 'questionHistoryEntry', 'questionPage', 'requestEvidence', 'requestPage', 'requestUncertainty', 'resetPage', 'resets', 'sessionMemory', 'sessionPage', 'sessionUpdate', 'settings', 'sourcePointer', 'toolResult', 'transcriptQuery']);
 });
 
 test('session memory invalidation is optional, typed and event-local', () => {
@@ -47,6 +47,17 @@ test('a v0 request is valid under v1, and v1 requests accept the derivation fiel
   assert.throws(() => validate({ ...derived, uncertainReason: 'guess' }, apiV1Schema.$defs.request, apiV1Schema));
   assert.throws(() => validate({ ...derived, evidence: [{ kind: 'vibes', entryId: null, resetId: null, at: v0.createdAt }] }, apiV1Schema.$defs.request, apiV1Schema));
   assert.throws(() => validate(derived, apiV0Schema.$defs.request, apiV0Schema));
+});
+
+test('a v0 question is valid under v1, and v1 questions accept optional history', () => {
+  const v0 = { id: 'q1', sessionId: 's1', kind: 'question', text: 'ask', options: [], urgency: 'normal', blocking: false, status: 'open', createdAt: '2026-11-20T09:00:00Z' };
+  validate(v0, apiV1Schema.$defs.question, apiV1Schema);
+  const history = [{ sequence: 2, operation: 'comment', at: '2026-11-20T09:05:00Z', actor: null, excerpt: 'note', withheld: false, truncated: true }];
+  const richer = { ...v0, updatedAt: '2026-11-20T09:05:00Z', history, links: ['https://example.invalid/1'] };
+  validate(richer, apiV1Schema.$defs.question, apiV1Schema);
+  validate({ seq: 1, type: 'question.asked', occurredAt: v0.createdAt, payload: richer }, apiV1Schema.$defs.event, apiV1Schema);
+  assert.throws(() => validate({ ...richer, history: [{ ...history[0], at: 'yesterday', sequence: -1 }] }, apiV1Schema.$defs.question, apiV1Schema));
+  assert.throws(() => validate(richer, apiV0Schema.$defs.question, apiV0Schema));
 });
 
 test('a v0 transcript entry is valid under v1 (additive)', () => {

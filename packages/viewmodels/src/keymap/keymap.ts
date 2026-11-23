@@ -14,6 +14,7 @@ export type Action =
   | 'time.scrub' | 'time.zoomIn' | 'time.zoomOut' | 'time.left' | 'time.right'
   | 'group.toggle' | 'filter.next' | 'filter.previous' | 'filter.origin' | 'filter.session'
   | 'memory.next' | 'memory.previous' | 'memory.confirm' | 'memory.reject'
+  | 'question.sort' | 'question.stale'
   | 'answer' | 'steer' | 'followUp' | 'pause' | 'abort' | 'defer';
 
 export interface Binding {
@@ -69,6 +70,8 @@ export const bindings: readonly Binding[] = [
   { keys: ['['], action: 'filter.previous', label: 'Previous saved filter (Requests: state)', contexts: ['requests'] },
   { keys: ['o'], action: 'filter.origin', label: 'Next origin filter (Requests)', contexts: ['requests'] },
   { keys: ['S'], action: 'filter.session', label: 'Next session filter (Requests)', contexts: ['requests'] },
+  { keys: ['o'], action: 'question.sort', label: 'Next question sort: priority, last updated, last activity', hint: 'o sort', contexts: ['questions'], clients: ['tui'] },
+  { keys: ['S'], action: 'question.stale', label: 'Next inactivity warning threshold (days)', hint: 'S stale', contexts: ['questions'], clients: ['tui'] },
   { keys: [']'], action: 'memory.next', label: 'Next memory item', contexts: ['memory'], clients: ['tui'] },
   { keys: ['['], action: 'memory.previous', label: 'Previous memory item', contexts: ['memory'], clients: ['tui'] },
   { keys: ['c'], action: 'memory.confirm', label: 'Request confirmation in pi', contexts: ['memory'], clients: ['tui'] },

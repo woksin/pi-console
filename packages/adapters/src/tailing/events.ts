@@ -1,8 +1,12 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { definitionOf, idempotencyKey, payloadValid, type NewEvent, type SourceCheckpoint } from '@pi-console/contract';
 import { redactValue, type Scanner } from './redact.ts';
 
-export interface Fact { type: string; subject: string; payload: Record<string, unknown>; occurredAt?: string; entryId?: string; observationId?: string }
+export interface Fact {
+  type: string; subject: string; payload: Record<string, unknown>; occurredAt?: string; entryId?: string; observationId?: string;
+  /** Source-defined identity of this fact, replacing file identity/generation/offset: the same fact seen in another file or revision is one event. */
+  logical?: { identity: string; offset: number };
+}
 export type Mapper = (record: Record<string, unknown>) => readonly Fact[];
 interface MappingContext { checkpoint: SourceCheckpoint; mapper: Mapper; scanner?: Scanner }
 
@@ -30,11 +34,19 @@ export function warning(checkpoint: SourceCheckpoint, offset: number, detail: st
   });
 }
 
+/** The raw logical identity may carry source text; the stored key holds only its stable digest. */
+const opaque = (identity: string): string => createHash('sha256').update(identity).digest('hex');
+
+function factKey(checkpoint: SourceCheckpoint, offset: number, fact: Fact): string {
+  if (fact.logical) return idempotencyKey({ source: checkpoint.source, identity: opaque(fact.logical.identity), generation: 0, offset: fact.logical.offset, type: fact.type });
+  return idempotencyKey({ ...checkpoint, offset, type: fact.observationId === undefined ? fact.type : `${fact.type}:${fact.observationId}` });
+}
+
 function envelope(checkpoint: SourceCheckpoint, offset: number, fact: Fact): NewEvent {
   return {
     id: eventId(), type: fact.type, version: 1, occurredAt: fact.occurredAt ?? new Date(checkpoint.mtimeMs).toISOString(),
     source: checkpoint.source, subject: fact.subject, actor: 'system', payload: fact.payload,
-    idempotencyKey: idempotencyKey({ ...checkpoint, offset, type: fact.observationId === undefined ? fact.type : `${fact.type}:${fact.observationId}` }),
+    idempotencyKey: factKey(checkpoint, offset, fact),
     refs: { file: checkpoint.path, offset, entryId: fact.entryId ?? null },
   };
 }
@@ -56,5 +68,5 @@ function safeEvent(fact: Fact, checkpoint: SourceCheckpoint, offset: number, sca
   if (!definition) throw new Error('Unknown event mapping');
   if (!definition.sources.includes(checkpoint.source)) throw new Error('Invalid event source');
   if (payloadValid(definition, safe.payload)) throw new Error('Invalid event payload');
-  return envelope(checkpoint, offset, safe);
+  return envelope(checkpoint, offset, { ...safe, logical: fact.logical });
 }

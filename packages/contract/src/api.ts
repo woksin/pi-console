@@ -45,6 +45,19 @@ const request = strict({
   pointer: nullable(ref('sourcePointer')),
 }, v0Request.required);
 
+const v0Question = apiV0Schema.$defs.question as { properties: Record<string, Schema>; required: string[] };
+
+/** One recorded history entry of a question; `excerpt` is the bounded, redacted note or answer text. */
+const questionHistoryEntry = strict({
+  sequence: int, operation: id, at: time, actor: nullable(str), excerpt, withheld: bool, truncated: bool,
+}, ['sequence', 'operation', 'at', 'actor']);
+
+/** v0 `question` plus optional history fields. `history` absent means the source never supplied it (old events). Every v0 question stays valid. */
+const question = strict({
+  ...v0Question.properties,
+  updatedAt: time, history: array(ref('questionHistoryEntry')), links: array(str),
+}, v0Question.required);
+
 const memoryStatus = oneOf('active', 'proposed', 'done', 'superseded', 'withdrawn', 'rejected');
 
 /** One intent-memory item as recorded (docs/api/v1.md). `command` is text for a human to run in pi; the console never runs it. */
@@ -128,7 +141,7 @@ const v1Defs: Record<string, Schema> = {
   memoryActionRequest: memoryActionRequestSchema, memoryActionReceipt: memoryActionReceiptSchema, memoryActionAvailability: memoryActionAvailabilitySchema,
   snapshot, sessionPage: pageOf('session'), requestPage: pageOf('request'), questionPage: pageOf('question'),
   messagePage: pageOf('message'), jobPage: pageOf('job'), memoryItemPage: pageOf('memoryItem'), memoryItems: strict({ items: array(ref('memoryItem')) }), resetPage: pageOf('reset'), resets: strict({ items: array(ref('reset')) }),
-  memoryStatus, memoryItem, memoryHandoff, sessionMemory, toolResult, sourcePointer, attentionReason, attentionItem, graphNode, graphEdge, requestEvidence, requestUncertainty, request,
+  memoryStatus, memoryItem, memoryHandoff, sessionMemory, toolResult, sourcePointer, attentionReason, attentionItem, graphNode, graphEdge, requestEvidence, requestUncertainty, request, questionHistoryEntry, question,
   transcriptQuery: strict({ after: int, limit: { type: 'integer', minimum: 1, maximum: 1000 }, order: { enum: ['asc', 'desc'] }, around: str }, []),
   transcript: strict({ items: array(ref('transcriptEntry')), nextCursor: int, hasMore: bool, hasOlder: bool }, ['items', 'nextCursor', 'hasMore']),
   transcriptEntry: strict({
