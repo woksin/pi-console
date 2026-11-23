@@ -17,3 +17,6 @@ export { issueMapper } from './sources/issues.ts';
 export { phaseMapper } from './sources/phases.ts';
 export { opaqueLogMapper } from './sources/gaps.ts';
 export { sessionMapper } from './session/mapper.ts';
+export { runGh, ghEnvironment, defaultLimits, type Spawn, type ProcessLimits, type ProcessResult } from './github/gh-process.ts';
+export { lookupTarget, lookupOf, ghArguments, query as ghQuery, type Lookup, type QueryTarget, type QueryOptions } from './github/gh-query.ts';
+export { observationEvent, type LinkObservationFact } from './github/observation-event.ts';

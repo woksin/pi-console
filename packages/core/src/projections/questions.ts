@@ -1,4 +1,5 @@
 import type { EventEnvelope, SourceRef } from '@pi-console/contract';
+import { currentTargets, observe, prune, type LinkObservations, type ObservedPayload } from './question-links.ts';
 import { entry, markDirty, orderKey, projection } from '../projector/handlers.ts';
 
 /** One recorded history entry; the sequence is the source's per-question identity. */
@@ -21,6 +22,8 @@ export interface QuestionModel {
   links: string[];
   /** Present only once the source supplied history; keyed by sequence so any arrival order converges. */
   history: Record<string, QuestionHistoryModel> | null;
+  /** Latest observed GitHub state per current link target; never affects status, history or activity. */
+  linkObservations: LinkObservations | null;
   stamps: Record<string, string>;
 }
 
@@ -30,7 +33,7 @@ function question(state: QuestionsState, id: string): QuestionModel {
   markDirty(state, 'questions', id);
   return entry(state.questions, id, () => ({
     id, asker: null, kind: 'question', text: '', options: [], urgency: 'normal', blocking: false,
-    status: 'open', createdAt: '', ref: null, revision: 0, updatedAt: '', links: [], history: null, stamps: Object.create(null) as Record<string, string>,
+    status: 'open', createdAt: '', ref: null, revision: 0, updatedAt: '', links: [], history: null, linkObservations: null, stamps: Object.create(null) as Record<string, string>,
   }));
 }
 
@@ -49,7 +52,7 @@ const setStatus = (status: QuestionModel['status']) => (state: QuestionsState, p
   update(row, 'status', event, () => { row.status = status; });
 };
 
-export const questionsProjection = projection<QuestionsState>('questions', 4, () => ({ questions: {} }), {
+export const questionsProjection = projection<QuestionsState>('questions', 5, () => ({ questions: {} }), {
   QuestionAsked(state, payload, event) {
     const row = question(state, payload.questionId);
     update(row, 'asked', event, () => {
@@ -73,6 +76,11 @@ export const questionsProjection = projection<QuestionsState>('questions', 4, ()
       blocking: payload.blocking, status: payload.status, createdAt: payload.createdAt, updatedAt: payload.updatedAt, links: payload.links ?? [],
       revision: payload.revision, ref: event.refs,
     });
+    row.linkObservations = prune(row.linkObservations, currentTargets(row.links, row.revision));
+  },
+  QuestionLinkStateObserved(state, payload: ObservedPayload) {
+    const row = question(state, payload.questionId);
+    row.linkObservations = observe(row.linkObservations, payload, currentTargets(row.links, row.revision), row.revision);
   },
   QuestionHistoryRecorded(state, payload) {
     const row = question(state, payload.questionId);

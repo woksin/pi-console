@@ -53,12 +53,26 @@ function QuestionCard({ row, selected, onSelect }: { row: QuestionRow; selected:
   const ref = useScrollIntoView<HTMLLIElement>(selected);
   return (
     <li ref={ref} className={`card question${selected ? ' selected' : ''}${row.blocking ? ' blocking' : ''}`} onClick={onSelect} data-question={row.id} aria-current={selected ? 'true' : undefined}>
-      <div className="card-head"><StatusBadge cell={row.status} /><span className="chip">{row.kind}</span>{row.blocking && <span className="chip warn-chip">blocking</span>}{row.urgent && <span className="urgent-mark" role="img" aria-label="Urgent" title="Urgent">‼</span>}<a href={sessionHref(row.sessionId)}>{row.session}</a><span className="grow" />{row.stale && <span className="chip warn-chip">{row.stale}</span>}<span className="faint tnum">{row.age}</span></div>
+      <div className="card-head"><StatusBadge cell={row.status} /><span className="chip">{row.kind}</span>{row.blocking && <span className="chip warn-chip">blocking</span>}{row.urgent && <span className="urgent-mark" role="img" aria-label="Urgent" title="Urgent">‼</span>}<a href={sessionHref(row.sessionId)}>{row.session}</a><span className="grow" />{row.moot?.label && <span className="chip warn-chip" data-moot="possibly-moot" title={row.moot.explanation}>{row.moot.label}</span>}{row.stale && <span className="chip warn-chip">{row.stale}</span>}<span className="faint tnum">{row.age}</span></div>
       <p className="card-text">{row.text}</p>
       <p className="muted question-activity">Updated {row.updated === '–' ? 'unknown' : <time dateTime={row.updatedAt ?? undefined}>{row.updated} ago</time>} · Last activity <time dateTime={row.lastActivityAt}>{row.lastActivity}</time></p>
       {row.options.length > 0 && <ul className="question-options" aria-label="Options (read-only)">{row.options.map((option, index) => <li key={option}><span className="muted">{String.fromCharCode(65 + index)} · </span>{option}</li>)}</ul>}
+      <QuestionMootEvidence row={row} />
       <QuestionHistory row={row} />
     </li>
+  );
+}
+
+/** Why the question is (or is not) marked: observed GitHub state per link. Advisory only; all text is rendered as text. */
+function QuestionMootEvidence({ row }: { row: QuestionRow }) {
+  if (!row.moot) return null;
+  const { label, explanation, evidence } = row.moot;
+  return (
+    <details className="question-history question-moot">
+      <summary>{label ?? 'Linked items'} · GitHub evidence ({evidence.length})</summary>
+      <p className="question-history-note">{explanation}</p>
+      <ul aria-label={`GitHub evidence for ${row.id}`}>{evidence.map(item => <li key={item.key}>{item.text}</li>)}</ul>
+    </details>
   );
 }
 

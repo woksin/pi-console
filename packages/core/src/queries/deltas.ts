@@ -30,7 +30,7 @@ const routes: Record<string, [string, Target]> = {
   RequestInterrupted: ['request.interrupted', request],
   QuestionAsked: ['question.asked', question], QuestionRevised: ['question.asked', question],
   QuestionAnswered: ['question.asked', question], QuestionDeferred: ['question.asked', question], QuestionClosed: ['question.asked', question],
-  QuestionSnapshotObserved: ['question.asked', question], QuestionHistoryRecorded: ['question.asked', question],
+  QuestionSnapshotObserved: ['question.asked', question], QuestionHistoryRecorded: ['question.asked', question], QuestionLinkStateObserved: ['question.asked', question],
   MessageSent: ['message.sent', message], MessageDelivered: ['message.sent', message], MessageRead: ['message.sent', message],
   BroadcastSent: ['message.sent', message],
   JobStarted: ['job.updated', job], JobFinished: ['job.finished', job],

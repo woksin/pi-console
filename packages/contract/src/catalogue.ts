@@ -63,6 +63,14 @@ const questions = defs('questions', ['question-store'], {
   QuestionHistoryRecorded: open({ ...questionId, sequence: int, operation: str, at: time, actor: nullable(str), excerpt, withheld: bool, truncated: bool }, ['questionId', 'sequence', 'operation', 'at', 'actor']),
 });
 
+/** Observed GitHub state of one question link target, as of one link-set revision. Observation facts only: never a lifecycle change. 'unknown' is a failed or inconclusive refresh and supersedes earlier success. */
+const questionLinks = defs('questions', ['github-closures'], {
+  QuestionLinkStateObserved: open({
+    ...questionId, revision: int, target: id, kind: nullable(oneOf('issue', 'pull-request')), state: oneOf('open', 'closed', 'merged', 'unknown'),
+    closedAt: nullable(time), fetchedAt: time, source: oneOf('github-gh'),
+  }),
+});
+
 const messageId = { messageId: id };
 const messagesAndLanes = defs('messages-lanes', ['lane-messages', 'lane-heartbeats', 'issue-work'], {
   MessageSent: open({ ...messageId, from: id, to: id, excerpt, withheld: bool }, ['messageId', 'from', 'to']),
@@ -111,7 +119,7 @@ const system = defs('system', ['console', 'session-jsonl', 'context-budget', 'la
 });
 
 /** The M1 event catalogue (event-model section 2, trimmed to what M1 ingests and derives). */
-export const catalogue: readonly EventDefinition[] = [...sessions, ...requests, ...questions, ...messagesAndLanes, ...work, ...memory, ...system];
+export const catalogue: readonly EventDefinition[] = [...sessions, ...requests, ...questions, ...questionLinks, ...messagesAndLanes, ...work, ...memory, ...system];
 
 const byType = new Map(catalogue.map(definition => [definition.type, definition]));
 export const definitionOf = (type: string): EventDefinition | undefined => byType.get(type);

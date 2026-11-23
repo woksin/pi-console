@@ -171,7 +171,7 @@ async function openDaemon(options: DaemonOptions, cleanups: Cleanup[]): Promise<
   cleanups.push(() => fileTranscripts.close());
   const ingestion = new SessionIngestion(checkpoints, { roots: options.sessionRoots, backfillWindowDays: options.backfillWindowDays, pollMs: options.pollMs, now });
   cleanups.push(() => ingestion.stop());
-  const sources = sourceSetFor(log, options, now);
+  const sources = sourceSetFor(log, options, now, { models: () => readModels(projector) });
   cleanups.push(() => sources.stop());
   let port = options.port;
   const eventLoop = new EventLoopHealth();

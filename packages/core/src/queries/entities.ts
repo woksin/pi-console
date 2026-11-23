@@ -2,6 +2,7 @@ import type { Job, Message, Question, Request, Reset, Session } from '@pi-consol
 import type { ReadModels } from '../projections/index.ts';
 import type { JobModel } from '../projections/work.ts';
 import type { MessageModel } from '../projections/messages.ts';
+import { evidenceOf } from '../projections/question-links.ts';
 import type { QuestionHistoryModel, QuestionModel } from '../projections/questions.ts';
 import type { RequestModel } from '../projections/requests.ts';
 import type { SessionModel } from '../projections/sessions.ts';
@@ -78,8 +79,10 @@ const newestFirst = (a: QuestionHistoryModel, b: QuestionHistoryModel) => Date.p
 
 /** The optional v1 fields exist only when the source supplied them; old events keep the v0 shape. */
 function questionDetail(question: QuestionModel): Partial<Question> {
+  const linkEvidence = question.revision > 0 ? evidenceOf(question.linkObservations, question.links) : null;
   return {
     ...(question.revision > 0 ? { updatedAt: question.updatedAt, links: question.links } : {}),
+    ...(linkEvidence ? { linkEvidence } : {}),
     ...(question.history ? { history: Object.values(question.history).sort(newestFirst).map(entry => ({ ...entry })) } : {}),
   };
 }

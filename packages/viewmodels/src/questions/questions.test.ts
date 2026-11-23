@@ -74,3 +74,56 @@ test('open questions turn stale exactly at the threshold, and recorded activity 
   assert.equal(stale(at(-5 * day)), null, 'future timestamps are clamped, never stale');
   for (const status of ['answered', 'deferred', 'closed']) assert.equal(stale(at(30 * day), { status }), null, status);
 });
+
+const seen = (target: string, extra: object = {}) => ({ target, kind: 'issue', state: 'closed', closedAt: '2026-11-19T00:00:00Z', fetchedAt: '2026-11-20T11:30:00Z', source: 'github-gh', ...extra });
+const mootOf = (question: object, at = now) => questionsViewModel({ questions: [ask('m', question)], sessions: [], now: at }).rows[0];
+
+test('possibly moot needs every link freshly observed closed or merged, and shows inspectable evidence', () => {
+  const fresh = Date.parse('2026-11-20T12:00:00Z');
+  const row = mootOf({ links: ['a/b#1', 'https://github.com/a/b/pull/2'], linkEvidence: [seen('a/b#1'), seen('a/b#2', { kind: 'pull-request', state: 'merged' })] }, fresh);
+  assert.equal(row.moot?.label, 'Possibly moot');
+  assert.deepEqual(row.moot?.evidence.map(item => [item.target, item.kind, item.state, item.closedAt, item.source, item.fetchedAt, item.current]), [
+    ['a/b#1', 'issue', 'closed', '2026-11-19T00:00:00Z', 'github-gh', '2026-11-20T11:30:00Z', true],
+    ['a/b#2', 'pull request', 'merged', '2026-11-19T00:00:00Z', 'github-gh', '2026-11-20T11:30:00Z', true],
+  ]);
+  assert.match(row.moot?.evidence[0].text ?? '', /a\/b#1 · issue closed · closed 2026-11-19T00:00:00Z · fetched 30m ago · github-gh/);
+  assert.equal(row.status.status, 'open');
+});
+
+test('the advisory expires on the supplied clock, never on new data, and stale evidence is shown as stale history', () => {
+  const links = ['a/b#1'], linkEvidence = [seen('a/b#1')];
+  const later = Date.parse('2026-11-20T12:31:00Z');
+  const row = mootOf({ links, linkEvidence }, later);
+  assert.equal(row.moot?.label, null);
+  assert.match(row.moot?.explanation ?? '', /more than an hour old/);
+  assert.match(row.moot?.evidence[0].text ?? '', /stale · fetched/);
+  assert.equal(row.moot?.evidence[0].current, false);
+});
+
+test('nothing is marked for open, unknown, unchecked, unsupported, non-open or evidence-free questions, and counts and order never change', () => {
+  const at = Date.parse('2026-11-20T12:00:00Z');
+  const cases: [object, RegExp][] = [
+    [{ links: ['a/b#1'], linkEvidence: [seen('a/b#1', { state: 'open', closedAt: null })] }, /observed open/],
+    [{ links: ['a/b#1'], linkEvidence: [seen('a/b#1', { state: 'unknown', kind: null, closedAt: null })] }, /could not be confirmed/],
+    [{ links: ['a/b#1', 'a/b#2'], linkEvidence: [seen('a/b#1')] }, /not been checked/],
+    [{ links: ['a/b#1', 'a prose link'], linkEvidence: [seen('a/b#1')] }, /not recognised/],
+  ];
+  for (const [question, text] of cases) {
+    const row = mootOf(question, at);
+    assert.equal(row.moot?.label, null);
+    assert.match(row.moot?.explanation ?? '', text);
+  }
+  assert.equal(mootOf({ links: ['a/b#1'] }, at).moot, undefined);
+  assert.equal(mootOf({ status: 'answered', links: ['a/b#1'], linkEvidence: [seen('a/b#1')] }, at).moot, undefined);
+  const plain = ask('x', { links: ['a/b#1'], blocking: true });
+  const marked = ask('x', { links: ['a/b#1'], blocking: true, linkEvidence: [seen('a/b#1')] });
+  const model = (question: typeof plain) => questionsViewModel({ questions: [question], sessions: [], now: at });
+  assert.deepEqual([model(marked).open, model(marked).blocking, model(marked).rows[0].status], [model(plain).open, model(plain).blocking, model(plain).rows[0].status]);
+});
+
+test('hostile link and evidence text is sanitized into inert text', () => {
+  const evil = '\u001b]8;;http://evil\u0007a/b#1\u001b[31m';
+  const row = mootOf({ links: [evil], linkEvidence: [seen('a/b#1')] });
+  assert.ok(!JSON.stringify(row).includes('\u001b'));
+  assert.equal(row.moot?.label, null);
+});

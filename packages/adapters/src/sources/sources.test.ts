@@ -227,3 +227,26 @@ test('unknown enums and future source versions are warnings, not normalized gues
   ];
   for (const [row, mapper, source] of unsupported) assert.equal(map(row, mapper, source)[0].type, 'SourceSchemaUnknown');
 });
+
+test('a link whose number would change when truncated gets an ellipsis; a long link whose target survives passes unchanged', async () => {
+  const { parseLink } = await import('@pi-console/contract');
+  const padded = ' '.repeat(195) + 'a/b#12', survives = 'a/b#12' + ' '.repeat(300);
+  const row = { ...fixture.question, links: [padded, survives] };
+  const stored = questionEvents(row).find(event => event.type === 'QuestionSnapshotObserved')?.payload.links as string[];
+  assert.equal(stored[0].endsWith('\u2026'), true);
+  assert.equal(parseLink(stored[0]), null);
+  assert.equal(stored[1].endsWith('\u2026'), false);
+  assert.equal(parseLink(stored[1])?.key, 'a/b#12');
+});
+
+test('links that are not whole recognised references can never parse after truncation or control stripping', async () => {
+  const { parseLink } = await import('@pi-console/contract');
+  const hostile = ['a/b#1' + ' '.repeat(195) + 'junk', 'a/b#1\u0000', 'a/b#1\u0000'.repeat(3), 'x'.repeat(300), 'plain prose'];
+  const row = { ...fixture.question, links: ['a/b#1', 'https://github.com/a/b/pull/2?x=1', ...hostile] };
+  const stored = questionEvents(row).find(event => event.type === 'QuestionSnapshotObserved')?.payload.links as string[];
+  assert.deepEqual(stored.slice(0, 2), ['a/b#1', 'https://github.com/a/b/pull/2?x=1']);
+  for (const link of stored.slice(2)) {
+    assert.equal(parseLink(link), null);
+    assert.equal(parseLink(link.slice(0, 200).split('\u0000').join('')), null);
+  }
+});

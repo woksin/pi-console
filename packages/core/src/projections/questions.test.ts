@@ -66,3 +66,57 @@ test('a snapshot without history leaves history absent, not empty', async () => 
   assert.equal(question?.history, undefined);
   assert.deepEqual(question?.links, ['https://example.invalid/i/1']);
 });
+
+const observed = (n: number, fetchedAt: string, extra: object = {}) => testEvent(n, 'QuestionLinkStateObserved', {
+  questionId: 'q1', revision: 1, target: 'a/b#1', kind: 'issue', state: 'closed', closedAt: '2026-11-01T00:00:00Z', fetchedAt, source: 'github-gh', ...extra,
+});
+const linked = (n: number, revision: number, links: string[]) => snapshot(n, revision, { links });
+const states = (question: { linkEvidence?: { target: string; state: string }[] } | undefined) => question?.linkEvidence?.map(item => `${item.target}:${item.state}`);
+
+test('link evidence is served only for current links and never changes status, history or activity', async () => {
+  const plain = await after([linked(1, 1, ['a/b#1', 'https://example.invalid/x'])]);
+  const { question, list, deltas } = await after([linked(1, 1, ['a/b#1', 'https://example.invalid/x']), observed(2, '2026-11-01T01:00:00Z')]);
+  assert.deepEqual(states(question), ['a/b#1:closed']);
+  assert.deepEqual({ ...question, linkEvidence: undefined }, { ...plain.question, linkEvidence: undefined });
+  assert.deepEqual(list, [question]);
+  assert.deepEqual(deltas.at(-1)?.payload, question);
+  assert.equal(plain.question?.linkEvidence, undefined);
+});
+
+test('a later failure supersedes an earlier success, and a late older success cannot resurrect it', async () => {
+  const failure = observed(3, '2026-11-01T01:15:00Z', { kind: null, state: 'unknown', closedAt: null });
+  const { question } = await after([linked(1, 1, ['a/b#1']), observed(2, '2026-11-01T01:00:00Z'), failure, observed(4, '2026-11-01T01:00:00Z')]);
+  assert.deepEqual(states(question), ['a/b#1:unknown']);
+  const reopened = await after([linked(1, 1, ['a/b#1']), observed(2, '2026-11-01T01:00:00Z'), observed(3, '2026-11-01T01:20:00Z', { state: 'open', closedAt: null })]);
+  assert.deepEqual(states(reopened.question), ['a/b#1:open']);
+});
+
+test('evidence before its snapshot waits; evidence for removed or other targets never shows', async () => {
+  const early = await after([observed(1, '2026-11-01T01:00:00Z'), linked(2, 1, ['a/b#1'])]);
+  assert.deepEqual(states(early.question), ['a/b#1:closed']);
+  const other = await after([linked(1, 1, ['a/b#1']), observed(2, '2026-11-01T01:00:00Z', { target: 'a/b#2' }), observed(3, '2026-11-01T01:00:00Z', { target: '--repo' })]);
+  assert.equal(other.question?.linkEvidence, undefined);
+});
+
+test('relink: observe, remove, re-add starts without evidence until a new observation for the new revision', async () => {
+  const events = [linked(1, 1, ['a/b#1']), observed(2, '2026-11-01T01:00:00Z'), linked(3, 2, []), linked(4, 3, ['a/b#1'])];
+  assert.equal((await after(events)).question?.linkEvidence, undefined);
+  const again = await after([...events, observed(5, '2026-11-01T01:00:00Z', { revision: 3 })]);
+  assert.deepEqual(states(again.question), ['a/b#1:closed']);
+  const stale = await after([...events, observed(5, '2026-11-01T02:00:00Z', { revision: 1 })]);
+  assert.equal(stale.question?.linkEvidence, undefined);
+});
+
+test('reordering links keeps evidence; an oversized link list keeps none', async () => {
+  const kept = await after([linked(1, 1, ['a/b#1', 'a/b#2']), observed(2, '2026-11-01T01:00:00Z'), linked(3, 2, ['a/b#2', 'a/b#1'])]);
+  assert.deepEqual(states(kept.question), ['a/b#1:closed']);
+  const big = Array.from({ length: 101 }, (_, index) => `a/b#${String(index + 1)}`);
+  assert.equal((await after([linked(1, 1, big), observed(2, '2026-11-01T01:00:00Z')])).question?.linkEvidence, undefined);
+});
+
+test('duplicate observations keep one evidence row per target and a rebuilt projection matches the incremental one', async () => {
+  const events = [linked(1, 1, ['a/b#1']), observed(2, '2026-11-01T01:00:00Z'), observed(3, '2026-11-01T01:00:00Z')];
+  const first = await after(events);
+  assert.deepEqual(states(first.question), ['a/b#1:closed']);
+  assert.deepEqual((await after(events)).question, first.question);
+});

@@ -1,15 +1,11 @@
 import type { ServerResponse } from 'node:http';
 import { scanPatterns } from '@pi-console/adapters';
+import { stripUnsafeCharacters } from '@pi-console/contract';
 import { HttpError } from '../security/guard.ts';
-
-// C0 and C1 control characters except tab and newline, plus bidirectional overrides: terminal escapes and
-// "trojan source" reordering must never reach a TUI or a page through the API.
-// eslint-disable-next-line no-control-regex -- matching control characters is the purpose of this pattern
-const unsafeCharacters = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g;
 
 /** Last line of defence at the API boundary: adapters redact at ingestion; this repeats the scan on the way out. */
 export function safeText(text: string): string {
-  return scanPatterns(text.replace(unsafeCharacters, ''));
+  return scanPatterns(stripUnsafeCharacters(text));
 }
 
 /** JSON for every response body and SSE frame; every string value passes through `safeText`. */

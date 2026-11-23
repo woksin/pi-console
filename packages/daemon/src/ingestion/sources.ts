@@ -3,6 +3,7 @@ import { AdapterSupervisor, type AdapterWorker } from '@pi-console/adapters';
 import { SourceIngestion, type SourceStatus } from './source-ingestion.ts';
 import { sourceTable, type SourceRoots } from './source-table.ts';
 import type { SourceId } from './source-ids.ts';
+import { githubActive, githubWorker, type GithubSourceOptions } from '../github/github-source.ts';
 
 export interface SourceWorker extends AdapterWorker { readonly status?: SourceStatus }
 export interface SourceEntry { id: SourceId; worker: () => SourceWorker }
@@ -96,15 +97,21 @@ export class SourceSet {
 
 export interface SourceSetConfig extends SourceRoots {
   sources: Record<SourceId, boolean>;
+  dataDir: string;
+  githubRepositories: readonly string[];
   sourcePollMs: number;
   backfillWindowDays: number;
 }
 
-/** The enabled sources of the table, each as its own supervised `SourceIngestion`. */
-export function sourceSetFor(log: EventLog, config: SourceSetConfig, now?: () => Date): SourceSet {
-  const entries = sourceTable(config).filter(spec => config.sources[spec.id]).map(spec => ({
+/** Read access the optional GitHub source needs; without it that source is never created. */
+export type GithubWiring = Pick<GithubSourceOptions, 'models' | 'deps'>;
+
+/** The enabled sources of the table, each as its own supervised `SourceIngestion`, plus the opt-in GitHub closure source when it is switched on and allowlisted. */
+export function sourceSetFor(log: EventLog, config: SourceSetConfig, now?: () => Date, github?: GithubWiring): SourceSet {
+  const entries: SourceEntry[] = sourceTable(config).filter(spec => config.sources[spec.id]).map(spec => ({
     id: spec.id,
     worker: () => new SourceIngestion(log, { id: spec.id, feeds: spec.feeds, backfillWindowDays: config.backfillWindowDays, now }),
   }));
+  if (github && githubActive(config)) entries.push({ id: 'github-closures', worker: () => githubWorker({ log, config, ...github }) });
   return new SourceSet(entries, { intervalMs: config.sourcePollMs });
 }

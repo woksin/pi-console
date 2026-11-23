@@ -95,12 +95,32 @@ test('health lists every enabled source with counters and settings lists all, ne
   }
   assert.ok((byId.get('lane-messages') as { files: number }).files > 0, 'lane-messages reads the lane registry and the orch inbox');
   const settings = await running.get('settings');
-  assert.deepEqual(settings.sources.map((source: { source: string }) => source.source).sort(), ['session-jsonl', ...sourceIds].sort());
+  assert.deepEqual(settings.sources.map((source: { source: string }) => source.source).sort(), ['session-jsonl', 'github-closures', ...sourceIds].sort());
+  assert.equal(byId.has('github-closures'), false, 'the opt-in network source is not started by default');
+  assert.deepEqual([settings.sources.find((source: { source: string }) => source.source === 'github-closures').enabled, settings.sources.find((source: { source: string }) => source.source === 'github-closures').availability], [false, 'disabled']);
   assert.equal(settings.sources.find((source: { source: string }) => source.source === 'phase-ledger').enabled, false);
   const availability = (source: string) => settings.sources.find((entry: { source: string }) => entry.source === source).availability;
   assert.deepEqual([availability('phase-ledger'), availability('issue-work'), availability('session-jsonl'), settings.agentRootAvailability], ['disabled', 'available', 'available', 'available']);
   for (const text of [JSON.stringify(health), JSON.stringify(settings)]) {
     assert.ok(!text.includes(tree.root) && !text.includes(directory), 'no path in health or settings');
+  }
+});
+
+test('the GitHub closure source is active only when switched on and a repository is allowlisted; health and settings never reveal the allowlist', async t => {
+  for (const [overrides, active] of [
+    [{ sources: { 'github-closures': true } }, false], [{ githubRepositories: ['secret-owner/secret-repo'] }, false], [{ sources: { 'github-closures': true }, githubRepositories: ['secret-owner/secret-repo'] }, true],
+  ] as const) {
+    const { tree, directory } = fixture(t);
+    mkdirSync(join(tree.root, 'memory', 'journal'), { recursive: true });
+    const running = await launch(t, tree, directory, overrides as ConfigOverrides);
+    await wait(150);
+    const [health, settings] = [await running.get('health'), await running.get('settings')];
+    const github = settings.sources.find((source: { source: string }) => source.source === 'github-closures');
+    assert.deepEqual([github.enabled, github.availability], [active, active ? 'available' : 'disabled']);
+    assert.equal(health.sources.some((source: { source: string }) => source.source === 'github-closures'), active);
+    assert.equal(health.status, 'ok');
+    assert.ok(!JSON.stringify([health, settings]).includes('secret-owner'));
+    await running.stop();
   }
 });
 

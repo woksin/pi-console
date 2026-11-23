@@ -1,3 +1,4 @@
+import { parseLink, stripUnsafeCharacters } from '@pi-console/contract';
 import type { Fact, Mapper } from '../tailing/events.ts';
 import { excerpt, fact, integer, list, object, text, timestamp } from '../values.ts';
 import { entries, recorded, status, type Entry } from './question-history.ts';
@@ -25,6 +26,17 @@ function strings(value: unknown, pick: (item: unknown) => unknown = item => item
   return (value as unknown[]).map(item => text(pick(item)));
 }
 
+/**
+ * Link text is classified before ingestion truncates it (200 characters) or the API strips unsafe characters. A link whose target
+ * would differ after either step (becoming one, or naming another number) keeps its text and ends in an ellipsis, so no truncated or
+ * stripped form can ever parse as a different target: server and clients then agree it is unsupported. Every other link passes unchanged.
+ */
+function linkText(item: unknown): unknown {
+  if (typeof item !== 'string') return item;
+  const stored = parseLink(stripUnsafeCharacters(item.slice(0, 200)))?.key;
+  return stored === parseLink(item)?.key ? item : `${item.slice(0, 198)}\u2026`;
+}
+
 const optionText = (item: unknown): unknown => (typeof item === 'string' ? item : object(item).text);
 
 /** Recorded times only: the first and last history timestamps stand in for stores that do not write `createdAt`/`updatedAt`. */
@@ -45,7 +57,7 @@ function snapshot(row: Row, history: readonly Entry[]): Fact {
   const { createdAt, updatedAt } = times(row, history);
   const payload = {
     questionId, revision, asker: null, kind, urgency, blocking: row.blocking.length > 0, status: status(row, history),
-    options: strings(row.options, optionText), links: strings(row.links), createdAt, updatedAt, ...excerpt(row.text),
+    options: strings(row.options, optionText), links: strings(row.links, linkText), createdAt, updatedAt, ...excerpt(row.text),
   };
   return { ...fact('QuestionSnapshotObserved', `question:${questionId}`, payload, updatedAt, `${questionId}:${revision}`), logical: { identity: `question:${questionId}`, offset: revision } };
 }

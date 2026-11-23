@@ -235,6 +235,39 @@ test('question history discloses by keyboard, newest first, as text, with stale 
   } finally { fixture.questions = original; await page.context().close(); }
 });
 
+test('a possibly-moot question is marked in text with inspectable evidence, advisory only, while unproven ones are not', async () => {
+  const fixture = rig.daemon.store.fixture;
+  const original = fixture.questions;
+  const seed = original[0];
+  // The page shows the daemon's clock (the newest snapshot time), which the mock holds at its fixture date, not the test machine's: evidence dated by the wall clock would be "future" and withheld.
+  const shown = Math.max(Date.parse(fixture.generatedAt), ...fixture.messages.map(message => Date.parse(message.sentAt)), ...fixture.sessions.map(session => Date.parse(session.updatedAt)));
+  const closedAt = new Date(shown - 86_400_000).toISOString();
+  const fetchedAt = new Date(shown - 60_000).toISOString();
+  const evidence = (target: string, state: string) => ({ target, kind: 'issue', state, closedAt: state === 'open' ? null : closedAt, fetchedAt, source: 'github-gh' });
+  const questions: (typeof seed & { links?: string[]; linkEvidence?: unknown[] })[] = [
+    { ...seed, id: 'moot-ux', text: 'Moot question', status: 'open', blocking: false, links: ['a/b#1'], linkEvidence: [evidence('a/b#1', 'closed')] },
+    { ...seed, id: 'open-ux', text: 'Still live', status: 'open', blocking: false, links: ['a/b#2'], linkEvidence: [evidence('a/b#2', 'open')] },
+  ];
+  fixture.questions = questions;
+  const page = await rig.open('/questions');
+  try {
+    const moot = page.locator('[data-question="moot-ux"]');
+    await moot.waitFor();
+    await moot.getByText('Possibly moot', { exact: true }).waitFor();
+    assert.equal(await page.locator('[data-question="open-ux"]').getByText('Possibly moot', { exact: true }).count(), 0);
+    const summary = moot.locator('summary');
+    await summary.focus();
+    await page.keyboard.press('Enter');
+    assert.match(await moot.locator('ul[aria-label^="GitHub evidence"]').innerText(), /a\/b#1 · issue closed · closed .* · github-gh/);
+    // The evidence is a collapsed disclosure on every card that has it, so innerText of a closed one is only its summary: open it as a user would.
+    const unproven = page.locator('[data-question="open-ux"] .question-moot');
+    await unproven.locator('summary').focus();
+    await page.keyboard.press('Enter');
+    assert.match(await unproven.innerText(), /observed open/);
+    assert.match(page.url(), /#\/questions$/);
+  } finally { fixture.questions = original; await page.context().close(); }
+});
+
 test('memory review requests wait for pi and producer ingestion; actions never optimistically change status', async () => {
   const page = await rig.open('/session/s1');
   let phase = 'awaiting-human';

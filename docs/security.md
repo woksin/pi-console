@@ -88,6 +88,18 @@ The TUI uses OpenTUI ([ADR-0003](adr/0003-tui-stack-bake-off.md)), which loads a
 
 Supported only through (a) Tailscale Serve (tailnet only) or (b) a TLS reverse proxy that you configure with an explicit Host allowlist and trusted-proxy list. Do not expose the daemon directly. Self-host authentication (passkeys or OIDC with a single-owner allowlist) arrives in M3; until then remote use relies on the tailnet or proxy and the token.
 
+## Possibly-moot GitHub queries
+
+Off by default. When `sources.github-closures` is on and `githubRepositories` lists exact `owner/repo` names, the daemon runs the user's own authenticated `gh` to read the state of issues and pull requests linked from **open** questions, so the UI can mark a question "Possibly moot". Disclosure: each lookup sends the owner, repository name and number to GitHub with the user's credentials, including for **private repositories you allowlist**; nothing else leaves the machine and no question text is sent.
+
+- Only allowlisted repositories are queried, and only when every link of a question is a recognised, allowlisted target. The allowlist cannot be changed over the API.
+- `gh` is started with an argument array (never a shell), fixed read-only GraphQL, closed stdin, bounded output, a timeout, and SIGTERM then SIGKILL on timeout or shutdown. Prompts, pagers and debug output are disabled.
+- One request at a time, at least 10 s apart, at most 120 per rolling hour, reserved in a private state file before the child starts; a lost or corrupt state file means a one-hour cooldown. Failures back off 15 to 60 minutes; rate limits pause for at least an hour.
+- Tokens, stderr and response text are never logged, stored or served; failures are recorded as the category `unknown` only.
+- The marker is advisory, is withheld for evidence older than an hour, and never changes question status. Clocks may differ by up to five minutes (a closure up to five minutes after its fetch, a fetch up to five minutes ahead of the viewer) before evidence is withheld; anything further out is ignored.
+- Only links that are whole, recognised github.com references count. Link text is classified before ingestion truncates it or the API strips control characters; anything else is marked unsupported, so padding or control characters can never make a different link look recognised.
+- **What is stored and served:** the allowlisted repository name, issue or pull request number, observed state, `closedAt` and `fetchedAt` (and the question they belong to) are written to the local event log and the private cache file, and are served by the authenticated loopback API. Retention follows the event log. Turning the source off, or emptying the allowlist, stops new queries but does not delete observations already recorded.
+
 ## Intent-memory store (read-only)
 
 The `intent-memory` source reads `<agent root>/memory/events.jsonl` and `journal/*.jsonl` only: no lock, no write, no

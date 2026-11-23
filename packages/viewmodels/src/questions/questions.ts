@@ -1,5 +1,6 @@
 import type { Question, Session } from '@pi-console/contract';
 import { age, sanitize } from '../format/format.ts';
+import { questionMoot, type QuestionMoot } from './moot.ts';
 import { statusCell, type StatusCell } from '../format/status-cell.ts';
 
 export const questionSorts = ['priority', 'updated', 'activity'] as const;
@@ -29,6 +30,8 @@ export interface QuestionRow {
   /** `null` means the source supplied no history (old events); an empty list means it supplied none recorded. */
   history: QuestionHistoryRow[] | null;
   links: string[];
+  /** Advisory from observed GitHub state; `null` when no evidence was observed. Never changes status, sort or counts. */
+  moot?: QuestionMoot;
 }
 export interface QuestionsViewModel { rows: QuestionRow[]; open: number; blocking: number }
 export interface QuestionsInput {
@@ -80,6 +83,11 @@ function staleLabel(question: Question, at: string, now: number, days: number): 
   return idle >= days * dayMs ? `Stale · no activity for ${age(at, now)}` : null;
 }
 
+const mootOf = (question: Question, now: number): { moot?: QuestionMoot } => {
+  const moot = questionMoot(question, now);
+  return moot ? { moot } : {};
+};
+
 type Compare = (a: Question, b: Question) => number;
 const byId: Compare = (a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0);
 const updatedAt = (question: Question): number => time(question.updatedAt ?? question.createdAt);
@@ -104,7 +112,7 @@ export function questionsViewModel(input: QuestionsInput): QuestionsViewModel {
       text: sanitize(question.text), options: question.options.map(sanitize), age: age(question.createdAt, input.now),
       updated: question.updatedAt === undefined ? '–' : age(question.updatedAt, input.now), updatedAt: question.updatedAt ?? null,
       lastActivityAt: last.at, lastActivity: activityText(last, input.now), stale: staleLabel(question, last.at, input.now, days),
-      history: historyRows(question, input.now), links: (question.links ?? []).map(sanitize),
+      history: historyRows(question, input.now), links: (question.links ?? []).map(sanitize), ...mootOf(question, input.now),
     };
   });
   const open = input.questions.filter(question => question.status === 'open');
