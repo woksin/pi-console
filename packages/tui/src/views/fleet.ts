@@ -11,13 +11,15 @@ function groupLine(row: Extract<FleetRow, { kind: 'group' }>, width: number, sel
 
 const columns = (width: number) => {
   const spark = width >= 96;
-  return { width, spark, name: Math.max(10, width - 3 - 1 - 13 - 15 - (spark ? 13 : 0) - 7 - 6) };
+  const details = width >= 55;
+  const context = Math.min(15, Math.max(5, width - 27));
+  return { width, spark, details, context, name: Math.max(10, width - 3 - 1 - 13 - context - (spark ? 13 : 0) - (details ? 13 : 0)) };
 };
 type Columns = ReturnType<typeof columns>;
 
 function columnHeadings(layout: Columns): Line {
-  const widths = { name: layout.name + 1, status: 13, context: 15, trend: 13, cost: 7, age: 6 };
-  const cells = fleetColumns.filter(column => column.id !== 'trend' || layout.spark).map(column =>
+  const widths = { name: layout.name + 1, status: 13, context: layout.context, trend: layout.spark ? 13 : 0, cost: layout.details ? 7 : 0, age: layout.details ? 6 : 0 };
+  const cells = fleetColumns.filter(column => widths[column.id] > 0).map(column =>
     t(column.id === 'cost' || column.id === 'age' ? padStart(column.label, widths[column.id]) : pad(column.label, widths[column.id]), 'muted'));
   return fit([t('   '), ...cells], layout.width);
 }
@@ -31,9 +33,9 @@ function sessionLine(row: SessionRow, layout: Columns, env: Env, selected: boole
   return selectable([
     t('  '), ...sessionName(row, layout.name), t(' '),
     ...statusParts(row.status, env.phase, false), t(' '), t(pad(row.status.label, 10), row.status.color), t(' '),
-    ...pressureBar(row.contextPercent, 10), t(padStart(`${String(row.contextPercent)}%`, 5), pressureTone(row.pressure)),
+    ...pressureBar(row.contextPercent, layout.context - 5), t(padStart(`${String(row.contextPercent)}%`, 5), pressureTone(row.pressure)),
     ...(layout.spark ? [t(' '), t(row.spark.padEnd(12), 'faint')] : []),
-    t(padStart(row.cost, 7), 'faint'), t(padStart(row.age, 6), 'muted'),
+    ...(layout.details ? [t(padStart(row.cost, 7), 'faint'), t(padStart(row.age, 6), 'muted')] : []),
   ], layout.width, selected, env.data.fresh.has(row.id));
 }
 
@@ -66,6 +68,11 @@ function rowLocation(row: FleetRow | undefined) {
   return row.kind === 'group' ? { sessionId: null, groupId: row.id } : { sessionId: row.id, groupId: null };
 }
 
+function hiddenColumnsHint(layout: Columns) {
+  if (layout.details) return [];
+  return [h(Lines, { lines: [fit([t('+cost age hidden — widen terminal', 'faint')], layout.width)] })];
+}
+
 const noRows = (query: string, env: Env, width: number): Line[] => query
   ? noMatchLines('session', query)
   : [...emptyLines(emptyStates.fleet, width), ...checklistLines({ connected: env.data.connection.connected, sessions: 0 }, width)];
@@ -76,7 +83,7 @@ export function fleetView(env: Env): SectionView {
   const wide = env.width >= 140;
   const layout = columns((wide ? env.width - 40 : env.width) - 4);
   const cursor = Math.min(env.ui.cursor.fleet, Math.max(0, rows.length - 1));
-  const { start, end } = windowOf(rows.length, cursor, Math.max(1, env.height - 5));
+  const { start, end } = windowOf(rows.length, cursor, Math.max(1, env.height - 5 - Number(!layout.details)));
   const lines = !env.data.loaded ? loadingLines() : rows.length ? fleetLines(rows.slice(start, end), env, { layout, cursor, start }) : noRows(model.query, env, layout.width);
   const selected = rows[cursor];
   const title = model.query ? `Fleet · filter “${model.query}” · ${String(model.matched)} of ${String(model.sessionCount)}` : `Fleet · ${String(model.sessionCount)} sessions`;
@@ -87,7 +94,8 @@ export function fleetView(env: Env): SectionView {
     render: () => h(Row, { grow: 1, gap: 1 },
       h(Panel, { title, focused: true, grow: 1, right: rows.length > end ? `↓ ${String(rows.length - end)} more` : '' },
         h(Lines, { lines: [columnHeadings(layout)] }),
-        h(Lines, { lines, grow: 1, onLineClick: index => { env.click(start + index); } })),
+        h(Lines, { lines, grow: 1, onLineClick: index => { env.click(start + index); } }),
+        ...hiddenColumnsHint(layout)),
       ...(wide ? [preview(selected, model.sessionCount)] : [])),
   };
 }

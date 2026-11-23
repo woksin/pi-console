@@ -1,4 +1,4 @@
-/** Display helpers shared by every view model: all pure, all width-aware in terminal cells (one code point = one cell). */
+/** Display helpers shared by every view model: all pure, with layout measured in terminal cells. */
 
 // Unbranded display units keep existing callers compatible while naming the meaning of each input.
 type DisplayText = string;
@@ -17,8 +17,45 @@ const terminalSequences = [
   new RegExp(`${ESC}[@-Z\\\\-_]`, 'g'), // two-character escapes
 ];
 
-/** Terminal cells of a string (code points). */
+/** Code points of a string; use `displayWidth` for terminal layout. */
 export const cells = (text: DisplayText): string[] => Array.from(text);
+
+const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' });
+/** User-perceived characters, including combining marks and joined emoji. */
+export const graphemes = (text: DisplayText): string[] => Array.from(segmenter.segment(text), item => item.segment);
+const zeroWidth = /[\p{Mark}\p{Cf}\p{Cc}]/gu;
+const emojiPresentation = /\p{Emoji_Presentation}|\p{Extended_Pictographic}\uFE0F|[0-9#*]\uFE0F?\u20E3/u;
+// East Asian Wide/Fullwidth blocks; ambiguous-width characters stay one cell.
+const wideRanges = [
+  [0x1100, 0x115f], [0x2329, 0x232a], [0x2e80, 0xa4cf], [0xa960, 0xa97c],
+  [0xac00, 0xd7a3], [0xf900, 0xfaff], [0xfe10, 0xfe19], [0xfe30, 0xfe6f],
+  [0xff01, 0xff60], [0xffe0, 0xffe6], [0x16fe0, 0x18dff], [0x1aff0, 0x1b2ff],
+  [0x1f200, 0x1f251], [0x20000, 0x3fffd],
+] as const;
+
+function graphemeWidth(text: DisplayText): number {
+  const base = text.replace(zeroWidth, '');
+  if (!base) return 0;
+  if (emojiPresentation.test(text)) return 2;
+  const code = base.codePointAt(0) ?? 0;
+  return code !== 0x303f && wideRanges.some(([start, end]) => code >= start && code <= end) ? 2 : 1;
+}
+
+/** Terminal display width, counting each grapheme once (including joined emoji and flags). */
+export const displayWidth = (text: DisplayText): number => graphemes(text).reduce((sum, item) => sum + graphemeWidth(item), 0);
+
+/** Takes whole graphemes, filling the last cell if a wide one would straddle the edge. */
+function prefix(text: DisplayText, width: CellCount): string {
+  let result = '';
+  let used = 0;
+  for (const item of graphemes(text)) {
+    const size = graphemeWidth(item);
+    if (used + size > width) return result + ' '.repeat(width - used);
+    result += item;
+    used += size;
+  }
+  return result;
+}
 
 const printable = (character: DisplayText): boolean => {
   const code = character.codePointAt(0) ?? 0;
@@ -31,24 +68,43 @@ export function sanitize(text: DisplayText): string {
   return cells(stripped).filter(printable).join('');
 }
 
+/** Clip terminal cells without changing whitespace; styled parts can retain their boundaries. */
+export function clipCells(text: DisplayText, width: CellCount): string {
+  if (width <= 0) return '';
+  return displayWidth(text) <= width ? text : `${prefix(text, width - 1)}…`;
+}
+
 /** One-line clip with an ellipsis. */
 export function clip(text: DisplayText, width: CellCount): string {
-  const characters = cells(text.replace(/\s+/g, ' '));
-  if (width <= 0) return '';
-  return characters.length <= width ? characters.join('') : `${characters.slice(0, Math.max(0, width - 1)).join('')}…`;
+  return clipCells(text.replace(/\s+/g, ' '), width);
 }
 
 export const pad = (text: DisplayText, width: CellCount): string => {
   const clipped = clip(text, width);
-  return clipped + ' '.repeat(Math.max(0, width - cells(clipped).length));
+  return clipped + ' '.repeat(Math.max(0, width - displayWidth(clipped)));
 };
-export const padStart = (text: DisplayText, width: CellCount): string => ' '.repeat(Math.max(0, width - cells(text).length)) + text;
+export const padStart = (text: DisplayText, width: CellCount): string => ' '.repeat(Math.max(0, width - displayWidth(text))) + text;
+
+function wordPieces(word: DisplayText, width: CellCount): string[] {
+  const pieces: string[] = [];
+  let piece = '';
+  let used = 0;
+  for (const item of graphemes(word)) {
+    const size = graphemeWidth(item);
+    if (used + size > width && piece) { pieces.push(piece); piece = ''; used = 0; }
+    // A two-cell grapheme cannot be displayed in a one-cell column; leave a space, never half a glyph.
+    piece += size > width ? ' '.repeat(width) : item;
+    used += Math.min(size, width);
+  }
+  if (piece) pieces.push(piece);
+  return pieces;
+}
 
 function appendWord(lines: DisplayText[], line: DisplayText, word: DisplayText, width: CellCount): string {
-  const pieces = cells(word).length > width ? (word.match(new RegExp(`.{1,${String(Math.max(1, width))}}`, 'gu')) ?? []) : [word];
+  const pieces = wordPieces(word, width);
   let current = line;
   for (const piece of pieces) {
-    if (current && cells(current).length + 1 + cells(piece).length > width) { lines.push(current); current = piece; }
+    if (current && displayWidth(current) + 1 + displayWidth(piece) > width) { lines.push(current); current = piece; }
     else current = current ? `${current} ${piece}` : piece;
   }
   return current;
@@ -56,6 +112,7 @@ function appendWord(lines: DisplayText[], line: DisplayText, word: DisplayText, 
 
 /** Word-wraps to `width` cells and at most `maxLines` lines, ending the last with an ellipsis when cut. */
 export function wrap(text: DisplayText, width: CellCount, maxLines = Number.POSITIVE_INFINITY): string[] {
+  if (width <= 0) return [''];
   const lines: string[] = [];
   for (const paragraph of text.split('\n')) {
     let line = '';
