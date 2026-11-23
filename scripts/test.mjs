@@ -6,7 +6,8 @@ import { spawnSync } from 'node:child_process';
 const root = resolve(import.meta.dirname, '..');
 const scopeIndex = process.argv.indexOf('--scope');
 const scope = scopeIndex >= 0 ? process.argv[scopeIndex + 1] : undefined;
-const run = (command, args) => spawnSync(command, args, { cwd: root, stdio: 'inherit' }).status ?? 1;
+// Goldens assume UTC: the shared time formatter is viewer-local in production.
+const run = (command, args) => spawnSync(command, args, { cwd: root, stdio: 'inherit', env: { ...process.env, TZ: 'UTC' } }).status ?? 1;
 
 const packages = scope ? ['-w', `@pi-console/${scope}`] : ['--workspaces'];
 let status = run('npm', ['run', 'test', ...packages, '--if-present']);

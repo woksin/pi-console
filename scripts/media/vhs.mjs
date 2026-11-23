@@ -16,7 +16,7 @@ try {
       env: {
         ...process.env, PI_CONSOLE_URL: `http://127.0.0.1:${demo.port}`,
         PI_CONSOLE_DEMO_TOKEN_FILE: demo.tokenFile, PI_CONSOLE_THEME: 'midnight',
-        PI_CONSOLE_REDUCED_MOTION: '1', PI_CONSOLE_NOW: '2026-11-20T12:00:00Z',
+        PI_CONSOLE_REDUCED_MOTION: '1', PI_CONSOLE_NOW: '2026-11-20T12:00:00Z', TZ: 'UTC',
       },
     });
     child.once('error', reject);

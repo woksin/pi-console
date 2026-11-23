@@ -1,9 +1,9 @@
-import { glyphs, clip, memoryPanelViewModel, sessionViewModel, wrap, type ResetRequest, type SessionViewModel, type TranscriptLine, type TextWidth } from '@pi-console/viewmodels';
+import { glyphs, clip, startsNewDay, timeDisplay, memoryPanelViewModel, sessionViewModel, wrap, type ResetRequest, type SessionViewModel, type TranscriptLine, type TextWidth } from '@pi-console/viewmodels';
 import { Column, Lines, Panel, Row, h, type Line, type Part } from '../view/renderer.ts';
 import { pressureBar, blank, fit, pressureTone, rule, split, statusParts, t, type CellBudget } from '../view/parts.ts';
 import { sidePanes, type SidePane, type UiState } from '../state/ui.ts';
 import { sessionSideWidth } from '../state/session-layout.ts';
-import { transcriptViewport, transcriptWindow, type TranscriptAnchor, type TranscriptLayout } from '../state/transcript-window.ts';
+import { topEntryKey, transcriptViewport, transcriptWindow, type TranscriptAnchor, type TranscriptLayout } from '../state/transcript-window.ts';
 import type { Env, SectionView } from './common.ts';
 import { memoryLines } from './session-memory.ts';
 import { LIMITS, diffColor, entryStyle, previewNote } from './entry.ts';
@@ -69,17 +69,31 @@ let modelCache: { deps: readonly unknown[]; model: SessionViewModel } | undefine
 
 const isBlank = (line: Line | undefined): boolean => line?.every(part => part.text === '') === true;
 
-function layoutOf(entries: TranscriptLine[], rendered: Line[][]): TranscriptLayout {
+function layoutOf(entries: TranscriptLine[], rendered: Line[][], leads: number[]): TranscriptLayout {
   let end = 0;
-  return { keys: entries.map(entry => entry.key), ends: rendered.map(lines => (end += lines.length)), spacers: rendered.map(lines => isBlank(lines.at(-1))) };
+  return { keys: entries.map(entry => entry.key), ends: rendered.map(lines => (end += lines.length)), spacers: rendered.map(lines => isBlank(lines.at(-1))), leads };
+}
+
+/** The compact calendar-day rule that opens each displayed local day; a decoration of the entry below it, never an entry of its own. */
+const dateRule = (entry: TranscriptLine, width: number, measure?: TextWidth): Line => [t(' '.repeat(10)), ...rule(Math.max(1, width - 10), timeDisplay(entry.at).date, 'faint', measure)];
+
+/** Each entry's rows, with a date rule above the first entry of every displayed local day. */
+function renderTranscript(entries: readonly TranscriptLine[], width: number, measure?: TextWidth): { rendered: Line[][]; leads: number[] } {
+  const leads: number[] = [];
+  const rendered = entries.map((entry, index): Line[] => {
+    const starts = timeDisplay(entry.at).dayKey !== '' && startsNewDay(entries[index - 1]?.at, entry.at);
+    leads.push(starts ? 1 : 0);
+    return starts ? [dateRule(entry, width, measure), ...renderEntry(entry, width, measure)] : renderEntry(entry, width, measure);
+  });
+  return { rendered, leads };
 }
 
 function transcriptLines(env: Env, model: SessionViewModel, key: unknown, width: number): Rendered {
   const hit = linesCache;
   const wanted = { key, width, search: env.ui.search, measure: env.measure };
   if (hit && (Object.keys(wanted) as (keyof typeof wanted)[]).every(name => hit[name] === wanted[name])) return hit;
-  const rendered = model.transcript.map(entry => renderEntry(entry, width, env.measure));
-  const fresh = { ...wanted, lines: rendered.flat(), layout: layoutOf(model.transcript, rendered) };
+  const { rendered, leads } = renderTranscript(model.transcript, width, env.measure);
+  const fresh = { ...wanted, lines: rendered.flat(), layout: layoutOf(model.transcript, rendered, leads) };
   linesCache = fresh;
   return fresh;
 }
@@ -150,7 +164,7 @@ const contextPanel = (model: SessionViewModel, pane: SidePane, budget: CellBudge
 /** Where a jump from the Requests list lands: the entry's line at the top. `undefined` until the entry is in the transcript (live entries can arrive before the backfill page, so absence is not final). */
 function focusAnchor(entryId: string | null, lines: readonly TranscriptLine[], layout: TranscriptLayout): TranscriptAnchor | undefined {
   const found = entryId === null ? undefined : lines.find(line => line.id === entryId);
-  return found ? { key: found.key, offset: 0, limit: layout.keys.at(-1) ?? 0 } : undefined;
+  return found ? { key: found.key, offset: -(layout.leads?.[layout.keys.indexOf(found.key)] ?? 0), limit: layout.keys.at(-1) ?? 0 } : undefined;
 }
 
 function transcriptEdges(env: Env, width: number): { above: Line[]; below: Line[] } {
@@ -170,11 +184,15 @@ function transcriptContent(env: Env, model: SessionViewModel, rendered: Rendered
   const viewport = Math.max(1, transcriptViewport(env.height) - edges.above.length - edges.below.length);
   const newer = progress?.newer === true;
   const following = env.ui.follow && !newer;
-  const { padded, below } = visibleLines(rendered, { ...env.ui, follow: following }, viewport);
+  const view = { ...env.ui, follow: following };
+  const { padded, below } = visibleLines(rendered, view, viewport);
+  const top = model.transcript.find(entry => entry.key === topEntryKey(rendered.layout, view, viewport));
+  const day = top ? timeDisplay(top.at) : undefined;
+  const title = day?.dayKey ? `Transcript · ${day.date}` : 'Transcript';
   const status = statusText({ search: env.ui.search, paused: !following, entries: model.transcript.length, above: below, newer });
   const loading = !env.data.transcripts.has(model.id) && !progress;
   const body = loading ? [[t('Loading transcript…', 'muted')]] : padded;
-  return { viewport, following, status, lines: [...edges.above, ...body, ...edges.below] };
+  return { viewport, following, status, title, lines: [...edges.above, ...body, ...edges.below] };
 }
 
 export function sessionView(env: Env): SectionView {
@@ -185,7 +203,7 @@ export function sessionView(env: Env): SectionView {
   const side = sessionSideWidth(env.width);
   const transcriptWidth = env.width - side - 4;
   const rendered = transcriptLines(env, model, entries, transcriptWidth);
-  const { viewport, following, status, lines } = transcriptContent(env, model, rendered, transcriptWidth);
+  const { viewport, following, status, title, lines } = transcriptContent(env, model, rendered, transcriptWidth);
   return {
     length: rendered.lines.length,
     transcript: rendered.layout, transcriptRows: viewport, entries: model.transcript,
@@ -195,7 +213,7 @@ export function sessionView(env: Env): SectionView {
     render: () => h(Column, { grow: 1 },
       h(Panel, { height: 4, focused: false }, h(Lines, { lines: header(model, env.width - 4, env.phase, env.measure) })),
       h(Row, { grow: 1, gap: 1 },
-        h(Panel, { title: 'Transcript', right: status, grow: 1, focused: true, accent: following ? 'green' : 'amber' },
+        h(Panel, { title, right: status, grow: 1, focused: true, accent: following ? 'green' : 'amber' },
           h(Lines, { lines, grow: 1 })),
         ...contextPanel(model, ui.pane, { width: side, measure: env.measure }, () => memoryLines(memoryPanelViewModel({ memory: data.memory.get(model.id) ?? null, items: data.memoryItems.get(model.id) ?? [], now: env.now, review: data.memoryReviews.get(model.id) }), { width: side - 4, measure: env.measure }, ui.memoryIndex, data.memoryHistory.get(model.id))))),
   };

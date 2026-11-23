@@ -77,7 +77,7 @@ function QuestionMootEvidence({ row }: { row: QuestionRow }) {
 }
 
 /** Native disclosure: Enter and Space on the summary, and its expanded state, come from the browser. Text is rendered as text. */
-function QuestionHistory({ row }: { row: QuestionRow }) {
+export function QuestionHistory({ row }: { row: QuestionRow }) {
   if (!row.history) return <p className="faint question-history-note">History unavailable: this question predates recorded history.</p>;
   if (row.history.length === 0) return <p className="faint question-history-note">No history recorded.</p>;
   return (
@@ -86,7 +86,7 @@ function QuestionHistory({ row }: { row: QuestionRow }) {
       <ol aria-label={`History of ${row.id}, newest first`}>
         {row.history.map(entry => (
           <li key={entry.key}>
-            <time dateTime={entry.at}>{entry.at}</time> · <strong>{entry.operation}</strong> by {entry.actor} <span className="faint">({entry.age} ago)</span>
+            <time dateTime={entry.at} title={entry.time}>{entry.time}</time> · <strong>{entry.operation}</strong> by {entry.actor} <span className="faint">({entry.age} ago)</span>
             {entry.withheld && <span className="faint"> · note withheld</span>}
             {entry.excerpt && <p className="question-history-note">{entry.excerpt}</p>}
           </li>

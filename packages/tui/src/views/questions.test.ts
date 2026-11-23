@@ -228,6 +228,16 @@ test('80x24: full detail reaches every history entry, newest first, with termina
   } finally { ui.destroy(); store.dispose(); }
 });
 
+test('80x24: history shows the readable absolute time with its zone next to the relative age', async () => {
+  const { ui, store } = await setup(80, [withHistory]);
+  try {
+    await ui.press('RETURN');
+    const frame = ui.frame();
+    assert.match(frame, /20 Nov 2026 09:00:00 UTC answered by Actor40 · \d+[smhd] ago/);
+    assert.doesNotMatch(frame, /2026-11-20T09:00:00/);
+  } finally { ui.destroy(); store.dispose(); }
+});
+
 test('wide preview names updated, last activity and the history count without hiding the question', async () => {
   const { ui, store } = await setup(160, [withHistory]);
   try {

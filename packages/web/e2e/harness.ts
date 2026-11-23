@@ -42,7 +42,7 @@ export interface Rig {
   /** Stops the mock daemon; the next startDaemon brings a fresh one up on the same port with the same token, as a restart would. */
   stopDaemon: () => Promise<void>;
   startDaemon: () => Promise<void>;
-  open: (route?: string, options?: { token?: string | null; width?: number; height?: number; beforeNavigate?: (page: Page) => void }) => Promise<Page>;
+  open: (route?: string, options?: { token?: string | null; width?: number; height?: number; timezoneId?: string; beforeNavigate?: (page: Page) => void }) => Promise<Page>;
   close: () => Promise<void>;
 }
 
@@ -62,7 +62,7 @@ export async function startRig(options: { speed?: number } = {}): Promise<Rig> {
       stopDaemon: () => daemon.close(),
       async startDaemon() { daemon = resources.daemon = await startDaemon({ port, speed: options.speed ?? 40, dataDirectory }); },
       async open(route = '', opened = {}) {
-        const context = await browser.newContext({ viewport: { width: opened.width ?? 1440, height: opened.height ?? 900 }, deviceScaleFactor: 2 });
+        const context = await browser.newContext({ viewport: { width: opened.width ?? 1440, height: opened.height ?? 900 }, deviceScaleFactor: 2, timezoneId: opened.timezoneId ?? 'UTC' });
         const page = await context.newPage();
         opened.beforeNavigate?.(page);
         const token = opened.token === undefined ? daemon.token : opened.token;

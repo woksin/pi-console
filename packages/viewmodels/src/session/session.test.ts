@@ -107,3 +107,22 @@ test('resets tick the context sparkline at the sample before them', () => {
   assert.deepEqual(resetMarks(samples, [reset('09:01:30'), reset('09:01:59'), reset('08:59:00'), reset('09:05:00')]), [1]);
   assert.deepEqual(resetMarks([], [reset('09:01:00')]), []);
 });
+
+test('every line keeps the source ISO timestamp: streaming takes the last delta, a final entry its own', () => {
+  const base = { sessionId: 's', toolCallId: null, resetId: null, requestId: null, toolResult: null } as const;
+  const [streaming] = transcriptLines([
+    { ...base, id: 'a', cursor: 1, at: '2026-01-01T23:59:58+01:00', kind: 'assistant.delta', text: 'Hel' }, { ...base, id: 'b', cursor: 2, at: '2026-01-02T00:00:05.250Z', kind: 'assistant.delta', text: 'lo' },
+  ]);
+  assert.deepEqual([streaming.at, streaming.time, streaming.key], ['2026-01-02T00:00:05.250Z', '00:00:05', 1]);
+  const [final] = transcriptLines([
+    { ...base, id: 'a', cursor: 1, at: '2026-01-01T10:00:00Z', kind: 'assistant.delta', text: 'Hel' }, { ...base, id: 'c', cursor: 3, at: '2026-01-01T10:00:09Z', kind: 'assistant', text: 'Hello.' },
+  ]);
+  assert.deepEqual([final.at, final.time, final.key], ['2026-01-01T10:00:09Z', '10:00:09', 1]);
+});
+
+test('filtering keeps the original timestamp of the surviving lines', () => {
+  const all = new Map(sessionViewModel({ detail, transcript, now }).transcript.map(item => [item.key, item.at]));
+  const filtered = sessionViewModel({ detail, transcript, now, search: transcript[3].text.slice(0, 6) }).transcript;
+  assert.ok(filtered.length > 0 && filtered.length < all.size);
+  for (const item of filtered) assert.equal(item.at, all.get(item.key));
+});

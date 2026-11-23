@@ -127,3 +127,8 @@ test('hostile link and evidence text is sanitized into inert text', () => {
   assert.ok(!JSON.stringify(row).includes('\u001b'));
   assert.equal(row.moot?.label, null);
 });
+
+test('history rows pair the source timestamp, readable absolute time and relative age', () => {
+  const [row] = rowsOf([ask('t', { history: [entry(1, '2026-11-08T14:00:00Z')] })]);
+  assert.deepEqual(row.history?.map(item => [item.at, item.time, item.age]), [['2026-11-08T14:00:00Z', '8 Nov 2026 14:00:00 UTC', '11d']]);
+});

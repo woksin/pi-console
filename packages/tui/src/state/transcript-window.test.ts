@@ -182,3 +182,40 @@ test('topEntryKey of an empty or following transcript', () => {
   assert.equal(topEntryKey(layout([]), resumeTranscript, HEIGHT), undefined);
   assert.equal(topEntryKey(layout([3, 3, 3]), resumeTranscript, 20), 1);
 });
+
+/** Like `layout`, with a date rule above the entries listed in `ruled` (counted in their heights). */
+const ruled = (heights: number[], ruledIndexes: number[], first = 1): TranscriptLayout => ({ ...layout(heights, first), leads: heights.map((_, index) => (ruledIndexes.includes(index) ? 1 : 0)) });
+
+test('a same-day prepend removes the old first rule without moving a paused body line', () => {
+  const before = ruled([3, 3, 3], [0], 10);
+  const view: TranscriptView = { follow: false, anchor: { key: 10, offset: 1, limit: 12 } };
+  assert.equal(transcriptWindow(before, view, 2).start, 2, 'rule row, then content offset 1');
+  const after = ruled([3, 3, 3, 3, 3], [0], 8);
+  const moved: TranscriptView = { follow: false, anchor: { key: 10, offset: 1, limit: 12 } };
+  assert.equal(transcriptWindow(after, moved, 2).start, 7, 'entry 10 starts at row 6 and no longer has a rule: still its content offset 1');
+});
+
+test('a cross-day prepend gives the old first entry a rule while its body line stays put', () => {
+  const before = ruled([3, 3, 3], [], 10);
+  const view: TranscriptView = { follow: false, anchor: { key: 10, offset: 1, limit: 12 } };
+  assert.equal(transcriptWindow(before, view, 2).start, 1);
+  const after = ruled([4, 3, 3, 3], [0, 1], 9);
+  assert.equal(transcriptWindow(after, view, 2).start, 4 + 1 + 1, 'entry 10 starts at row 4, its new rule adds one, then content offset 1');
+});
+
+test('scrolling to the very top shows the date rule; an anchor on it resolves to the content row once the rule is gone', () => {
+  const withRule = ruled([3, 3, 3], [0, 2]);
+  const top = scrollTranscript(withRule, pauseTranscript(withRule, resumeTranscript, 2), 2, 'top');
+  assert.equal(transcriptWindow(withRule, top, 2).start, 0);
+  assert.deepEqual([top.anchor?.key, top.anchor?.offset], [1, -1]);
+  const noRule = ruled([3, 3, 3], []);
+  assert.equal(transcriptWindow(noRule, top, 2).start, 0);
+  assert.equal(topEntryKey(withRule, top, 2), 1);
+});
+
+test('a blank spacer after an entry still hands Enter to the entry below when that entry opens with a date rule', () => {
+  const l: TranscriptLayout = { keys: [1, 2], ends: [3, 7], spacers: [true, false], leads: [0, 1] };
+  const view: TranscriptView = { follow: false, anchor: { key: 1, offset: 2, limit: 2 } };
+  assert.equal(transcriptWindow(l, view, 3).start, 2);
+  assert.equal(topEntryKey(l, view, 3), 2);
+});
