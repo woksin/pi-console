@@ -47,7 +47,7 @@ test('a large actionable backlog bootstraps newest bundles under the wire cap an
   const cap = 24000;
   const { text, warnings } = connect(queries, cap);
   const snapshot = read(text);
-  assert.ok(Buffer.byteLength(text) <= cap);
+  assert.ok(Buffer.byteLength(text) <= cap / 2, 'compaction prefers half the output cap');
   assert.equal(warnings.length, 1);
   assert.ok(snapshot.requests.length > 0, 'not an empty fallback');
   assert.ok(snapshot.requests.some(row => row.id === 'r0002399'), 'newest actionable request is visible');
@@ -68,14 +68,14 @@ test('a large actionable backlog bootstraps newest bundles under the wire cap an
   }
 });
 
-test('the complete normal snapshot is retained above half the cap when it fits the full cap', () => {
+test('a normal snapshot above half the cap still attempts active-only even when normal fits the full cap', () => {
   const models = syntheticModels({ sessions: 1, requests: 3, questions: 0, jobs: 0, messages: 0 });
   const queries = new ConsoleQueries(() => models, now);
   const normal = queries.screenSnapshot(at);
   const cap = Buffer.byteLength(encode(normal));
   const { text, warnings } = connect(queries, cap);
-  assert.equal(text, encode(normal));
-  assert.deepEqual(warnings, []);
+  assert.equal(text, encode(queries.screenSnapshot(at, 0)));
+  assert.equal(warnings.length, 1);
 });
 
 test('bundle accounting is byte-exact for escaping, unicode, envelope, shared ancestors and repository closure', () => {
@@ -89,11 +89,11 @@ test('bundle accounting is byte-exact for escaping, unicode, envelope, shared an
   const snapshot = new ConsoleQueries(() => models, now).screenSnapshot(at);
   const exact = encode(snapshot);
   const cap = Buffer.byteLength(exact);
-  const packed = packSnapshot(snapshot, snapshot, empty(snapshot), encode, cap)!;
+  const packed = packSnapshot(snapshot, snapshot, empty(snapshot), { encode, preferred: cap, hard: cap })!;
   assert.equal(packed, exact);
   assert.ok(packed.includes(safeJson(request.text)));
   assert.ok(Buffer.byteLength(packed) > packed.length, 'UTF-8 bytes, not string length');
-  const smaller = packSnapshot(snapshot, snapshot, empty(snapshot), encode, cap - 1)!;
+  const smaller = packSnapshot(snapshot, snapshot, empty(snapshot), { encode, preferred: cap - 1, hard: cap - 1 })!;
   assert.ok(Buffer.byteLength(smaller) <= cap - 1);
   assert.deepEqual(read(smaller).requests, [], 'the owner/ancestor/repository bundle cannot be partly admitted');
   assertClosure(read(smaller));
@@ -105,17 +105,33 @@ test('an oversized newest bundle is skipped, actionable work precedes newer runn
   for (const row of requests) row.status = 'open';
   requests[2].text = 'huge'.repeat(10000);
   Object.values(models.work.jobs)[0].startedAt = at;
+  Object.values(models.questions.questions)[0].blocking = true;
   const queries = new ConsoleQueries(() => models, now);
   const normal = queries.screenSnapshot(at);
   const cap = 3500;
-  const packed = packSnapshot(normal, normal, empty(normal), encode, cap)!;
+  const packed = packSnapshot(normal, normal, empty(normal), { encode, preferred: cap, hard: cap })!;
   const snapshot = read(packed);
   assert.ok(snapshot.requests.some(row => row.id === requests[1].id));
   assert.ok(!snapshot.requests.some(row => row.id === requests[2].id));
-  assert.ok(snapshot.questions.length > 0, 'questions share the actionable tier');
+  assert.ok(snapshot.questions.length > 0, 'blocking questions share the actionable tier');
   assertClosure(snapshot);
   const reversed = structuredClone(normal);
   for (const collection of [...collections, 'repositories'] as const) reversed[collection].reverse();
-  assert.equal(packSnapshot(reversed, reversed, empty(reversed), encode, cap), packed);
+  assert.equal(packSnapshot(reversed, reversed, empty(reversed), { encode, preferred: cap, hard: cap }), packed);
   assert.ok(Buffer.byteLength(packed) <= cap);
+});
+
+test('an older blocking question outranks a newer nonblocking question under a one-question budget', () => {
+  const models = syntheticModels({ sessions: 1, requests: 0, questions: 2, jobs: 0, messages: 0 }, 1);
+  const [blocking, nonblocking] = Object.values(models.questions.questions);
+  blocking.blocking = true;
+  blocking.text = nonblocking.text;
+  const normal = new ConsoleQueries(() => models, now).screenSnapshot(at);
+  const cap = Buffer.byteLength(encode({ ...normal, questions: [normal.questions[1]], bounded: ['questions'] }));
+  assert.ok(Buffer.byteLength(encode(normal)) > cap, 'only one question and its owner can fit');
+  const packed = packSnapshot(normal, normal, empty(normal), { encode, preferred: cap, hard: cap })!;
+  const snapshot = read(packed);
+  assert.deepEqual(snapshot.questions.map(row => row.id), [blocking.id]);
+  assert.deepEqual(snapshot.bounded, ['questions']);
+  assertClosure(snapshot);
 });

@@ -2,7 +2,7 @@ import type { ServerResponse } from 'node:http';
 import type { Snapshot } from '@pi-console/contract';
 import { HttpError } from '../security/guard.ts';
 import { safeJson } from '../http/output.ts';
-import { packSnapshot } from './snapshot-packing.ts';
+import { packSnapshot, snapshotLimits } from './snapshot-packing.ts';
 
 export interface StreamOptions {
   /** First delta id is `base + 1`; the daemon reserves a durable restart barrier as the base. */
@@ -129,9 +129,9 @@ export class StreamHub {
     return replay;
   }
 
-  /** Try the full screen, then active-only, then newest whole bundles within the hard wire-byte cap. */
+  /** Prefer half-cap snapshots; active-only and compact fallbacks also reserve HTTP chunk framing. */
   #snapshotFrame(): string {
-    const limit = this.#options.maxBufferedBytes;
+    const { preferred: limit, hard } = snapshotLimits(this.#options.maxBufferedBytes);
     const occurredAt = this.#now();
     const encode = (payload: unknown) => this.#frame(this.#seq, 'snapshot', payload, occurredAt).text;
     const normal = this.#options.snapshot();
@@ -141,16 +141,16 @@ export class StreamHub {
     const payload = this.#options.snapshot(true);
     const active = encode(payload);
     const activeSize = Buffer.byteLength(active);
-    if (activeSize <= this.#options.maxBufferedBytes) {
+    if (activeSize <= hard) {
       this.#options.warn?.(`snapshot frame of ${size} bytes exceeds ${limit}; sending active items only (${activeSize} bytes)`);
       return active;
     }
     const minimal = minimalSnapshot(payload, occurredAt);
-    const packed = packSnapshot(normal, payload, minimal, encode, limit);
+    const packed = packSnapshot(normal, payload, minimal, { encode, preferred: limit, hard });
     // A cap too small even for the empty envelope cannot carry a snapshot: fail before sending SSE headers or bytes.
     if (!packed) throw new HttpError(503, 'Snapshot frame exceeds buffer cap');
     const kind = packed === encode(minimal) ? 'minimal' : 'compact';
-    this.#options.warn?.(`snapshot frames of ${size} bytes and active-only ${activeSize} bytes exceed ${limit}; sending ${kind} snapshot (${Buffer.byteLength(packed)} bytes)`);
+    this.#options.warn?.(`snapshot frames of ${size} bytes and active-only ${activeSize} bytes exceed ${hard}; sending ${kind} snapshot (${Buffer.byteLength(packed)} bytes)`);
     return packed;
   }
 
