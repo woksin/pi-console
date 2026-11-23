@@ -79,6 +79,7 @@ test('question text is redacted before it reaches the API', async t => {
 
 test('health lists every enabled source with counters and settings lists all, neither revealing a path', async t => {
   const { tree, directory } = fixture(t);
+  mkdirSync(join(tree.root, 'memory', 'journal'), { recursive: true }); // The fixture has no intent memory; an absent directory would degrade health.
   const running = await launch(t, tree, directory, { sources: { 'phase-ledger': false } });
   const health = await running.get('health');
   const byId = new Map(health.sources.map((source: { source: string }) => [source.source, source]));
@@ -96,6 +97,8 @@ test('health lists every enabled source with counters and settings lists all, ne
   const settings = await running.get('settings');
   assert.deepEqual(settings.sources.map((source: { source: string }) => source.source).sort(), ['session-jsonl', ...sourceIds].sort());
   assert.equal(settings.sources.find((source: { source: string }) => source.source === 'phase-ledger').enabled, false);
+  const availability = (source: string) => settings.sources.find((entry: { source: string }) => entry.source === source).availability;
+  assert.deepEqual([availability('phase-ledger'), availability('issue-work'), availability('session-jsonl'), settings.agentRootAvailability], ['disabled', 'available', 'available', 'available']);
   for (const text of [JSON.stringify(health), JSON.stringify(settings)]) {
     assert.ok(!text.includes(tree.root) && !text.includes(directory), 'no path in health or settings');
   }

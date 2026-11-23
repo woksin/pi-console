@@ -106,7 +106,7 @@ function themeLines(): Line[] {
 }
 
 export function settingsViewport(size: { width: number; height: number }, input: SettingsInput, health: Record<string, unknown> | null = null) {
-  const model = settingsViewModel(input);
+  const model = settingsViewModel({ ...input, daemonHealth: input.daemonHealth ?? health });
   const daemon = daemonHealthRows(health);
   const lines = [...section('Health', model.health), ...(daemon.length > 0 ? section('Daemon health', daemon) : []), ...section('Data', model.data), ...section('Sources', model.sources), ...themeLines()];
   return overlayViewport(size, lines, { width: 76, height: 27 });

@@ -538,6 +538,28 @@ test('needs-you polls every 60 seconds while live, even without model updates', 
   assert.deepEqual(reads, [350, 60_000, 120_000]);
 });
 
+test('a missing agent directory clears on the 60-second poll and a failed read keeps the last health', async t => {
+  let availability = 'missing';
+  let fail = false;
+  const { store, emitters, tick } = streamingStore(t, {
+    health: () => (fail ? Promise.reject(new Error('offline')) : Promise.resolve({ status: 'degraded', agentRootAvailability: availability })),
+  });
+  const shown = () => (store.getState().health as { agentRootAvailability?: string } | null)?.agentRootAvailability;
+  emitters[0](windowedSnapshot([], 0));
+  await tick(350);
+  assert.equal(shown(), 'missing');
+  availability = 'available';
+  for (const delay of [19_650, 20_000]) { await tick(delay); emitters[0]('heartbeat'); }
+  assert.equal(shown(), 'missing', 'nothing refreshes before the poll is due');
+  await tick(20_000); await tick(0);
+  assert.equal(shown(), 'available', 'the warning clears on a quiet poll');
+  fail = true;
+  availability = 'missing';
+  for (let i = 0; i < 3; i++) { emitters[0]('heartbeat'); await tick(20_000); }
+  await tick(0);
+  assert.equal(shown(), 'available', 'a failed read keeps the last good value');
+});
+
 test('the needs-you poll is suspended without a live stream', async t => {
   let calls = 0;
   const { store, emitters, disconnects, tick } = streamingStore(t, { needsYou: () => { calls++; return Promise.resolve([]); } });

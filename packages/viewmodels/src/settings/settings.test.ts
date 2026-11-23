@@ -26,3 +26,31 @@ test('disconnected and stale states are flagged', () => {
   assert.equal(model.health.find(row => row.label === 'Stream')?.tone, 'bad');
   assert.equal(model.health.find(row => row.label === 'Last event')?.tone, 'bad');
 });
+
+const reported = { agentRootAvailability: 'missing', sources: [{ source: 'issue-work', files: 0, errors: 0, availability: 'missing' }, { source: 'context-budget', availability: 'available' }, { source: 'phase-ledger', availability: 'unavailable' }, { source: 'lane-messages' }] };
+
+test('source rows show each reported availability with a warning tone for missing and unavailable directories', () => {
+  const rows = settingsViewModel({ ...input, daemonHealth: reported }).sources;
+  assert.deepEqual(rows.map(row => [row.label, row.value, row.tone]), [
+    ['Agent directory', 'missing directory — check startup paths', 'warn'], ['issue-work', 'missing directory — check startup paths', 'warn'],
+    ['context-budget', 'available', 'good'], ['phase-ledger', 'directory unavailable — check startup paths', 'warn'], ['lane-messages', 'availability not reported', 'plain'],
+  ]);
+  const recovered = settingsViewModel({ ...input, daemonHealth: { agentRootAvailability: 'available', sources: [{ source: 'issue-work', availability: 'available' }] } }).sources;
+  assert.deepEqual(recovered.map(row => row.tone), ['good', 'good']);
+});
+
+test('a legacy or malformed health payload reports availability as not reported instead of inventing it', () => {
+  for (const daemonHealth of [undefined, null, 'x', [], { sources: [] }, { sources: 'nope', agentRootAvailability: undefined }, { sources: [null, 4] }]) {
+    assert.deepEqual(settingsViewModel({ ...input, daemonHealth }).sources, [{ label: 'Source adapters', value: 'availability not reported', tone: 'plain' }]);
+  }
+  assert.equal(settingsViewModel({ ...input, daemonHealth: { agentRootAvailability: 'bogus', sources: [] } }).sources[0].value, 'availability not reported');
+});
+
+test('daemon health rows warn on missing or unavailable availability fields only', () => {
+  const rows = daemonHealthRows(reported);
+  const tones = Object.fromEntries(rows.map(row => [row.label + '=' + row.value, row.tone]));
+  assert.equal(tones['Agent Root Availability=missing'], 'warn');
+  assert.equal(tones['Sources · 0 · Availability=missing'], 'warn');
+  assert.equal(tones['Sources · 1 · Availability=available'], 'plain');
+  assert.equal(tones['Sources · 2 · Availability=unavailable'], 'warn');
+});
