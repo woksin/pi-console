@@ -3,6 +3,8 @@
 // Unbranded display units keep existing callers compatible while naming the meaning of each input.
 type DisplayText = string;
 type CellCount = number;
+/** Measures a complete string or a single grapheme in the client's display cells. */
+export type TextWidth = (text: DisplayText) => CellCount;
 type IsoTimestamp = string;
 type EpochMilliseconds = number;
 type UsdAmount = number;
@@ -45,11 +47,11 @@ function graphemeWidth(text: DisplayText): number {
 export const displayWidth = (text: DisplayText): number => graphemes(text).reduce((sum, item) => sum + graphemeWidth(item), 0);
 
 /** Takes whole graphemes, filling the last cell if a wide one would straddle the edge. */
-function prefix(text: DisplayText, width: CellCount): string {
+function prefix(text: DisplayText, width: CellCount, measure: TextWidth): string {
   let result = '';
   let used = 0;
   for (const item of graphemes(text)) {
-    const size = graphemeWidth(item);
+    const size = measure(item);
     if (used + size > width) return result + ' '.repeat(width - used);
     result += item;
     used += size;
@@ -69,30 +71,30 @@ export function sanitize(text: DisplayText): string {
 }
 
 /** Clip terminal cells without changing whitespace; styled parts can retain their boundaries. */
-export function clipCells(text: DisplayText, width: CellCount): string {
+export function clipCells(text: DisplayText, width: CellCount, measure: TextWidth = displayWidth): string {
   if (width <= 0) return '';
-  return displayWidth(text) <= width ? text : `${prefix(text, width - 1)}…`;
+  return measure(text) <= width ? text : `${prefix(text, width - 1, measure)}…`;
 }
 
 /** One-line clip with an ellipsis. */
-export function clip(text: DisplayText, width: CellCount): string {
-  return clipCells(text.replace(/\s+/g, ' '), width);
+export function clip(text: DisplayText, width: CellCount, measure: TextWidth = displayWidth): string {
+  return clipCells(text.replace(/\s+/g, ' '), width, measure);
 }
 
-export const pad = (text: DisplayText, width: CellCount): string => {
-  const clipped = clip(text, width);
-  return clipped + ' '.repeat(Math.max(0, width - displayWidth(clipped)));
+export const pad = (text: DisplayText, width: CellCount, measure: TextWidth = displayWidth): string => {
+  const clipped = clip(text, width, measure);
+  return clipped + ' '.repeat(Math.max(0, width - measure(clipped)));
 };
-export const padStart = (text: DisplayText, width: CellCount): string => ' '.repeat(Math.max(0, width - displayWidth(text))) + text;
+export const padStart = (text: DisplayText, width: CellCount, measure: TextWidth = displayWidth): string => ' '.repeat(Math.max(0, width - measure(text))) + text;
 
-function wordPieces(word: DisplayText, width: CellCount): string[] {
+function wordPieces(word: DisplayText, width: CellCount, measure: TextWidth): string[] {
   const pieces: string[] = [];
   let piece = '';
   let used = 0;
   for (const item of graphemes(word)) {
-    const size = graphemeWidth(item);
+    const size = measure(item);
     if (used + size > width && piece) { pieces.push(piece); piece = ''; used = 0; }
-    // A two-cell grapheme cannot be displayed in a one-cell column; leave a space, never half a glyph.
+    // A grapheme wider than the column cannot be displayed; leave spaces, never half a glyph.
     piece += size > width ? ' '.repeat(width) : item;
     used += Math.min(size, width);
   }
@@ -100,28 +102,29 @@ function wordPieces(word: DisplayText, width: CellCount): string[] {
   return pieces;
 }
 
-function appendWord(lines: DisplayText[], line: DisplayText, word: DisplayText, width: CellCount): string {
-  const pieces = wordPieces(word, width);
+function appendWord(lines: DisplayText[], line: DisplayText, word: DisplayText, budget: { width: CellCount; measure: TextWidth }): string {
+  const { width, measure } = budget;
+  const pieces = wordPieces(word, width, measure);
   let current = line;
   for (const piece of pieces) {
-    if (current && displayWidth(current) + 1 + displayWidth(piece) > width) { lines.push(current); current = piece; }
+    if (current && measure(current) + 1 + measure(piece) > width) { lines.push(current); current = piece; }
     else current = current ? `${current} ${piece}` : piece;
   }
   return current;
 }
 
 /** Word-wraps to `width` cells and at most `maxLines` lines, ending the last with an ellipsis when cut. */
-export function wrap(text: DisplayText, width: CellCount, maxLines = Number.POSITIVE_INFINITY): string[] {
+export function wrap(text: DisplayText, width: CellCount, maxLines = Number.POSITIVE_INFINITY, measure: TextWidth = displayWidth): string[] {
   if (width <= 0) return [''];
   const lines: string[] = [];
   for (const paragraph of text.split('\n')) {
     let line = '';
-    for (const word of paragraph.split(/\s+/).filter(Boolean)) line = appendWord(lines, line, word, width);
+    for (const word of paragraph.split(/\s+/).filter(Boolean)) line = appendWord(lines, line, word, { width, measure });
     lines.push(line);
   }
   if (lines.length <= maxLines) return lines;
   const kept = lines.slice(0, maxLines);
-  kept[maxLines - 1] = clip(`${kept[maxLines - 1]}…`, width);
+  kept[maxLines - 1] = clip(`${kept[maxLines - 1]}…`, width, measure);
   return kept;
 }
 
