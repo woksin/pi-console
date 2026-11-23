@@ -17,15 +17,14 @@ const marked = (deltas: Delta[]) => deltas.filter(delta => delta.type === 'sessi
 async function rig() {
   const log = new SqliteEventLog(':memory:');
   await log.append([sessionStarted(1, 's1'), sessionStarted(2, 's2')]);
-  const projector = new Projector(log, consoleProjections()); await projector.catchUp();
+  const projector = new Projector(log, consoleProjections()); await projector.start();
   const queries = new ConsoleQueries(() => readModels(projector));
   let deltas: Delta[] = [];
   const batcher = new DeltaBatcher(() => readModels(projector), delta => deltas.push(delta));
-  return { log, queries, async apply(events: NewEvent[]) {
+  projector.onApplied((event, changes) => { batcher.add(event, changes); });
+  return { log: { close() { batcher.flush(); projector.stop(); log.close(); } }, queries, async apply(events: NewEvent[]) {
     deltas = [];
-    const position = projector.position;
-    await log.append(events); await projector.catchUp();
-    for await (const event of log.readFrom(position)) batcher.add(event);
+    await log.append(events);
     batcher.flush(); return deltas;
   } };
 }

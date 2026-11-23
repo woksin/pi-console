@@ -10,17 +10,15 @@ async function batchSpec() {
   const log = new SqliteEventLog(':memory:');
   await log.append([sessionStarted(1, 's1'), sessionStarted(2, 's2')]);
   const projector = new Projector(log, consoleProjections());
-  await projector.catchUp();
+  await projector.start();
   const deltas: Delta[] = [];
   const batcher = new DeltaBatcher(() => readModels(projector), delta => deltas.push(delta), () => new Date('2026-01-01'));
+  projector.onApplied((event, changes) => { batcher.add(event, changes); });
   return {
-    log,
+    log: { close() { batcher.flush(); projector.stop(); log.close(); } },
     async apply(events: NewEvent[]) {
       deltas.length = 0;
-      const position = projector.position;
       await log.append(events);
-      await projector.catchUp();
-      for await (const event of log.readFrom(position)) batcher.add(event);
       batcher.flush();
       return [...deltas];
     },
@@ -117,19 +115,16 @@ test('after an expensive flush the next one waits, coalescing to the same final 
   try {
     await log.append([sessionStarted(1, 's1')]);
     const projector = new Projector(log, consoleProjections());
-    await projector.catchUp();
+    await projector.start();
+    t.after(() => projector.stop());
     let clock = 0;
     const flushes: Delta[][] = [];
     // Publishing one delta costs 5 ms of the injected clock.
     const batcher = new DeltaBatcher(() => readModels(projector), delta => { clock += 5; flushes.at(-1)?.push(delta); }, () => new Date('2026-01-01'), {
       clock: () => clock,
     });
-    const publish = async (events: NewEvent[]) => {
-      const position = projector.position;
-      await log.append(events);
-      await projector.catchUp();
-      for await (const event of log.readFrom(position)) batcher.add(event);
-    };
+    projector.onApplied((event, changes) => { batcher.add(event, changes); });
+    const publish = async (events: NewEvent[]) => { await log.append(events); };
     flushes.push([]);
     await publish([request(2, 's1')]);
     t.mock.timers.tick(0);

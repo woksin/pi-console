@@ -13,7 +13,9 @@ const flushIntervalMs = 250;
 
 export interface SkippedEvents { position: number; counts: Record<SkipReason, number> }
 
-export type AppliedListener = (event: EventEnvelope) => void;
+/** Event-local row IDs; independent of persistence batching and safe to retain. */
+export type ProjectionChanges = ReadonlyMap<string, ReadonlyMap<string, ReadonlySet<string>>>;
+export type AppliedListener = (event: EventEnvelope, changes: ProjectionChanges) => void;
 
 const skippedName = '$skipped';
 const noSkips = (): SkippedEvents => ({ position: 0, counts: { 'unknown-type': 0, 'unknown-version': 0, 'invalid-payload': 0 } });
@@ -120,30 +122,43 @@ export class Projector {
 
   #applyLive(event: EventEnvelope): void {
     if (event.seq <= this.#position) return;
-    this.#apply(event);
+    const changes = this.#apply(event);
     this.#flushIfFull();
-    for (const listener of this.#listeners) listener(event);
+    for (const listener of this.#listeners) listener(event, changes);
   }
 
-  #apply(stored: EventEnvelope): void {
+  #apply(stored: EventEnvelope): ProjectionChanges {
+    const changes = new Map<string, Map<string, Set<string>>>();
     const decoded = decode(stored);
     if (decoded.kind === 'skipped') this.#countSkip(stored.seq, decoded.reason);
     for (const slot of this.#slots) {
       if (slot.position >= stored.seq) continue;
       if (decoded.kind === 'ok') {
         slot.runtime?.beforeApply(decoded.event);
-        slot.state = slot.projection.apply(slot.state, decoded.event, slot.report);
+        slot.state = slot.projection.apply(slot.state, decoded.event, (collection, id) => {
+          slot.report(collection, id);
+          recordChange(changes, slot.projection.name, collection, id);
+        });
       }
       slot.position = stored.seq;
     }
     this.#skipped.position = Math.max(this.#skipped.position, stored.seq);
     this.#position = stored.seq;
     this.#unsaved++;
+    return changes;
   }
 
   #countSkip(seq: number, reason: SkipReason): void {
     if (seq > this.#skipped.position) this.#skipped.counts[reason]++;
   }
+}
+
+function recordChange(changes: Map<string, Map<string, Set<string>>>, name: string, collection: string, id: string): void {
+  let collections = changes.get(name);
+  if (!collections) { collections = new Map(); changes.set(name, collections); }
+  let ids = collections.get(collection);
+  if (!ids) { ids = new Set(); collections.set(collection, ids); }
+  ids.add(id);
 }
 
 /** Loads a snapshot, or starts from empty when there is none or its version is stale. */

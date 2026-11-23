@@ -1,173 +1,156 @@
-import type { EventEnvelope, Job, Message, Question, Request, Reset, Session } from '@pi-console/contract';
-import { ConsoleQueries, deltaFor, type AttentionItem, type Delta, type ReadModels, type RequestFilter } from '@pi-console/core';
-import { changedMemorySessions, memoryMayChange, memoryState } from './memory-state.ts';
-
-/** Queries memoised for one flush: read models do not change while a batch of deltas is being computed. */
-class BatchQueries extends ConsoleQueries {
-  readonly #cache = new Map<string, unknown>();
-
-  #memo<T>(key: string, compute: () => T): T {
-    if (!this.#cache.has(key)) this.#cache.set(key, compute());
-    return this.#cache.get(key) as T;
-  }
-
-  override needsYou(): AttentionItem[] { return this.#memo('needsYou', () => super.needsYou()); }
-  protected override attentionSessionIds(): ReadonlySet<string> { return this.#memo('attentionSessionIds', () => super.attentionSessionIds()); }
-  override sessions(): Session[] { return this.#memo('sessions', () => super.sessions()); }
-  override requests(filter: RequestFilter = 'all'): Request[] { return this.#memo(`requests:${filter}`, () => super.requests(filter)); }
-  override questions(): Question[] { return this.#memo('questions', () => super.questions()); }
-  override messages(): Message[] { return this.#memo('messages', () => super.messages()); }
-  override jobs(): Job[] { return this.#memo('jobs', () => super.jobs()); }
-  override resets(): Reset[] { return this.#memo('resets', () => super.resets()); }
-}
-
-const keyOf = (delta: Delta): string => `${delta.type}:${String((delta.payload as { id?: unknown }).id)}`;
-
-/** Only the derived fields: ordinary session changes already have a catalogue route. */
-function derivedSessions(queries: ConsoleQueries): Map<string, string> {
-  const attention = new Map<string, AttentionItem[]>();
-  for (const item of queries.needsYou()) {
-    if (item.sessionId === null) continue;
-    const items = attention.get(item.sessionId) ?? [];
-    items.push(item);
-    attention.set(item.sessionId, items);
-  }
-  return new Map(queries.sessions().map(session => [session.id, JSON.stringify([session.status, attention.get(session.id) ?? []])]));
-}
-
-interface DerivedState {
-  sessions: Map<string, string>;
-  requests: Map<string, string>;
-  memory: Map<string, string>;
-}
-
-/** Detached fingerprints preserve the last visible state even when projection rows are mutated in place. */
-function derivedState(queries: ConsoleQueries, memory = memoryState(queries)): DerivedState {
-  return {
-    memory,
-    sessions: derivedSessions(queries),
-    requests: new Map(queries.requests().map(request => [request.id, JSON.stringify(request)])),
-  };
-}
-
-/** Flushes may take at most this share of the event loop: after a flush of d ms the next waits (1 / share - 1) × d. */
-const maxDutyShare = 0.2;
-/** Longest a pending delta waits behind an expensive flush. */
-const maxFlushDelayMs = 2_000;
+import type { EventEnvelope } from '@pi-console/contract';
+import { deltaFor, IncrementalQueries, type Delta, type IncrementalChanges, type ProjectionChanges, type ReadModels } from '@pi-console/core';
 
 export interface DeltaBatcherOptions {
-  /** Monotonic milliseconds; injectable for specs. */
   clock?: () => number;
-  /** Skip unused queries only after the owner has made omitted deltas non-replayable. */
+  /** Drop an unobserved batch before reading models (e.g. a stream with no connected clients). */
   discard?: () => boolean;
 }
 
-/**
- * Turns applied log events into SSE deltas. Events applied in the same tick are coalesced: each touched entity is
- * published once, as its state after the whole batch, in the order it was first touched.
- *
- * Every flush rebuilds whole-state queries, so during a backfill flushes are paced to a duty cycle: after an expensive
- * flush, the next one waits proportionally and events keep coalescing meanwhile. Deltas are the same final states,
- * only later; after a cheap flush (the live case) the wait is a few milliseconds at most.
- */
+/** Coalesces input events into final entity upserts and dirty-derived session invalidations. */
 export class DeltaBatcher {
   readonly #models: () => ReadModels;
   readonly #publish: (delta: Delta) => void;
   readonly #now: () => Date;
-  readonly #clock: () => number;
-  readonly #discard: (() => boolean) | undefined;
-  #pending: EventEnvelope[] = [];
-  /** Derived entity state as the observing clients last saw it; `undefined` after unobserved batches until `rebase`. */
-  #derived: DerivedState | undefined;
-  #nextFlushAt = 0;
-  #timer: NodeJS.Timeout | undefined;
+  readonly #options: Required<DeltaBatcherOptions>;
+  readonly #events = new Map<string, EventEnvelope>();
+  readonly #changes = new Map<string, Map<string, Set<string>>>();
+  #index: IncrementalQueries | undefined;
+  #timer: ReturnType<typeof setTimeout> | undefined;
+  #immediate: ReturnType<typeof setImmediate> | undefined;
+  #lastFlushed = -Infinity;
+  #interval = 0;
 
   constructor(models: () => ReadModels, publish: (delta: Delta) => void, now: () => Date = () => new Date(), options: DeltaBatcherOptions = {}) {
     this.#models = models;
     this.#publish = publish;
     this.#now = now;
-    this.#clock = options.clock ?? (() => performance.now());
-    this.#discard = options.discard;
-    this.#derived = derivedState(new BatchQueries(models, now));
+    this.#options = {
+      clock: options.clock ?? (() => performance.now()),
+      discard: options.discard ?? (() => false),
+    };
+    this.rebase();
   }
 
-  get pending(): number {
-    return this.#pending.length;
-  }
-
-  /**
-   * Call when a client takes a snapshot: after unobserved batches the snapshot, not the last published delta, is what
-   * clients have seen, so later batches compare derived state against it.
-   */
+  /** A newly attached client saw current state; later derivations start from this baseline. */
   rebase(): void {
-    this.#derived ??= derivedState(new BatchQueries(this.#models, this.#now));
+    this.#queries();
   }
 
-  add(event: EventEnvelope): void {
-    if (this.#pending.length === 0) this.#schedule();
-    this.#pending.push(event);
+  add(event: EventEnvelope, changes: ProjectionChanges): void {
+    this.#events.set(eventKey(event), event);
+    mergeChanges(this.#changes, changes);
+    this.#schedule();
   }
 
+  get pending(): number { return this.#events.size; }
+
+  /** Flushes pending input now, including during shutdown. Never emits snapshots or duplicate whole entities. */
   flush(): void {
-    clearTimeout(this.#timer);
-    this.#timer = undefined;
-    const events = this.#pending;
-    if (events.length === 0) return;
-    this.#pending = [];
-    const started = this.#clock();
-    if (this.#discard?.()) this.#derived = undefined;
-    else this.#flushEvents(events);
-    const ended = this.#clock();
-    this.#nextFlushAt = ended + Math.min(maxFlushDelayMs, (ended - started) * (1 / maxDutyShare - 1));
+    if (this.#events.size === 0) return;
+    if (this.#options.discard()) { this.#discard(); return; }
+    this.#cancel();
+    const started = this.#options.clock();
+    const events = [...this.#events.values()];
+    const queries = this.#queries();
+    const resets = events.filter(event => event.type === 'ResetOccurred').map(event => (event.payload as { sessionId: string }).sessionId);
+    const changed = queries.update(this.#changes, this.#now(), resets);
+    this.#events.clear();
+    this.#changes.clear();
+    const deltas = this.#deltas(events, queries, changed);
+    for (const delta of deltas.values()) this.#emit(delta, changed.memory);
+    const duration = Math.max(0, this.#options.clock() - started);
+    this.#interval = Math.min(2_000, duration * (1 / 0.2 - 1));
+    this.#lastFlushed = this.#options.clock();
   }
 
-  #schedule(): void {
-    const wait = this.#nextFlushAt - this.#clock();
-    if (wait <= 0) setImmediate(() => { this.flush(); });
-    else this.#timer = setTimeout(() => { this.flush(); }, wait);
+  #queries(): IncrementalQueries {
+    if (!this.#index) {
+      this.#index = new IncrementalQueries(this.#models, this.#now());
+    }
+    return this.#index;
   }
 
-  #flushEvents(events: readonly EventEnvelope[]): void {
-    const queries = new BatchQueries(this.#models, this.#now);
+  #deltas(events: EventEnvelope[], queries: IncrementalQueries, changed: IncrementalChanges): Map<string, Delta> {
     const deltas = new Map<string, Delta>();
     const seen = new Set<string>();
     for (const event of events) {
       const delta = deltaFor(queries, event, seen);
-      if (delta && !deltas.has(keyOf(delta))) deltas.set(keyOf(delta), delta);
+      if (delta) deltas.set(keyOf(delta), delta);
     }
-    this.#addDerivedEntities(queries, deltas, events);
-    for (const delta of deltas.values()) this.#publish(delta);
+    this.#requestDeltas(queries, changed.requests, deltas);
+    this.#sessionDeltas(queries, changed, deltas);
+    return deltas;
   }
 
-  #addDerivedEntities(queries: ConsoleQueries, deltas: Map<string, Delta>, events: readonly EventEnvelope[]): void {
-    const memory = memoryMayChange(events) ? undefined : this.#derived?.memory;
-    const derived = derivedState(queries, memory);
-    const before = this.#derived ?? derived;
-    this.#addDerivedRequests(queries, before, derived, deltas);
-    for (const session of queries.sessions()) {
-      if (before.sessions.get(session.id) === derived.sessions.get(session.id)) continue;
-      const delta = { type: 'session.updated', payload: session };
-      deltas.set(keyOf(delta), delta);
-    }
-    this.#addMemory(queries, changedMemorySessions(before.memory, derived.memory, events), deltas);
-    this.#derived = derived;
-  }
-
-  #addMemory(queries: ConsoleQueries, sessions: Set<string>, deltas: Map<string, Delta>): void {
-    for (const session of queries.sessions()) {
-      if (!sessions.has(session.id)) continue;
-      const delta = { type: 'session.updated', payload: { ...session, memoryChanged: true } };
-      deltas.set(keyOf(delta), delta);
+  #requestDeltas(queries: IncrementalQueries, ids: Iterable<string>, deltas: Map<string, Delta>): void {
+    for (const id of ids) {
+      const request = queries.requestById(id);
+      if (request) {
+        const delta: Delta = { type: request.status === 'interrupted' ? 'request.interrupted' : 'request.observed', payload: request };
+        deltas.set(keyOf(delta), delta);
+      }
     }
   }
 
-  #addDerivedRequests(queries: ConsoleQueries, before: DerivedState, derived: DerivedState, deltas: Map<string, Delta>): void {
-    for (const request of queries.requests()) {
-      if (before.requests.get(request.id) === derived.requests.get(request.id)) continue;
-      // Catalogue routes already cover explicitly linked events; do not duplicate their request entities.
-      if (deltas.has(`request.observed:${request.id}`) || deltas.has(`request.interrupted:${request.id}`)) continue;
-      const delta = { type: request.status === 'interrupted' ? 'request.interrupted' : 'request.observed', payload: request };
-      deltas.set(keyOf(delta), delta);
+  #sessionDeltas(queries: IncrementalQueries, changed: IncrementalChanges, deltas: Map<string, Delta>): void {
+    for (const id of new Set([...changed.sessions, ...changed.memory])) {
+      const payload = queries.sessionById(id);
+      if (payload) deltas.set(`session.updated:${id}`, { type: 'session.updated', payload });
     }
   }
+
+  #discard(): void {
+    this.#cancel();
+    this.#events.clear();
+    this.#changes.clear();
+    this.#index = undefined;
+  }
+
+  #emit(delta: Delta, memory: ReadonlySet<string>): void {
+    const session = delta.payload as { id: string };
+    this.#publish(delta.type === 'session.updated' && memory.has(session.id)
+      ? { ...delta, payload: { ...session, memoryChanged: true } } : delta);
+  }
+
+  #cancel(): void {
+    clearImmediate(this.#immediate);
+    clearTimeout(this.#timer);
+    this.#timer = undefined;
+    this.#immediate = undefined;
+  }
+
+  #schedule(): void {
+    if (this.#timer || this.#immediate) return;
+    const wait = Math.max(0, this.#lastFlushed + this.#interval - this.#options.clock());
+    if (wait === 0) this.#immediate = setImmediate(() => { this.flush(); });
+    else this.#timer = setTimeout(() => { this.flush(); }, wait);
+    this.#timer?.unref();
+    this.#immediate?.unref();
+  }
+}
+
+function mergeChanges(target: Map<string, Map<string, Set<string>>>, changes: ProjectionChanges): void {
+  for (const [name, collections] of changes) {
+    let merged = target.get(name);
+    if (!merged) { merged = new Map(); target.set(name, merged); }
+    mergeCollections(merged, collections);
+  }
+}
+
+function mergeCollections(target: Map<string, Set<string>>, collections: ReadonlyMap<string, ReadonlySet<string>>): void {
+  for (const [collection, ids] of collections) {
+    let merged = target.get(collection);
+    if (!merged) { merged = new Set(); target.set(collection, merged); }
+    for (const id of ids) merged.add(id);
+  }
+}
+
+function keyOf(delta: Delta): string { return `${delta.type}:${(delta.payload as { id: string }).id}`; }
+
+function eventKey(event: EventEnvelope): string {
+  const payload = event.payload as Record<string, unknown>;
+  const fields = ['requestId', 'questionId', 'messageId', 'jobId', 'phaseId', 'resetId', 'sessionId', 'itemId'];
+  const key = fields.find(field => typeof payload[field] === 'string');
+  return `${event.type}:${key ? payload[key] as string : event.id}`;
 }

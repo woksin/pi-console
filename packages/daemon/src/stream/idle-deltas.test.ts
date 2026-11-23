@@ -19,7 +19,7 @@ test('discarded batches never query read models or publish, but the next observe
   let published = 0;
   let idle = true;
   const batcher = new DeltaBatcher(() => { reads++; return readModels(projector); }, () => { published++; }, () => new Date(), { discard: () => idle });
-  const stop = projector.onApplied(event => { batcher.add(event); });
+  const stop = projector.onApplied((event, changes) => { batcher.add(event, changes); });
   t.after(() => { stop(); batcher.flush(); });
   reads = 0;
   await log.append([sessionStarted(1, 's1'), request(2)]);
