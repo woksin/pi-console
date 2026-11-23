@@ -134,9 +134,13 @@ export interface Headless {
   destroy: () => void;
 }
 
-/** Mounts in OpenTUI's in-memory test renderer: the same layout engine, no terminal. */
-export async function mountHeadless(node: ReactNode, size: { width: number; height: number }): Promise<Headless> {
-  const ui = await testRender(node, { width: size.width, height: size.height, kittyKeyboard: false });
+/** Mounts in OpenTUI's in-memory test renderer; width-specific fixtures can opt out of host terminal detection. */
+export async function mountHeadless(node: ReactNode, size: { width: number; height: number; widthMethod?: 'wcwidth' | 'unicode' }): Promise<Headless> {
+  const widthOptions = size.widthMethod === undefined ? {} : {
+    forwardEnvKeys: [],
+    environment: { [size.widthMethod === 'wcwidth' ? 'OPENTUI_FORCE_WCWIDTH' : 'OPENTUI_FORCE_UNICODE']: '1' },
+  };
+  const ui = await testRender(node, { width: size.width, height: size.height, kittyKeyboard: false, ...widthOptions });
   const flags = globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean };
   /** React work is drained inside act so a key press has been rendered when the call resolves; store updates arrive outside it. */
   const inAct = async (work: () => Promise<void> | void) => {

@@ -5,23 +5,26 @@ import { fit, split, t } from './parts.ts';
 import { h, Lines, mountHeadless, Screen, textWidth, useTextWidth } from './renderer.ts';
 
 const family = '👨‍👩‍👧‍👦';
+const widthMethods = ['wcwidth', 'unicode'] as const;
 
 function Wrapped(props: { text: string; width: number }) {
   const measure = useTextWidth();
   return h(Screen, {}, h(Lines, { lines: wrap(props.text, props.width, Infinity, measure).map(text => [t(text)]) }));
 }
 
-for (const width of [40, 60]) {
-  test(`joined emoji never loses trailing text when rendered at ${String(width)} columns`, async () => {
-    const count = width - 7;
-    const screen = await mountHeadless(h(Wrapped, { text: `${family} ${'x'.repeat(count)}`, width }), { width, height: 6 });
-    try {
-      await screen.settle();
-      const frame = screen.frame();
-      assert.equal((frame.match(/x/g) ?? []).length, count, frame);
-      assert.ok(frame.includes(family), frame);
-    } finally { screen.destroy(); }
-  });
+for (const widthMethod of widthMethods) {
+  for (const width of [40, 60]) {
+    test(`joined emoji never loses trailing text at ${String(width)} columns (${widthMethod})`, async () => {
+      const count = width - 7;
+      const screen = await mountHeadless(h(Wrapped, { text: `${family} ${'x'.repeat(count)}`, width }), { width, height: 6, widthMethod });
+      try {
+        await screen.settle();
+        const frame = screen.frame();
+        assert.equal((frame.match(/x/g) ?? []).length, count, frame);
+        assert.ok(frame.includes(family), frame);
+      } finally { screen.destroy(); }
+    });
+  }
 }
 
 function Fitted({ width }: { width: number }) {
@@ -35,21 +38,23 @@ function Fitted({ width }: { width: number }) {
   ] }));
 }
 
-test('rendered padding, clipped styled graphemes, skin tones and CJK use the same cell budget', async () => {
-  const width = textWidth('wcwidth')(family) + 2;
-  const screen = await mountHeadless(h(Fitted, { width }), { width, height: 12 });
-  try {
-    await screen.settle();
-    const frame = screen.frame();
-    assert.ok(frame.includes(`${family}a…`), frame);
-    assert.ok(frame.includes(`${family} |`), frame);
-    assert.ok(frame.includes('END'), frame);
-    assert.ok(frame.includes('👍🏽'), frame);
-    assert.ok(frame.includes('界界'), frame);
-    assert.ok(frame.includes('é'), frame);
-    assert.equal((frame.match(/x/g) ?? []).length, 10, frame);
-  } finally { screen.destroy(); }
-});
+for (const widthMethod of widthMethods) {
+  test(`rendered padding, clipped styled graphemes, skin tones and CJK share a cell budget (${widthMethod})`, async () => {
+    const width = textWidth(widthMethod)(family) + 2;
+    const screen = await mountHeadless(h(Fitted, { width }), { width, height: 12, widthMethod });
+    try {
+      await screen.settle();
+      const frame = screen.frame();
+      assert.ok(frame.includes(`${family}a…`), frame);
+      assert.ok(frame.includes(`${family} |`), frame);
+      assert.ok(frame.includes('END'), frame);
+      assert.ok(frame.includes('👍🏽'), frame);
+      assert.ok(frame.includes('界界'), frame);
+      assert.ok(frame.includes('é'), frame);
+      assert.equal((frame.match(/x/g) ?? []).length, 10, frame);
+    } finally { screen.destroy(); }
+  });
+}
 
 test('the adapter measures both OpenTUI width methods without changing shared defaults', () => {
   const fallback = textWidth('wcwidth');
