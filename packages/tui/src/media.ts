@@ -20,7 +20,7 @@ const directory = mkdtempSync(join(tmpdir(), 'pi-console-media-'));
 // Deterministic pictures: fixed port (shown in Settings), a frozen mock stream (speed ≈ 0 publishes only the t=0 events) and a fixed clock.
 const daemon = await startDaemon({ port: Number(process.env.PI_CONSOLE_MEDIA_PORT ?? 47777), speed: 1e-9, dataDirectory: directory });
 const pty = startPty(`exec node --experimental-ffi --disable-warning=ExperimentalWarning ${main}`, {
-  ...size, env: { ...process.env, COLORTERM: 'truecolor', PI_CONSOLE_URL: `http://127.0.0.1:${String(daemon.port)}`, PI_CONSOLE_TOKEN: daemon.token, PI_CONSOLE_REDUCED_MOTION: '1', PI_CONSOLE_NOW: '2026-11-20T12:00:00Z' },
+  ...size, env: { ...process.env, COLORTERM: 'truecolor', PI_CONSOLE_URL: `http://127.0.0.1:${String(daemon.port)}`, PI_CONSOLE_TOKEN: daemon.token, PI_CONSOLE_REDUCED_MOTION: '1', PI_CONSOLE_NOW: '2026-11-20T12:00:00Z', TZ: 'UTC' },
 });
 const theme = { background: themeTokens.bg, foreground: themeTokens.text };
 

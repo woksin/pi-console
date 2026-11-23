@@ -11,7 +11,9 @@ export type LineKind = 'user' | 'thinking' | 'assistant' | 'tool' | 'result' | '
 export interface TranscriptLine {
   id: string; cursor: number;
   /** Stable identity of the logical line: the first delta's cursor for a streaming run, inherited by the final `assistant` entry that replaces it; the own cursor otherwise. Never changes as the line streams or finalises; ascending with transcript order. */
-  key: number; time: string; kind: LineKind; glyph: string; label: string; color: ThemeToken; text: string;
+  key: number; time: string;
+  /** The source ISO timestamp, unchanged: the last delta's while streaming, the final entry's once it replaces the run. */
+  at: string; kind: LineKind; glyph: string; label: string; color: ThemeToken; text: string;
   streaming: boolean; requestId: string | null; resetId: string | null;
   /** What a reset line's divider lists; `null` on every other line, and on a reset the detail does not (yet) know. */
   reset: ResetDivider | null;
@@ -48,7 +50,7 @@ function line(entry: TranscriptEntry, streaming = false): TranscriptLine {
   const { kind, glyph, label, color } = style[entry.kind];
   const result = entry.toolResult;
   return {
-    id: entry.id, cursor: entry.cursor, key: entry.cursor, time: clock(entry.at), kind, glyph, label, color, streaming,
+    id: entry.id, cursor: entry.cursor, key: entry.cursor, time: clock(entry.at), at: entry.at, kind, glyph, label, color, streaming,
     text: sanitize(result?.withheld ? '[withheld by the daemon: secret-shaped content]' : entry.text), requestId: entry.requestId ?? null, resetId: entry.resetId ?? null, reset: null,
     tool: result ? { name: result.toolName, args: sanitize(result.argsExcerpt), resultKind: result.resultKind, withheld: result.withheld, truncated: result.truncated } : null,
   };

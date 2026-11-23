@@ -1,5 +1,7 @@
 /** Display helpers shared by every view model: all pure, with layout measured in terminal cells. */
 
+import { timeDisplay } from './time.ts';
+
 // Unbranded display units keep existing callers compatible while naming the meaning of each input.
 type DisplayText = string;
 type CellCount = number;
@@ -167,7 +169,8 @@ export function age(iso: IsoTimestamp, now: EpochMilliseconds): string {
   return `${String(Math.floor(seconds / 86400))}d`;
 }
 
-export const clock = (iso: IsoTimestamp): string => iso.slice(11, 19);
+/** `HH:mm:ss` in the viewer's zone; `–` when `iso` is not a time. */
+export const clock = (iso: IsoTimestamp): string => timeDisplay(iso).clock;
 export const money = (usd: UsdAmount): string => `$${usd.toFixed(2)}`;
 export const compactNumber = (value: number): string =>
   value >= 1e6 ? `${(value / 1e6).toFixed(1)}M` : value >= 1e3 ? `${(value / 1e3).toFixed(1)}k` : String(value);

@@ -29,7 +29,7 @@ export async function startFrozenRig(): Promise<Rig> {
 }
 
 async function openConsole(rig: Rig, options: { theme: Theme; scale: number; route: string; before?: (page: Page) => Promise<void> }): Promise<Page> {
-  const context = await rig.browser.newContext({ viewport: size, deviceScaleFactor: options.scale, reducedMotion: 'reduce', colorScheme: options.theme === 'dawn' ? 'light' : 'dark' });
+  const context = await rig.browser.newContext({ viewport: size, deviceScaleFactor: options.scale, reducedMotion: 'reduce', timezoneId: 'UTC', colorScheme: options.theme === 'dawn' ? 'light' : 'dark' });
   await context.addInitScript(prefs => { localStorage.setItem('pi-console.prefs', prefs); }, JSON.stringify({ theme: options.theme, reducedMotion: true, sidebarCollapsed: false }));
   const page = await context.newPage();
   await page.route('**/api/v1/health', route => route.fulfill({ json: health }));

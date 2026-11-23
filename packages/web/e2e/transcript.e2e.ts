@@ -62,7 +62,7 @@ describe('transcript scrolling', () => {
     const block = Array.from({ length: 40 }, (_, index) => `streamed row ${String(index)}`).join('\n');
     for (let delta = 0; delta < 4; delta++) {
       publish('assistant.delta', `${block}\n`, 'req-stream');
-      await page.waitForFunction(count => (document.querySelector('.transcript')?.children.item((document.querySelector('.transcript')?.children.length ?? 2) - 2)?.querySelector('.ttext')?.textContent.split('\n').length ?? 0) >= (count + 1) * 40, delta);
+      await page.waitForFunction(count => ([...document.querySelectorAll('.transcript .ttext')].at(-1)?.textContent.split('\n').length ?? 0) >= (count + 1) * 40, delta);
       await page.waitForTimeout(250);
       assert.ok(await behindTail(page) <= 12, `delta ${String(delta)}: the viewport is on the tail`);
     }
@@ -113,6 +113,24 @@ describe('transcript scrolling', () => {
     assert.equal(await page.locator('.tline.selected').getAttribute('id'), firstLine, 'Home selects the first line');
     assert.ok(await selectedInView(), 'the selected line is visible after Home');
     assert.ok(await scrollTop() < 80, 'Home reaches the top');
+    await page.context().close();
+  });
+});
+
+describe('transcript times', () => {
+  test('a line time carries its source ISO and the absolute time with its zone, under a day heading', async () => {
+    const page = await openSession();
+    const meta = await page.locator('.tline time').last().evaluate(node => ({ at: node.getAttribute('datetime'), title: node.getAttribute('title') }));
+    assert.match(meta.at ?? '', /^\d{4}-\d{2}-\d{2}T/);
+    assert.match(meta.title ?? '', /^\d{1,2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} UTC$/);
+    assert.ok(await page.locator('.tday-head').count() >= 1, 'the first displayed day has a heading');
+    await page.context().close();
+  });
+
+  test('a non-UTC browser shows local times with an offset and zone in the title', async () => {
+    const page = await rig.open('/session/s2', { timezoneId: 'Pacific/Auckland' });
+    await page.locator('.tline time').first().waitFor();
+    assert.match(await page.locator('.tline time').first().getAttribute('title') ?? '', /UTC\+1[23]:00 \(Pacific\/Auckland\)$/);
     await page.context().close();
   });
 });

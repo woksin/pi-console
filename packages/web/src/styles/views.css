@@ -131,6 +131,8 @@
   .grid[aria-label='Fleet'] td, .grid[aria-label='Fleet'] th { padding-left: 8px; padding-right: 8px; }
   .grid[aria-label='Fleet'] .pressure-track { width: 64px; }
 }
+.tday-head { position: sticky; top: 0; z-index: 1; margin: 0; padding: 3px 14px; background: var(--panel); border-bottom: 1px solid var(--border); color: var(--muted); font-size: var(--type-caption); font-weight: 650; letter-spacing: 0.02em; }
+.tday .tline, .tday .reset-marker { scroll-margin-top: 28px; }
 .tline { display: grid; grid-template-columns: 28px 1fr; gap: 6px; padding: 7px 14px; border-left: 3px solid transparent; cursor: default; }
 .tline:hover { background: color-mix(in oklab, var(--raised) 55%, transparent); }
 .tline.selected { background: var(--select); border-left-color: var(--cyan); }
@@ -188,7 +190,7 @@
 }
 .tline { content-visibility: auto; contain-intrinsic-size: auto 56px; }
 /* The tail line is always laid out: skipped rendering would size it at the 56px estimate, so following would stop short once it is painted at its real height. */
-.tline:nth-last-child(2) { content-visibility: visible; }
+.tline-tail { content-visibility: visible; }
 .memory-panel .memory-item { display: flex; flex-direction: column; gap: 2px; }
 .memory-panel code { overflow-wrap: anywhere; }
 .memory-panel .memory-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
