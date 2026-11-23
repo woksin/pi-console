@@ -11,6 +11,8 @@ export interface SnapshotOptions {
   resolvedRoots?: readonly string[];
   scanner?: Scanner;
   maxBytes?: number;
+  /** Namespaces the snapshot checkpoint: bumping it rereads unchanged files once through an updated mapper, leaving the log and other checkpoints intact. */
+  mapperVersion?: string;
   /** Turns the file bytes into the JSON line the mapper reads, for files that are not JSON (default: the bytes as text). */
   decode?: (bytes: Buffer, path: string) => string;
 }
@@ -22,7 +24,7 @@ export async function pollSnapshot(log: EventLog, source: string, candidate: str
   try {
     const bytes = await snapshotBytes(handle, stat.size, options.maxBytes);
     const hash = createHash('sha256').update(bytes).digest('hex');
-    const identity = `snapshot:${path}`; // Logical snapshot survives atomic file replacement.
+    const identity = options.mapperVersion === undefined ? `snapshot:${path}` : `snapshot:${path}#${options.mapperVersion}`; // Logical snapshot survives atomic file replacement.
     const saved = (await log.checkpoints(source)).find(item => item.path === path && item.identity === identity);
     if (saved?.headHash === hash) return 0;
     const checkpoint: SourceCheckpoint = { source, path, identity, generation: (saved?.generation ?? -1) + 1, offset: bytes.length, size: bytes.length, mtimeMs: stat.mtimeMs, headHash: hash };

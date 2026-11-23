@@ -42,6 +42,10 @@
 .card.question.blocking { border-left-color: var(--amber); box-shadow: none; }
 .card.question.selected { border-color: var(--cyan); }
 .question-options { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; color: var(--muted); }
+.question-activity { margin: 0; font-size: 12px; }
+.question-history summary { cursor: pointer; }
+.question-history ol { list-style: none; margin: 6px 0 0; padding: 0; display: grid; gap: 6px; }
+.question-history-note { margin: 2px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .urgent-mark { color: var(--amber); font-weight: 700; }
 .options { list-style: none; margin: 0; padding: 0; display: flex; gap: 6px; flex-wrap: wrap; }
 .answer { margin: 4px 0 0; padding: 8px 12px; border-left: 2px solid var(--green); background: color-mix(in oklab, var(--green) 8%, var(--panel)); border-radius: 0 6px 6px 0; }
@@ -187,3 +191,5 @@
 .tline:nth-last-child(2) { content-visibility: visible; }
 .memory-panel .memory-item { display: flex; flex-direction: column; gap: 2px; }
 .memory-panel code { overflow-wrap: anywhere; }
+.questions .field { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+.questions .field select { background: var(--raised); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 3px 6px; }

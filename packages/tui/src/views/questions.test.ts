@@ -205,3 +205,64 @@ test('wide Questions keeps the side panel and Enter still opens the session', as
     assert.deepEqual(opened, [question.sessionId]);
   } finally { ui.destroy(); store.dispose(); }
 });
+
+const history = Array.from({ length: 40 }, (_, index) => ({
+  sequence: 40 - index, operation: index % 2 ? 'comment' : 'answered', at: new Date(Date.parse(demoSnapshot.generatedAt) - index * 60_000).toISOString(),
+  actor: `Actor${String(40 - index)}`, excerpt: `Note-${String(40 - index).padStart(2, '0')} \u001b]8;;http://evil.invalid\u0007link\u001b]8;;\u0007 \u001b[31mred\u001b[0m`, withheld: false,
+}));
+const withHistory: Question = { ...question, id: 'q-history', text: 'Short question', options: ['A', 'B'], updatedAt: demoSnapshot.generatedAt, history };
+
+test('80x24: full detail reaches every history entry, newest first, with terminal escapes stripped', async () => {
+  const { ui, store } = await setup(80, [withHistory]);
+  try {
+    await ui.press('RETURN');
+    let seen = ui.frame();
+    for (let page = 0; page < 30; page++) { await ui.press('\u001b[6~'); seen += ui.frame(); }
+    for (let sequence = 1; sequence <= 40; sequence++) {
+      assert.ok(seen.includes(`Note-${String(sequence).padStart(2, '0')}`), `note ${String(sequence)}`);
+      assert.ok(seen.includes(`Actor${String(sequence)}`), `actor ${String(sequence)}`);
+    }
+    assert.ok(seen.indexOf('Note-40') < seen.indexOf('Note-01'), 'newest first');
+    assert.ok(!seen.includes('evil.invalid') && !seen.includes('\u001b'), 'escapes are removed');
+    assert.match(seen, /HISTORY \(40, NEWEST FIRST\)/i);
+  } finally { ui.destroy(); store.dispose(); }
+});
+
+test('wide preview names updated, last activity and the history count without hiding the question', async () => {
+  const { ui, store } = await setup(160, [withHistory]);
+  try {
+    const frame = ui.frame();
+    assert.match(frame, /Short question/);
+    assert.match(frame, /answered by[\s│]+Actor40/);
+    assert.match(frame, /History \(40\) · v expand/);
+  } finally { ui.destroy(); store.dispose(); }
+});
+
+test('old questions without history say so in the preview and the full detail', async () => {
+  const { ui, store } = await setup(80);
+  try {
+    await ui.press('RETURN');
+    await ui.press('END');
+    assert.match(ui.frame(), /History unavailable: this question predates recorded history\./);
+  } finally { ui.destroy(); store.dispose(); }
+});
+
+test('o cycles the sort, S cycles the stale threshold, and both show in the title and reset the cursor', async () => {
+  const old: Question = { ...question, id: 'q-old', text: 'Ancient question', createdAt: '2026-01-01T00:00:00.000Z', updatedAt: '2026-01-02T00:00:00.000Z' };
+  const fresh: Question = { ...question, id: 'q-fresh', text: 'Fresh question', createdAt: demoSnapshot.generatedAt, updatedAt: demoSnapshot.generatedAt };
+  const { ui, store } = await setup(100, [old, fresh]);
+  try {
+    assert.match(ui.frame(), /priority · stale 7d/);
+    assert.match(ui.frame(), /stale/);
+    await ui.press('j');
+    await ui.press('o');
+    assert.match(ui.frame(), /last updated · stale 7d/);
+    assert.ok(ui.frame().indexOf('Fresh question') < ui.frame().indexOf('Ancient question'));
+    await ui.press('o');
+    assert.match(ui.frame(), /last activity · stale 7d/);
+    await ui.press('S');
+    assert.match(ui.frame(), /last activity · stale 14d/);
+    await ui.press('o');
+    assert.match(ui.frame(), /priority · stale 14d/);
+  } finally { ui.destroy(); store.dispose(); }
+});

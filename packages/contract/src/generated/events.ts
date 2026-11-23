@@ -17,6 +17,8 @@ export type QuestionRevisedPayload = { questionId: string; excerpt?: string };
 export type QuestionAnsweredPayload = { questionId: string; excerpt?: string };
 export type QuestionDeferredPayload = { questionId: string; until?: string | null };
 export type QuestionClosedPayload = { questionId: string; reason?: string };
+export type QuestionSnapshotObservedPayload = { questionId: string; revision: number; asker?: string | null; kind: 'question' | 'decision' | 'approval' | 'fyi'; excerpt?: string; options?: string[]; urgency: 'normal' | 'high'; blocking: boolean; status: 'open' | 'answered' | 'deferred' | 'closed'; createdAt: string; updatedAt: string; links?: string[] };
+export type QuestionHistoryRecordedPayload = { questionId: string; sequence: number; operation: string; at: string; actor: string | null; excerpt?: string; withheld?: boolean };
 export type MessageSentPayload = { messageId: string; from: string; to: string; excerpt?: string; withheld?: boolean };
 export type MessageDeliveredPayload = { messageId: string };
 export type MessageReadPayload = { messageId: string };
@@ -62,6 +64,8 @@ export interface EventPayloads {
   QuestionAnswered: QuestionAnsweredPayload;
   QuestionDeferred: QuestionDeferredPayload;
   QuestionClosed: QuestionClosedPayload;
+  QuestionSnapshotObserved: QuestionSnapshotObservedPayload;
+  QuestionHistoryRecorded: QuestionHistoryRecordedPayload;
   MessageSent: MessageSentPayload;
   MessageDelivered: MessageDeliveredPayload;
   MessageRead: MessageReadPayload;

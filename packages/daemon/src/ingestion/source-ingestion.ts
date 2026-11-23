@@ -112,7 +112,7 @@ export class SourceIngestion implements AdapterWorker {
   }
 
   async #snapshot(feed: Feed, file: string): Promise<number> {
-    await pollSnapshot(this.#log, this.#options.id, file, feed.mapper, { roots: feed.directories, resolvedRoots: feed.trustRoot ? [feed.trustRoot] : undefined, decode: feed.decode });
+    await pollSnapshot(this.#log, this.#options.id, file, feed.mapper, { roots: feed.directories, resolvedRoots: feed.trustRoot ? [feed.trustRoot] : undefined, decode: feed.decode, mapperVersion: feed.mapperVersion });
     return 0;
   }
 

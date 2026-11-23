@@ -157,7 +157,7 @@ test('snapshots: an unchanged file is not re-read on the next poll, a changed on
   await worker.poll();
   assert.equal(worker.status.errors, 0, 'same mtime and size: not opened');
   chmodSync(file, 0o600);
-  const edited = { v: 1, id: 'q-1', rev: 1, type: 'decision', priority: 'high', blocking: 'awaiting the retry limit', text: 'Edited, and longer than before?', history: [{ seq: 1, type: 'created', ts: '2026-11-20T09:01:10.000Z' }] };
+  const edited = { v: 1, id: 'q-1', rev: 2, type: 'decision', priority: 'high', blocking: 'awaiting the retry limit', text: 'Edited, and longer than before?', history: [{ seq: 1, type: 'created', ts: '2026-11-20T09:01:10.000Z' }] };
   writeFileSync(file, JSON.stringify(edited) + '\n');
   await worker.poll();
   worker.close();

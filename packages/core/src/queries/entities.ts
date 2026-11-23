@@ -2,7 +2,7 @@ import type { Job, Message, Question, Request, Reset, Session } from '@pi-consol
 import type { ReadModels } from '../projections/index.ts';
 import type { JobModel } from '../projections/work.ts';
 import type { MessageModel } from '../projections/messages.ts';
-import type { QuestionModel } from '../projections/questions.ts';
+import type { QuestionHistoryModel, QuestionModel } from '../projections/questions.ts';
 import type { RequestModel } from '../projections/requests.ts';
 import type { SessionModel } from '../projections/sessions.ts';
 
@@ -73,10 +73,21 @@ export function toRequest(request: RequestModel): Request {
   };
 }
 
+/** Newest first: time descending, then sequence descending so equal timestamps stay deterministic. */
+const newestFirst = (a: QuestionHistoryModel, b: QuestionHistoryModel) => Date.parse(b.at) - Date.parse(a.at) || b.sequence - a.sequence;
+
+/** The optional v1 fields exist only when the source supplied them; old events keep the v0 shape. */
+function questionDetail(question: QuestionModel): Partial<Question> {
+  return {
+    ...(question.revision > 0 ? { updatedAt: question.updatedAt, links: question.links } : {}),
+    ...(question.history ? { history: Object.values(question.history).sort(newestFirst).map(entry => ({ ...entry })) } : {}),
+  };
+}
+
 export function toQuestion(question: QuestionModel): Question {
   return {
     id: question.id, sessionId: question.asker ?? consoleOwner, kind: question.kind, text: question.text, options: question.options,
-    urgency: question.urgency, blocking: question.blocking, status: question.status, createdAt: question.createdAt,
+    urgency: question.urgency, blocking: question.blocking, status: question.status, createdAt: question.createdAt, ...questionDetail(question),
   };
 }
 

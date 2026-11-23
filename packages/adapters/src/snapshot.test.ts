@@ -27,9 +27,10 @@ test('snapshots observe atomic rename and same-size rewrite, resume and redact b
   try {
     const path = join(root, 'question.json');
     const log = new MemoryLog();
-    const save = (text: string) => writeFileSync(path, JSON.stringify({ ...fixture, text }));
+    const revisions = new Map<string, number>(); // A store bumps the revision with every content change.
+    const save = (text: string) => writeFileSync(path, JSON.stringify({ ...fixture, text, rev: revisions.get(text) ?? revisions.set(text, revisions.size + 1).get(text) }));
     save('First');
-    assert.equal(await pollSnapshot(log, 'question-store', path, questionMapper, { roots: [root] }), 1);
+    assert.equal(await pollSnapshot(log, 'question-store', path, questionMapper, { roots: [root] }), 2);
     assert.equal(await pollSnapshot(log, 'question-store', path, questionMapper, { roots: [root] }), 0);
     save('Other');
     assert.equal(await pollSnapshot(log, 'question-store', path, questionMapper, { roots: [root] }), 1);
@@ -49,6 +50,23 @@ test('snapshots observe atomic rename and same-size rewrite, resume and redact b
     await assert.rejects(pollSnapshot(log, 'question-store', path, questionMapper, { roots: [root] }), /transaction abort/);
     assert.equal(await pollSnapshot(log, 'question-store', path, questionMapper, { roots: [root] }), 1);
     assert.notDeepEqual(readFileSync(path), before);
+  } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+test('a mapper version rereads unchanged content once, keeping old events and checkpoints', async () => {
+  const root = mkdtempSync(join(tmpdir(), 'pi-snapshot-version-'));
+  try {
+    const path = join(root, 'question.json');
+    writeFileSync(path, JSON.stringify(fixture));
+    const log = new MemoryLog();
+    assert.equal(await pollSnapshot(log, 'question-store', path, () => [], { roots: [root] }), 0);
+    const options = { roots: [root], mapperVersion: 'v-test' };
+    assert.equal(await pollSnapshot(log, 'question-store', path, questionMapper, options), 2);
+    assert.equal(await pollSnapshot(log, 'question-store', path, questionMapper, options), 0);
+    assert.equal(await pollSnapshot(log, 'question-store', path, questionMapper, { roots: [root] }), 0);
+    const identities = log.positions.map(position => position.identity);
+    assert.equal(identities.length, 2);
+    assert.deepEqual(identities.map(identity => identity.endsWith('#v-test')).sort(), [false, true]);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

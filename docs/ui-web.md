@@ -69,6 +69,8 @@ The bindings are defined once in `packages/viewmodels/src/keymap` (press `?` for
 | `o` | Requests: next origin filter (all, human, launch, unproven) |
 | `S` | Requests: next session filter (all, then each session that has requests) |
 
+**Questions** show updated and last-activity times, links, a text-labelled `Stale · no activity for …` chip on open questions idle past the threshold, and a keyboard-operable **History** disclosure (newest first; operation, actor, time, sanitized note; "History unavailable" for questions the source never gave history for). The **Sort** (priority, last updated, last activity) and **Warn after** (1, 7, 14, 30 days) selects apply to this page session; the TUI uses `o` and `S`.
+
 Lists (Questions, Messages, Timeline, the graph) show a loading skeleton until the first snapshot or graph read arrives, never an empty state that is really "not loaded yet". A failed graph read shows an alert with **Retry** and keeps the last loaded graph; a daemon without the `/graph` route (404) simply has an empty graph. **Load older** shows a loading state while a page is in flight and turns into **Retry** with an alert if the page fails.
 
 The messages graph reads canonical lane nodes and directed, counted edges from `/graph`, including lanes without sessions. Session spawn relationships appear separately; only session nodes open session detail. The graph's time scrubber filters edges by their latest activity, retaining all-time counts (not historical message replay). Zoom and pan are timeline-only; the web timeline has no `t` scrubber.

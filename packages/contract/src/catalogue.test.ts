@@ -30,6 +30,15 @@ test('payload schemas require their identity fields and accept additive fields',
   assert.match(payloadValid(request, { ...payload, excerpt: 'x'.repeat(201) })!, /maximum/);
 });
 
+test('question snapshot and history facts require identity and accept additive fields', () => {
+  const snapshot = { questionId: 'q1', revision: 3, kind: 'question', urgency: 'normal', blocking: false, status: 'open', createdAt: '2026-11-20T09:00:00Z', updatedAt: '2026-11-20T09:05:00Z' };
+  assert.equal(payloadValid(definitionOf('QuestionSnapshotObserved')!, { ...snapshot, links: [], options: [], asker: null }), null);
+  assert.match(payloadValid(definitionOf('QuestionSnapshotObserved')!, { ...snapshot, status: 'decided' })!, /enum/);
+  const entry = { questionId: 'q1', sequence: 2, operation: 'comment', at: '2026-11-20T09:05:00Z', actor: null };
+  assert.equal(payloadValid(definitionOf('QuestionHistoryRecorded')!, entry), null);
+  assert.match(payloadValid(definitionOf('QuestionHistoryRecorded')!, { ...entry, actor: 7 })!, /anyOf/);
+});
+
 test('decode returns current events unchanged', () => {
   const event = envelope({});
   assert.deepEqual(decode(event), { kind: 'ok', event });

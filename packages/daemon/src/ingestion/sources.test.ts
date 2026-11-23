@@ -63,7 +63,7 @@ test('sessions still arrive and every other source reaches its API surface from 
   const jobs = (await running.get('jobs')).items;
   assert.ok(jobs.some((job: { kind: string; name: string }) => job.kind === 'phase' && job.name === 'unit checks'), 'phase facts reach /jobs');
   const all = await events(running.daemon);
-  for (const type of ['ResetOccurred', 'MessageSent', 'SessionHeartbeat', 'IssueStatusChanged', 'QuestionAsked', 'PhaseFinished']) {
+  for (const type of ['ResetOccurred', 'MessageSent', 'SessionHeartbeat', 'IssueStatusChanged', 'QuestionSnapshotObserved', 'QuestionHistoryRecorded', 'PhaseFinished']) {
     assert.ok(all.some(event => event.type === type), type);
   }
   assert.deepEqual(all.filter(event => event.type === 'SourceSchemaUnknown' && event.source !== 'session-jsonl').map(event => [event.source, JSON.stringify(event.payload)]), [], 'a well-formed tree raises no schema warnings from the new sources');
@@ -125,7 +125,7 @@ const changes: [string, (tree: AgentTree) => void][] = [
     appendFileSync(join(tree.root, 'pi-phase/state/ledger/2026-11-20.jsonl'), JSON.stringify({ v: 1, argvHash: 'hash-two', label: 'lint', queuedAt: '2026-11-20T09:08:00.000Z', startedAt: '2026-11-20T09:08:01.000Z', endedAt: '2026-11-20T09:08:09.000Z', outcome: 'passed', exit: 0 }) + '\n');
   }],
 ];
-const expectedNew: Record<string, number> = { 'question-store': 1, 'lane-messages': 1, 'lane-heartbeats': 1, 'issue-work': 1, 'context-budget': 1, 'phase-ledger': 3 };
+const expectedNew: Record<string, number> = { 'question-store': 2, 'lane-messages': 1, 'lane-heartbeats': 1, 'issue-work': 1, 'context-budget': 1, 'phase-ledger': 3 };
 
 for (const [source, change] of changes) {
   test(`${source}: a restart appends nothing old; a later change appends exactly the new events`, async t => {

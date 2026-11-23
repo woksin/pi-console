@@ -115,6 +115,21 @@ for (const [route, container, item, attribute] of [
   });
 }
 
+test('/questions history summary and preference selects have accessible names and keep list selection', async () => {
+  const page = await rig.open('/questions');
+  try {
+    await page.locator('.conn[data-connection="live"]').waitFor();
+    for (const name of ['Sort', 'Warn after']) assert.equal(await page.getByRole('combobox', { name }).count(), 1, name);
+    const summaries = page.locator('.question-history summary');
+    if (await summaries.count() > 0) {
+      assert.match(await summaries.first().innerText(), /^History \(\d+\)$/);
+      assert.equal(await page.locator('.question-history ol[aria-label]').count(), await summaries.count());
+    }
+    assert.equal(await page.locator('ol[aria-label="Questions"] [aria-selected]').count(), 0);
+    assert.equal(await page.locator('[data-question][aria-current="true"]').count(), 1);
+  } finally { await page.context().close(); }
+});
+
 test('motion follows OS changes, unrelated saves do not override it, and explicit choices survive reloads', async () => {
   const page = await rig.open('/settings');
   try {

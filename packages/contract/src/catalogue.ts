@@ -54,6 +54,13 @@ const questions = defs('questions', ['question-store'], {
   QuestionAnswered: open({ ...questionId, excerpt }, ['questionId']),
   QuestionDeferred: open({ ...questionId, until: nullable(time) }, ['questionId']),
   QuestionClosed: open({ ...questionId, reason: str }, ['questionId']),
+  /** The question as stored at one source revision (not a history operation). Supersedes the lifecycle facts above once seen. */
+  QuestionSnapshotObserved: open({
+    ...questionId, revision: int, asker: nullable(str), kind: oneOf('question', 'decision', 'approval', 'fyi'), excerpt, options: stringList,
+    urgency: oneOf('normal', 'high'), blocking: bool, status: oneOf('open', 'answered', 'deferred', 'closed'), createdAt: time, updatedAt: time, links: stringList,
+  }, ['questionId', 'revision', 'kind', 'urgency', 'blocking', 'status', 'createdAt', 'updatedAt']),
+  /** One stored history entry, identified by the producer's per-item sequence; the actor is a source-supplied display label. */
+  QuestionHistoryRecorded: open({ ...questionId, sequence: int, operation: str, at: time, actor: nullable(str), excerpt, withheld: bool }, ['questionId', 'sequence', 'operation', 'at', 'actor']),
 });
 
 const messageId = { messageId: id };

@@ -43,7 +43,7 @@ export function syntheticModels(size: SyntheticSize, stride = 997): ReadModels {
     const id = `k${pad(n)}`;
     models.questions.questions[id] = {
       id, asker: owner(n), kind: 'question', text: `decide ${n}`, options: [], urgency: 'normal', blocking: false,
-      status: n % stride === 0 ? 'open' : 'closed', createdAt: at(n), ref: null, stamps: {},
+      status: n % stride === 0 ? 'open' : 'closed', createdAt: at(n), ref: null, revision: 0, updatedAt: '', links: [], history: null, stamps: {},
     };
   }
   return models;
