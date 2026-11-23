@@ -77,9 +77,9 @@ test('an open browser memory panel converges from real producer files without he
     spec.retire();
     await page.waitForFunction(() => [...document.querySelectorAll('li')].some(node => node.textContent.includes('Synthetic live order') && /Done/i.test(node.textContent)));
     spec.journal();
-    await page.getByText('unresolved: 1+ (lower bound)', { exact: false }).waitFor();
+    await page.getByText('At least 1 unresolved', { exact: false }).waitFor();
     spec.classify();
-    await page.getByText('unresolved: 0+ (lower bound)', { exact: false }).waitFor();
+    await page.getByText('No unresolved items found', { exact: false }).waitFor();
     assert.equal(actionCalls, 0, 'automatic refresh is read-only');
     assert.equal((await page.locator('body').innerText()).includes('PRIVATE JOURNAL BODY'), false);
   } finally {

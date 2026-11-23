@@ -1,7 +1,15 @@
-import { wrap, type MemoryPanelViewModel } from '@pi-console/viewmodels';
+import { wrap, type MemoryPanelItem, type MemoryPanelViewModel, type TextWidth } from '@pi-console/viewmodels';
 import type { Line } from '../view/renderer.ts';
 import type { MemoryHistory } from '../store/store.ts';
+import type { Color } from '../view/theme.ts';
 import { blank, fit, t, type CellBudget } from '../view/parts.ts';
+
+/** The status badge (its label always travels with its colour), the text indented under it at the full width, then the smaller details line. */
+export function itemHeadLines(item: MemoryPanelItem, layout: { width: number; measure?: TextWidth }, maxLines?: number): Line[] {
+  const { width, measure } = layout;
+  const indented = (text: string, color: Color, lines?: number): Line[] => wrap(text, Math.max(1, width - 2), lines, measure).map((row): Line => [t(`  ${row}`, color)]);
+  return [[t(`[${item.badge.label}]`, item.badge.tone, { bold: true })], ...indented(item.text, 'text', maxLines), ...indented(item.details, 'faint')];
+}
 
 export function selectionLines(panel: MemoryPanelViewModel, selected: number | undefined, inner: number): Line[] {
   if (selected === undefined || panel.items.length === 0) return [];
@@ -39,8 +47,7 @@ export function memoryLines(panel: MemoryPanelViewModel, budget: number | CellBu
     ...fullViewHint(panel, selected),
     fit([t(counts || 'no items', 'muted')], inner), fit([t(panel.unresolved.text, 'muted')], inner, undefined, measure), blank,
     ...items.flatMap((item): Line[] => [
-      fit([t(`${item.kind} · ${item.statusLabel}`, 'amber'), t(` · ${item.scope}`, 'faint')], inner, undefined, measure),
-      ...wrap(item.text, inner - 2, 3, measure).map((text): Line => [t(`  ${text}`, 'text')]),
+      ...itemHeadLines(item, { width: inner, measure }, 3),
       ...(item.review ? wrap(item.review.message, inner, 5, measure).map((text): Line => [t(text, 'amber')]) : []),
       ...(item.command ? [[t('  Run in a pi session:', 'muted')] as Line, [t(`  ${item.command}`, 'cyan')] as Line, [t(`  ${item.rejectCommand ?? ''}`, 'cyan')] as Line] : []),
     ]),

@@ -28,6 +28,16 @@ button { cursor: pointer; }
 input, select, textarea, .search, .btn, .seg { --border: var(--border-strong); }
 button:disabled { cursor: not-allowed; opacity: 0.5; }
 :focus-visible { outline: none; box-shadow: var(--focus); border-radius: 4px; }
+/* The shell moves focus to the page heading on navigation so screen readers announce it; that is not an interactive target, so it gets no ring. */
+h1[tabindex='-1']:focus, h1[tabindex='-1']:focus-visible { outline: none; box-shadow: none; }
+/* Themed native selects: the caret is two gradients on currentColor, so it follows every theme. */
+select {
+  appearance: none; background-color: var(--raised); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 3px 26px 3px 8px; font-size: inherit; line-height: 1.4; cursor: pointer;
+  background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+  background-position: calc(100% - 14px) 55%, calc(100% - 9px) 55%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+}
+select:focus-visible { box-shadow: var(--focus); }
+select:disabled { cursor: not-allowed; opacity: 0.5; }
 code, .mono, pre { font-family: var(--mono); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 .skip-link { position: fixed; top: 8px; left: 8px; z-index: 100; padding: 8px 12px; background: var(--panel); color: var(--text); transform: translateY(calc(-100% - 12px)); }
@@ -35,6 +45,8 @@ code, .mono, pre { font-family: var(--mono); }
 @media (forced-colors: active) {
   /* Override component outline resets, including search fields and SVG controls. */
   :focus-visible { outline: 2px solid Highlight !important; outline-offset: 2px; }
+  h1[tabindex='-1']:focus-visible { outline: none !important; }
+  select { appearance: auto; background-image: none; background-color: Field; color: FieldText; border-color: ButtonBorder; padding-right: 8px; }
   .selected, [aria-current='page'], [aria-pressed='true'], [aria-selected='true'] { outline: 2px solid Highlight !important; outline-offset: -2px; }
 }
 .muted { color: var(--muted); } .faint { color: var(--faint); } .small { font-size: var(--type-caption); }

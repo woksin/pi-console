@@ -10,7 +10,6 @@
 .requests .tabs { flex-wrap: wrap; min-width: 0; max-width: 100%; }
 .requests .tab { white-space: nowrap; }
 .requests .field { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
-.requests .field select { background: var(--raised); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 3px 6px; }
 .detail-text p { white-space: pre-wrap; overflow-wrap: anywhere; }
 .withheld { color: var(--faint); font-style: italic; }
 .uncertain { color: var(--amber); }
