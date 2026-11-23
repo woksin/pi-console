@@ -1,4 +1,4 @@
-import type { Snapshot } from '@pi-console/contract';
+import type { Request, Snapshot } from '@pi-console/contract';
 
 /** The collections the daemon may window in its snapshot, and page over REST. */
 export type WindowedCollection = NonNullable<Snapshot['bounded']>[number];
@@ -9,14 +9,14 @@ type Dated = Row & Partial<Record<'startedAt' | 'createdAt' | 'sentAt' | 'at', s
 
 const activeRules: Record<WindowedCollection, (row: never) => boolean> = {
   sessions: (row: { status: string }) => !['done', 'idle', 'failed'].includes(row.status),
-  requests: (row: { status: string }) => row.status !== 'answered',
+  requests: (row: Request) => row.status === 'open' || (row.origin !== 'unproven' && row.answerPossiblyUnseen === true && row.answer != null),
   questions: (row: { status: string }) => row.status === 'open',
   messages: (row: { status: string }) => row.status !== 'read',
   jobs: (row: { status: string }) => row.status === 'running',
   resets: () => false,
 };
 
-/** The daemon's "active" rule: an active row is always in a snapshot, so a previously active row missing from one is stale. */
+/** Missing previously active rows are dropped conservatively: a compacted snapshot may omit live rows too. */
 export const isActive = (collection: WindowedCollection, row: Row): boolean => (activeRules[collection] as (row: Row) => boolean)(row);
 
 const keyOf = (row: Dated) => row.startedAt ?? row.createdAt ?? row.sentAt ?? row.at ?? '';
@@ -24,7 +24,7 @@ const ascending = (a: Dated, b: Dated) => (keyOf(a) === keyOf(b) ? (a.id < b.id 
 
 /**
  * A bounded snapshot's window of `collection` merged into what the client already holds: the snapshot wins by id, history
- * pages loaded earlier stay, and rows that were active but are missing from the snapshot are dropped (they are no longer active).
+ * pages loaded earlier stay, and rows that were active but are missing from the snapshot are dropped rather than retained as stale live state.
  */
 export function mergeSnapshot<T extends Row>(collection: WindowedCollection, previous: readonly T[], incoming: readonly T[]): T[] {
   const fresh = new Set(incoming.map(row => row.id));

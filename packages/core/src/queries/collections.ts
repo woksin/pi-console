@@ -54,7 +54,7 @@ export function requestEntries(models: ReadModels, referenced: Referenced, filte
     .filter(row => row.createdAt !== '' && (filter === 'all' || row.status === filter))
     .map(row => ({
       key: row.createdAt, id: row.id, build: () => toRequest(row),
-      active: row.status !== 'answered' || referenced.requests.has(row.id),
+      active: row.status === 'open' || referenced.requests.has(row.id),
     }));
 }
 
