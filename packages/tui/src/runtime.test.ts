@@ -246,3 +246,63 @@ test('a refused resume reloads the open transcript, revalidates reviews and drop
   assert.equal(result.error, undefined, String(result.error));
   assert.equal(result.status, 0, result.stderr);
 });
+
+test('health follows the one connected polling timer: a missing source clears on the next tick and a failed read keeps the last health', () => {
+  const source = `
+    import assert from 'node:assert/strict';
+    import { mock } from 'node:test';
+    const now = new Date('2026-11-20T08:00:00Z');
+    mock.timers.enable({ apis: ['setTimeout', 'setInterval', 'Date'], now });
+    const intervals = new Set(), schedule = globalThis.setInterval, cancel = globalThis.clearInterval;
+    mock.method(globalThis, 'setInterval', (...args) => { const timer = schedule(...args); intervals.add(timer); return timer; });
+    mock.method(globalThis, 'clearInterval', timer => { intervals.delete(timer); cancel(timer); });
+    let handlers, availability = 'missing', failHealth = false, failAttention = false, healthCalls = 0;
+    mock.module('./packages/tui/src/view/renderer.ts', { namedExports: { launch: async () => {} } });
+    mock.module('./packages/tui/src/app.ts', { namedExports: { App: () => null } });
+    mock.module('./packages/tui/src/api/client.ts', { namedExports: { DaemonClient: class {
+      stream(value) { handlers = value; return Promise.resolve(); }
+      async health() { healthCalls++; if (failHealth) throw new Error('offline'); return { status: 'ok', agentRootAvailability: availability, sources: [] }; }
+      async needsYou() { if (failAttention) throw new Error('offline'); return []; }
+      stop() {}
+    } } });
+    const { connect } = await import('./packages/tui/src/runtime.ts');
+    const runtime = connect({ baseUrl: 'http://127.0.0.1', token: 'test', tokenSource: 'test' });
+    const flush = async () => { for (let turn = 0; turn < 10; turn++) await Promise.resolve(); };
+    const minute = async () => { mock.timers.tick(60_000); await flush(); };
+    const shown = () => runtime.store.getSnapshot().health?.agentRootAvailability;
+    try {
+      assert.equal(healthCalls, 0, 'nothing is fetched before the connection');
+      handlers.onState({ connected: true });
+      await flush();
+      assert.equal(shown(), 'missing');
+      availability = 'available';
+      await minute();
+      assert.equal(shown(), 'available', 'the warning clears on the next connected tick without a restart');
+      failHealth = true;
+      availability = 'missing';
+      await minute();
+      assert.equal(shown(), 'available', 'a failed read keeps the last good health');
+      assert.equal(runtime.store.getSnapshot().needsYouError, false, 'a health failure is not an attention failure');
+      failHealth = false;
+      failAttention = true;
+      await minute();
+      assert.equal(shown(), 'missing', 'an attention failure does not block health');
+      assert.equal(runtime.store.getSnapshot().needsYouError, true);
+      assert.equal(intervals.size, 1, 'health adds no timer');
+      handlers.onState({ connected: false });
+      assert.equal(intervals.size, 0);
+      const calls = healthCalls;
+      await minute();
+      assert.equal(healthCalls, calls, 'no health polling while disconnected');
+      handlers.onState({ connected: true });
+      runtime.stop();
+      await minute();
+      assert.equal(intervals.size, 0, 'no timer survives disposal');
+    } finally { runtime.stop(); mock.restoreAll(); mock.timers.reset(); }
+  `;
+  const result = spawnSync(process.execPath, ['--experimental-test-module-mocks', '--input-type=module', '-e', source], {
+    cwd: new URL('../../..', import.meta.url), encoding: 'utf8', timeout: 5000,
+  });
+  assert.equal(result.error, undefined, String(result.error));
+  assert.equal(result.status, 0, result.stderr);
+});

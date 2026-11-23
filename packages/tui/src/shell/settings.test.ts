@@ -90,3 +90,26 @@ test('Settings resize clamps the visible offset and the next key starts from tha
     assert.ok(ui.frame().includes('14–25 of 25'));
   } finally { destroy(); }
 });
+
+const plain = (size: { width: number; height: number }, health: Record<string, unknown> | null) => {
+  const store = new Store();
+  const input = { endpoint: 'http://localhost', tokenSource: 'test', ...store.getSnapshot().connection, now: 0, counts: countsOf(store.getSnapshot()) };
+  store.dispose();
+  return settingsViewport(size, input, health).lines.map(line => line.map(part => part.text).join(''));
+};
+
+test('Settings names a missing agent directory and source, then shows them available once the daemon reports so', () => {
+  const size = { width: 80, height: 60 };
+  const missing = plain(size, { status: 'degraded', agentRootAvailability: 'missing', sources: [{ source: 'issue-work', availability: 'missing' }] });
+  assert.ok(missing.some(line => /^Agent directory\s+missing directory — check startup paths/.test(line)), missing.join('\n'));
+  assert.ok(missing.some(line => /^issue-work\s+missing directory — check startup paths/.test(line)));
+  const recovered = plain(size, { status: 'ok', agentRootAvailability: 'available', sources: [{ source: 'issue-work', availability: 'available' }] });
+  assert.ok(recovered.some(line => /^issue-work\s+available/.test(line)));
+  assert.ok(!recovered.some(line => line.includes('missing directory')));
+});
+
+test('Settings keeps availability neutral for a daemon that does not report it', () => {
+  const lines = plain({ width: 80, height: 60 }, { status: 'ok', sources: [{ source: 'issue-work', files: 1 }] });
+  assert.ok(lines.some(line => /^Source adapters\s+availability not reported/.test(line)) || lines.some(line => /^issue-work\s+availability not reported/.test(line)));
+  assert.ok(!lines.some(line => /^issue-work\s+available\s*$/.test(line)));
+});

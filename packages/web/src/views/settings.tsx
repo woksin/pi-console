@@ -34,6 +34,7 @@ export function SettingsView({ state, now }: ViewProps) {
     endpoint: window.location.origin, connected: state.connection === 'live', error: state.connection === 'unauthorized' ? 'token rejected' : state.connection,
     tokenSource: 'this tab (session storage)', lastSeq: state.seq > 0 ? state.seq : undefined, lastEventAt: state.lastFrameAt > 0 ? state.lastFrameAt : undefined,
     eventsReceived: state.received, now: state.lastFrameAt > 0 ? Math.max(now, state.lastFrameAt) : now,
+    daemonHealth: state.health,
     counts: { repositories: state.repositories.length, sessions: state.totals?.sessions ?? state.sessions.length, requests: state.totals?.requests ?? state.requests.length, questions: state.totals?.questions ?? state.questions.length, messages: state.totals?.messages ?? state.messages.length, jobs: state.totals?.jobs ?? state.jobs.length },
   });
   const health = daemonHealthRows(state.health);

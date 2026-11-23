@@ -158,6 +158,8 @@ With a usable `--web-dist` the daemon prints one launch link, `http://127.0.0.1:
 
 `node packages/cli/bin/pi-console.mjs daemon --help` lists the data directory, port and source options. The daemon uses `--data-dir` first, then `PI_CONSOLE_DATA_DIR`, then `~/.pi-console`. The TUI accepts `--data-dir` with the same precedence and reads both `config.json` and `token` there. Its URL resolves from `--url`, then `PI_CONSOLE_URL`, then the configured `port` on `127.0.0.1`, then `http://127.0.0.1:4777`; missing or malformed config falls back silently. For a daemon started with a one-off `--port 5888`, use `node packages/cli/bin/pi-console.mjs tui --url http://127.0.0.1:5888` (plus `--data-dir` if needed). The offline banner shows the URL being tried. `node packages/cli/bin/pi-console.mjs tui --help` shows TUI usage without opening the terminal UI. Interventions (answering, steering, pausing) are milestone M2; there is no global install yet.
 
+On startup the daemon prints the resolved agent root and each source directory with its state (`available`, `missing`, `unavailable` or `disabled`) and a warning for every missing or unavailable enabled one. If your pi directory is elsewhere, start with `--agent-root <path>` (or create the intended directory); the daemon never creates it, and ingestion picks a directory up automatically once it exists. Health shows `degraded` and Settings names the affected source until then.
+
 CLI errors print a short message to stderr and exit non-zero. Invalid daemon flags exit 2 with a `pi-console daemon --help` hint; startup failures exit 1. The launcher checks the Node version required by `package.json` before loading the CLI. Set `PI_CONSOLE_DEBUG=1` to include a stack trace for diagnosis (for example, `PI_CONSOLE_DEBUG=1 node packages/cli/bin/pi-console.mjs daemon --port banana`).
 
 ### Install the pi extension (optional)
@@ -235,4 +237,4 @@ Acceptance criteria per milestone: [docs/milestones.md](docs/milestones.md).
 
 ## License
 
-License: to be announced.
+pi-console is released under the [MIT License](https://github.com/woksin/pi-console/blob/main/LICENSE).

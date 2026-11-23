@@ -1,7 +1,11 @@
+import { healthTone, sourceRows } from './source-rows.ts';
+
 export interface SettingsInput {
   endpoint: string; connected: boolean; error: string; tokenSource: string;
   lastSeq: number | undefined; lastEventAt: number | undefined; eventsReceived: number; now: number;
   counts: Record<string, number>;
+  /** The daemon health payload as fetched, if any; read defensively because older daemons omit the availability fields. */
+  daemonHealth?: unknown;
 }
 const healthLabels: Record<string, string> = {
   eventLog: 'Event log', lastSeq: 'Last sequence', dbBytes: 'Database size',
@@ -21,7 +25,7 @@ export function daemonHealthRows(health: unknown, prefix = ''): SettingsRow[] {
     if (value !== null && typeof value === 'object') return daemonHealthRows(value, label);
     const text = key.endsWith('Bytes') && typeof value === 'number' && key !== 'lagBytes'
       ? `${(value / 1048576).toFixed(1)} MB` : String(value ?? '–');
-    return [{ label, value: text, tone: 'plain' }];
+    return [{ label, value: text, tone: healthTone(key, value) }];
   });
 }
 
@@ -29,7 +33,7 @@ export type Tone = 'good' | 'warn' | 'bad' | 'plain';
 export interface SettingsRow { label: string; value: string; tone: Tone }
 export interface SettingsViewModel { health: SettingsRow[]; data: SettingsRow[]; sources: SettingsRow[] }
 
-/** Read-only health: connection, stream lag and what the daemon has told us. Sources arrive with the daemon's source API. */
+/** Read-only health: connection, stream lag, what the daemon has told us and whether each source directory is available. */
 export function settingsViewModel(input: SettingsInput): SettingsViewModel {
   const lag = input.lastEventAt === undefined ? undefined : Math.max(0, Math.round((input.now - input.lastEventAt) / 1000));
   const lagTone: Tone = lag === undefined ? 'plain' : lag > 60 ? 'bad' : lag > 15 ? 'warn' : 'good';
@@ -43,6 +47,6 @@ export function settingsViewModel(input: SettingsInput): SettingsViewModel {
       { label: 'Token', value: input.tokenSource, tone: 'plain' },
     ],
     data: Object.entries(input.counts).map(([label, count]) => ({ label, value: String(count), tone: 'plain' as const })),
-    sources: [{ label: 'Source adapters', value: 'reported by the daemon once the sources endpoint ships', tone: 'plain' }],
+    sources: sourceRows(input.daemonHealth),
   };
 }
