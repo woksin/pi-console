@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Marker } from '@pi-console/viewmodels';
-import { gridPart, inWindow, nearby } from './timeline-grid.ts';
+import { axisCells, gridPart, inWindow, nearby } from './timeline-grid.ts';
 
 const ticks = new Set([3]);
 const cell = { column: 1, glyph: '●', color: 'green' } as never;
@@ -27,4 +27,11 @@ test('nearby orders one session by distance and drops those out of span', () => 
 test('inWindow keeps the newest six of one session inside the window, newest first', () => {
   const all = Array.from({ length: 8 }, (_, index) => marker(`m${String(index)}`, 's', index)).concat(marker('x', 'o', 3), marker('late', 's', 50));
   assert.deepEqual(inWindow(all, 's', { start: 0, span: 10 }).map(m => m.id), ['m7', 'm6', 'm5', 'm4', 'm3', 'm2']);
+});
+
+test('axis labels stay whole: the last one is pulled in from the right edge and a label that would touch its neighbour is dropped', () => {
+  const full = axisCells([{ column: 0, label: '09:00:00' }, { column: 19, label: '09:01:00' }], 20).join('');
+  assert.equal(full, '09:00:00    09:01:00');
+  const crowded = axisCells([{ column: 0, label: '09:00:00' }, { column: 9, label: '09:01:00' }], 10).join('');
+  assert.equal(crowded, '09:00:00  ');
 });

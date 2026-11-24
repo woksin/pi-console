@@ -7,7 +7,7 @@ import { App } from '../app.ts';
 import { Store } from '../store/store.ts';
 import { initial } from '../state/ui.ts';
 import { Screen, h, mountHeadless } from '../view/renderer.ts';
-import { overviewView, pressureLines } from './overview.ts';
+import { fleetTotals, overviewView, pressureLines } from './overview.ts';
 
 const text = (line: readonly { text: string }[]): string => line.map(part => part.text).join('');
 
@@ -121,4 +121,10 @@ test('new attention items get a divider and a tag until the Overview is left', a
   assert.equal(fresh.match(/ new\b(?! since)/g)?.length, 1, 'exactly the one new card is tagged');
   changes.look.leave();
   assert.doesNotMatch(await frame(items), /new since you looked/);
+});
+
+test('fleet totals wrap the known-cost qualifier at a word boundary inside the panel width', () => {
+  const lines = fleetTotals({ fleet: { tokens: '2.7M', cost: '$82.85 (known; 14/16 sessions)' } } as never, 33).map(text);
+  assert.deepEqual(lines, ['tokens 2.7M', 'cost $82.85 (known; 14/16', 'sessions)']);
+  assert.ok(lines.every(line => Array.from(line).length <= 33));
 });

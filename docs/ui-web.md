@@ -88,7 +88,7 @@ Generated against the mock daemon's synthetic fixture by `npm run media`.
 | ![Fleet pulse and pressure histogram](media/web-pulse.webp) Fleet pulse and pressure histogram | ![Overview, dawn theme](media/web-overview-light.webp) Overview, dawn theme |
 | ![Questions with history, Sort, Warn after and a Stale chip](media/web-questions.webp) Questions with history and a Stale chip | ![Questions, dawn theme](media/web-questions-light.webp) Questions, dawn theme |
 
-Animations: [command palette](media/web-palette.gif), [keyboard tour](media/web-tour.gif).
+Animations: [command palette](media/web-palette.gif), [keyboard tour](media/web-tour.gif), [live fleet and attention](media/web-live-fleet.gif), [memory review](media/web-memory-review.gif). Stills: [connect screen](media/web-connect.webp), [first run](media/web-first-run.webp).
 
 ## Session memory panel
 

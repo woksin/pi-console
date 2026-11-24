@@ -202,7 +202,7 @@
         "label": "Interrupted"
       },
       "text": "Compare the queue strategies and explain the trade-offs.",
-      "age": "2h",
+      "age": "3h",
       "answer": null,
       "partial": {
         "text": "The first option bounds memory, but the comparison",
