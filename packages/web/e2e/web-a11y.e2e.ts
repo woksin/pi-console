@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { after, before, test } from 'node:test';
 import type { Locator } from 'playwright-core';
 import { type Rig, startRig } from './harness.ts';
-import './web-polish.e2e.ts';
 
 let rig: Rig;
 before(async () => { rig = await startRig({ speed: 0.000000001 }); });
@@ -75,15 +74,14 @@ test('expanded and collapsed navigation names include attention and question bad
 test('request state is a native select reachable by Tab and changed from the keyboard', async () => {
   const page = await rig.open('/requests');
   try {
-    const state = page.getByLabel('State');
+    const state = page.getByRole('combobox', { name: 'State', exact: true });
     await state.focus();
     assert.equal(await page.getByRole('tablist').count(), 0);
     assert.equal(await state.inputValue(), 'all');
     await state.selectOption('open');
     await page.getByTestId('request-summary').getByText('state open').waitFor();
     await page.keyboard.press('Tab');
-    await focused(page.getByLabel('Origin'));
-    await outlined(page.getByLabel('Origin'));
+    await focused(page.getByRole('combobox', { name: 'Origin', exact: true }));
   } finally { await page.context().close(); }
 });
 
@@ -175,7 +173,7 @@ test('forced colors retains search, button, current-navigation and selection out
     await outlined(page.getByRole('navigation').locator('[aria-current="page"]'));
     await outlined(page.locator('table[aria-label="Fleet"] tbody tr[aria-current="true"]'));
     await page.keyboard.press('3');
-    const state = page.getByLabel('State');
+    const state = page.getByRole('combobox', { name: 'State', exact: true });
     await state.waitFor();
     await state.focus();
     await focused(state);

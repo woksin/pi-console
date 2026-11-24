@@ -405,10 +405,10 @@ test('1100px navigation is an icon rail, Fleet fits, and transcript controls do 
 test('request filters keep every control inside the viewport at 768px and the state select offers all seven states', async () => {
   const page = await rig.open('/requests', { width: 768, height: 900 });
   try {
-    const state = page.getByLabel('State');
+    const state = page.getByRole('combobox', { name: 'State', exact: true });
     await state.waitFor();
     assert.deepEqual(await state.locator('option').allTextContents(), ['All', 'Open', 'Answered', 'Unanswered', 'Interrupted', 'Uncertain', 'Possibly unseen']);
-    for (const control of [state, page.getByLabel('Origin'), page.getByLabel('Session'), page.getByRole('searchbox')]) {
+    for (const control of [state, page.getByRole('combobox', { name: 'Origin', exact: true }), page.getByRole('combobox', { name: 'Session', exact: true }), page.getByRole('searchbox')]) {
       assert.equal(await control.evaluate(node => {
         const rect = node.getBoundingClientRect();
         return rect.left >= 0 && rect.right <= innerWidth && rect.top >= 0 && rect.bottom <= innerHeight;

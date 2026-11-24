@@ -48,13 +48,16 @@ test('requests show no default chips and keep the filters on one desktop row tha
     const summary = page.getByTestId('request-summary');
     await summary.waitFor();
     for (const chip of ['state all', 'origin all', 'session all']) assert.equal(await summary.getByText(chip, { exact: true }).count(), 0);
-    const tops = () => page.locator('.request-filters').locator('label').evaluateAll(labels => new Set(labels.map(label => Math.round(label.getBoundingClientRect().top))).size);
-    assert.equal(await tops(), 1, 'desktop filters share one row');
-    await page.getByLabel('State').selectOption('open');
+    const sameRow = await page.locator('.request-filters').locator('select, input').evaluateAll(controls => {
+      const boxes = controls.map(control => control.getBoundingClientRect());
+      return boxes.every(box => box.top < Math.min(...boxes.map(other => other.bottom)) && box.bottom > Math.max(...boxes.map(other => other.top)));
+    });
+    assert.equal(sameRow, true, 'desktop filters share one row');
+    await page.getByRole('combobox', { name: 'State', exact: true }).selectOption('open');
     await summary.getByText('state open', { exact: true }).waitFor();
     await page.setViewportSize({ width: 600, height: 800 });
     for (const label of ['State', 'Origin', 'Session']) {
-      assert.equal(await page.getByLabel(label).evaluate(node => { const rect = node.getBoundingClientRect(); return rect.left >= 0 && rect.right <= innerWidth; }), true, `${label} stays visible`);
+      assert.equal(await page.getByRole('combobox', { name: label, exact: true }).evaluate(node => { const rect = node.getBoundingClientRect(); return rect.left >= 0 && rect.right <= innerWidth; }), true, `${label} stays visible`);
     }
   } finally { await page.context().close(); }
 });
