@@ -130,7 +130,7 @@
       "kind": "session",
       "id": "s6",
       "name": "harbor coordinator",
-      "lane": "L0",
+      "lane": "L196",
       "role": "orchestrator",
       "depth": 0,
       "status": {
@@ -152,7 +152,7 @@
       "kind": "session",
       "id": "s7",
       "name": "harbor implementation",
-      "lane": "L192",
+      "lane": "L197",
       "role": "main",
       "depth": 0,
       "status": {
@@ -174,7 +174,7 @@
       "kind": "session",
       "id": "s9",
       "name": "harbor explore",
-      "lane": "L194",
+      "lane": "L199",
       "role": "subagent",
       "depth": 1,
       "status": {
@@ -196,7 +196,7 @@
       "kind": "session",
       "id": "s10",
       "name": "harbor scout",
-      "lane": "L195",
+      "lane": "L200",
       "role": "subagent",
       "depth": 1,
       "status": {
@@ -218,7 +218,7 @@
       "kind": "session",
       "id": "s8",
       "name": "harbor review",
-      "lane": "L193",
+      "lane": "L198",
       "role": "main",
       "depth": 0,
       "status": {
@@ -248,7 +248,7 @@
       "kind": "session",
       "id": "s11",
       "name": "meadow coordinator",
-      "lane": "L0",
+      "lane": "L201",
       "role": "orchestrator",
       "depth": 0,
       "status": {
@@ -270,7 +270,7 @@
       "kind": "session",
       "id": "s12",
       "name": "meadow implementation",
-      "lane": "L192",
+      "lane": "L202",
       "role": "main",
       "depth": 0,
       "status": {
@@ -292,7 +292,7 @@
       "kind": "session",
       "id": "s14",
       "name": "meadow explore",
-      "lane": "L194",
+      "lane": "L204",
       "role": "subagent",
       "depth": 1,
       "status": {
@@ -314,7 +314,7 @@
       "kind": "session",
       "id": "s15",
       "name": "meadow scout",
-      "lane": "L195",
+      "lane": "L205",
       "role": "subagent",
       "depth": 1,
       "status": {
@@ -336,7 +336,7 @@
       "kind": "session",
       "id": "s13",
       "name": "meadow review",
-      "lane": "L193",
+      "lane": "L203",
       "role": "main",
       "depth": 0,
       "status": {
@@ -366,7 +366,7 @@
       "kind": "session",
       "id": "s16",
       "name": "quartz coordinator",
-      "lane": "L0",
+      "lane": "L206",
       "role": "orchestrator",
       "depth": 0,
       "status": {
@@ -388,7 +388,7 @@
       "kind": "session",
       "id": "s17",
       "name": "quartz implementation",
-      "lane": "L192",
+      "lane": "L207",
       "role": "main",
       "depth": 0,
       "status": {
@@ -410,7 +410,7 @@
       "kind": "session",
       "id": "s19",
       "name": "quartz explore",
-      "lane": "L194",
+      "lane": "L209",
       "role": "subagent",
       "depth": 1,
       "status": {
@@ -432,7 +432,7 @@
       "kind": "session",
       "id": "s20",
       "name": "quartz scout",
-      "lane": "L195",
+      "lane": "L210",
       "role": "subagent",
       "depth": 1,
       "status": {
@@ -454,7 +454,7 @@
       "kind": "session",
       "id": "s18",
       "name": "quartz review",
-      "lane": "L193",
+      "lane": "L208",
       "role": "main",
       "depth": 0,
       "status": {
@@ -484,7 +484,7 @@
       "kind": "session",
       "id": "s21",
       "name": "willow coordinator",
-      "lane": "L0",
+      "lane": "L211",
       "role": "orchestrator",
       "depth": 0,
       "status": {
@@ -506,7 +506,7 @@
       "kind": "session",
       "id": "s22",
       "name": "willow implementation",
-      "lane": "L192",
+      "lane": "L212",
       "role": "main",
       "depth": 0,
       "status": {
@@ -528,7 +528,7 @@
       "kind": "session",
       "id": "s24",
       "name": "willow explore",
-      "lane": "L194",
+      "lane": "L214",
       "role": "subagent",
       "depth": 1,
       "status": {
@@ -550,7 +550,7 @@
       "kind": "session",
       "id": "s25",
       "name": "willow scout",
-      "lane": "L195",
+      "lane": "L215",
       "role": "subagent",
       "depth": 1,
       "status": {
@@ -572,7 +572,7 @@
       "kind": "session",
       "id": "s23",
       "name": "willow review",
-      "lane": "L193",
+      "lane": "L213",
       "role": "main",
       "depth": 0,
       "status": {
@@ -602,7 +602,7 @@
       "kind": "session",
       "id": "s26",
       "name": "zenith coordinator",
-      "lane": "L0",
+      "lane": "L216",
       "role": "orchestrator",
       "depth": 0,
       "status": {
@@ -624,7 +624,7 @@
       "kind": "session",
       "id": "s27",
       "name": "zenith implementation",
-      "lane": "L192",
+      "lane": "L217",
       "role": "main",
       "depth": 0,
       "status": {
@@ -646,7 +646,7 @@
       "kind": "session",
       "id": "s29",
       "name": "zenith explore",
-      "lane": "L194",
+      "lane": "L219",
       "role": "subagent",
       "depth": 1,
       "status": {
@@ -668,7 +668,7 @@
       "kind": "session",
       "id": "s30",
       "name": "zenith scout",
-      "lane": "L195",
+      "lane": "L220",
       "role": "subagent",
       "depth": 1,
       "status": {
@@ -690,7 +690,7 @@
       "kind": "session",
       "id": "s28",
       "name": "zenith review",
-      "lane": "L193",
+      "lane": "L218",
       "role": "main",
       "depth": 0,
       "status": {
