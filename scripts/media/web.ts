@@ -6,7 +6,7 @@ import { fixedNow, flowIds, shots, webViews } from './scenes.ts';
 import { withStaleQuestion } from './questions.ts';
 import { memoryClock, prepareShowcase, rebase } from './fixture.mjs';
 import { FrameSet, wanted, writeStill, type Work } from './capture.ts';
-import { quiesce, showcaseHealth } from './showcase.ts';
+import { quiesce } from './showcase.ts';
 import { connectLive, png, preparePage, settle, type Theme } from './web-page.ts';
 import { captureFlows } from './web-flows.ts';
 
@@ -26,8 +26,6 @@ export async function startFrozenRig(): Promise<Rig> {
 
 async function openConsole(rig: Rig, options: { theme: Theme; scale: number; route: string; before?: (page: Page) => Promise<void> }): Promise<Page> {
   const page = await preparePage(rig, options);
-  // Gallery health follows the stream's own sequence at request time, so Settings agrees with itself.
-  await page.route('**/api/v1/health', route => route.fulfill({ json: showcaseHealth(rig.daemon.store.seq(), rig.daemon.store.clients()) }));
   // Synthetic provider capability: the controls request a native pi review, never mutate memory here.
   await page.route('**/api/v1/sessions/s2/memory-actions', route => route.fulfill({ json: {
     version: 1, available: true, providerVersion: 1, generation: 'gallery-s2', reason: 'available',
@@ -101,12 +99,12 @@ async function captureWebViews(rig: Rig, page: Page, work: Work, suffix: string)
   }
 }
 
-/** The Connection sequence and all three health sequences are the stream's one sequence once the rig is quiescent. */
+/** Settings shows the received stream sequence once, matching the quiescent rig. */
 async function assertSettingsSequence(page: Page, rig: Rig): Promise<void> {
   const seq = String(rig.daemon.store.seq());
   const values = await page.locator('.settings dl.kv div').evaluateAll(rows => rows.map(row => [row.querySelector('dt')?.textContent ?? '', row.querySelector('dd')?.textContent ?? '']));
   const sequences = values.filter(([label]) => /(^|· )(Last sequence|Sequence)$/.test(label)).map(([, value]) => value);
-  if (sequences.length < 3 || sequences.some(value => value !== seq)) throw new Error(`Settings sequences ${JSON.stringify(sequences)} do not match the stream sequence ${seq}`);
+  if (sequences.length !== 1 || sequences.some(value => value !== seq)) throw new Error(`Settings sequences ${JSON.stringify(sequences)} do not match the stream sequence ${seq}`);
 }
 
 async function showOlderTranscript(page: Page): Promise<void> {

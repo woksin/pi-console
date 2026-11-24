@@ -22,6 +22,15 @@ test('mock health conforms with a real event-loop histogram, including long task
     assert.equal(reply.status, 200);
     const health = await reply.json() as Health;
     validate(health, apiV1Schema.$defs.health, apiV1Schema);
+    assert.equal(health.agentRootAvailability, 'available');
+    assert.deepEqual(health.sources.map(source => source.source), ['session-jsonl', 'issue-work', 'lane-messages']);
+    for (const source of health.sources) {
+      assert.equal(source.files, 12);
+      assert.equal(source.lagBytes, 0);
+      assert.equal(source.errors, 0);
+      assert.equal(source.availability, 'available');
+      assert.ok(Number.isFinite(Date.parse(source.lastPollAt!)));
+    }
     return health.eventLoop;
   };
   const delay = await read();

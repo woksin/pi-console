@@ -111,9 +111,30 @@ test('Settings names a missing agent directory and source, then shows them avail
 
 test('Settings separates long diagnostic labels from numeric values at narrow widths', () => {
   const lines = plain({ width: 60, height: 40 }, { eventLog: { lastSeq: 42 }, memory: { rssBytes: 2_097_152 } });
-  assert.ok(lines.some(line => /Last sequence\s+42$/.test(line)), lines.join('\n'));
-  assert.ok(lines.some(line => /Resident memory\s+2\.0 MB$/.test(line)), lines.join('\n'));
+  assert.ok(!lines.some(line => line.includes('Last sequence')), lines.join('\n'));
+  assert.ok(lines.some(line => /memory\s+2\.0 MB$/.test(line)), lines.join('\n'));
 });
+
+for (const width of [60, 80, 120]) {
+  test(`Settings aligns values across all sections at width ${width}, wrapping capped labels`, () => {
+    const store = new Store();
+    const input = { endpoint: 'endpoint-value', tokenSource: 'token-value', ...store.getSnapshot().connection, now: 0, counts: { sessions: 123 } };
+    store.dispose();
+    const health = { memory: { rssBytes: 2097152 }, eventLoop: { p50: 6.283263 }, backfill: { complete: true }, agentRootAvailability: 'available', sources: [{ source: 'issue-work', availability: 'available' }], veryLongDiagnosticLabelBeyondTheColumnCap: 'diagnostic-value' };
+    const lines = settingsViewport({ width, height: 60 }, input, health).lines;
+    const values = ['endpoint-value', 'token-value', '123', '2.0 MB', '6.3 ms', 'Complete', 'available', 'diagnostic-value'];
+    const columns = lines.filter(line => values.includes(line[1]?.text)).map(line => {
+      assert.match(line[0].text, / {2}$/);
+      return line[0].text.length;
+    });
+    assert.equal(columns.length, values.length + 1, 'both source availability rows are checked');
+    assert.equal(new Set(columns).size, 1);
+    assert.ok(columns[0] <= 34, 'the label column is capped plus a two-space gap');
+    const theme = lines.find(line => line[0]?.text.trim() === 'Theme' && line.length > 1);
+    assert.equal(theme?.[0].text.length, columns[0]);
+    assert.ok(lines.some(line => line[0]?.text.includes('Very Long Diagnostic')));
+  });
+}
 
 test('Settings keeps availability neutral for a daemon that does not report it', () => {
   const lines = plain({ width: 80, height: 60 }, { status: 'ok', sources: [{ source: 'issue-work', files: 1 }] });

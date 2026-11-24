@@ -1,4 +1,4 @@
-import { keyLabel, keymapGroups, pad, paletteScopes, paletteView, daemonHealthRows, settingsViewModel, themePreview, wrap, type KeymapGroup, type PaletteItem, type PaletteView, type SettingsInput, type SettingsRow, type Tone, type TextWidth } from '@pi-console/viewmodels';
+import { keyLabel, keymapGroups, pad, paletteScopes, paletteView, healthGroups, displayWidth, settingsViewModel, themePreview, wrap, type KeymapGroup, type PaletteItem, type PaletteView, type SettingsInput, type SettingsRow, type Tone, type TextWidth } from '@pi-console/viewmodels';
 import { Lines, Overlay, Panel, h, useTextWidth, type Line, type Part } from '../view/renderer.ts';
 import { blank, fit, gap, heading, rule, selectable, split, t, windowOf } from '../view/parts.ts';
 import type { Data } from '../store/store.ts';
@@ -96,23 +96,34 @@ export function Help(props: { width: number; height: number; scroll?: number }) 
 }
 
 const tone: Record<Tone, Color> = { good: 'green', warn: 'amber', bad: 'red', plain: 'text' };
-/** A row is its label and value; a row's secondary `detail` (a source's id) sits on a faint line of its own so a long value never clips it. */
-const section = (title: string, rows: SettingsRow[], labelWidth = 18): Line[] => [heading(title), ...rows.flatMap((row): Line[] => [[t(row.label.padEnd(Math.max(labelWidth, row.label.length + 1)), 'muted'), t(row.value, tone[row.tone])], ...row.detail ? [[t(`  ${row.detail}`, 'faint')]] : []]), blank];
+/** Long labels wrap within one shared column; every value has at least two spaces of separation. */
+function settingsLine(row: SettingsRow, labelWidth: number): Line[] {
+  const labels = wrap(row.label, labelWidth);
+  return [
+    ...labels.map((label, index): Line => [t(`${pad(label, labelWidth)}  `, 'muted'), ...index === labels.length - 1 ? [t(row.value, tone[row.tone]), t(row.valueDetail ? ` · ${row.valueDetail}` : '', 'faint')] : []]),
+    ...row.detail ? [[t(`  ${row.detail}`, 'faint')]] : [],
+  ];
+}
+
+const section = (title: string, rows: SettingsRow[], labelWidth: number): Line[] => [heading(title), ...rows.flatMap(row => settingsLine(row, labelWidth)), blank];
 
 /** The same samples the web Settings shows, in the theme this terminal is drawing with. */
-function themeLines(): Line[] {
+function themeLines(labelWidth: number): Line[] {
   const preview = themePreview();
   return [heading('Theme'),
-    [t('Theme'.padEnd(18), 'muted'), t(palette.theme, 'text', { bold: true }), t('  PI_CONSOLE_THEME=midnight|contrast|mono', 'faint')],
+    [t(`${pad('Theme', labelWidth)}  `, 'muted'), t(palette.theme, 'text', { bold: true }), t('  PI_CONSOLE_THEME=midnight|contrast|mono', 'faint')],
     preview.statuses.flatMap((sample, index) => [...(index ? [t('  ')] : []), t(sample.text, sample.color)]),
     [...preview.text.flatMap(sample => [t(sample.text, sample.color), t('  ')]), ...preview.ramp.map(value => t('██', `pressure:${value}` as const)), t(' context ramp', 'faint')],
     blank];
 }
 
 export function settingsViewport(size: { width: number; height: number }, input: SettingsInput, health: Record<string, unknown> | null = null) {
-  const model = settingsViewModel({ ...input, daemonHealth: input.daemonHealth ?? health });
-  const daemon = daemonHealthRows(health);
-  const lines = [...section('Health', model.health), ...(daemon.length > 0 ? section('Daemon health', daemon) : []), ...section('Data', model.data), ...section('Sources', model.sources, 20), ...themeLines()];
+  const reported = input.daemonHealth ?? health;
+  const model = settingsViewModel({ ...input, daemonHealth: reported });
+  const groups = [{ title: 'Health', rows: model.health }, ...healthGroups(reported, model.sources, input.now), { title: 'Data', rows: model.data }];
+  const longest = Math.max(5, ...groups.flatMap(group => group.rows.map(row => displayWidth(row.label))));
+  const labelWidth = Math.max(5, Math.min(longest, 32, Math.floor((size.width - 8) / 2)));
+  const lines = [...groups.flatMap(group => section(group.title, group.rows, labelWidth)), ...themeLines(labelWidth)];
   return overlayViewport(size, lines, { width: 76, height: 27 });
 }
 
