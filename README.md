@@ -18,7 +18,13 @@ Read-only by default; opt-in memory review requests require human confirmation i
 
 </div>
 
-> The name `pi-console` is provisional. All images below use synthetic demo data, not live sessions.
+## What you get
+
+- **One place for every pi session**: see what is running, what is stale, and what needs you, grouped by reason.
+- **Web and terminal clients with the same views**: Overview, Fleet, Requests, Questions, Messages, Timeline and more, over one daemon.
+- **Transcripts with reset markers and memory review**: follow what was asked across context resets, and request memory changes that you confirm in pi.
+- **Keyboard-first**: a command palette (`Ctrl+P`) and single-key view switching in both clients.
+- **Local-only and token-protected**: the daemon binds to loopback, requires a token, and is read-only by default.
 
 ## Quick start
 
@@ -100,6 +106,8 @@ The console can read pi session logs without an extension. The extension adds an
 
 ## Tour
 
+> The name `pi-console` is provisional. All images below use synthetic demo data, not live sessions.
+
 Long-running work spreads across sessions, lanes and file stores. Context resets make it harder to follow what was asked and what still needs an answer. pi-console brings those records together without treating uncertain or missing history as complete. See [request coverage and limitations](docs/requests.md).
 
 ### Needs you first
@@ -124,11 +132,7 @@ Failed uses ASCII `#` to stay clearly distinct from blocked `×` in monospace fo
 
 A session finishes in Fleet, then a new blocking question raises the **Needs you** count and adds a session chip on Overview. Updates arrive through live ingestion without a page reload.
 
-<table>
-<tr>
-<td><a href="docs/media/web-live-fleet.gif"><img src="docs/media/web-live-fleet.gif" width="280" alt="Midnight Fleet marking a session Done, then Overview showing a higher Needs you count and a new session chip"></a><br>Live fleet and attention updates</td>
-</tr>
-</table>
+<img src="docs/media/web-live-fleet.gif" alt="Midnight Fleet marking a session Done, then Overview showing a higher Needs you count and a new session chip" width="900">
 
 ### Find a session without leaving the keyboard
 
@@ -140,19 +144,13 @@ A session finishes in Fleet, then a new blocking question raises the **Needs you
 
 A **Confirm…** request moves through awaiting native human confirmation in pi, then awaiting canonical producer ingestion. Only the ingested change makes the proposed item active. The console does not confirm or write memory itself. See the [optional extension setup](#optional-pi-extension-and-memory-review) above.
 
-<table>
-<tr>
-<td><a href="docs/media/web-memory-review.gif"><img src="docs/media/web-memory-review.gif" width="280" alt="Midnight memory review moving from a request through awaiting confirmation in pi and producer ingestion to an active item"></a><br>Request → human confirmation in pi → canonical ingestion → active</td>
-</tr>
-</table>
+<img src="docs/media/web-memory-review.gif" alt="Midnight memory review moving from a request through awaiting confirmation in pi and producer ingestion to an active item" width="900">
 
 ### The same data in your terminal
 
-The [OpenTUI](https://github.com/sst/opentui) client uses the same API, view models and status semantics. It includes question history, transcript reset dividers, memory review requests and a full-width Memory view (`m` in a session).
+The [OpenTUI](https://github.com/anomalyco/opentui) client uses the same API, view models and status semantics. It includes question history, transcript reset dividers, memory review requests and a full-width Memory view (`m` in a session).
 
-<img src="docs/media/tui-tour.gif" alt="Terminal tour of Overview, Fleet, a transcript reset divider, the command palette and Timeline" width="900">
-
-A [VHS tape](scripts/media/tui.tape) can also record the terminal client against the isolated demo daemon:
+A [VHS tape](scripts/media/tui.tape) records the terminal client against the isolated demo daemon. An animated keyboard tour is in the [TUI guide](docs/ui-tui.md).
 
 <img src="docs/media/tui-vhs.gif" alt="Terminal recording showing Overview, Fleet, Requests and Settings with synthetic data" width="880">
 
@@ -200,14 +198,11 @@ Click any thumbnail for the full-size image. The web client offers midnight (def
 </tr>
 <tr>
 <td><a href="docs/media/tui-questions.webp"><img src="docs/media/tui-questions.webp" width="280" alt="Terminal Questions list with sorting and stale status"></a><br>Questions</td>
-<td><a href="docs/media/tui-question-expanded.webp"><img src="docs/media/tui-question-expanded.webp" width="280" alt="Expanded terminal question with wrapped text and history"></a><br>Question history</td>
 <td><a href="docs/media/tui-memory-paging.webp"><img src="docs/media/tui-memory-paging.webp" width="280" alt="Terminal Memory view with paging progress for older items"></a><br>Memory history</td>
-</tr>
-<tr>
 <td><a href="docs/media/tui-memory-review.webp"><img src="docs/media/tui-memory-review.webp" width="280" alt="Terminal memory proposal with native pi review commands"></a><br>Memory review</td>
-<td><a href="docs/media/tui-attention-retry.webp"><img src="docs/media/tui-attention-retry.webp" width="280" alt="Terminal attention unavailable state with a retry hint"></a><br>Attention retry</td>
 </tr>
 <tr>
+<td><a href="docs/media/tui-attention-retry.webp"><img src="docs/media/tui-attention-retry.webp" width="280" alt="Terminal attention unavailable state with a retry hint"></a><br>Attention retry</td>
 <td><a href="docs/media/tui-settings-scroll.webp"><img src="docs/media/tui-settings-scroll.webp" width="280" alt="Terminal Settings scrolled to fit a short viewport"></a><br>Scrollable Settings</td>
 <td><a href="docs/media/tui-mono.webp"><img src="docs/media/tui-mono.webp" width="280" alt="Terminal Fleet in mono using glyphs instead of colour"></a><br>Mono theme</td>
 </tr>
