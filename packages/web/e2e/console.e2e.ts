@@ -172,6 +172,9 @@ describe('web console e2e', () => {
     } }));
     await page.getByLabel('Access token').fill(rig.daemon.token);
     await page.getByRole('button', { name: 'Connect' }).click();
+    const eventLog = page.getByRole('region', { name: 'Event log' });
+    await eventLog.getByText('1.0 MB', { exact: true }).waitFor();
+    await page.getByText('Details', { exact: true }).click();
     await page.getByText('Event log · Last sequence', { exact: true }).waitFor();
     assert.ok(!(await page.locator('.settings').innerText()).includes('[object'));
     await page.getByText('2.0 MB', { exact: true }).waitFor();
@@ -476,7 +479,7 @@ describe('web console e2e', () => {
     await page.keyboard.press(']');
     await page.getByTestId('request-summary').getByText('state open', { exact: false }).waitFor();
     await page.keyboard.press('[');
-    await page.getByTestId('request-summary').getByText('state all', { exact: false }).waitFor();
+    await page.getByTestId('request-summary').getByText('state open', { exact: false }).waitFor({ state: 'detached' });
     await page.keyboard.press('o');
     await page.getByTestId('request-summary').getByText('origin human', { exact: false }).waitFor();
     await page.keyboard.press('o');

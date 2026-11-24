@@ -71,23 +71,17 @@ test('expanded and collapsed navigation names include attention and question bad
   } finally { await page.context().close(); }
 });
 
-test('request filters are native, Tab-reachable toggle buttons with no incomplete tab widget', async () => {
+test('request state is a native select reachable by Tab and changed from the keyboard', async () => {
   const page = await rig.open('/requests');
   try {
-    const filters = page.getByRole('group', { name: 'Request state' });
-    const buttons = filters.getByRole('button');
-    await buttons.first().focus();
+    const state = page.getByRole('combobox', { name: 'State', exact: true });
+    await state.focus();
     assert.equal(await page.getByRole('tablist').count(), 0);
-    assert.equal(await page.getByRole('tab').count(), 0);
-    assert.equal(await buttons.first().getAttribute('aria-pressed'), 'true');
-    for (const [index, key] of [[1, 'Space'], [2, 'Enter']] as const) {
-      await page.keyboard.press('Tab');
-      await focused(buttons.nth(index));
-      await page.keyboard.press(key);
-      assert.equal(await buttons.nth(index).getAttribute('aria-pressed'), 'true');
-      assert.equal(await filters.locator('[aria-pressed="true"]').count(), 1);
-    }
-    assert.match(page.url(), /#\/requests$/);
+    assert.equal(await state.inputValue(), 'all');
+    await state.selectOption('open');
+    await page.getByTestId('request-summary').getByText('state open').waitFor();
+    await page.keyboard.press('Tab');
+    await focused(page.getByRole('combobox', { name: 'Origin', exact: true }));
   } finally { await page.context().close(); }
 });
 
@@ -179,9 +173,11 @@ test('forced colors retains search, button, current-navigation and selection out
     await outlined(page.getByRole('navigation').locator('[aria-current="page"]'));
     await outlined(page.locator('table[aria-label="Fleet"] tbody tr[aria-current="true"]'));
     await page.keyboard.press('3');
-    const selectedFilter = page.getByRole('group', { name: 'Request state' }).locator('[aria-pressed="true"]');
-    await selectedFilter.waitFor();
-    await outlined(selectedFilter);
+    const state = page.getByRole('combobox', { name: 'State', exact: true });
+    await state.waitFor();
+    await state.focus();
+    await focused(state);
+    await outlined(state);
   } finally { await page.context().close(); }
 });
 

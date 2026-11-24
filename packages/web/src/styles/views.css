@@ -78,16 +78,20 @@
 /* Tables */
 .grid { width: 100%; border-collapse: separate; border-spacing: 0; background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
 .grid[aria-label='Fleet'] { table-layout: fixed; }
-.grid[aria-label='Fleet'] thead th:first-child { width: 30%; }
-.grid[aria-label='Fleet'] thead th:nth-child(2) { width: 13%; }
-.grid[aria-label='Fleet'] thead th:nth-child(3) { width: 19%; }
-.grid[aria-label='Fleet'] thead th:nth-child(4) { width: 11%; }
-.grid[aria-label='Fleet'] thead th:nth-child(5) { width: 12%; }
-.grid[aria-label='Fleet'] thead th:nth-child(6) { width: 8%; }
-.grid[aria-label='Fleet'] thead th:nth-child(7) { width: 7%; }
+.grid[aria-label='Fleet'] thead th:first-child { width: 29%; }
+.grid[aria-label='Fleet'] thead th:nth-child(2) { width: 12%; }
+.grid[aria-label='Fleet'] thead th:nth-child(3) { width: 16%; }
+.grid[aria-label='Fleet'] thead th:nth-child(4) { width: 7%; }
+.grid[aria-label='Fleet'] thead th:nth-child(5) { width: 17%; }
+.grid[aria-label='Fleet'] thead th:nth-child(6) { width: 11%; }
+.grid[aria-label='Fleet'] thead th:nth-child(7) { width: 8%; }
 .grid[aria-label='Fleet'] td:first-child a, .grid[aria-label='Fleet'] td:first-child > div { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* Virtualized tables: fixed column layout and single-line cells keep row heights stable, so measured offsets stay valid as rows mount and unmount. */
 .grid[aria-label='Fleet'] td { white-space: nowrap; }
+.grid[aria-label='Fleet'] td:nth-child(4) { overflow: hidden; }
+.grid[aria-label='Fleet'] td:nth-child(4) svg { max-width: 100%; height: 20px; }
+.grid[aria-label='Fleet'] td.truncate { overflow: hidden; text-overflow: ellipsis; }
+.grid[aria-label='Fleet'] td.cost-cell[title] { cursor: help; }
 .grid[aria-label='Work'] { table-layout: fixed; }
 .grid[aria-label='Work'] td { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .grid[aria-label='Work'] thead th:first-child { width: 32%; }
@@ -180,6 +184,11 @@
 .settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); align-items: start; }
 .settings .kv.wide { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
 .settings .kv dd { min-width: 0; overflow-wrap: break-word; }
+.settings .health-group h4 { margin: 0 0 var(--space-2); font-size: var(--type-caption); color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.settings .health-group + .health-group { margin-top: var(--space-2); }
+.settings .health-details { margin-top: var(--space-2); }
+.settings .health-details summary { cursor: pointer; color: var(--muted); font-size: var(--type-caption); }
+.settings .health-details .kv { margin-top: var(--space-2); }
 .settings .kv time { white-space: nowrap; font-size: var(--type-caption); font-variant-numeric: tabular-nums; }
 
 @media (max-width: 980px) {
