@@ -91,7 +91,7 @@ function AttentionCard({ card, isNew, selected, onSelect }: CardProps) {
 }
 
 /** The fleet cost; a partial total (`≥$x`) explains itself in a tooltip and to screen readers, with the pricing coverage. */
-function FleetCost({ cost, coverage }: { cost: string; coverage: string | undefined }) {
+export function FleetCost({ cost, coverage }: { cost: string; coverage: string | undefined }) {
   if (!coverage) return <>{cost}</>;
   const explanation = `${partialCostExplanation}; ${coverage}`;
   return <span className="cost-cell" title={explanation}><span aria-hidden="true">{cost}</span><span className="sr-only">{`at least ${cost.slice(1)}. ${explanation}`}</span></span>;
