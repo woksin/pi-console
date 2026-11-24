@@ -22,6 +22,9 @@ test('selects are themed from tokens with a custom caret, a focus ring and a for
   assert.match(select, /background-color: var\(--raised\)/);
   assert.match(select, /color: var\(--text\)/);
   assert.match(select, /border: 1px solid var\(--border\)/);
+  assert.match(select, /border-radius: 6px/);
+  assert.match(rule('select:focus-visible'), /border-radius: 6px/);
+  assert.match(rule(':focus-visible'), /border-radius: 4px/);
   assert.match(select, /currentColor/);
   assert.match(css, /input, select, textarea[^{]*\{ --border: var\(--border-strong\)/);
   assert.match(rule('select:focus-visible'), /var\(--focus\)/);

@@ -7,7 +7,7 @@ import { memoryDocument } from '../views/memory.ts';
 import { frame } from './overlays.ts';
 
 interface Size { width: number; height: number }
-type MemoryData = Pick<Data, 'memory' | 'memoryItems' | 'memoryReviews' | 'memoryHistory'>;
+type MemoryData = Pick<Data, 'sessions' | 'memory' | 'memoryItems' | 'memoryReviews' | 'memoryHistory'>;
 interface MemoryView { data: MemoryData; sessionId: string | null; index: number; now: number }
 
 /** The viewer fills the terminal: the usual two-cell margin, then a border, a blank row and a hint row. */
@@ -17,7 +17,7 @@ const boxOf = (size: Size) => frame(size.width, size.height, size);
 export function memoryViewport(size: Size, view: MemoryView, measure: TextWidth) {
   const box = boxOf(size);
   const id = view.sessionId ?? '';
-  const panel = memoryPanelViewModel({ memory: view.data.memory.get(id) ?? null, items: view.data.memoryItems.get(id) ?? [], now: view.now, review: view.data.memoryReviews.get(id) });
+  const panel = memoryPanelViewModel({ memory: view.data.memory.get(id) ?? null, items: view.data.memoryItems.get(id) ?? [], now: view.now, review: view.data.memoryReviews.get(id), sessionNames: new Map(view.data.sessions.map(session => [session.id, session.name])) });
   const index = Math.max(0, Math.min(view.index, panel.items.length - 1));
   const lines = memoryDocument(panel, { width: box.width - 4, measure }, index, view.data.memoryHistory.get(id));
   const page = Math.max(1, box.height - 4);

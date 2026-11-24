@@ -29,7 +29,32 @@ for (const width of [80, 140]) {
       const rows = lines.filter(line => line.includes('Idle') && /abcdef01 repo|fedcba98 repo/.test(line));
       assert.equal(rows.length, 2);
       assert.equal(rows[0].indexOf('Idle'), rows[1].indexOf('Idle'));
+      assert.match(rows[0], /—/);
+      assert.match(rows[1], /≥\$1\.25/);
       if (width === 140) assert.doesNotMatch(frame, /Branch|Lane/);
+    } finally { ui.destroy(); store.dispose(); }
+  });
+}
+
+for (const width of [60, 100, 160]) {
+  test(`unknown, partial, zero and complete costs remain distinct at ${String(width)} columns`, async () => {
+    const store = new Store();
+    const sessions = [
+      { ...session, id: 'unknown', name: 'Unknown' },
+      { ...session, id: 'partial', name: 'Partial', costUsd: 1.25, costIncomplete: true },
+      { ...session, id: 'zero', name: 'Zero', costUsd: 0 },
+      { ...session, id: 'known', name: 'Known', costUsd: 1.25 },
+    ];
+    const view = fleetView({ data: { ...store.getSnapshot(), loaded: true, sessions }, ui: { ...initial, section: 'fleet' }, width, height: 24, now: 0, phase: 0, click: () => undefined });
+    const ui = await mountHeadless(h(Screen, {}, view.render()), { width, height: 24 });
+    try {
+      await ui.settle();
+      const lines = ui.frame().split('\n');
+      assert.ok(lines.every(line => displayWidth(line) <= width));
+      const rows = lines.filter(line => line.includes('Idle'));
+      assert.equal(rows.length, 4);
+      for (const [index, cost] of ['—', '≥$1.25', '$0.00', '$1.25'].entries()) assert.ok(rows[index].includes(cost), rows[index]);
+      assert.doesNotMatch(rows[3], /≥/);
     } finally { ui.destroy(); store.dispose(); }
   });
 }

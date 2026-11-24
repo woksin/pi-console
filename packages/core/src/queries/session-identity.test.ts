@@ -7,12 +7,16 @@ import { testEvent } from '../testing/events.ts';
 import { ConsoleQueries } from './console-queries.ts';
 import { IncrementalQueries } from './incremental.ts';
 import { deltaFor } from './deltas.ts';
-import { normalizedCwd } from './session-identity.ts';
+import { laneLookup, normalizedCwd, sessionIdentity } from './session-identity.ts';
+import { IdentityDependencies } from './incremental-identity.ts';
 
 test('lexical normalization distinguishes an unknown cwd from root and preserves case', () => {
   assert.equal(normalizedCwd(''), '');
+  assert.equal(normalizedCwd(' \t\n'), '');
   assert.equal(normalizedCwd('/'), '/');
-  assert.equal(normalizedCwd('C:\\Work\\repo\\'), 'C:/Work/repo');
+  assert.equal(normalizedCwd(' / '), '/');
+  assert.equal(normalizedCwd(' \t/work/repo///\n'), '/work/repo');
+  assert.equal(normalizedCwd(' C:\\Work\\repo\\ '), 'C:/Work/repo');
 });
 
 const start = (n: number, sessionId = 's', cwd = '/work/repo/') => testEvent(n, 'SessionStarted', { sessionId, cwd, model: null, role: 'main', parentSessionId: null });
@@ -66,6 +70,44 @@ test('exact lexical cwd association invalidates old/new owners, preserves metada
   assert.equal(f.full.sessionById('s')!.branch, '');
   await f.append(lane(12, 'L1', { cwd: '/WORK/repo' }));
   assert.equal(f.full.sessionById('s')!.laneId, 'unassigned');
+});
+
+test('registry and session cwd trim whitespace and separators without matching prefixes', async t => {
+  const f = await fixture(t);
+  await f.append(start(1, 's', ' \t/work/repo///\n'));
+  await f.append(start(2, 'clean', '/work/repo'));
+  await f.append(start(3, 'child', '/work/repo/child'));
+  await f.append(start(4, 'sibling', '/work/repository'));
+  const changed = await f.append(lane(5, 'L1', { cwd: ' \t\\work\\repo\\\\\n', branch: 'feature' }));
+  assert.deepEqual([...changed.sessions].sort(), ['clean', 's']);
+  for (const id of ['s', 'clean']) {
+    assert.equal(f.full.sessionById(id)!.laneId, 'L1');
+    assert.equal(f.full.sessionById(id)!.branch, 'feature');
+  }
+  for (const id of ['child', 'sibling']) assert.equal(f.full.sessionById(id)!.laneId, 'unassigned');
+});
+
+test('whitespace-only cwd never establishes identity or reverse dependencies', async t => {
+  const f = await fixture(t);
+  await f.append(start(1, 'empty', ''));
+  await f.append(start(2, 'spaces', ' \t\n'));
+  await f.append(start(3, 'root', '/'));
+  const changed = await f.append(lane(4, 'blank', { cwd: ' \t\n', branch: 'bogus' }));
+  assert.deepEqual([...changed.sessions], []);
+  for (const id of ['empty', 'spaces', 'root']) {
+    assert.equal(f.full.sessionById(id)!.laneId, 'unassigned');
+    assert.equal(f.full.sessionById(id)!.branch, '');
+  }
+  const models = f.models();
+  assert.equal(laneLookup(models.lanes.lanes).has(''), false);
+  const identity = new IdentityDependencies(models);
+  assert.equal(identity.lanes.has(''), false);
+  assert.deepEqual([...identity.update(models, new Set(), new Set(['blank']))], []);
+  const emptyLookup = new Map([['', new Map([['blank', models.lanes.lanes.blank]])]]);
+  for (const cwd of ['', ' \t\n']) assert.deepEqual(sessionIdentity(cwd, emptyLookup), { laneId: 'unassigned', branch: '' });
+  const assigned = await f.append(lane(5, 'root-lane', { cwd: ' / ', branch: 'root' }));
+  assert.deepEqual([...assigned.sessions], ['root']);
+  assert.equal(f.full.sessionById('root')!.laneId, 'root-lane');
 });
 
 test('lane updates and point/page reads do not scan session or lane rows after bootstrap', async t => {

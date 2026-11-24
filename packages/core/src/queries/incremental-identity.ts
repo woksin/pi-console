@@ -31,9 +31,11 @@ export class IdentityDependencies {
   #session(models: ReadModels, id: string): void {
     const old = this.#sessionCwds.get(id);
     if (old !== undefined) this.#owners.get(old)?.delete(id);
+    this.#sessionCwds.delete(id);
     const row = rowOf(models.sessions.sessions, id);
-    if (!row) { this.#sessionCwds.delete(id); return; }
+    if (!row) return;
     const cwd = normalizedCwd(row.cwd);
+    if (!cwd) return;
     const owners = this.#owners.get(cwd) ?? new Set();
     owners.add(id);
     this.#owners.set(cwd, owners);
@@ -45,8 +47,9 @@ export class IdentityDependencies {
     if (old !== undefined) this.lanes.get(old)?.delete(id);
     this.#laneCwds.delete(id);
     const row = rowOf(models.lanes.lanes, id);
-    if (!row?.cwd) return;
-    const cwd = normalizedCwd(row.cwd);
+    if (!row) return;
+    const cwd = normalizedCwd(row.cwd ?? '');
+    if (!cwd) return;
     const matches = this.lanes.get(cwd) ?? new Map<string, LaneModel>();
     matches.set(id, row);
     this.lanes.set(cwd, matches);

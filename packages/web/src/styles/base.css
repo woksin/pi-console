@@ -36,7 +36,7 @@ select {
   background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
   background-position: calc(100% - 14px) 55%, calc(100% - 9px) 55%; background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
 }
-select:focus-visible { box-shadow: var(--focus); }
+select:focus-visible { box-shadow: var(--focus); border-radius: 6px; }
 select:disabled { cursor: not-allowed; opacity: 0.5; }
 code, .mono, pre { font-family: var(--mono); }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
