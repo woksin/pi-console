@@ -6,10 +6,13 @@ import assert from 'node:assert/strict';
 import type { Page } from 'playwright-core';
 import { startRig, type Rig } from '../../packages/web/e2e/harness.ts';
 import { FrameSet, wanted, writeStill, type Work } from './capture.ts';
+import { memoryItems } from '../../packages/testkit/src/mock-daemon/memory.ts';
 import {
-  applyProducerConfirmation, emptyFixture, finishedSession, liveQuestion, liveQuestionText, memoryReceipt, memoryReviewItem,
-  memoryReviewSession, memoryReviewStages, needsYouCount, prepareMemoryReview, quiesce, quietSession, showcaseHealth,
+  emptyFixture, finishedSession, liveQuestion, liveQuestionText, memoryReceipt, memoryReviewItem,
+  memoryReviewSession, memoryReviewStages, needsYouCount, quiesce, quietSession, showcaseHealth,
 } from './showcase.ts';
+import { fixedNow } from './scenes.ts';
+import { showcaseMemory } from './fixture.mjs';
 import { advanceUntil, connectLive, png, preparePage, settle } from './web-page.ts';
 
 /** One picture of the page's current state; `holdMs` is how long an animation shows it. */
@@ -120,58 +123,77 @@ async function frameMemoryPanel(page: Page): Promise<void> {
   await settle(page);
 }
 
+/** Bring the proposed item's whole action row into the rail's view, then prove every button lies inside the visible panel. */
+async function revealActions(page: Page): Promise<void> {
+  const actions = page.locator(`[data-memory-item="${memoryReviewItem}"] .memory-actions`);
+  await actions.evaluate(row => { row.scrollIntoView({ block: 'nearest' }); });
+  await settle(page);
+  const panel = await page.locator('.memory-panel').boundingBox();
+  const rail = await page.locator('.session .rail').boundingBox();
+  assert.ok(panel && rail);
+  for (const button of await actions.getByRole('button').all()) {
+    const box = await button.boundingBox();
+    assert.ok(box && box.y >= rail.y && box.y + box.height <= rail.y + rail.height, 'the action row stays inside the visible rail');
+    assert.ok(box.y + box.height <= panel.y + panel.height, 'the action row stays inside the panel');
+  }
+}
+
 const stage = (page: Page, text: string) => page.locator(`[data-memory-item="${memoryReviewItem}"]`).getByRole('status').filter({ hasText: text });
 
 /** A proposed item is confirmed in pi (synthetic provider), and becomes active only when the producer's own update arrives. */
 export async function memoryReviewFlow(capture: Snap = quiet): Promise<void> {
-  const snap: Snap = async (page, holdMs) => { await frameMemoryPanel(page); await capture(page, holdMs); };
-  const restore = prepareMemoryReview();
-  try {
-    await withRig(async rig => {
-      const page = await preparePage(rig, { theme: 'midnight', scale: 1 });
-      await healthFor(rig, page);
-      let phase: (typeof memoryReviewStages)[number] = memoryReviewStages[0];
-      let posts = 0;
-      let posted = { requestId: '', itemId: '', action: '' };
-      const reply = () => memoryReceipt(phase, posted);
-      await page.route('**/api/v1/**/memory-actions*', async route => {
-        if (route.request().method() === 'POST') { posts++; posted = route.request().postDataJSON() as typeof posted; await route.fulfill({ json: reply() }); return; }
-        await route.fulfill({ json: { version: 1, available: true, providerVersion: 1, generation: 'gallery-s2', reason: 'available' } });
-      });
-      await page.route('**/api/v1/memory-actions/*', route => route.fulfill({ json: reply() }));
-      await connectLive(rig, page, `/session/${memoryReviewSession}`);
-      const row = page.locator(`[data-memory-item="${memoryReviewItem}"]`);
-      const confirm = row.getByRole('button', { name: 'Confirm…', exact: true });
-      await confirm.waitFor();
-      await settle(page);
-      assert.equal(await row.locator('[data-memory-status]').getAttribute('data-memory-status'), 'proposed');
-      await snap(page, 1500);
-
-      await confirm.click();
-      await stage(page, 'Awaiting confirmation in pi').waitFor();
-      assert.equal(posts, 1);
-      assert.equal(await row.locator('[data-memory-status]').getAttribute('data-memory-status'), 'proposed');
-      await snap(page, 2000);
-
-      phase = 'awaiting-ingestion';
-      await stage(page, 'awaiting producer ingestion').waitFor();
-      assert.equal(await row.locator('[data-memory-status]').getAttribute('data-memory-status'), 'proposed');
-      await snap(page, 2000);
-
-      // The producer applies the confirmation first; the web only learns of it from the session's memoryChanged update.
-      applyProducerConfirmation();
-      const session = rig.daemon.store.fixture.sessions.find(candidate => candidate.id === memoryReviewSession);
-      assert.ok(session);
-      rig.daemon.store.publish('session.updated', { ...session, memoryChanged: true });
-      await row.locator('[data-memory-status="active"]').waitFor();
-      phase = 'observed-applied';
-      await stage(page, 'Producer change observed').waitFor();
-      assert.equal(posts, 1);
-      await settle(page);
-      await snap(page, 2500);
-      await page.context().close();
+  const snap: Snap = async (page, holdMs) => { await frameMemoryPanel(page); await revealActions(page); await capture(page, holdMs); };
+  await withRig(async rig => {
+    // Store-local showcase memory on the gallery clock; the module-global mock store is never edited.
+    const { store } = rig.daemon;
+    store.fixture.generatedAt = fixedNow;
+    store.memory = showcaseMemory(memoryItems(), fixedNow);
+    store.memoryHandoffAt = fixedNow;
+    const page = await preparePage(rig, { theme: 'midnight', scale: 1 });
+    await healthFor(rig, page);
+    let phase: (typeof memoryReviewStages)[number] = memoryReviewStages[0];
+    let posts = 0;
+    let posted = { requestId: '', itemId: '', action: '' };
+    const reply = () => memoryReceipt(phase, posted);
+    await page.route('**/api/v1/**/memory-actions*', async route => {
+      if (route.request().method() === 'POST') { posts++; posted = route.request().postDataJSON() as typeof posted; await route.fulfill({ json: reply() }); return; }
+      await route.fulfill({ json: { version: 1, available: true, providerVersion: 1, generation: 'gallery-s2', reason: 'available' } });
     });
-  } finally { restore(); }
+    await page.route('**/api/v1/memory-actions/*', route => route.fulfill({ json: reply() }));
+    await connectLive(rig, page, `/session/${memoryReviewSession}`);
+    const row = page.locator(`[data-memory-item="${memoryReviewItem}"]`);
+    const confirm = row.getByRole('button', { name: 'Confirm…', exact: true });
+    await confirm.waitFor();
+    await settle(page);
+    assert.equal(await row.locator('[data-memory-status]').getAttribute('data-memory-status'), 'proposed');
+    await snap(page, 1500);
+
+    await confirm.click();
+    await stage(page, 'Awaiting confirmation in pi').waitFor();
+    assert.equal(posts, 1);
+    assert.equal(await row.locator('[data-memory-status]').getAttribute('data-memory-status'), 'proposed');
+    await snap(page, 2000);
+
+    phase = 'awaiting-ingestion';
+    await stage(page, 'awaiting producer ingestion').waitFor();
+    assert.equal(await row.locator('[data-memory-status]').getAttribute('data-memory-status'), 'proposed');
+    await snap(page, 2000);
+
+    // The producer applies the confirmation first; the web only learns of it from the session's memoryChanged update.
+    const target = store.memory.find(candidate => candidate.id === memoryReviewItem);
+    assert.ok(target);
+    Object.assign(target, { status: 'active', statusBasis: 'recorded', command: null });
+    const session = rig.daemon.store.fixture.sessions.find(candidate => candidate.id === memoryReviewSession);
+    assert.ok(session);
+    rig.daemon.store.publish('session.updated', { ...session, memoryChanged: true });
+    await row.locator('[data-memory-status="active"]').waitFor();
+    phase = 'observed-applied';
+    await stage(page, 'Producer change observed').waitFor();
+    assert.equal(posts, 1);
+    await settle(page);
+    await snap(page, 2500);
+    await page.context().close();
+  });
 }
 
 /** Capture whichever of the four flows `--only` asks for, each into its own frames. */

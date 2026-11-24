@@ -166,7 +166,7 @@
       "nodes": [
         {
           "sessionId": "s6",
-          "label": "L0 orchestrator",
+          "label": "L196 orchestrator",
           "status": {
             "status": "done",
             "glyph": "✓",
@@ -177,7 +177,7 @@
         },
         {
           "sessionId": "s7",
-          "label": "L192 main",
+          "label": "L197 main",
           "status": {
             "status": "failed",
             "glyph": "#",
@@ -188,7 +188,7 @@
         },
         {
           "sessionId": "s8",
-          "label": "L193 main",
+          "label": "L198 main",
           "status": {
             "status": "working",
             "glyph": "*",
@@ -199,7 +199,7 @@
         },
         {
           "sessionId": "s9",
-          "label": "L194 subagent",
+          "label": "L199 subagent",
           "status": {
             "status": "needs-you",
             "glyph": "!",
@@ -210,7 +210,7 @@
         },
         {
           "sessionId": "s10",
-          "label": "L195 subagent",
+          "label": "L200 subagent",
           "status": {
             "status": "blocked",
             "glyph": "×",
@@ -277,7 +277,7 @@
       "nodes": [
         {
           "sessionId": "s11",
-          "label": "L0 orchestrator",
+          "label": "L201 orchestrator",
           "status": {
             "status": "waiting",
             "glyph": "~",
@@ -288,7 +288,7 @@
         },
         {
           "sessionId": "s12",
-          "label": "L192 main",
+          "label": "L202 main",
           "status": {
             "status": "idle",
             "glyph": "–",
@@ -299,7 +299,7 @@
         },
         {
           "sessionId": "s13",
-          "label": "L193 main",
+          "label": "L203 main",
           "status": {
             "status": "done",
             "glyph": "✓",
@@ -310,7 +310,7 @@
         },
         {
           "sessionId": "s14",
-          "label": "L194 subagent",
+          "label": "L204 subagent",
           "status": {
             "status": "failed",
             "glyph": "#",
@@ -321,7 +321,7 @@
         },
         {
           "sessionId": "s15",
-          "label": "L195 subagent",
+          "label": "L205 subagent",
           "status": {
             "status": "working",
             "glyph": "*",
@@ -388,7 +388,7 @@
       "nodes": [
         {
           "sessionId": "s16",
-          "label": "L0 orchestrator",
+          "label": "L206 orchestrator",
           "status": {
             "status": "needs-you",
             "glyph": "!",
@@ -399,7 +399,7 @@
         },
         {
           "sessionId": "s17",
-          "label": "L192 main",
+          "label": "L207 main",
           "status": {
             "status": "blocked",
             "glyph": "×",
@@ -410,7 +410,7 @@
         },
         {
           "sessionId": "s18",
-          "label": "L193 main",
+          "label": "L208 main",
           "status": {
             "status": "waiting",
             "glyph": "~",
@@ -421,7 +421,7 @@
         },
         {
           "sessionId": "s19",
-          "label": "L194 subagent",
+          "label": "L209 subagent",
           "status": {
             "status": "idle",
             "glyph": "–",
@@ -432,7 +432,7 @@
         },
         {
           "sessionId": "s20",
-          "label": "L195 subagent",
+          "label": "L210 subagent",
           "status": {
             "status": "done",
             "glyph": "✓",
@@ -499,7 +499,7 @@
       "nodes": [
         {
           "sessionId": "s21",
-          "label": "L0 orchestrator",
+          "label": "L211 orchestrator",
           "status": {
             "status": "failed",
             "glyph": "#",
@@ -510,7 +510,7 @@
         },
         {
           "sessionId": "s22",
-          "label": "L192 main",
+          "label": "L212 main",
           "status": {
             "status": "working",
             "glyph": "*",
@@ -521,7 +521,7 @@
         },
         {
           "sessionId": "s23",
-          "label": "L193 main",
+          "label": "L213 main",
           "status": {
             "status": "needs-you",
             "glyph": "!",
@@ -532,7 +532,7 @@
         },
         {
           "sessionId": "s24",
-          "label": "L194 subagent",
+          "label": "L214 subagent",
           "status": {
             "status": "blocked",
             "glyph": "×",
@@ -543,7 +543,7 @@
         },
         {
           "sessionId": "s25",
-          "label": "L195 subagent",
+          "label": "L215 subagent",
           "status": {
             "status": "waiting",
             "glyph": "~",
@@ -610,7 +610,7 @@
       "nodes": [
         {
           "sessionId": "s26",
-          "label": "L0 orchestrator",
+          "label": "L216 orchestrator",
           "status": {
             "status": "idle",
             "glyph": "–",
@@ -621,7 +621,7 @@
         },
         {
           "sessionId": "s27",
-          "label": "L192 main",
+          "label": "L217 main",
           "status": {
             "status": "done",
             "glyph": "✓",
@@ -632,7 +632,7 @@
         },
         {
           "sessionId": "s28",
-          "label": "L193 main",
+          "label": "L218 main",
           "status": {
             "status": "failed",
             "glyph": "#",
@@ -643,7 +643,7 @@
         },
         {
           "sessionId": "s29",
-          "label": "L194 subagent",
+          "label": "L219 subagent",
           "status": {
             "status": "working",
             "glyph": "*",
@@ -654,7 +654,7 @@
         },
         {
           "sessionId": "s30",
-          "label": "L195 subagent",
+          "label": "L220 subagent",
           "status": {
             "status": "needs-you",
             "glyph": "!",

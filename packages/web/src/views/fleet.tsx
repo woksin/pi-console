@@ -1,9 +1,11 @@
 import { fleetEntryKey, fleetRowAt, fleetStructure, type FleetEntry, type GroupRow as GroupModel, type SessionRow } from '@pi-console/viewmodels';
+import type { Session } from '@pi-console/contract';
 import { useMemo, useRef, useState } from 'react';
 import type { ViewProps } from '../app/view.tsx';
 import { navigate, useSearchFocus } from '../app/hooks.ts';
 import { useActions } from '../app/commands.ts';
 import { sessionHref } from '../app/routes.ts';
+import { fleetCostCell } from './fleet-cost.ts';
 import { LoadOlder } from './load-older.tsx';
 import { EmptyFor, FirstRun } from '../ui/empty.tsx';
 import { EmptyState, SkeletonRows, PressureBar, SearchBox, Sparkline, StatusBadge } from '../ui/primitives.tsx';
@@ -75,7 +77,7 @@ function FleetTable({ entries, table, selected, now, onSelect, onToggle }: Fleet
         const row = fleetRowAt(entry, now);
         return row.kind === 'group'
           ? <GroupRow key={key} row={row} attributes={attributes} selected={selected === key} onToggle={() => { onSelect(key); onToggle(row.id); }} />
-          : <SessionLine key={key} row={row} attributes={attributes} selected={selected === key} />;
+          : <SessionLine key={key} row={row} attributes={attributes} selected={selected === key} session={entry.kind === 'session' ? entry.session : undefined} />;
       })}</tbody>
     </table>
   );
@@ -91,7 +93,12 @@ function GroupRow({ row, attributes, selected, onToggle }: { row: GroupModel; at
   );
 }
 
-function SessionLine({ row, attributes, selected }: { row: SessionRow; attributes: VirtualRowAttributes; selected: boolean }) {
+function CostCell({ session, label }: { session: Session | undefined; label: string }) {
+  const cell = session ? fleetCostCell(session) : { text: label };
+  return <td className="num tnum cost-cell" title={cell.title}><span aria-hidden={cell.spoken ? 'true' : undefined}>{cell.text}</span>{cell.spoken && <span className="sr-only">{cell.spoken}</span>}</td>;
+}
+
+function SessionLine({ row, attributes, selected, session }: { row: SessionRow; attributes: VirtualRowAttributes; selected: boolean; session: Session | undefined }) {
   const flash = useChangeFlash(row.status.status);
   const metadata = [row.lane, row.branch].filter(Boolean).join(' · ');
   const attention = row.status.status === 'needs-you' || row.status.status === 'blocked' || row.status.status === 'failed';
@@ -101,7 +108,7 @@ function SessionLine({ row, attributes, selected }: { row: SessionRow; attribute
       <td><StatusBadge cell={row.status} /></td>
       <td><PressureBar percent={row.contextPercent} pressure={row.pressure} /></td>
       <td><Sparkline values={sparkValues(row.spark)} width={72} height={20} tone={row.pressure === 'hot' ? 'red' : row.pressure === 'warm' ? 'amber' : 'cyan'} label={`${row.name} context trend`} /></td>
-      <td className="muted truncate">{row.model}</td><td className="num tnum">{row.cost}</td><td className="num tnum muted">{row.age}</td>
+      <td className="muted truncate" title={row.model}>{row.model}</td><CostCell session={session} label={row.cost} /><td className="num tnum muted">{row.age}</td>
     </tr>
   );
 }

@@ -9,7 +9,7 @@ type Fixture = Store['fixture'];
 /** Lane nodes, counted messages and synthetic status dependencies. No layout data. */
 export function graph(fixture: Fixture): Graph {
   const laneOf = new Map(fixture.sessions.map(session => [session.id, session]));
-  const nodes = new Map<string, Graph['nodes'][number]>(fixture.sessions.map(session => [session.laneId, { laneId: session.laneId, label: session.laneId, repositoryId: session.repositoryId }]));
+  const nodes = laneNodes(fixture);
   const endpoint = (id: string): string => {
     const laneId = laneOf.get(id)?.laneId ?? id;
     if (!nodes.has(laneId)) nodes.set(laneId, { laneId, label: laneId, repositoryId: null });
@@ -18,6 +18,15 @@ export function graph(fixture: Fixture): Graph {
   // Same deterministic order as the core graph query, so replayed status changes never permute equal edges.
   const edges = [...messageEdges(fixture, endpoint), ...statusEdges(fixture, laneOf)].sort(compareEdges);
   return { nodes: [...nodes.values()], edges };
+}
+
+/** One node per lane, named for the first session in fixture order that uses it, so shared lanes label deterministically. */
+function laneNodes(fixture: Fixture): Map<string, Graph['nodes'][number]> {
+  const nodes = new Map<string, Graph['nodes'][number]>();
+  for (const session of fixture.sessions) {
+    if (!nodes.has(session.laneId)) nodes.set(session.laneId, { laneId: session.laneId, label: session.name, repositoryId: session.repositoryId });
+  }
+  return nodes;
 }
 
 function compareEdges(a: GraphEdge, b: GraphEdge): number {

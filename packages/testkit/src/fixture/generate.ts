@@ -33,6 +33,10 @@ const within = (index: number, fraction: number) => {
   return iso(start + (end - start) * fraction);
 };
 
+/** Aurora keeps the original lane IDs; every later repository owns its own consecutive five-lane range from L196, so a lane never spans repositories. */
+const auroraLanes = ['L0', 'L192', 'L193', 'L194', 'L195'];
+const laneId = (group: number, slot: number) => group === 0 ? auroraLanes[slot] : `L${String(196 + (group - 1) * 5 + slot)}`;
+
 function makeSessions(rng: () => number) {
   return Array.from({ length: 30 }, (_, i) => {
     const group = Math.floor(i / 5);
@@ -46,7 +50,7 @@ function makeSessions(rng: () => number) {
     }));
     return {
       id: `s${i + 1}`, repositoryId: repositories[group], name: `${repositories[group]} ${roleNames[slot]}`,
-      laneId: ['L0', 'L192', 'L193', 'L194', 'L195'][slot],
+      laneId: laneId(group, slot),
       role: ['orchestrator', 'main', 'main', 'subagent', 'subagent'][slot],
       parentSessionId: slot >= 3 ? `s${group * 5 + 2}` : null,
       orchestratorSessionId: `s${group * 5 + 1}`, branch: `feature/${branches[(group + slot) % branches.length]}`,

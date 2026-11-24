@@ -51,6 +51,20 @@ test('fixture has linked fleet, provenance, handoff, work, graph and transcript 
   assert.deepEqual(new Set(timeline.map(event => event.type)), new Set(Object.keys(eventPayloads).filter(type => !['snapshot', 'intervention.recorded'].includes(type))));
 });
 
+test('lane IDs are unique to one repository and the recording replays the same identities', () => {
+  const { fixture, timeline } = generate();
+  const owners = new Map<string, Set<string>>();
+  for (const session of fixture.sessions) owners.set(session.laneId, (owners.get(session.laneId) ?? new Set()).add(session.repositoryId));
+  assert.equal(owners.size, 30);
+  for (const [lane, repositories] of owners) assert.equal(repositories.size, 1, `${lane} belongs to one repository`);
+  assert.deepEqual(fixture.sessions.slice(0, 5).map(session => session.laneId), ['L0', 'L192', 'L193', 'L194', 'L195']);
+  assert.deepEqual(fixture.sessions.slice(5, 10).map(session => session.laneId), ['L196', 'L197', 'L198', 'L199', 'L200']);
+  for (const event of timeline.filter(candidate => candidate.type === 'session.updated')) {
+    const session = fixture.sessions.find(candidate => candidate.id === (event.payload as { id: string }).id);
+    assert.equal((event.payload as { laneId: string }).laneId, session?.laneId);
+  }
+});
+
 test('schema validator rejects malformed types, timestamps, enums and extra fields', () => {
   const session = generate().fixture.sessions[0];
   for (const malformed of [{ ...session, status: 'unknown' }, { ...session, startedAt: 'yesterday' }, { ...session, extra: true }, { ...session, contextPercent: 101 }, { ...session, id: 1 }]) {

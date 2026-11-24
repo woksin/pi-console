@@ -3,7 +3,6 @@ import { fileURLToPath } from 'node:url';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { BrowserContext, Page } from 'playwright-core';
 import { themeTokens } from '../../packages/contract/src/index.ts';
-import { memoryItems } from '../../packages/testkit/src/mock-daemon/memory.ts';
 import { startPty, type Pty } from '../../packages/tui/src/testing/pty.ts';
 import { screenToSvg } from '../../packages/tui/src/testing/svg.ts';
 import type { Rig } from '../../packages/web/e2e/harness.ts';
@@ -137,17 +136,27 @@ async function settingsStill(rig: Rig, work: Work): Promise<void> {
   });
 }
 
+const doneTexts = [
+  'Keep the checkpoint history bounded', 'Use the shared retry helper for batch uploads', 'Run the migration dry-run before every deploy',
+  'Name feature branches after the issue number', 'Log queue depth with every worker heartbeat', 'Prefer idempotent handlers for replayed events',
+  'Pin the lint config before touching rules', 'Cap transcript previews at five hundred lines', 'Ask before deleting completed checkpoints',
+  'Write the rollback note before merging', 'Keep release notes in the handoff', 'Review flaky specs before retrying them',
+];
+
 async function memoryStills(rig: Rig, work: Work): Promise<void> {
-  const items = memoryItems();
+  const items = rig.daemon.store.memory;
   const originalLength = items.length;
   const base = items.find(item => item.sessionId === 's2')!;
-  // Extend the existing synthetic store just for this scene, so an older proposal lies beyond the first 100 rows.
+  // Extend the rig's own store-local memory just for this scene: a long, believable history that is newer than every showcase item, so the proposal lies beyond the first 100 rows.
+  const hour = 3600_000;
+  const originalAt = items.map(item => item.at);
+  for (const item of items) item.at = new Date(Date.parse(item.at) - 72 * hour).toISOString();
   items.push(...Array.from({ length: 100 }, (_, index) => ({
     ...base, id: `gallery-done-${String(index)}`, status: 'done' as const, statusBasis: 'recorded' as const,
-    text: `Completed synthetic checkpoint ${String(index + 1)}`, at: new Date(Date.parse(fixedNow) - index * 1000).toISOString(), command: null,
+    text: doneTexts[index % doneTexts.length]!, at: new Date(Date.parse(fixedNow) - 3 * hour - index * 15 * 60_000).toISOString(), command: null,
   })));
   try {
-    await withTerminal(rig, { cols: 140, rows: 28, scale: 2, opaque: false }, async term => {
+    await withTerminal(rig, { cols: 140, rows: 31, scale: 2, opaque: false }, async term => {
       await openSession(term.pty);
       for (let tab = 0; tab < 4; tab++) { term.pty.send('\t'); await pause(100); }
       await term.pty.waitFor('100/107 loaded');
@@ -155,11 +164,12 @@ async function memoryStills(rig: Rig, work: Work): Promise<void> {
       if (!wanted(work, 'tui-memory-review')) return;
       for (let item = 0; item < 99; item++) { term.pty.send(']'); await pause(15); }
       await term.pty.waitFor('107/107 loaded');
-      for (let item = 0; item < 6; item++) { term.pty.send(']'); await pause(50); }
+      // The 100 history rows are newest; the showcase proposal is the next, 101st, row.
+      term.pty.send(']'); await pause(50);
       await term.pty.waitFor('/memory confirm item-2');
       writeStill(work, 'tui-memory-review', await snap(term, 'pi-console TUI older memory proposal'));
     });
-  } finally { items.splice(originalLength); }
+  } finally { items.splice(originalLength); items.forEach((item, index) => { item.at = originalAt[index]!; }); }
 }
 
 async function attentionStill(rig: Rig, work: Work): Promise<void> {

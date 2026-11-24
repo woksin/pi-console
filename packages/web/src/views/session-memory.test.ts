@@ -31,6 +31,36 @@ test('confirm, reject and copy use the themed button class', () => {
   assert.match(html, /<button type="button" class="btn memory-copy">Copy command<\/button>/);
 });
 
+test('confirm, reject and copy share one action row, with the verbose commands in a collapsed disclosure', () => {
+  const html = render({});
+  assert.equal(html.match(/class="memory-actions"/g)?.length, 1);
+  assert.match(html, /class="memory-actions"><button[^>]*>Confirm…<\/button><button[^>]*>Reject…<\/button><button[^>]*>Copy command<\/button><\/span>/);
+  assert.match(html, /<details class="memory-command small mono"><summary>pi commands<\/summary>Run in a pi session:/);
+});
+
+test('without review support the commands stay visible beside Copy command', () => {
+  const html = render({ canRequest: false });
+  assert.doesNotMatch(html, /Confirm…/);
+  assert.match(html, /<details class="memory-command small mono" open="">/);
+  assert.match(html, /<button type="button" class="btn memory-copy">Copy command<\/button>/);
+});
+
+test('an unavailable receipt followed by offline readiness leaves the commands visible', () => {
+  const html = render({ canRequest: false, review: { state: 'unavailable', message: 'Review unavailable' } });
+  assert.match(html, /disabled="" aria-busy="false">Confirm…/);
+  assert.match(html, /<details class="memory-command small mono" open="">/);
+});
+
+test('a review in flight keeps the commands collapsed', () => {
+  const html = render({ canRequest: false, review: { state: 'requesting', message: 'Requesting' } });
+  assert.match(html, /<details class="memory-command small mono"><summary>/);
+});
+
+test('an item without a command has no copy button or disclosure', () => {
+  const html = render({ command: null, rejectCommand: null });
+  assert.doesNotMatch(html, /Copy command|<details/);
+});
+
 test('an item leads with a toned status badge and its text, with details on a smaller second line', () => {
   const html = render({});
   assert.match(html, /<span class="memory-head"><span class="badge memory-badge tone-amber" data-memory-status="proposed">proposed<\/span><span class="memory-text" title="Use X">Use X<\/span><\/span><span class="small faint memory-details">decision · repo · recorded · 1m ago<\/span>/);

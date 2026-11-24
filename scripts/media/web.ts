@@ -4,7 +4,7 @@ import { startRig, type Rig } from '../../packages/web/e2e/harness.ts';
 import { memoryItems } from '../../packages/testkit/src/mock-daemon/memory.ts';
 import { fixedNow, flowIds, shots, webViews } from './scenes.ts';
 import { withStaleQuestion } from './questions.ts';
-import { prepareShowcase } from './fixture.mjs';
+import { memoryClock, prepareShowcase, rebase } from './fixture.mjs';
 import { FrameSet, wanted, writeStill, type Work } from './capture.ts';
 import { quiesce, showcaseHealth } from './showcase.ts';
 import { connectLive, png, preparePage, settle, type Theme } from './web-page.ts';
@@ -16,7 +16,11 @@ export async function startFrozenRig(): Promise<Rig> {
   await quiesce(rig.daemon.store);
   // Web ages follow snapshot/stream time, not the pinned browser wall clock alone.
   rig.daemon.store.fixture.generatedAt = fixedNow;
-  prepareShowcase(rig.daemon.store.fixture, memoryItems());
+  const { store } = rig.daemon;
+  const memory = memoryItems().map(item => ({ ...item }));
+  prepareShowcase(store.fixture, memory);
+  store.memory = rebase(memory, Date.parse(fixedNow) - Date.parse(memoryClock));
+  store.memoryHandoffAt = fixedNow;
   return rig;
 }
 

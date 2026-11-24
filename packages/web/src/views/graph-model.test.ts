@@ -49,3 +49,10 @@ test('time scrub is a last-activity cutoff, never a reconstruction of historical
   assert.deepEqual(view.lanes[0].edges.map(edge => [edge.from, edge.to, edge.count]), [['L192', 'L0', 2]]);
   assert.equal(view.lanes[1].edges[0].count, 1);
 });
+
+test('lane nodes carry the lane ID as label and the readable name separately; an unnamed lane has no name', () => {
+  const view = webGraphModel({ graph, sessions: [] });
+  assert.deepEqual(view.lanes[0].nodes.map(node => [node.label, node.name]), [['L0', 'Coordinator lane'], ['L192', 'Worker lane']]);
+  const bare = webGraphModel({ graph: { nodes: [], edges: [{ fromLane: 'L7', toLane: 'L8', kind: 'message', count: 1, lastAt: '2026-01-01T00:00:01Z' }] }, sessions: [] });
+  assert.deepEqual(bare.lanes[0].nodes.map(node => [node.label, node.name]), [['L7', null], ['L8', null]]);
+});

@@ -5,6 +5,7 @@ import { Panel } from '../ui/primitives.tsx';
 import { followSystemMotion, setPrefs, usePrefs } from '../app/prefs.ts';
 import { colorsFor, themeIds, type ThemeId } from '../app/theme.ts';
 import { settingsTimestamp } from './settings-format.ts';
+import { healthGroups } from './settings-health.ts';
 
 const preview = themePreview();
 
@@ -28,6 +29,17 @@ function SettingValue({ value }: { value: string }) {
 
 const rows = (items: SettingsRow[]) => <dl className="kv wide">{items.map(row => <div key={row.label}><dt>{row.label}</dt><dd className={`tone-text-${row.tone}`}><SettingValue value={row.value} /></dd></div>)}</dl>;
 
+/** Sources, Event log and Stream in plain units; every raw daemon value, including unknown keys, stays under Details. */
+function DaemonHealth({ health, sources }: { health: unknown; sources: SettingsRow[] }) {
+  const raw = daemonHealthRows(health);
+  return (
+    <Panel title="Daemon health" className="health-panel">
+      {healthGroups(health, sources).map(group => <section key={group.title} className="health-group" aria-label={group.title}><h4>{group.title}</h4>{rows(group.rows)}</section>)}
+      {raw.length > 0 && <details className="health-details"><summary>Details</summary>{rows(raw)}</details>}
+    </Panel>
+  );
+}
+
 function Appearance() {
   const prefs = usePrefs();
   return (
@@ -47,13 +59,11 @@ export function SettingsView({ state, now }: ViewProps) {
     daemonHealth: state.health,
     counts: { repositories: state.repositories.length, sessions: state.totals?.sessions ?? state.sessions.length, requests: state.totals?.requests ?? state.requests.length, questions: state.totals?.questions ?? state.questions.length, messages: state.totals?.messages ?? state.messages.length, jobs: state.totals?.jobs ?? state.jobs.length },
   });
-  const health = daemonHealthRows(state.health);
   return (
     <div className="page settings">
       <Panel title="Connection">{rows(view.health)}</Panel>
       <Panel title="Data">{rows(view.data)}</Panel>
-      <Panel title="Sources">{rows(view.sources)}</Panel>
-      {health.length > 0 && <Panel title="Daemon health">{rows(health)}</Panel>}
+      <DaemonHealth health={state.health} sources={view.sources} />
       <Appearance />
     </div>
   );

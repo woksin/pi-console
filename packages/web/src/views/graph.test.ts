@@ -21,7 +21,7 @@ before(async () => {
 });
 after(async () => { await server.close(); });
 
-test('mock status dependencies render directed edges, titles and matching TUI kind labels in the legend', () => {
+test('mock status dependencies render directed edges, titles and a plain-language legend', () => {
   const state = { ...emptyState(), graph: graph(generate().fixture) };
   const html = renderToStaticMarkup(createElement(StoreContext.Provider, { value: new ConsoleStore(createApi('unused')) }, createElement(GraphView, { state })));
   for (const kind of ['waiting-on', 'barred-by']) {
@@ -29,8 +29,10 @@ test('mock status dependencies render directed edges, titles and matching TUI ki
     assert.ok(edge, `the default mock supplies ${kind}`);
     assert.match(html, new RegExp(`class="edge ${kind}" data-from="${edge.fromLane}" data-to="${edge.toLane}"`));
     assert.match(html, new RegExp(`<title>${kind} 1×</title>`));
-    assert.match(html, new RegExp(`</svg>${kind} →`));
   }
+  for (const text of ['Messages sent', 'Started a session', 'Waiting for', 'Blocked by', 'Thicker lines mean more messages.']) assert.ok(html.includes(text), text);
+  assert.doesNotMatch(html, /session status only in spawn relationships|waiting-on →|barred-by →/);
+  for (const kind of ['message', 'spawn', 'waiting-on', 'barred-by']) assert.match(html, new RegExp(`<svg viewBox="0 0 32 12" aria-hidden="true"><path class="edge ${kind}"`));
 });
 
 test('status dependency styles differ from message/spawn edges in both color and dash pattern', () => {
@@ -47,4 +49,15 @@ test('a failed graph read renders a retry alert instead of the empty state; the 
   assert.match(failed, /role="alert"/);
   assert.match(failed, /Retry/);
   assert.match(html({ ...emptyState(), graph: graph(generate().fixture), graphError: true }), /Showing the last loaded graph/);
+});
+
+test('the default mock renders six repository groups with lane-ID and name labels and a full-text title', () => {
+  const state = { ...emptyState(), graph: graph(generate().fixture) };
+  const html = renderToStaticMarkup(createElement(StoreContext.Provider, { value: new ConsoleStore(createApi('unused')) }, createElement(GraphView, { state })));
+  const lanes = html.slice(html.indexOf('aria-label="Lane communication"'));
+  for (const repository of ['AURORA', 'HARBOR', 'MEADOW', 'QUARTZ', 'WILLOW', 'ZENITH']) assert.match(lanes, new RegExp(`aria-label="Graph for ${repository}`, 'i'));
+  assert.equal(lanes.match(/aria-label="Graph for /g)?.length, 6);
+  assert.match(lanes, /<title>L196 · harbor coordinator<\/title>/);
+  assert.match(lanes, /<text class="label"[^>]*>L196<\/text><text class="label name"[^>]*>harbor coordinator<\/text>/);
+  assert.match(html, /class="toolbar graph-toolbar"/);
 });

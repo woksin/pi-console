@@ -369,8 +369,8 @@ test('repository lane labels, readable timeline ticks and selected row survive z
   assert.ok((await page.getByRole('list', { name: 'Messages', exact: true }).innerText()).includes('/L0'));
   await page.getByRole('button', { name: /^Graph/ }).click();
   await page.locator('.node .label').first().waitFor();
-  assert.ok((await page.getByRole('region', { name: 'Lane communication' }).locator('.node .label').allTextContents()).every(label => /^L\d+$/.test(label)));
-  assert.ok((await page.getByRole('region', { name: 'Session relationships' }).locator('.node .label').allTextContents()).every(label => label.includes('/L')));
+  assert.ok((await page.getByRole('region', { name: 'Lane communication' }).locator('.node .label:not(.name)').allTextContents()).every(label => /^L\d+$/.test(label)));
+  assert.ok((await page.getByRole('region', { name: 'Session relationships' }).locator('.node .label:not(.name)').allTextContents()).every(label => label.includes('/L')));
   await page.evaluate(() => { location.hash = '/timeline'; });
   await page.locator('.lane.selected').waitFor();
   assert.ok((await page.locator('.lane-label').allTextContents()).every(label => label.includes('/L')));
@@ -402,25 +402,20 @@ test('1100px navigation is an icon rail, Fleet fits, and transcript controls do 
   await page.context().close();
 });
 
-test('request state filters wrap at 768px and every filter stays inside the viewport and clickable', async () => {
+test('request filters keep every control inside the viewport at 768px and the state select offers all seven states', async () => {
   const page = await rig.open('/requests', { width: 768, height: 900 });
   try {
-    const filters = page.getByRole('group', { name: 'Request state' });
-    const tabs = filters.getByRole('button');
-    await tabs.last().waitFor();
-    assert.deepEqual(await tabs.allTextContents(), ['All', 'Open', 'Answered', 'Unanswered', 'Interrupted', 'Uncertain', 'Possibly unseen']);
-    assert.equal(await filters.evaluate(node => {
-      const rows = new Set(Array.from(node.children, child => child.getBoundingClientRect().top));
-      return rows.size > 1;
-    }), true, 'filters wrap onto multiple rows');
-    for (const tab of await tabs.all()) {
-      assert.equal(await tab.evaluate(node => {
+    const state = page.getByRole('combobox', { name: 'State', exact: true });
+    await state.waitFor();
+    assert.deepEqual(await state.locator('option').allTextContents(), ['All', 'Open', 'Answered', 'Unanswered', 'Interrupted', 'Uncertain', 'Possibly unseen']);
+    for (const control of [state, page.getByRole('combobox', { name: 'Origin', exact: true }), page.getByRole('combobox', { name: 'Session', exact: true }), page.getByRole('searchbox')]) {
+      assert.equal(await control.evaluate(node => {
         const rect = node.getBoundingClientRect();
         return rect.left >= 0 && rect.right <= innerWidth && rect.top >= 0 && rect.bottom <= innerHeight;
-      }), true, `${await tab.innerText()} is inside the viewport before clicking`);
-      await tab.click();
-      assert.equal(await tab.getAttribute('aria-pressed'), 'true');
+      }), true, 'filter control is inside the viewport');
     }
+    await state.selectOption('uncertain');
+    await page.getByTestId('request-summary').getByText('state uncertain').waitFor();
   } finally { await page.context().close(); }
 });
 

@@ -168,7 +168,7 @@
     },
     {
       "sessionId": "s6",
-      "label": "L0 coordinator",
+      "label": "L196 coordinator",
       "status": {
         "status": "done",
         "glyph": "✓",
@@ -228,7 +228,7 @@
     },
     {
       "sessionId": "s7",
-      "label": "L192 implementation",
+      "label": "L197 implementation",
       "status": {
         "status": "failed",
         "glyph": "#",
@@ -252,7 +252,7 @@
     },
     {
       "sessionId": "s8",
-      "label": "L193 review",
+      "label": "L198 review",
       "status": {
         "status": "working",
         "glyph": "*",
@@ -282,7 +282,7 @@
     },
     {
       "sessionId": "s9",
-      "label": "L194 explore",
+      "label": "L199 explore",
       "status": {
         "status": "needs-you",
         "glyph": "!",
@@ -300,7 +300,7 @@
     },
     {
       "sessionId": "s10",
-      "label": "L195 scout",
+      "label": "L200 scout",
       "status": {
         "status": "blocked",
         "glyph": "×",
@@ -318,7 +318,7 @@
     },
     {
       "sessionId": "s11",
-      "label": "L0 coordinator",
+      "label": "L201 coordinator",
       "status": {
         "status": "waiting",
         "glyph": "~",
@@ -378,7 +378,7 @@
     },
     {
       "sessionId": "s12",
-      "label": "L192 implementation",
+      "label": "L202 implementation",
       "status": {
         "status": "idle",
         "glyph": "–",
@@ -402,7 +402,7 @@
     },
     {
       "sessionId": "s16",
-      "label": "L0 coordinator",
+      "label": "L206 coordinator",
       "status": {
         "status": "needs-you",
         "glyph": "!",
@@ -462,7 +462,7 @@
     },
     {
       "sessionId": "s21",
-      "label": "L0 coordinator",
+      "label": "L211 coordinator",
       "status": {
         "status": "failed",
         "glyph": "#",
@@ -498,7 +498,7 @@
     },
     {
       "sessionId": "s26",
-      "label": "L0 coordinator",
+      "label": "L216 coordinator",
       "status": {
         "status": "idle",
         "glyph": "–",

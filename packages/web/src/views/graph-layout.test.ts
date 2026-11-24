@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { cells } from '@pi-console/viewmodels';
-import { graphSize, labelCharWidth, placeLabel, placeNodes } from './graph-layout.ts';
+import { graphHeight, graphSize, labelCharWidth, placeLabel, placeNodes } from './graph-layout.ts';
 
 /** Horizontal span of a placed label at the layout's own per-character budget. */
 const extent = (x: number, label: { text: string; anchor: string; dx: number }): [number, number] => {
@@ -48,4 +48,10 @@ test('a five-node group keeps its usual names whole', () => {
   const names = ['aurora/L0 orchestrator', 'aurora/L192 main', 'aurora/L193 main', 'aurora/L194 subagent', 'aurora/L195 subagent'];
   const labels = layout(5, index => names[index]);
   assert.deepEqual(labels.map(entry => entry.label.text), names);
+});
+
+test('the drawing reserves room under the lowest node for its lane-ID line and its name line', () => {
+  const lowest = Math.max(...layout(8, () => 'L196').map(entry => entry.at.y));
+  assert.ok(lowest + 45 + 4 <= graphHeight, 'second label line plus descender stays inside the viewBox');
+  assert.ok(graphHeight > graphSize);
 });

@@ -1,32 +1,29 @@
-import { cycleRequestFilter, describeRequestFilter, requestDetail, requestFilterAction, requestsViewModel, requestStateFilters, type RequestsFilter } from '@pi-console/viewmodels';
+import { cycleRequestFilter, describeRequestFilter, requestDetail, requestFilterAction, requestsViewModel, requestStateFilters } from '@pi-console/viewmodels';
 import { useMemo, useRef, useState } from 'react';
 import type { ViewProps } from '../../app/view.tsx';
 import { useActions } from '../../app/commands.ts';
 import { navigate, useListNav, useSearchFocus } from '../../app/hooks.ts';
 import { sessionHref } from '../../app/routes.ts';
-import { EmptyState, SkeletonRows, SearchBox, Tabs } from '../../ui/primitives.tsx';
+import { EmptyState, SkeletonRows, SearchBox } from '../../ui/primitives.tsx';
 import { EmptyFor } from '../../ui/empty.tsx';
 import { LoadOlder } from '../load-older.tsx';
+import { activeFilterChips, defaultRequestFilter } from './request-summary.ts';
 import { RequestCard } from './request-card.tsx';
 import { RequestDetailPane } from './request-detail.tsx';
 
-const defaultFilter: Required<RequestsFilter> = { state: 'all', origin: 'all', sessionId: null, query: '' };
-const stateTabs = requestStateFilters.map(id => ({ id, label: id === 'possibly-unseen' ? 'Possibly unseen' : id[0].toUpperCase() + id.slice(1) }));
+const stateOptions = requestStateFilters.map(id => ({ id, label: id === 'possibly-unseen' ? 'Possibly unseen' : id[0].toUpperCase() + id.slice(1) }));
 
 /** Requests and answers: the list with filters, and the detail of the selected row. Read-only; text is rendered as text. */
 function RequestSummary({ view }: { view: ReturnType<typeof requestsViewModel> }) {
-  const session = view.sessions.find(item => item.id === view.filter.sessionId);
   return <div className="toolbar" data-testid="request-summary" aria-label={describeRequestFilter(view)}>
-    <span className="chip">state {view.filter.state}</span><span className="chip">origin {view.filter.origin}</span>
-    <span className="chip">session {view.filter.sessionId === null ? 'all' : session?.name ?? view.filter.sessionId}</span>
-    {view.filter.query.trim() && <span className="chip">“{view.filter.query.trim()}”</span>}
+    {activeFilterChips(view).map(chip => <span key={chip} className="chip">{chip}</span>)}
     <span className="chip">{view.rows.length} shown</span><span className="chip">{view.open} open or unanswered</span>
     <span className="chip">{view.uncertain} uncertain</span><span className="chip">{view.possiblyUnseen} possibly unseen</span>
   </div>;
 }
 
 export function RequestsView({ state, now }: ViewProps) {
-  const [filter, setFilter] = useState(defaultFilter);
+  const [filter, setFilter] = useState(defaultRequestFilter);
   const search = useRef<HTMLInputElement>(null);
   useSearchFocus(search);
   const view = useMemo(() => requestsViewModel({ requests: state.requests, sessions: state.sessions, now, filter }), [state.requests, state.sessions, now, filter]);
@@ -47,8 +44,12 @@ export function RequestsView({ state, now }: ViewProps) {
   if (!state.snapshotLoaded) return <div className="page"><SkeletonRows label="requests" /></div>;
   return (
     <div className="page requests">
-      <div className="toolbar">
-        <Tabs label="Request state" value={view.filter.state} onChange={next => { setFilter({ ...view.filter, state: next }); }} tabs={stateTabs} />
+      <div className="toolbar request-filters">
+        <label className="field">State
+          <select value={view.filter.state} onChange={event => { setFilter({ ...view.filter, state: event.target.value as typeof filter.state }); }}>
+            {stateOptions.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+          </select>
+        </label>
         <label className="field">Origin
           <select value={view.filter.origin} onChange={event => { setFilter({ ...view.filter, origin: event.target.value as typeof filter.origin }); }}>
             {['all', 'human', 'launch', 'unproven'].map(id => <option key={id} value={id}>{id}</option>)}
