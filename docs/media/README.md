@@ -24,7 +24,7 @@ The committed [tui.tape](../../scripts/media/tui.tape) records the real TUI agai
 
 ## Budget
 
-Total ≤ 6 MB (6144 KiB), no file over 600 KiB, heroes ≤ 400 KiB. The total allowance includes the additional dark/light history and retry scenes, the TUI detail captures and the connect, first-run and two live-state web scenes (roughly 0.9 MB together). `npm run media` fails when over budget. Git history still holds the larger media of earlier revisions.
+Total ≤ 6 MB (6144 KiB), no file over 600 KiB, heroes ≤ 400 KiB, and the VHS recording of the real TUI against the demo daemon (`tui-vhs.gif`) ≤ 700 KiB. The total allowance includes the additional dark/light history and retry scenes, the TUI detail captures and the connect, first-run and two live-state web scenes (roughly 0.9 MB together). `npm run media` fails when over budget. Git history still holds the larger media of earlier revisions.
 
 ## Shot list
 

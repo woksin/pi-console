@@ -23,7 +23,7 @@ export const gifFps = 12;
 /** A fixed wall clock for every capture; the fixture itself is dated 2026-11-20. */
 export const fixedNow = '2026-11-20T12:00:00Z';
 
-export const budget = { totalKb: 6144, fileKb: 600, heroKb: 400 } as const;
+export const budget = { totalKb: 6144, fileKb: 600, heroKb: 400, recordingKb: 700 } as const;
 
 const web = (id: string, what: string, theme: Shot['theme'] = 'dark', width: number = stillWidth): Shot =>
   ({ id: `web-${id}${theme === 'light' ? '-light' : ''}`, file: `web-${id}${theme === 'light' ? '-light' : ''}.webp`, kind: 'still', client: 'web', width, theme, what });

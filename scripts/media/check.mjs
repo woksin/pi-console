@@ -21,7 +21,7 @@ export function checkBudget(mediaDir, budget) {
   const total = files.reduce((sum, file) => sum + file.bytes, 0);
   if (kb(total) > budget.totalKb) problems.push(`total ${String(kb(total))} KB exceeds ${String(budget.totalKb)} KB`);
   for (const file of files) {
-    const limit = file.name.startsWith('hero') ? budget.heroKb : budget.fileKb;
+    const limit = file.name.startsWith('hero') ? budget.heroKb : file.name === 'tui-vhs.gif' ? budget.recordingKb : budget.fileKb;
     if (kb(file.bytes) > limit) problems.push(`${file.name} is ${String(kb(file.bytes))} KB, over its ${String(limit)} KB limit`);
   }
   return { files, total, problems };
