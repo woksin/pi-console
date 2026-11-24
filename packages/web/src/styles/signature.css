@@ -4,7 +4,8 @@
 .summary-strip { display: flex; align-items: center; gap: 16px; padding: 8px 12px; border: 1px solid var(--border); border-radius: var(--radius); color: var(--muted); font-size: var(--type-caption); flex-wrap: wrap; row-gap: 8px; }
 .summary-counts { display: flex; justify-content: space-between; gap: 14px; flex: 1; }
 .summary-counts > span { white-space: nowrap; }
-.summary-counts.muted .badge { opacity: 0.55; filter: grayscale(1); }
+/* Mute with the AA-tested neutral token and no tint; opacity or grayscale would drop the status text below 4.5:1. */
+.summary-counts.muted .badge { --tone: var(--muted); background: transparent !important; }
 .attention-reason { display: flex; align-items: center; gap: 10px; margin: 4px 0 0; }
 .attention-reason > span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .summary-counts .badge { font-size: inherit; }

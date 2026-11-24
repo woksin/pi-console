@@ -66,3 +66,11 @@ test('section headings are plural unless the count is exactly one', () => {
   assert.deepEqual(labels([card('proposed-memory', 'Proposed memory'), card('proposed-memory', 'Proposed memory')]), ['Proposed memories']);
   assert.deepEqual(labels([card('answer-possibly-unseen', 'Possibly unseen'), card('answer-possibly-unseen', 'Possibly unseen')]), ['Possibly unseen']);
 });
+
+test('every attention reason has a heading that is singular for one card and plural for several', () => {
+  const singular = ['Open request', 'Possibly unseen', 'Blocking question', 'Lane waiting on you', 'Stale session', 'Proposed memory'];
+  const plural = ['Open requests', 'Possibly unseen', 'Blocking questions', 'Lanes waiting on you', 'Stale sessions', 'Proposed memories'];
+  const heading = (label: string, count: number) => attentionSections(Array.from({ length: count }, () => ({ reason: label, reasonLabel: label })))[0].label;
+  assert.deepEqual(singular.map(label => heading(label, 1)), singular);
+  assert.deepEqual(singular.map(label => heading(label, 2)), plural);
+});

@@ -27,6 +27,7 @@ const reasonPriority = (reason: string): number => {
 
 const pluralLabels: Readonly<Record<string, string>> = {
   'Open request': 'Open requests', 'Blocking question': 'Blocking questions', 'Stale session': 'Stale sessions', 'Proposed memory': 'Proposed memories',
+  'Lane waiting on you': 'Lanes waiting on you',
 };
 const sectionLabel = (label: string, count: number): string => (count === 1 ? label : pluralLabels[label] ?? label);
 

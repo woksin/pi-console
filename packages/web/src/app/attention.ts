@@ -7,7 +7,7 @@ export interface AttentionPresentation {
   count: number | null;
   label: string;
   badge: string;
-  /** Compact form of `badge` for the sidebar (at most three characters); `label` carries the full wording. */
+  /** Compact form of `badge` for the sidebar (a count, `!`, `…` or a stale count with `?`); `label` carries the full wording. */
   glyph: string;
 }
 

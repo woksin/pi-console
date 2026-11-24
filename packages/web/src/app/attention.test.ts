@@ -63,6 +63,7 @@ for (const { status, overrides, label, glyph } of cases) {
     assert.ok(html.includes(`title="${label}" data-attention="${status}">${glyph}</span>`), 'the badge is a compact glyph with the full wording as its tooltip');
     assert.ok(attention.glyph.length <= 3);
     assert.equal(html.includes('class="summary-counts muted"'), status === 'unavailable', 'status counts are muted only while attention is unavailable');
+    assert.equal(html.includes('count unavailable'), status === 'unavailable', 'muted counts keep a screen-reader reading');
     assert.ok(html.includes(`class="hero-title">${label}</h2>`), 'Overview names the same state');
     assert.ok(html.includes(`working, ${label};`), 'the pulse also retains the state');
     assert.doesNotMatch(html, /All clear/);
