@@ -25,6 +25,7 @@
     "lint": "eslint .",
     "gate": "node scripts/gate.mjs",
     "gate:integration": "node scripts/gate-integration.mjs",
+    "console": "node --disable-warning=ExperimentalWarning scripts/demo.mjs",
     "demo": "node --disable-warning=ExperimentalWarning scripts/demo.mjs",
     "media": "node scripts/media/index.mjs"
   },

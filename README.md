@@ -2,178 +2,232 @@
 
 <picture>
   <source media="(prefers-color-scheme: light)" srcset="docs/media/hero-light.webp">
-  <img src="docs/media/hero-dark.webp" alt="pi-console: the web Overview with a Needs you inbox, a fleet status strip and a context-pressure histogram, and the terminal UI laid over it" width="900">
+  <img src="docs/media/hero-dark.webp" alt="pi-console web Overview with a Needs you inbox, fleet status and context pressure, alongside the terminal UI" width="900">
 </picture>
 
 **A persistent, keyboard-first console for a local [pi](https://github.com/earendil-works/pi) setup.**<br>
-Every session, lane, orchestrator, subagent, question, answer and message in one place, in a web UI and a terminal UI over the same event-sourced store.
+Follow sessions, requests, questions and messages in a web UI or terminal UI over the same event-sourced store.
 
 [![CI](https://github.com/woksin/pi-console/actions/workflows/ci.yml/badge.svg)](https://github.com/woksin/pi-console/actions/workflows/ci.yml)
 ![Node 26+](https://img.shields.io/badge/node-%E2%89%A5%2026-3c873a)
-![Read-only M1](https://img.shields.io/badge/milestone-M1%20read--only-66d9ef)
+[![Read-only by default](https://img.shields.io/badge/access-read--only%20by%20default-66d9ef)](#security-model)
 
-[Tour](#tour) · [Quick start](#quick-start) · [Architecture](#architecture) · [Security](#security-model) · [Docs](#documentation)
+Read-only by default; opt-in memory review requests require human confirmation in pi.
+
+[Quick start](#quick-start) · [Tour](#tour) · [Gallery](#gallery) · [Architecture](#architecture) · [Docs](#documentation)
 
 </div>
 
-> The name `pi-console` is provisional. All pictures in this repository are generated from synthetic demo data (see [Demo data](#demo-data-and-regenerating-the-media)).
-
-## Why
-
-Long-running pi work is spread over many sessions and lanes, and each session resets its context many times. Two things go wrong:
-
-1. **Answers are lost.** A reset (compaction or handoff) can drop the answer to a prompt you asked, or cut the session off mid-prompt, and you never get the result.
-2. **Nothing shows the whole picture.** Truth is spread over roughly ten file stores (session JSONL, lane registry, message files, question store, job logs, queue ledgers). No view says which session needs you, which is stuck, and which request is still unanswered.
-
-In a recent study of 33 days of local sessions, 657 sessions had at least one context reset, 95 had ten or more, and one orchestrator session had 136 [context-memory study, final report §2]. pi-console is the human-facing half of the fix: a durable view that never loses a request or an answer.
-
-## Tour
-
-### Needs you first
-
-The Overview opens on what needs a human: open requests, answers you may not have seen, blocking questions, blocked lanes. The header's **fleet pulse** and the **context-pressure histogram** show the whole fleet at a glance, and the tab title carries the count.
-
-<picture>
-  <source media="(prefers-color-scheme: light)" srcset="docs/media/web-overview-light.webp">
-  <img src="docs/media/web-overview.webp" alt="Web Overview titled 19 things need you: status counts, a context-pressure histogram and grouped open requests and blocking questions" width="900">
-</picture>
-
-<img src="docs/media/web-pulse.webp" alt="Close-up of the fleet pulse strip, the status counts and the context-pressure histogram that marks six sessions above 80 percent" width="900">
-
-### Fleet
-
-Sessions, lanes, orchestrators and subagents with fixed status semantics, so a glyph and colour always mean the same thing in both clients.
-
-<img src="docs/media/web-fleet.webp" alt="Fleet table grouped by repository with status badges, context bars, trend sparklines, model and cost per session" width="900">
-
-### Questions with history
-
-Open questions and decisions show when they were last touched and by whom, each with a recorded **History** you can open in place. Questions with no activity past your **Warn after** threshold get a text-labelled **Stale** chip, and Sort switches between priority, last update and last activity. The TUI has the same history, sort and stale threshold.
-
-<picture>
-  <source media="(prefers-color-scheme: light)" srcset="docs/media/web-questions-light.webp">
-  <img src="docs/media/web-questions.webp" alt="Web Questions with Sort and Warn after controls: a blocking approval marked Stale after eleven days with its opened History of two entries, above a question showing its last activity and a collapsed History" width="900">
-</picture>
-
-### Resets, shown where they happen
-
-Every context reset is an inline `⟲` divider in the transcript: what kind it was, which requests were **carried over** and which were **interrupted**. Nothing is lost silently.
-
-<picture>
-  <source media="(prefers-color-scheme: light)" srcset="docs/media/web-session-resets-light.webp">
-  <img src="docs/media/web-session-resets.webp" alt="Session transcript with a highlighted handoff reset divider listing two carried-over requests and one interrupted request, next to the context and resets panels" width="900">
-</picture>
-
-### Command palette
-
-`Ctrl+P` or `:` opens a palette with typed groups (commands, sessions, lanes, questions). `>` filters to commands, `@` to sessions and lanes, `#` to questions and requests, `/` to messages.
-
-<img src="docs/media/web-palette.gif" alt="Animation: Ctrl+P opens the palette, typing aur lists matching sessions, lanes and questions in groups, Enter opens the selected session" width="900">
-
-### Keyboard tour
-
-Everything is reachable from the keyboard: `1`-`7` switch views, `j`/`k` move, `Enter` opens, `Esc` goes back, `?` shows the map. In Requests, `[` / `]` step the state filter back and forward, `o` cycles the origin filter and `S` cycles the session filter.
-
-<img src="docs/media/web-tour.gif" alt="Animation: Overview, then Fleet, then a session scrolled to its reset divider, then the Timeline, all switched with number keys" width="900">
-
-### Timeline and graph
-
-One time axis for requests, answers, resets, questions and messages. The messages graph connects **lanes to lanes**; session spawn relationships are shown separately. History controls say how much is loaded instead of implying that a bounded window is complete.
-
-<picture>
-  <source media="(prefers-color-scheme: light)" srcset="docs/media/web-timeline-light.webp">
-  <img src="docs/media/web-timeline.webp" alt="Timeline of lanes grouped by repository with request, answer, reset, question and message markers on one time axis" width="900">
-</picture>
-<picture>
-  <source media="(prefers-color-scheme: light)" srcset="docs/media/web-graph-light.webp">
-  <img src="docs/media/web-graph.webp" alt="Lane-to-lane communication edges above a separate session spawn graph, with status glyphs and colours" width="900">
-</picture>
-
-### Themes
-
-Midnight (default), dawn and high contrast, with a live preview in Settings. Status never relies on colour alone: every status has a glyph.
-
-<img src="docs/media/web-themes.webp" alt="Settings theme preview cards for midnight, dawn and contrast showing the status colours, text tones and the pressure gradient" width="720">
-
-### Every web view, both themes
-
-| View | Midnight (dark) | Dawn (light) |
-|---|---|---|
-| Overview | [Screenshot](docs/media/web-overview.webp) | [Screenshot](docs/media/web-overview-light.webp) |
-| Fleet | [Screenshot](docs/media/web-fleet.webp) | [Screenshot](docs/media/web-fleet-light.webp) |
-| Requests | [Screenshot](docs/media/web-requests.webp) | [Screenshot](docs/media/web-requests-light.webp) |
-| Questions | [Screenshot](docs/media/web-questions.webp) | [Screenshot](docs/media/web-questions-light.webp) |
-| Messages list | [Screenshot](docs/media/web-messages.webp) | [Screenshot](docs/media/web-messages-light.webp) |
-| Messages graph | [Screenshot](docs/media/web-graph.webp) | [Screenshot](docs/media/web-graph-light.webp) |
-| Timeline | [Screenshot](docs/media/web-timeline.webp) | [Screenshot](docs/media/web-timeline-light.webp) |
-| Work | [Screenshot](docs/media/web-work.webp) | [Screenshot](docs/media/web-work-light.webp) |
-| Session detail and native pi memory review controls | [Screenshot](docs/media/web-session.webp) | [Screenshot](docs/media/web-session-light.webp) |
-| Transcript older-history mode | [Screenshot](docs/media/web-transcript-history.webp) | [Screenshot](docs/media/web-transcript-history-light.webp) |
-| Timeline loaded/total history controls | [Screenshot](docs/media/web-timeline-history.webp) | [Screenshot](docs/media/web-timeline-history-light.webp) |
-| Attention unavailable with Retry | [Screenshot](docs/media/web-attention-retry.webp) | [Screenshot](docs/media/web-attention-retry-light.webp) |
-| Settings | [Screenshot](docs/media/web-settings.webp) | [Screenshot](docs/media/web-settings-light.webp) |
-
-### The terminal UI
-
-The same views, models and keymap in a terminal. It runs on [OpenTUI](https://github.com/sst/opentui) and talks to the daemon over the same loopback API.
-
-The TUI also shows [the questions list with its sort and stale marker](docs/media/tui-questions.webp), [an expanded question with wrapped text and its history](docs/media/tui-question-expanded.webp), [memory paging progress](docs/media/tui-memory-paging.webp), [an older memory proposal with review commands](docs/media/tui-memory-review.webp), [attention unavailable with a retry hint](docs/media/tui-attention-retry.webp), and [Settings scrolled in a short terminal](docs/media/tui-settings-scroll.webp). These terminal captures use midnight; the web gallery above pairs midnight and dawn.
-
-<img src="docs/media/tui-tour.gif" alt="Animation of the terminal UI: Overview, Fleet, a session filtered to its reset divider, the command palette and the Timeline" width="900">
-
-A [VHS tape](scripts/media/tui.tape) also records the real TUI against the isolated demo daemon:
-
-<img src="docs/media/tui-vhs.gif" alt="VHS recording of the terminal UI against the synthetic demo daemon: Overview, Fleet, Requests and Settings" width="880">
-
-<img src="docs/media/tui-overview.webp" alt="Terminal UI Overview with the needs-you inbox on the left and fleet status bars, average context and the context-pressure histogram on the right" width="900">
-
-<img src="docs/media/tui-palette.webp" alt="Terminal UI command palette listing sessions, lanes and questions that match aur, with the matching letters underlined" width="900">
-
-<img src="docs/media/tui-session-resets.webp" alt="Terminal UI transcript filtered to a handoff reset divider with its carried and interrupted requests" width="900">
-
-It also has a **mono** theme (`PI_CONSOLE_THEME=mono`, or `NO_COLOR`) where status is carried by glyphs and weight only:
-
-<img src="docs/media/tui-mono.webp" alt="Terminal UI Fleet view in the mono theme: no colour, status shown by glyphs such as bang, cross, tilde and check mark" width="900">
+> The name `pi-console` is provisional. All images below use synthetic demo data, not live sessions.
 
 ## Quick start
 
-Requires Node.js 26 or newer.
+Install **Node.js 26 or newer** and Git, then run:
 
-```bash
+```sh
+git clone https://github.com/woksin/pi-console.git && cd pi-console
 npm ci
+npm run console
 ```
 
-### Try it
+Open the printed web URL and paste the contents of the printed token file into the connection screen. You'll see **Needs you**, a fleet overview, and sample requests, questions and transcripts. The launcher builds the web client and starts an isolated demo daemon; it reads no local pi data. **Ctrl-C** stops it and removes its temporary data and token.
 
-```bash
-npm run demo
-```
+<table>
+<tr>
+<td><a href="docs/media/web-connect.webp"><img src="docs/media/web-connect.webp" width="280" alt="Midnight connection screen with an access-token field and Connect button"></a><br>Connect to the daemon</td>
+<td><a href="docs/media/web-first-run.webp"><img src="docs/media/web-first-run.webp" width="280" alt="Midnight Overview with no sessions and a getting-started checklist"></a><br>First run with no source data (not the populated demo)</td>
+</tr>
+</table>
 
-This builds the web bundle, generates synthetic data and starts the **real daemon** on a free loopback port. Nothing is read from your pi directories and no live agents are connected. Open the printed web URL, then paste the contents of the printed token file into the connection screen. The token is never printed or included in the URL. The launcher also prints a command for opening the TUI in a second terminal against the same daemon.
+<details>
+<summary>Demo, real data and the terminal client</summary>
 
-Press **Ctrl-C** in the demo terminal to stop it and remove its temporary data and token. Each run starts fresh. The synthetic event log is static; the separate developer mock remains available with `npm start`.
+`npm run console` and `npm run demo` use the same launcher. The synthetic event log is static, and each run starts fresh on a free loopback port. The launcher prints a command to open the TUI in another terminal against the same demo. `npm start` is the separate developer mock, not the live-data daemon.
 
-**Run it on your own pi data** (read-only by default; it reads `~/.pi/agent` and keeps its own store in `~/.pi-console`):
+To use your own pi data, run these from the checkout:
 
-```bash
+```sh
 npm run build -w @pi-console/web
-node packages/cli/bin/pi-console.mjs daemon --web-dist packages/web/dist   # prints a launch link with the token; the token file is ~/.pi-console/token
-node packages/cli/bin/pi-console.mjs tui                                    # in a second terminal
+node packages/cli/bin/pi-console.mjs daemon --web-dist packages/web/dist
 ```
 
-Memory review is a narrow opt-in exception: with daemon review enabled, a separate `memory-control-token` and a ready owning interactive pi provider, both consoles can request **Confirm…** / **Reject…**. Every request requires native human confirmation in pi and then canonical producer ingestion; the console never writes memory directly. The ordinary token remains read-only, with exact command fallback and reasons when review is unavailable. In the TUI, `m` in a session opens a full-width, scrollable Memory view at any terminal width. See [web memory review](docs/ui-web.md#memory-review) and [TUI memory review](docs/ui-tui.md#memory-review) for credential setup and controls.
+Open the printed launch link. The daemon reads `~/.pi/agent` by default and keeps its own store in `~/.pi-console`; it does not modify the source files. For a terminal client, open a second terminal in the checkout:
 
-With a usable `--web-dist` the daemon prints one launch link, `http://127.0.0.1:<port>/#token=<token>`; the token sits in the URL fragment, which never reaches a server. Open it once, or paste the token from `<data-dir>/token`. Without a web bundle (flag missing, or no `index.html` at the path) the daemon prints `API only: start with --web-dist <path to packages/web/dist> to serve the web console` and prints no link. `pi-console --help`, `-h` and `help` print usage and exit 0.
+```sh
+node packages/cli/bin/pi-console.mjs tui
+```
 
-`node packages/cli/bin/pi-console.mjs daemon --help` lists the data directory, port and source options. The daemon uses `--data-dir` first, then `PI_CONSOLE_DATA_DIR`, then `~/.pi-console`. The TUI accepts `--data-dir` with the same precedence and reads both `config.json` and `token` there. Its URL resolves from `--url`, then `PI_CONSOLE_URL`, then the configured `port` on `127.0.0.1`, then `http://127.0.0.1:4777`; missing or malformed config falls back silently. For a daemon started with a one-off `--port 5888`, use `node packages/cli/bin/pi-console.mjs tui --url http://127.0.0.1:5888` (plus `--data-dir` if needed). The offline banner shows the URL being tried. `node packages/cli/bin/pi-console.mjs tui --help` shows TUI usage without opening the terminal UI. Interventions (answering, steering, pausing) are milestone M2; there is no global install yet.
+The web and terminal clients share the same daemon. There is no global install yet. See the [web guide](docs/ui-web.md) and [TUI guide](docs/ui-tui.md) for controls and platform notes.
 
-On startup the daemon prints the resolved agent root and each source directory with its state (`available`, `missing`, `unavailable` or `disabled`) and a warning for every missing or unavailable enabled one. If your pi directory is elsewhere, start with `--agent-root <path>` (or create the intended directory); the daemon never creates it, and ingestion picks a directory up automatically once it exists. Health shows `degraded` and Settings names the affected source until then.
+</details>
 
-CLI errors print a short message to stderr and exit non-zero. Invalid daemon flags exit 2 with a `pi-console daemon --help` hint; startup failures exit 1. The launcher checks the Node version required by `package.json` before loading the CLI. Set `PI_CONSOLE_DEBUG=1` to include a stack trace for diagnosis (for example, `PI_CONSOLE_DEBUG=1 node packages/cli/bin/pi-console.mjs daemon --port banana`).
+<details>
+<summary>Tokens, configuration and connection troubleshooting</summary>
 
-### Install the pi extension (optional)
+- **Web authentication:** the live daemon's launch link carries the token in `#token=`, a URL fragment that never reaches the server. The client removes it from the address bar. You can instead paste the contents of `<data-dir>/token`. The demo prints only the token file path, never the token.
+- **Data directory:** `--data-dir` overrides `PI_CONSOLE_DATA_DIR`, then defaults to `~/.pi-console`. The daemon reads `config.json` there on startup; restart after changing it.
+- **Port:** the live daemon defaults to `4777`. For a one-off port, use `daemon --port 5888 --web-dist packages/web/dist`, then `tui --url http://127.0.0.1:5888` with the CLI above. The TUI resolves its URL from `--url`, `PI_CONSOLE_URL`, the data directory's configured port, then `http://127.0.0.1:4777`. Use the same `--data-dir` for both clients when changing it.
+- **API-only message:** build the web client and pass `--web-dist packages/web/dist`. A missing bundle or `index.html` means the daemon serves only the API and prints no launch link.
+- **Missing sources:** startup diagnostics and Settings identify unavailable source directories. Use `--agent-root <path>` if pi lives elsewhere. The daemon does not create source directories; ingestion picks them up when they become available.
+- **Errors:** the CLI prints a short error and exits non-zero. Set `PI_CONSOLE_DEBUG=1` for a stack trace; do not share tokens or private session data in diagnostics.
 
-The console works from pi session logs alone. The extension in `packages/extension` only adds [memory review](docs/ui-web.md#memory-review): it connects each pi session outbound to the daemon so you can confirm or reject memory actions. Enable review on the daemon by adding `"memoryActions": true` to `<data-dir>/config.json` (merge it with any existing keys, then restart the daemon, which reads the file only at start); the daemon then creates the separate `<data-dir>/memory-control-token`. Load `packages/extension` as a pi extension (its `package.json` declares `./src/index.ts` under `pi.extensions`); set `PI_CONSOLE_MEMORY_REVIEW=1` in the environment pi runs in to turn memory review on, and set `PI_CONSOLE_URL` or `PI_CONSOLE_DATA_DIR` if you use a non-default port or data directory. Credential setup is described in [web memory review](docs/ui-web.md#memory-review).
+List all supported flags without starting a daemon or opening the TUI:
+
+```sh
+node packages/cli/bin/pi-console.mjs --help
+node packages/cli/bin/pi-console.mjs daemon --help
+node packages/cli/bin/pi-console.mjs tui --help
+```
+
+</details>
+
+<a id="optional-pi-extension-and-memory-review"></a>
+<details>
+<summary>Optional pi extension and memory review</summary>
+
+The console can read pi session logs without an extension. The extension adds an outbound connection for **memory review requests**, not general remote control.
+
+1. Merge `"memoryActions": true` into the daemon's `<data-dir>/config.json`, preserving other keys, then restart it. This creates a separate `<data-dir>/memory-control-token`.
+2. Load `packages/extension` as a pi extension. Its package manifest declares `./src/index.ts` under `pi.extensions`.
+3. Set `PI_CONSOLE_MEMORY_REVIEW=1` in pi's environment. For non-default connections, also set `PI_CONSOLE_URL` and/or `PI_CONSOLE_DATA_DIR`.
+4. Connect a compatible, ready interactive pi memory provider and use the separate memory-control credential in the console. See [web memory review](docs/ui-web.md#memory-review) or [TUI memory review](docs/ui-tui.md#memory-review) for credential setup.
+
+**Confirm…** / **Reject…** request native human confirmation in the owning pi session. The console never writes memory directly, and waits for canonical producer ingestion to show the change. The ordinary token stays read-only. When review is unavailable, the UI shows the exact command to run in pi and a reason. Answering, steering and pausing are not available.
+
+</details>
+
+## Tour
+
+Long-running work spreads across sessions, lanes and file stores. Context resets make it harder to follow what was asked and what still needs an answer. pi-console brings those records together without treating uncertain or missing history as complete. See [request coverage and limitations](docs/requests.md).
+
+### Needs you first
+
+Overview groups open requests, possibly unseen answers, blocking questions and blocked lanes. The fleet pulse and context-pressure histogram sit alongside them. Fleet, Requests, Questions, Messages, Timeline and Work are one keypress away.
+
+<img src="docs/media/web-tour.gif" alt="Web keyboard tour moving from Overview to Fleet, a session reset divider and the Timeline" width="900">
+
+### Follow live updates
+
+A session finishes in Fleet, then a new blocking question raises the **Needs you** count and adds a session chip on Overview. Updates arrive through live ingestion without a page reload.
+
+<table>
+<tr>
+<td><a href="docs/media/web-live-fleet.gif"><img src="docs/media/web-live-fleet.gif" width="280" alt="Midnight Fleet marking a session Done, then Overview showing a higher Needs you count and a new session chip"></a><br>Live fleet and attention updates</td>
+</tr>
+</table>
+
+### Find a session without leaving the keyboard
+
+`Ctrl+P` or `:` opens the command palette. Prefixes narrow the search: `>` commands, `@` sessions and lanes, `#` questions and requests, `/` messages. Use `1`–`7` to switch views, `j`/`k` to move, `Enter` to open, `Esc` to go back and `?` for help.
+
+<img src="docs/media/web-palette.gif" alt="Command palette filtering sessions, lanes and questions, then opening the selected session" width="900">
+
+### Review memory with confirmation in pi
+
+A **Confirm…** request moves through awaiting native human confirmation in pi, then awaiting canonical producer ingestion. Only the ingested change makes the proposed item active. The console does not confirm or write memory itself. See the [optional extension setup](#optional-pi-extension-and-memory-review) above.
+
+<table>
+<tr>
+<td><a href="docs/media/web-memory-review.gif"><img src="docs/media/web-memory-review.gif" width="280" alt="Midnight memory review moving from a request through awaiting confirmation in pi and producer ingestion to an active item"></a><br>Request → human confirmation in pi → canonical ingestion → active</td>
+</tr>
+</table>
+
+### The same data in your terminal
+
+The [OpenTUI](https://github.com/sst/opentui) client uses the same API, view models and status semantics. It includes question history, transcript reset dividers, memory review requests and a full-width Memory view (`m` in a session).
+
+<img src="docs/media/tui-tour.gif" alt="Terminal tour of Overview, Fleet, a transcript reset divider, the command palette and Timeline" width="900">
+
+A [VHS tape](scripts/media/tui.tape) can also record the terminal client against the isolated demo daemon:
+
+<img src="docs/media/tui-vhs.gif" alt="Terminal recording showing Overview, Fleet, Requests and Settings with synthetic data" width="880">
+
+## Gallery
+
+Click any thumbnail for the full-size image. The web client offers midnight (default), dawn and high contrast in Settings. Status uses glyphs as well as colour. The TUI supports midnight, contrast and mono (`PI_CONSOLE_THEME=mono`); `NO_COLOR=1` selects plain output with no colour codes.
+
+### Web · midnight
+
+<table>
+<tr>
+<td><a href="docs/media/web-overview.webp"><img src="docs/media/web-overview.webp" width="280" alt="Midnight Overview with Needs you inbox and fleet pressure"></a><br>Overview</td>
+<td><a href="docs/media/web-fleet.webp"><img src="docs/media/web-fleet.webp" width="280" alt="Midnight Fleet grouped by repository with context bars"></a><br>Fleet</td>
+<td><a href="docs/media/web-requests.webp"><img src="docs/media/web-requests.webp" width="280" alt="Midnight Requests with state, origin and session filters"></a><br>Requests</td>
+</tr>
+<tr>
+<td><a href="docs/media/web-questions.webp"><img src="docs/media/web-questions.webp" width="280" alt="Midnight Questions with history, sorting and a stale marker"></a><br>Questions and history</td>
+<td><a href="docs/media/web-messages.webp"><img src="docs/media/web-messages.webp" width="280" alt="Midnight Messages list showing lane communications"></a><br>Messages</td>
+<td><a href="docs/media/web-graph.webp"><img src="docs/media/web-graph.webp" width="280" alt="Midnight lane communication graph and separate session spawn graph"></a><br>Communication graph</td>
+</tr>
+<tr>
+<td><a href="docs/media/web-timeline.webp"><img src="docs/media/web-timeline.webp" width="280" alt="Midnight Timeline with request, answer and reset markers"></a><br>Timeline</td>
+<td><a href="docs/media/web-work.webp"><img src="docs/media/web-work.webp" width="280" alt="Midnight Work view of jobs and phase activity"></a><br>Work</td>
+<td><a href="docs/media/web-session.webp"><img src="docs/media/web-session.webp" width="280" alt="Midnight session transcript and memory review controls"></a><br>Session and memory review</td>
+</tr>
+<tr>
+<td><a href="docs/media/web-transcript-history.webp"><img src="docs/media/web-transcript-history.webp" width="280" alt="Midnight transcript showing older history and paging controls"></a><br>Older transcript history</td>
+<td><a href="docs/media/web-timeline-history.webp"><img src="docs/media/web-timeline-history.webp" width="280" alt="Midnight Timeline showing loaded and total history counts"></a><br>Timeline history</td>
+<td><a href="docs/media/web-attention-retry.webp"><img src="docs/media/web-attention-retry.webp" width="280" alt="Midnight Overview reporting unavailable attention with Retry"></a><br>Unavailable, not all clear</td>
+</tr>
+<tr>
+<td><a href="docs/media/web-settings.webp"><img src="docs/media/web-settings.webp" width="280" alt="Midnight Settings with source health and theme preferences"></a><br>Settings</td>
+<td><a href="docs/media/web-session-resets.webp"><img src="docs/media/web-session-resets.webp" width="280" alt="Transcript reset divider listing carried and interrupted requests"></a><br>Context resets</td>
+<td><a href="docs/media/web-pulse.webp"><img src="docs/media/web-pulse.webp" width="280" alt="Fleet pulse status counts and context-pressure histogram"></a><br>Fleet pulse</td>
+</tr>
+</table>
+
+### TUI
+
+<table>
+<tr>
+<td><a href="docs/media/tui-overview.webp"><img src="docs/media/tui-overview.webp" width="280" alt="Terminal Overview with Needs you inbox and fleet status bars"></a><br>Overview</td>
+<td><a href="docs/media/tui-palette.webp"><img src="docs/media/tui-palette.webp" width="280" alt="Terminal command palette with matching sessions and questions"></a><br>Command palette</td>
+<td><a href="docs/media/tui-session-resets.webp"><img src="docs/media/tui-session-resets.webp" width="280" alt="Terminal transcript filtered to a handoff reset divider"></a><br>Context resets</td>
+</tr>
+<tr>
+<td><a href="docs/media/tui-questions.webp"><img src="docs/media/tui-questions.webp" width="280" alt="Terminal Questions list with sorting and stale status"></a><br>Questions</td>
+<td><a href="docs/media/tui-question-expanded.webp"><img src="docs/media/tui-question-expanded.webp" width="280" alt="Expanded terminal question with wrapped text and history"></a><br>Question history</td>
+<td><a href="docs/media/tui-memory-paging.webp"><img src="docs/media/tui-memory-paging.webp" width="280" alt="Terminal Memory view with paging progress for older items"></a><br>Memory history</td>
+</tr>
+<tr>
+<td><a href="docs/media/tui-memory-review.webp"><img src="docs/media/tui-memory-review.webp" width="280" alt="Terminal memory proposal with native pi review commands"></a><br>Memory review</td>
+<td><a href="docs/media/tui-attention-retry.webp"><img src="docs/media/tui-attention-retry.webp" width="280" alt="Terminal attention unavailable state with a retry hint"></a><br>Attention retry</td>
+</tr>
+<tr>
+<td><a href="docs/media/tui-settings-scroll.webp"><img src="docs/media/tui-settings-scroll.webp" width="280" alt="Terminal Settings scrolled to fit a short viewport"></a><br>Scrollable Settings</td>
+<td><a href="docs/media/tui-mono.webp"><img src="docs/media/tui-mono.webp" width="280" alt="Terminal Fleet in mono using glyphs instead of colour"></a><br>Mono theme</td>
+</tr>
+</table>
+
+### Light theme · dawn
+
+<table>
+<tr>
+<td><a href="docs/media/web-overview-light.webp"><img src="docs/media/web-overview-light.webp" width="280" alt="Dawn Overview with Needs you inbox and fleet pressure"></a><br>Overview</td>
+<td><a href="docs/media/web-fleet-light.webp"><img src="docs/media/web-fleet-light.webp" width="280" alt="Dawn Fleet grouped by repository with context bars"></a><br>Fleet</td>
+<td><a href="docs/media/web-requests-light.webp"><img src="docs/media/web-requests-light.webp" width="280" alt="Dawn Requests with state, origin and session filters"></a><br>Requests</td>
+</tr>
+<tr>
+<td><a href="docs/media/web-questions-light.webp"><img src="docs/media/web-questions-light.webp" width="280" alt="Dawn Questions with history and a text-labelled stale marker"></a><br>Questions and history</td>
+<td><a href="docs/media/web-messages-light.webp"><img src="docs/media/web-messages-light.webp" width="280" alt="Dawn Messages list showing lane communications"></a><br>Messages</td>
+<td><a href="docs/media/web-graph-light.webp"><img src="docs/media/web-graph-light.webp" width="280" alt="Dawn lane communication graph and separate session spawn graph"></a><br>Communication graph</td>
+</tr>
+<tr>
+<td><a href="docs/media/web-timeline-light.webp"><img src="docs/media/web-timeline-light.webp" width="280" alt="Dawn Timeline with request, answer and reset markers"></a><br>Timeline</td>
+<td><a href="docs/media/web-work-light.webp"><img src="docs/media/web-work-light.webp" width="280" alt="Dawn Work view of jobs and phase activity"></a><br>Work</td>
+<td><a href="docs/media/web-session-light.webp"><img src="docs/media/web-session-light.webp" width="280" alt="Dawn session transcript beside memory review controls"></a><br>Session and memory review</td>
+</tr>
+<tr>
+<td><a href="docs/media/web-transcript-history-light.webp"><img src="docs/media/web-transcript-history-light.webp" width="280" alt="Dawn transcript showing older history and paging controls"></a><br>Older transcript history</td>
+<td><a href="docs/media/web-timeline-history-light.webp"><img src="docs/media/web-timeline-history-light.webp" width="280" alt="Dawn Timeline showing loaded and total history counts"></a><br>Timeline history</td>
+<td><a href="docs/media/web-attention-retry-light.webp"><img src="docs/media/web-attention-retry-light.webp" width="280" alt="Dawn Overview reporting unavailable attention with Retry"></a><br>Unavailable, not all clear</td>
+</tr>
+<tr>
+<td><a href="docs/media/web-settings-light.webp"><img src="docs/media/web-settings-light.webp" width="280" alt="Dawn Settings with source health and theme preferences"></a><br>Settings</td>
+<td><a href="docs/media/web-session-resets-light.webp"><img src="docs/media/web-session-resets-light.webp" width="280" alt="Dawn transcript reset divider with carried and interrupted requests"></a><br>Context resets</td>
+<td><a href="docs/media/web-themes.webp"><img src="docs/media/web-themes.webp" width="280" alt="Settings preview cards for midnight, dawn and high contrast"></a><br>Theme previews</td>
+</tr>
+</table>
 
 ## Architecture
 
@@ -181,71 +235,58 @@ The console works from pi session logs alone. The extension in `packages/extensi
 flowchart LR
   subgraph pi["pi, on your machine"]
     files["session JSONL, lanes, messages,<br/>questions, jobs, ledgers"]
-    ext["pi-console extension<br/>(M2, outbound only)"]
+    ext["pi-console extension<br/>outbound memory-review connection"]
+    human["native human confirmation"]
   end
   subgraph daemon["daemon · 127.0.0.1 · token"]
     adapters["source adapters<br/>(read-only tailers)"] --> log[("append-only<br/>SQLite event log")]
     log --> proj["projections<br/>(read models)"]
-    proj --> api["REST + SSE API<br/>(contract)"]
+    proj --> api["REST + SSE API"]
+    review["opt-in memory review<br/>separate control credential"]
   end
   files --> adapters
-  ext -.-> adapters
-  api --> vm["viewmodels"]
+  ext <-->|"review requests and receipts"| review
+  ext --> human
+  api --> vm["shared viewmodels"]
   vm --> web["Web UI (React)"]
   vm --> tui["TUI (OpenTUI)"]
-  api -.-> mcp["MCP / Direct<br/>(M4)"]
+  web -.->|"request only"| review
+  tui -.->|"request only"| review
 ```
 
-Everything is derived from the append-only event log, so every screen can be rebuilt by replay. Packages (`packages/`): `contract` (schemas and shared types), `core` and `adapters` (sources, ingestion, projections), `daemon`, `viewmodels` (what both clients render), `web`, `tui`, `cli`, `testkit` (mock daemon and synthetic fixture). Details: [docs/architecture.md](docs/architecture.md).
+The append-only event log feeds replayable read models. The extension initiates its connection outbound; the daemon can send review requests over that connection only when enabled. Human confirmation stays in pi, and memory changes arrive through source ingestion. See [architecture](docs/architecture.md), the [event model](docs/event-model.md) and the [API contract](docs/api/v1.md).
 
 ## Security model
 
-pi sessions can run shell commands and hold credentials, so the console treats its own surface as hostile territory. The full threat model is in [docs/security.md](docs/security.md) and [ADR-0006](docs/adr/0006-security-model.md).
+- **Local only:** the daemon binds `127.0.0.1`, validates Host and Origin, and refuses cross-site requests.
+- **Authenticated API:** an owner-only token file supplies the bearer credential. Web credentials stay in tab-scoped `sessionStorage`, not cookies or `localStorage`. Do not share launch links or token files.
+- **Read-only by default:** the ordinary token cannot request memory review. Review needs explicit daemon enablement, a separate credential and native human confirmation. There is no direct console memory write or general intervention API.
+- **Untrusted content:** transcripts render as text, with terminal control sequences stripped. The web bundle uses a strict Content-Security-Policy.
+- **Redaction:** ingestion and API output apply secret redaction. Treat the local store and diagnostics as sensitive regardless.
 
-- **Loopback only.** The daemon binds `127.0.0.1`. Every request must carry an allowed loopback `Host` (`127.0.0.1:<port>` or `localhost:<port>`), an `Origin` (when sent) that matches exactly, and no `Sec-Fetch-Site: cross-site`; otherwise it is refused. This defends against DNS rebinding and cross-site requests.
-- **Token on every API request.** A 256-bit random token in an owner-only (0600) file in an owner-only (0700) data directory, created on first start and reused. The web and terminal clients send it as `Authorization: Bearer`. The web client reads it from the launch link's `#token=` fragment (which never reaches a server) or a paste, scrubs it from the address bar and keeps it in tab-scoped `sessionStorage`; it never uses a cookie or `localStorage`. There is no automatic rotation: to rotate, stop the daemon, delete the token file and start it again. Tokens in a URL query string and cookies do not authenticate.
-- **Strict CSP.** The web bundle is served with a strict Content-Security-Policy and no external network.
-- **Transcripts are untrusted text.** Model and attacker-written content is rendered as text, never HTML; control sequences are stripped in the TUI.
-- **Read-only except memory review.** The ordinary token cannot change anything. With daemon review enabled, a separate `memory-control-token` lets the consoles POST a memory review request (**Confirm…** / **Reject…**) for a native human confirmation in pi; the console never writes memory itself. Answering, steering, pausing and other interventions do not exist yet; later writes are typed commands with an audit trail.
-- **Secrets are redacted** at ingestion (fail closed) and again on return.
+See the [threat model](docs/security.md) and [security policy](SECURITY.md) for limitations and private vulnerability reporting.
 
 ## Demo data and regenerating the media
 
-All demo data is synthetic: `npm run generate` rebuilds the fixture used by the media pipeline and demo launcher. Gallery-only extensions of that fixture demonstrate long questions with recorded history and a stale one, memory backfill and unavailable attention without reading local pi data. `npm run media` regenerates `docs/media/`, including every main web view and its history/retry scenes in midnight and dawn and the [VHS terminal recording](scripts/media/tui.tape). Intermediate frames are removed when the command exits. It needs Chromium, `ffmpeg` and `cwebp`; VHS additionally needs `vhs` and `ttyd`. Without VHS, the terminal recording falls back to the existing PTY frame capture and says so. See [docs/media/README.md](docs/media/README.md) for commands, the shot list, budget and determinism notes. Media generation is manual, not part of CI.
+`npm run generate` rebuilds the synthetic fixture. `npm run media` regenerates the gallery; it needs Chromium, `ffmpeg` and `cwebp`. VHS recording also needs `vhs` and `ttyd`; otherwise the runner reports a PTY-capture fallback. Media generation is manual, not part of CI. See the [media guide](docs/media/README.md) for individual captures, budgets and determinism notes.
 
 ## Status
 
-| Milestone | Scope | State |
-|---|---|---|
-| M0 | Spikes and visual bake-off | Spikes complete; results are in the ADRs |
-| M1 | Read-only console (web and TUI) over the daemon | In progress; both UIs, the daemon and the contract exist |
-| M2 | Live transcript and interventions | Planned |
-| M3 | Remote access and self-host | Planned |
-| M4 | MCP server and Direct adapter | Planned |
-| M5 | Learning and polish | Planned |
-
-Acceptance criteria per milestone: [docs/milestones.md](docs/milestones.md).
+Web and TUI clients, filesystem ingestion and opt-in memory review are implemented. [M1 acceptance](docs/m1-acceptance.md) records the verified scope and retained request/view coverage limitations. The [milestone plan](docs/milestones.md) includes future general interventions, remote access and MCP/Direct integration; those are not current capabilities.
 
 ## Documentation
 
-| Document | Content |
+| Start here | What you'll find |
 |---|---|
-| [CONTRIBUTING.md](CONTRIBUTING.md) | Setup, checks and release notes for contributors |
-| [SECURITY.md](SECURITY.md) | Security policy and private vulnerability reporting |
-| [docs/index.md](docs/index.md) | Table of contents and reading order |
-| [docs/vision.md](docs/vision.md) | Problem, vision, principles, personas, non-goals |
-| [docs/information-architecture.md](docs/information-architecture.md) | Entities, navigation, status taxonomy, screens, keyboard map, visual style |
-| [docs/ui-web.md](docs/ui-web.md) | Running the web console, its keyboard map and security model |
-| [docs/ui-tui.md](docs/ui-tui.md) | The terminal UI: keys, structure, tests |
-| [docs/event-model.md](docs/event-model.md) | Event catalogue, projections, idempotency, privacy |
-| [docs/architecture.md](docs/architecture.md) | Components, process model, packages, data directories, testing |
-| [docs/api/v1.md](docs/api/v1.md) | The daemon API |
-| [docs/security.md](docs/security.md) | Threat model and controls |
-| [docs/milestones.md](docs/milestones.md) | M0 to M5 with acceptance criteria |
-| [docs/research-summary.md](docs/research-summary.md) | Research findings with sources |
-| [docs/adr/](docs/adr/) | Architecture decision records |
-| [docs/media/README.md](docs/media/README.md) | The shot list and how the pictures are generated |
+| [Documentation index](docs/index.md) | Reading order and design references |
+| [Web guide](docs/ui-web.md) · [TUI guide](docs/ui-tui.md) | Running each client, keyboard maps and memory review |
+| [Requests](docs/requests.md) | Pairing, provenance and coverage limitations |
+| [Architecture](docs/architecture.md) · [Event model](docs/event-model.md) · [API](docs/api/v1.md) | Components, ingestion, projections and contracts |
+| [Security](docs/security.md) · [SECURITY.md](SECURITY.md) | Threat model and vulnerability reporting |
+| [Vision](docs/vision.md) · [Milestones](docs/milestones.md) · [ADRs](docs/adr/) | Product direction and design decisions |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Setup, checks and release notes |
+| [Media guide](docs/media/README.md) | Synthetic captures and regeneration |
 
 ## License
 
-pi-console is released under the [MIT License](https://github.com/woksin/pi-console/blob/main/LICENSE).
+[MIT](LICENSE).
