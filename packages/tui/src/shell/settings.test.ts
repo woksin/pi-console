@@ -102,14 +102,15 @@ test('Settings names a missing agent directory and source, then shows them avail
   const size = { width: 80, height: 60 };
   const missing = plain(size, { status: 'degraded', agentRootAvailability: 'missing', sources: [{ source: 'issue-work', availability: 'missing' }] });
   assert.ok(missing.some(line => /^Agent directory\s+missing directory — check startup paths/.test(line)), missing.join('\n'));
-  assert.ok(missing.some(line => /^issue-work\s+missing directory — check startup paths/.test(line)));
+  assert.ok(missing.some(line => /^Issue register\s+missing directory — check startup paths/.test(line)));
+  assert.ok(missing.some(line => /^\s+issue-work\s*$/.test(line)), 'the daemon id stays as secondary text');
   const recovered = plain(size, { status: 'ok', agentRootAvailability: 'available', sources: [{ source: 'issue-work', availability: 'available' }] });
-  assert.ok(recovered.some(line => /^issue-work\s+available/.test(line)));
+  assert.ok(recovered.some(line => /^Issue register\s+available/.test(line)));
   assert.ok(!recovered.some(line => line.includes('missing directory')));
 });
 
 test('Settings keeps availability neutral for a daemon that does not report it', () => {
   const lines = plain({ width: 80, height: 60 }, { status: 'ok', sources: [{ source: 'issue-work', files: 1 }] });
-  assert.ok(lines.some(line => /^Source adapters\s+availability not reported/.test(line)) || lines.some(line => /^issue-work\s+availability not reported/.test(line)));
-  assert.ok(!lines.some(line => /^issue-work\s+available\s*$/.test(line)));
+  assert.ok(lines.some(line => /^Source adapters\s+availability not reported/.test(line)) || lines.some(line => /^Issue register\s+availability not reported/.test(line)));
+  assert.ok(!lines.some(line => /^Issue register\s+available\s*$/.test(line)));
 });

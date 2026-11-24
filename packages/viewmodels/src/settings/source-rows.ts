@@ -18,6 +18,21 @@ function availabilityRow(label: string, value: unknown): SettingsRow {
   return { label, value: known?.[0] ?? notReported, tone: known?.[1] ?? 'plain' };
 }
 
+const sourceNames: Record<string, string> = {
+  'session-jsonl': 'Session transcripts', 'issue-work': 'Issue register', 'lane-messages': 'Lane messages',
+  'context-budget': 'Context budget', 'lane-heartbeats': 'Lane heartbeats', 'question-store': 'Question store',
+  'intent-memory': 'Intent memory', 'phase-ledger': 'Phase ledger', 'github-closures': 'GitHub closures',
+};
+
+/** The human name of a daemon source id; an unknown id is its own name. */
+export const sourceName = (id: string): string => sourceNames[id] ?? id;
+
+/** A source row named for people, with the daemon id as secondary `detail` when the name differs. */
+function sourceRow(id: string, availability: unknown): SettingsRow {
+  const name = sourceName(id);
+  return { ...availabilityRow(name, availability), ...name === id ? {} : { detail: id } };
+}
+
 const objectOf = (value: unknown): Record<string, unknown> | undefined => (value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : undefined);
 
 function reportedSources(reported: Record<string, unknown> | undefined): Record<string, unknown>[] {
@@ -32,5 +47,5 @@ export function sourceRows(health: unknown): SettingsRow[] {
   const entries = reportedSources(reported);
   const root = reported?.agentRootAvailability;
   if (root === undefined && entries.length === 0) return [{ label: 'Source adapters', value: notReported, tone: 'plain' }];
-  return [availabilityRow('Agent directory', root), ...entries.map(entry => availabilityRow(String(entry.source), entry.availability))];
+  return [availabilityRow('Agent directory', root), ...entries.map(entry => sourceRow(String(entry.source), entry.availability))];
 }

@@ -96,7 +96,8 @@ export function Help(props: { width: number; height: number; scroll?: number }) 
 }
 
 const tone: Record<Tone, Color> = { good: 'green', warn: 'amber', bad: 'red', plain: 'text' };
-const section = (title: string, rows: SettingsRow[]): Line[] => [heading(title), ...rows.map((row): Line => [t(row.label.padEnd(18), 'muted'), t(row.value, tone[row.tone])]), blank];
+/** A row is its label and value; a row's secondary `detail` (a source's id) sits on a faint line of its own so a long value never clips it. */
+const section = (title: string, rows: SettingsRow[], labelWidth = 18): Line[] => [heading(title), ...rows.flatMap((row): Line[] => [[t(row.label.padEnd(labelWidth), 'muted'), t(row.value, tone[row.tone])], ...row.detail ? [[t(`  ${row.detail}`, 'faint')]] : []]), blank];
 
 /** The same samples the web Settings shows, in the theme this terminal is drawing with. */
 function themeLines(): Line[] {
@@ -111,7 +112,7 @@ function themeLines(): Line[] {
 export function settingsViewport(size: { width: number; height: number }, input: SettingsInput, health: Record<string, unknown> | null = null) {
   const model = settingsViewModel({ ...input, daemonHealth: input.daemonHealth ?? health });
   const daemon = daemonHealthRows(health);
-  const lines = [...section('Health', model.health), ...(daemon.length > 0 ? section('Daemon health', daemon) : []), ...section('Data', model.data), ...section('Sources', model.sources), ...themeLines()];
+  const lines = [...section('Health', model.health), ...(daemon.length > 0 ? section('Daemon health', daemon) : []), ...section('Data', model.data), ...section('Sources', model.sources, 20), ...themeLines()];
   return overlayViewport(size, lines, { width: 76, height: 27 });
 }
 

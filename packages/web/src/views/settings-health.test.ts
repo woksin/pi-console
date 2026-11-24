@@ -46,3 +46,10 @@ test('source facts pluralise, tone follows errors and unlisted sources get no fa
   assert.deepEqual(other, rows[1]);
   assert.deepEqual([bad.value, bad.tone], ['unknown · 2 errors', 'warn']);
 });
+
+test('named source rows still pick up the facts reported under their daemon id', () => {
+  const named: SettingsRow = { label: 'Session transcripts', detail: 'session-jsonl', value: 'available', tone: 'good' };
+  const [row] = healthSourceRows(health, [named]);
+  assert.equal(row.label, 'Session transcripts');
+  assert.match(row.value, /^available · 12 files/);
+});

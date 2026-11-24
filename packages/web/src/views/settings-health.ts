@@ -54,7 +54,7 @@ const sourceEntries = (health: Record<string, unknown> | undefined): Map<string,
 export function healthSourceRows(health: unknown, sources: readonly SettingsRow[]): SettingsRow[] {
   const entries = sourceEntries(objectOf(health));
   return sources.map(row => {
-    const entry = entries.get(row.label);
+    const entry = entries.get(row.detail ?? row.label);
     const errored = typeof entry?.errors === 'number' && entry.errors !== 0;
     return { ...row, value: [row.value, ...entry === undefined ? [] : sourceFacts(entry)].join(' · '), tone: row.tone === 'plain' && errored ? 'warn' : row.tone };
   });

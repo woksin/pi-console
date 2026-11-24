@@ -125,8 +125,8 @@ test('new attention items get a divider and a tag until the Overview is left', a
   assert.doesNotMatch(await frame(items), /new since you looked/);
 });
 
-test('fleet totals wrap the known-cost qualifier at a word boundary inside the panel width', () => {
-  const lines = fleetTotals({ fleet: { tokens: '2.7M', cost: '$82.85 (known; 14/16 sessions)' } } as never, 33).map(text);
-  assert.deepEqual(lines, ['tokens 2.7M', 'cost $82.85 (known; 14/16', 'sessions)']);
-  assert.ok(lines.every(line => Array.from(line).length <= 33));
+test('fleet totals show the partial marker and the pricing coverage as secondary text', () => {
+  const lines = fleetTotals({ fleet: { tokens: '2.7M', cost: '≥$82.85' } } as never, '14/16 sessions priced').map(text);
+  assert.deepEqual(lines, ['tokens 2.7M', 'cost ≥$82.85', '     14/16 sessions priced']);
+  assert.deepEqual(fleetTotals({ fleet: { tokens: '2.7M', cost: '$82.85' } } as never).map(text), ['tokens 2.7M', 'cost $82.85']);
 });

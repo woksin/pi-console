@@ -135,8 +135,10 @@
   .grid[aria-label='Fleet'] td, .grid[aria-label='Fleet'] th { padding-left: 8px; padding-right: 8px; }
   .grid[aria-label='Fleet'] .pressure-track { width: 64px; }
 }
-.tday-head { position: sticky; top: 0; z-index: 1; margin: 0; padding: 3px 14px; background: var(--panel); border-bottom: 1px solid var(--border); color: var(--muted); font-size: var(--type-caption); font-weight: 650; letter-spacing: 0.02em; }
-.tday .tline, .tday .reset-marker { scroll-margin-top: 28px; }
+.tday-head { position: sticky; top: 0; z-index: 2; height: 28px; box-sizing: border-box; display: flex; align-items: center; margin: 0; padding: 3px 14px; background: var(--panel); border-bottom: 1px solid var(--border); color: var(--muted); font-size: var(--type-caption); font-weight: 650; letter-spacing: 0.02em; }
+/* A resting scroll position lands a row's top just under the sticky date header (proximity snap, header-height margin), so no row is left half hidden beneath it. */
+.transcript { scroll-snap-type: y proximity; scroll-padding-top: 28px; }
+.tday .tline, .tday .reset-marker { scroll-margin-top: 28px; scroll-snap-align: start; }
 .tline { display: grid; grid-template-columns: 28px 1fr; gap: 6px; padding: 7px 14px; border-left: 3px solid transparent; cursor: default; }
 .tline:hover { background: color-mix(in oklab, var(--raised) 55%, transparent); }
 .tline.selected { background: var(--select); border-left-color: var(--cyan); }

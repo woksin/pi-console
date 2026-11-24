@@ -32,11 +32,16 @@ const reported = { agentRootAvailability: 'missing', sources: [{ source: 'issue-
 test('source rows show each reported availability with a warning tone for missing and unavailable directories', () => {
   const rows = settingsViewModel({ ...input, daemonHealth: reported }).sources;
   assert.deepEqual(rows.map(row => [row.label, row.value, row.tone]), [
-    ['Agent directory', 'missing directory — check startup paths', 'warn'], ['issue-work', 'missing directory — check startup paths', 'warn'],
-    ['context-budget', 'available', 'good'], ['phase-ledger', 'directory unavailable — check startup paths', 'warn'], ['lane-messages', 'availability not reported', 'plain'],
+    ['Agent directory', 'missing directory — check startup paths', 'warn'], ['Issue register', 'missing directory — check startup paths', 'warn'],
+    ['Context budget', 'available', 'good'], ['Phase ledger', 'directory unavailable — check startup paths', 'warn'], ['Lane messages', 'availability not reported', 'plain'],
   ]);
   const recovered = settingsViewModel({ ...input, daemonHealth: { agentRootAvailability: 'available', sources: [{ source: 'issue-work', availability: 'available' }] } }).sources;
   assert.deepEqual(recovered.map(row => row.tone), ['good', 'good']);
+});
+
+test('source rows name sources for people, keep the id as detail and fall back to an unknown id', () => {
+  const rows = settingsViewModel({ ...input, daemonHealth: { sources: [{ source: 'session-jsonl' }, { source: 'issue-work' }, { source: 'lane-messages' }, { source: 'future-source' }] } }).sources;
+  assert.deepEqual(rows.slice(1).map(row => [row.label, row.detail]), [['Session transcripts', 'session-jsonl'], ['Issue register', 'issue-work'], ['Lane messages', 'lane-messages'], ['future-source', undefined]]);
 });
 
 test('a legacy or malformed health payload reports availability as not reported instead of inventing it', () => {

@@ -11,16 +11,29 @@ export function sessionCost(session: Session): number | null {
 export function sessionCostLabel(session: Session): string {
   const cost = sessionCost(session);
   if (cost === null) return '—';
-  return `${money(cost)}${session.costIncomplete ? ' (known)' : ''}`;
+  return `${session.costIncomplete ? '≥' : ''}${money(cost)}`;
 }
 
-export function fleetCostLabel(sessions: readonly Session[]): string {
-  const known = sessions.flatMap(session => {
+function knownCosts(sessions: readonly Session[]): number[] {
+  return sessions.flatMap(session => {
     const cost = sessionCost(session);
     return cost === null ? [] : [cost];
   });
+}
+
+const isPartial = (sessions: readonly Session[], known: readonly number[]): boolean => known.length < sessions.length || sessions.some(session => session.costIncomplete);
+
+/** `—` unknown, `$x` complete, `≥$x` partial; the coverage lives in {@link fleetCostCoverage}. */
+export function fleetCostLabel(sessions: readonly Session[]): string {
+  const known = knownCosts(sessions);
   if (known.length === 0) return '—';
   const total = money(known.reduce((sum, value) => sum + value, 0));
-  if (known.length === sessions.length && !sessions.some(session => session.costIncomplete)) return total;
-  return `${total} (known; ${String(known.length)}/${String(sessions.length)} sessions)`;
+  return isPartial(sessions, known) ? `≥${total}` : total;
+}
+
+/** Secondary text for a partial fleet total ("28/30 sessions priced"); undefined when the total is complete or unknown. */
+export function fleetCostCoverage(sessions: readonly Session[]): string | undefined {
+  const known = knownCosts(sessions);
+  if (known.length === 0 || !isPartial(sessions, known)) return undefined;
+  return `${String(known.length)}/${String(sessions.length)} sessions priced`;
 }

@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Session } from '@pi-console/contract';
-import { sessionCost, sessionCostLabel, fleetCostLabel } from './session-cost.ts';
+import { sessionCost, sessionCostLabel, fleetCostLabel, fleetCostCoverage } from './session-cost.ts';
 
 const session: Session = {
   id: 's', repositoryId: '/repo', name: 'repo', laneId: 'unassigned', branch: '', cwd: '/repo', role: 'main',
@@ -15,7 +15,7 @@ test('unknown, explicit zero, known subtotal and legacy samples are distinct', (
   assert.equal(sessionCost(sampled(1.5)), 1.5);
   assert.equal(sessionCost({ ...sampled(2), costUsd: null }), null);
   assert.equal(sessionCostLabel({ ...session, costUsd: 0 }), '$0.00');
-  assert.equal(sessionCostLabel({ ...session, costUsd: 1.5, costIncomplete: true }), '$1.50 (known)');
+  assert.equal(sessionCostLabel({ ...session, costUsd: 1.5, costIncomplete: true }), '≥$1.50');
   assert.equal(sessionCostLabel({ ...sampled(1), costUsd: null }), '—');
 });
 
@@ -24,6 +24,9 @@ test('fleet totals disclose coverage without counting unknown sessions as comple
   assert.equal(fleetCostLabel([session, sampled(0)]), '—');
   assert.equal(fleetCostLabel([sampled(1), sampled(2)]), '$3.00');
   assert.equal(fleetCostLabel([{ ...session, costUsd: 0 }]), '$0.00');
-  assert.equal(fleetCostLabel([session, sampled(2)]), '$2.00 (known; 1/2 sessions)');
-  assert.equal(fleetCostLabel([{ ...session, costUsd: 0, costIncomplete: true }]), '$0.00 (known; 1/1 sessions)');
+  assert.equal(fleetCostLabel([session, sampled(2)]), '≥$2.00');
+  assert.equal(fleetCostCoverage([session, sampled(2)]), '1/2 sessions priced');
+  assert.equal(fleetCostCoverage([sampled(1), sampled(2)]), undefined);
+  assert.equal(fleetCostCoverage([session]), undefined);
+  assert.equal(fleetCostLabel([{ ...session, costUsd: 0, costIncomplete: true }]), '≥$0.00');
 });
