@@ -21,7 +21,7 @@ before(async () => {
 });
 after(async () => { await server.close(); });
 
-test('mock status dependencies render directed edges, titles and and a plain-language legend', () => {
+test('mock status dependencies render directed edges, titles and a plain-language legend', () => {
   const state = { ...emptyState(), graph: graph(generate().fixture) };
   const html = renderToStaticMarkup(createElement(StoreContext.Provider, { value: new ConsoleStore(createApi('unused')) }, createElement(GraphView, { state })));
   for (const kind of ['waiting-on', 'barred-by']) {
