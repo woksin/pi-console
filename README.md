@@ -32,6 +32,13 @@ npm run console
 
 Open the printed web URL and paste the contents of the printed token file into the connection screen. You'll see **Needs you**, a fleet overview, and sample requests, questions and transcripts. The launcher builds the web client and starts an isolated demo daemon; it reads no local pi data. **Ctrl-C** stops it and removes its temporary data and token.
 
+<table>
+<tr>
+<td><a href="docs/media/web-connect.webp"><img src="docs/media/web-connect.webp" width="280" alt="Midnight connection screen with an access-token field and Connect button"></a><br>Connect to the daemon</td>
+<td><a href="docs/media/web-first-run.webp"><img src="docs/media/web-first-run.webp" width="280" alt="Midnight Overview with no sessions and a getting-started checklist"></a><br>First run with no source data (not the populated demo)</td>
+</tr>
+</table>
+
 <details>
 <summary>Demo, real data and the terminal client</summary>
 
@@ -74,6 +81,7 @@ node packages/cli/bin/pi-console.mjs tui --help
 
 </details>
 
+<a id="optional-pi-extension-and-memory-review"></a>
 <details>
 <summary>Optional pi extension and memory review</summary>
 
@@ -98,11 +106,31 @@ Overview groups open requests, possibly unseen answers, blocking questions and b
 
 <img src="docs/media/web-tour.gif" alt="Web keyboard tour moving from Overview to Fleet, a session reset divider and the Timeline" width="900">
 
+### Follow live updates
+
+A session finishes in Fleet, then a new blocking question raises the **Needs you** count and adds a session chip on Overview. Updates arrive through live ingestion without a page reload.
+
+<table>
+<tr>
+<td><a href="docs/media/web-live-fleet.gif"><img src="docs/media/web-live-fleet.gif" width="280" alt="Midnight Fleet marking a session Done, then Overview showing a higher Needs you count and a new session chip"></a><br>Live fleet and attention updates</td>
+</tr>
+</table>
+
 ### Find a session without leaving the keyboard
 
 `Ctrl+P` or `:` opens the command palette. Prefixes narrow the search: `>` commands, `@` sessions and lanes, `#` questions and requests, `/` messages. Use `1`–`7` to switch views, `j`/`k` to move, `Enter` to open, `Esc` to go back and `?` for help.
 
 <img src="docs/media/web-palette.gif" alt="Command palette filtering sessions, lanes and questions, then opening the selected session" width="900">
+
+### Review memory with confirmation in pi
+
+A **Confirm…** request moves through awaiting native human confirmation in pi, then awaiting canonical producer ingestion. Only the ingested change makes the proposed item active. The console does not confirm or write memory itself. See the [optional extension setup](#optional-pi-extension-and-memory-review) above.
+
+<table>
+<tr>
+<td><a href="docs/media/web-memory-review.gif"><img src="docs/media/web-memory-review.gif" width="280" alt="Midnight memory review moving from a request through awaiting confirmation in pi and producer ingestion to an active item"></a><br>Request → human confirmation in pi → canonical ingestion → active</td>
+</tr>
+</table>
 
 ### The same data in your terminal
 
