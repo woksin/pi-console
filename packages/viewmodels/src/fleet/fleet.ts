@@ -22,7 +22,7 @@ export const fleetColumns = [
 ] as const;
 
 const attentionStatuses = new Set(['needs-you', 'blocked', 'failed']);
-const text = (session: Session) => `${session.name} ${session.laneId} ${session.branch} ${session.status} ${session.role}`;
+const text = (session: Session) => `${sessionLabels(session).name} ${session.name} ${session.id} ${session.laneId} ${session.branch} ${session.status} ${session.role}`;
 
 /** Parents before their subagents, so a lane's workers sit directly beneath it. */
 function ordered(sessions: readonly Session[]): { session: Session; depth: number }[] {

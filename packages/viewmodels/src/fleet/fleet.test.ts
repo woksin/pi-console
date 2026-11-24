@@ -22,6 +22,22 @@ test('collapsing hides a group and the query filters with fuzzy match', () => {
   assert.ok(filtered.rows.some(row => row.kind === 'session' && row.name.includes('review')));
 });
 
+test('the filter matches the displayed fallback name as well as the raw name and id', () => {
+  const session = { ...fixture.sessions[0], id: 'abcdef01-1234', name: '/work/repo', repositoryId: '/work/repo', cwd: '/work/repo', laneId: 'unassigned', parentSessionId: null };
+  const sessions = [session, { ...session, id: 'other-session-id', name: 'Different' }];
+  const model = fleetViewModel({ sessions, now });
+  const row = model.rows.find(row => row.kind === 'session' && row.id === session.id);
+  assert.ok(row?.kind === 'session');
+  assert.equal(row.name, 'abcdef01 repo');
+  for (const query of [row.name, session.name, session.id]) {
+    const filtered = fleetViewModel({ sessions: [session], now, query });
+    assert.equal(filtered.matched, 1, query);
+    assert.ok(filtered.rows.some(row => row.kind === 'session' && row.id === session.id), query);
+  }
+  assert.equal(fleetViewModel({ sessions, now, query: row.name }).matched, 1);
+  assert.equal(fleetViewModel({ sessions, now, query: 'absent label' }).matched, 0);
+});
+
 test('the clock-free structure formats the same rows for any clock and matches the wrapper', () => {
   const input = { sessions: fixture.sessions, collapsed: new Set(['aurora']), query: '' };
   const structure = fleetStructure(input);

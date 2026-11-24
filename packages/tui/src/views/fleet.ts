@@ -29,13 +29,15 @@ function sessionName(row: SessionRow, width: number, measure?: TextWidth): Line 
   return [t(pad(indent + row.name, width, measure), row.role === 'subagent' ? 'muted' : 'text')];
 }
 
+const compactCost = (cost: string): string => cost === 'unknown —' ? '—' : cost.replace(/^(.*) \(known\)$/, '≥$1');
+
 function sessionLine(row: SessionRow, layout: Columns, env: Env, selected: boolean) {
   return selectable([
     t('  '), ...sessionName(row, layout.name, env.measure), t(' '),
     ...statusParts(row.status, env.phase, false), t(' '), t(pad(row.status.label, 10), row.status.color), t(' '),
     ...pressureBar(row.contextPercent, layout.context - 5), t(padStart(`${String(row.contextPercent)}%`, 5), pressureTone(row.pressure)),
     ...(layout.spark ? [t(' '), t(row.spark.padEnd(12), 'faint')] : []),
-    ...(layout.details ? [t(padStart(clip(row.cost, 7, env.measure), 7, env.measure), 'faint'), t(padStart(row.age, 6), 'muted')] : []),
+    ...(layout.details ? [t(padStart(clip(compactCost(row.cost), 7, env.measure), 7, env.measure), 'faint'), t(padStart(row.age, 6), 'muted')] : []),
   ], layout.width, selected, { flash: env.data.fresh.has(row.id), measure: env.measure });
 }
 

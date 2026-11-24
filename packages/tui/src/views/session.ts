@@ -220,7 +220,7 @@ export function sessionView(env: Env): SectionView {
       h(Row, { grow: 1, gap: 1 },
         h(Panel, { title, right: status, grow: 1, focused: true, accent: following ? 'green' : 'amber' },
           h(Lines, { lines, grow: 1 })),
-        ...contextPanel(model, ui.pane, { width: side, measure: env.measure }, () => memoryLines(memoryPanelViewModel({ memory: data.memory.get(model.id) ?? null, items: data.memoryItems.get(model.id) ?? [], now: env.now, review: data.memoryReviews.get(model.id) }), { width: side - 4, measure: env.measure }, ui.memoryIndex, data.memoryHistory.get(model.id))))),
+        ...contextPanel(model, ui.pane, { width: side, measure: env.measure }, () => memoryLines(memoryPanelViewModel({ memory: data.memory.get(model.id) ?? null, items: data.memoryItems.get(model.id) ?? [], now: env.now, review: data.memoryReviews.get(model.id), sessionNames: new Map(data.sessions.map(session => [session.id, session.name])) }), { width: side - 4, measure: env.measure }, ui.memoryIndex, data.memoryHistory.get(model.id))))),
   };
 }
 

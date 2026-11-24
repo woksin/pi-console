@@ -1,7 +1,10 @@
 import type { LaneModel } from '../projections/lanes.ts';
 
 /** Lexical only: no filesystem access, case folding or basename association. */
-export const normalizedCwd = (cwd: string): string => cwd ? cwd.replace(/\\/g, '/').replace(/\/+$/, '') || '/' : '';
+export function normalizedCwd(cwd: string): string {
+  const path = cwd.trim();
+  return path ? path.replace(/\\/g, '/').replace(/\/+$/, '') || '/' : '';
+}
 export type LaneLookup = ReadonlyMap<string, ReadonlyMap<string, LaneModel>>;
 
 export function laneLookup(rows: Record<string, LaneModel>): LaneLookup {
