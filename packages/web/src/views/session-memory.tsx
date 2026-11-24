@@ -62,7 +62,7 @@ export function SessionMemory({ id }: { id: string }) {
   const now = clockNow(state, Date.now());
   useEffect(() => store.watchSessionMemory(id), [store, id]);
   const memory = state.memory[id] ?? null;
-  const sessionNames = useMemo(() => new Map(state.sessions.map(session => [session.id, sessionLabels(session).title])), [state.sessions]);
+  const sessionNames = useMemo(() => new Map(state.sessions.map(session => [session.id, sessionLabels(session)])), [state.sessions]);
   const view = memoryPanelViewModel({ memory, items: state.memoryItems[id] ?? [], now, review: state.memoryReviews.get(id), sessionNames });
   const status = state.memoryStatus[id];
   const notice = <MemoryNotice status={status} stale={view.available} retry={() => { void store.loadSessionMemory(id); }} />;

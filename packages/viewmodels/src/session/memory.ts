@@ -1,11 +1,12 @@
 import type { MemoryItem, SessionMemory, ThemeToken } from '@pi-console/contract';
 import { age, clip, sanitize } from '../format/format.ts';
+import { fitSessionLabel, type SessionLabel } from '../format/session-labels.ts';
 import { emptyMemoryReview, memoryReviewHint, memoryReviewPending, memoryReviewRetryable, type MemoryReviewProgress, type MemoryReviewSession } from './memory-review.ts';
 
 export interface MemoryPanelInput {
   memory: SessionMemory | null; items: readonly MemoryItem[]; now: number; review?: MemoryReviewSession;
-  /** Optional session id → display name; an id with no name falls back to a short id. */
-  sessionNames?: ReadonlyMap<string, string>;
+  /** Optional session id → display identity; an id with no name falls back to a short id. */
+  sessionNames?: ReadonlyMap<string, Pick<SessionLabel, 'name' | 'lane'>>;
 }
 export interface MemoryPanelItem {
   id: string; kind: MemoryItem['kind']; scope: string; status: MemoryItem['status']; statusLabel: string;
@@ -52,12 +53,12 @@ function unresolvedText(memory: SessionMemory): string {
 
 const shortId = (id: string): string => clip(sanitize(id), 8);
 
-function scopeLabel(item: MemoryItem, names: ReadonlyMap<string, string> | undefined): string {
+function scopeLabel(item: MemoryItem, names: MemoryPanelInput['sessionNames']): string {
   const { kind, key } = item.scope;
-  return kind === 'session' ? `session ${clip(sanitize(names?.get(key) ?? shortId(key)), 24)}` : `${kind}:${sanitize(key)}`;
+  return kind === 'session' ? `session ${fitSessionLabel(names?.get(key) ?? { name: shortId(key), lane: '' }, 24)}` : `${kind}:${sanitize(key)}`;
 }
 
-function itemOf(item: MemoryItem, context: { review: MemoryReviewSession; busy: boolean; now: number; names?: ReadonlyMap<string, string> }): MemoryPanelItem {
+function itemOf(item: MemoryItem, context: { review: MemoryReviewSession; busy: boolean; now: number; names?: MemoryPanelInput['sessionNames'] }): MemoryPanelItem {
   const { review, busy } = context;
   const scope = scopeLabel(item, context.names);
   return {

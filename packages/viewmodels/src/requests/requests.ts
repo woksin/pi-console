@@ -1,7 +1,7 @@
 import type { Request, RequestEvidence, Session } from '@pi-console/contract';
 import type { Action } from '../keymap/keymap.ts';
 import { age, sanitize } from '../format/format.ts';
-import { sessionLabels } from '../format/session-labels.ts';
+import { sessionLabels, type SessionLabel } from '../format/session-labels.ts';
 import { statusCell, type StatusCell } from '../format/status-cell.ts';
 
 /**
@@ -20,7 +20,7 @@ export const requestOriginFilters: readonly RequestOriginFilter[] = ['all', 'hum
 export interface TranscriptLink { sessionId: string; entryId: string; fileOffset: number | null }
 export interface Excerpt { text: string; withheld: boolean; age: string }
 export interface RequestsRow {
-  id: string; sessionId: string; session: string; origin: Request['origin']; originLabel: string; status: StatusCell;
+  id: string; sessionId: string; session: SessionLabel; origin: Request['origin']; originLabel: string; status: StatusCell;
   text: string; withheld: boolean; age: string; answer: Excerpt | null;
   /** Shown beside the status whenever the pairing is heuristic; `null` when it is not. */
   uncertain: string | null;
@@ -66,22 +66,22 @@ function matchesState(request: Request, state: RequestStateFilter): boolean {
   return request.status === state;
 }
 
-const matches = (request: Request, filter: Required<RequestsFilter>, names: ReadonlyMap<string, string>) =>
+const matches = (request: Request, filter: Required<RequestsFilter>, names: ReadonlyMap<string, SessionLabel>) =>
   matchesState(request, filter.state) && (filter.origin === 'all' || request.origin === filter.origin)
   && (filter.sessionId === null || request.sessionId === filter.sessionId) && matchesQuery(request, filter.query, names);
 
 /** Free-text filter over what a row shows: request text, session name, origin label and state. Withheld text is never searched. */
-function matchesQuery(request: Request, query: string, names: ReadonlyMap<string, string>): boolean {
+function matchesQuery(request: Request, query: string, names: ReadonlyMap<string, SessionLabel>): boolean {
   const wanted = query.trim().toLowerCase();
   if (wanted === '') return true;
   const text = request.withheld === true ? '' : request.text;
-  return `${text} ${names.get(request.sessionId) ?? request.sessionId} ${request.originLabel} ${request.status}`.toLowerCase().includes(wanted);
+  return `${text} ${names.get(request.sessionId)?.title ?? request.sessionId} ${request.originLabel} ${request.status}`.toLowerCase().includes(wanted);
 }
 
-function row(request: Request, names: ReadonlyMap<string, string>, now: number): RequestsRow {
+function row(request: Request, names: ReadonlyMap<string, SessionLabel>, now: number): RequestsRow {
   const answer = request.answer;
   return {
-    id: request.id, sessionId: request.sessionId, session: names.get(request.sessionId) ?? request.sessionId,
+    id: request.id, sessionId: request.sessionId, session: names.get(request.sessionId) ?? { name: request.sessionId, lane: '', title: request.sessionId },
     origin: request.origin, originLabel: request.originLabel, status: statusCell(request.status),
     text: shown(request.text, request.withheld === true), withheld: request.withheld === true, age: age(request.createdAt, now),
     answer: answer ? { text: shown(answer.text, request.answerWithheld === true), withheld: request.answerWithheld === true, age: age(answer.at, now) } : null,
@@ -92,7 +92,7 @@ function row(request: Request, names: ReadonlyMap<string, string>, now: number):
   };
 }
 
-const sessionNames = (sessions: readonly Session[]) => new Map(sessions.map(session => [session.id, sessionLabels(session).title]));
+const sessionNames = (sessions: readonly Session[]) => new Map(sessions.map(session => [session.id, sessionLabels(session)]));
 
 export function requestsViewModel(input: { requests: readonly Request[]; sessions: readonly Session[]; now: number; filter?: RequestsFilter }): RequestsViewModel {
   const filter: Required<RequestsFilter> = { state: input.filter?.state ?? 'all', origin: input.filter?.origin ?? 'all', sessionId: input.filter?.sessionId ?? null, query: input.filter?.query ?? '' };
@@ -104,7 +104,7 @@ export function requestsViewModel(input: { requests: readonly Request[]; session
   const sessionIds = [...new Set(input.requests.map(request => request.sessionId))].sort();
   return {
     rows, open: count('open') + count('unanswered'), uncertain: count('uncertain'), possiblyUnseen: count('possibly-unseen'), filter,
-    sessions: sessionIds.map(id => ({ id, name: names.get(id) ?? id })),
+    sessions: sessionIds.map(id => ({ id, name: names.get(id)?.title ?? id })),
   };
 }
 

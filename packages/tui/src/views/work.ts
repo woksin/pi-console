@@ -1,4 +1,4 @@
-import { emptyStates, filterWorkRows, lastInput, workRowAt, workStructure, pad } from '@pi-console/viewmodels';
+import { fitSessionLabel, emptyStates, filterWorkRows, lastInput, workRowAt, workStructure, pad } from '@pi-console/viewmodels';
 import { Lines, Panel, h, type Line } from '../view/renderer.ts';
 import { listFilter } from '../state/ui.ts';
 import { selectable, split, statusParts, t, windowOf } from '../view/parts.ts';
@@ -18,7 +18,7 @@ export function workView(env: Env): SectionView {
   const { start, end } = windowOf(rows.length, cursor, Math.max(1, env.height - 4));
   const lines = rows.slice(start, end).map(entry => workRowAt(entry, env.now)).map((row, offset): Line => selectable(split(
     [...statusParts(row.status, env.phase, false), t(' '), t(pad(row.status.label, 9), row.status.color), t(pad(row.kind, 6), 'violet'), t(row.name, 'text'), t(row.exit ? `  ${row.exit}` : '', row.exit === 'exit 0' ? 'green' : 'red')],
-    [t(pad(row.session, 24, env.measure), 'muted'), t(row.age.padStart(4), 'faint')], width - 1, { measure: env.measure }), width, start + offset === cursor, { flash: env.data.fresh.has(row.id), measure: env.measure }));
+    [t(pad(fitSessionLabel(row.session, 24, env.measure), 24, env.measure), 'muted'), t(row.age.padStart(4), 'faint')], width - 1, { measure: env.measure }), width, start + offset === cursor, { flash: env.data.fresh.has(row.id), measure: env.measure }));
   return {
     length: rows.length,
     rowAt: index => ({ sessionId: env.data.jobs.find(job => job.id === rows[clampCursor(index)]?.id)?.sessionId ?? null, groupId: null }),

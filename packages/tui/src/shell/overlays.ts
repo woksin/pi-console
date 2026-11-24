@@ -97,7 +97,7 @@ export function Help(props: { width: number; height: number; scroll?: number }) 
 
 const tone: Record<Tone, Color> = { good: 'green', warn: 'amber', bad: 'red', plain: 'text' };
 /** A row is its label and value; a row's secondary `detail` (a source's id) sits on a faint line of its own so a long value never clips it. */
-const section = (title: string, rows: SettingsRow[], labelWidth = 18): Line[] => [heading(title), ...rows.flatMap((row): Line[] => [[t(row.label.padEnd(labelWidth), 'muted'), t(row.value, tone[row.tone])], ...row.detail ? [[t(`  ${row.detail}`, 'faint')]] : []]), blank];
+const section = (title: string, rows: SettingsRow[], labelWidth = 18): Line[] => [heading(title), ...rows.flatMap((row): Line[] => [[t(row.label.padEnd(Math.max(labelWidth, row.label.length + 1)), 'muted'), t(row.value, tone[row.tone])], ...row.detail ? [[t(`  ${row.detail}`, 'faint')]] : []]), blank];
 
 /** The same samples the web Settings shows, in the theme this terminal is drawing with. */
 function themeLines(): Line[] {

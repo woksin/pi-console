@@ -42,6 +42,8 @@ test('multiple sessions in one lane do not duplicate lane nodes; spawn links sta
   assert.equal(view.lanes[0].edges[0].count, 8);
   assert.deepEqual(view.sessions[0].edges.map(edge => [edge.kind, edge.from, edge.to]), [['spawn', 'parent', 'child'], ['spawn', 'parent', 'sibling']]);
   assert.deepEqual(view.sessions[0].nodes.map(node => node.sessionId), ['parent', 'child', 'sibling']);
+  assert.deepEqual(view.sessions[0].nodes.map(node => node.identity?.lane), ['L0', 'L192', 'L192']);
+  assert.ok(view.sessions[0].nodes.every(node => node.identity?.title === node.label));
 });
 
 test('time scrub is a last-activity cutoff, never a reconstruction of historical counts', () => {

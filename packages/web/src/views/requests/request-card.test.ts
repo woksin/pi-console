@@ -15,7 +15,7 @@ before(async () => {
 after(async () => { await server.close(); });
 
 const row: RequestsRow = {
-  id: 'request-a11y', sessionId: 's2', session: 'Session two', origin: 'human', originLabel: 'Classified as human',
+  id: 'request-a11y', sessionId: 's2', session: { name: 'Session two', lane: '', title: 'Session two' }, origin: 'human', originLabel: 'Classified as human',
   status: { status: 'open', label: 'Open', color: 'cyan', glyph: '○' }, text: 'Explain <this> request', withheld: false, age: '1m',
   answer: null, uncertain: null, possiblyUnseen: null, source: 'Session transcript', transcript: null,
 };

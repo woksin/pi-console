@@ -21,11 +21,15 @@ const item: MemoryItem = {
   withheld: false, sourceType: 'coordinator_order', sourceMessageId: null, at: '2026-11-20T09:00:00.000Z', command: null,
 };
 
-for (const [scope, label] of [['named-session-id', 'Planner'], ['missing-session-id', 'missing…']]) {
+for (const [scope, label, name, laneId] of [
+  ['named-session-id', 'Planner', 'Planner', 'unassigned'],
+  ['missing-session-id', 'missing…', 'Planner', 'unassigned'],
+  ['named-session-id', 'aurora implement… · L192', 'aurora implementation with a long name', 'L192'],
+]) {
   test(`the memory rail and overlay show session ${label} for scope ${scope}`, async () => {
     const store = new Store();
     const data = {
-      ...store.getSnapshot(), loaded: true, sessions: [session, { ...session, id: 'named-session-id', name: 'Planner' }],
+      ...store.getSnapshot(), loaded: true, sessions: [session, { ...session, id: 'named-session-id', name, laneId }],
       memory: new Map([['s1', memory]]), memoryItems: new Map([['s1', [{ ...item, scope: { kind: 'session' as const, key: scope } }]]]),
     };
     const now = Date.parse('2026-11-20T09:25:00.000Z');
@@ -34,7 +38,8 @@ for (const [scope, label] of [['named-session-id', 'Planner'], ['missing-session
     const ui = await mountHeadless(h(Screen, {}, view.render()), size);
     try {
       await ui.settle();
-      assert.ok(ui.frame().includes(`session ${label}`), ui.frame());
+      const rail = ui.frame().split('\n').map(line => line.split('│').at(-2)?.trim() ?? '').join(' ');
+      assert.ok(rail.includes(`session ${label}`), ui.frame());
       const overlay = memoryViewport(size, { data, sessionId: 's1', index: 0, now }, displayWidth);
       const text = overlay.lines.map(line => line.map(part => part.text).join('')).join('\n');
       assert.ok(text.includes(`session ${label}`), text);

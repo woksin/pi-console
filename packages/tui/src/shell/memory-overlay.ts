@@ -17,7 +17,7 @@ const boxOf = (size: Size) => frame(size.width, size.height, size);
 export function memoryViewport(size: Size, view: MemoryView, measure: TextWidth) {
   const box = boxOf(size);
   const id = view.sessionId ?? '';
-  const panel = memoryPanelViewModel({ memory: view.data.memory.get(id) ?? null, items: view.data.memoryItems.get(id) ?? [], now: view.now, review: view.data.memoryReviews.get(id), sessionNames: new Map(view.data.sessions.map(session => [session.id, sessionLabels(session).title])) });
+  const panel = memoryPanelViewModel({ memory: view.data.memory.get(id) ?? null, items: view.data.memoryItems.get(id) ?? [], now: view.now, review: view.data.memoryReviews.get(id), sessionNames: new Map(view.data.sessions.map(session => [session.id, sessionLabels(session)])) });
   const index = Math.max(0, Math.min(view.index, panel.items.length - 1));
   const lines = memoryDocument(panel, { width: box.width - 4, measure }, index, view.data.memoryHistory.get(id));
   const page = Math.max(1, box.height - 4);

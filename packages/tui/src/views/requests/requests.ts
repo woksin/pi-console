@@ -1,5 +1,5 @@
 import type { Request } from '@pi-console/contract';
-import { describeRequestFilter, emptyStates, pad, requestsViewModel, type RequestsRow, type RequestsViewModel } from '@pi-console/viewmodels';
+import { fitSessionLabel, describeRequestFilter, emptyStates, pad, requestsViewModel, type RequestsRow, type RequestsViewModel } from '@pi-console/viewmodels';
 import { Column, Lines, Panel, Row, h, type Line } from '../../view/renderer.ts';
 import { fit, selectable, split, statusParts, t, windowOf } from '../../view/parts.ts';
 import { emptyLines, shownOf, whenLoaded, type Env, type SectionView } from '../common.ts';
@@ -19,7 +19,7 @@ function rowLine(row: RequestsRow, env: Env, width: number, selected: boolean): 
   const text = t(row.text, row.withheld ? 'faint' : 'text', row.withheld ? { italic: true } : {});
   return selectable(split(
     [...statusParts(row.status, env.phase, false), t(' '), t(pad(row.status.label, 12), row.status.color), t(` ${originGlyph[row.origin]} `, originColor(row)), ...flags(row), text],
-    [t(pad(row.session, width >= 100 ? 22 : 14, env.measure), 'muted'), t(row.age.padStart(4), 'faint')], width - 1, { measure: env.measure }), width, selected, { measure: env.measure });
+    [t(pad(fitSessionLabel(row.session, width >= 100 ? 22 : 14, env.measure), width >= 100 ? 22 : 14, env.measure), 'muted'), t(row.age.padStart(4), 'faint')], width - 1, { measure: env.measure }), width, selected, { measure: env.measure });
 }
 
 const summaryLine = (model: RequestsViewModel): Line => [t(` ${describeRequestFilter(model)}`, 'muted'), t(`  ${String(model.rows.length)} shown · ${String(model.uncertain)} uncertain · ${String(model.possiblyUnseen)} unseen?`, 'faint')];

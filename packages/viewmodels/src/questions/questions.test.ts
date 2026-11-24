@@ -16,7 +16,7 @@ test('the filter matches question text and session name, ignoring case', () => {
   assert.deepEqual(filterQuestionRows(rows, ''), rows);
   const text = rows[0].text.slice(1, 6).toUpperCase();
   assert.ok(filterQuestionRows(rows, text).includes(rows[0]));
-  assert.ok(filterQuestionRows(rows, rows[0].session).includes(rows[0]));
+  assert.ok(filterQuestionRows(rows, rows[0].session.title).includes(rows[0]));
   assert.deepEqual(filterQuestionRows(rows, 'no-such-question-zzz'), []);
 });
 

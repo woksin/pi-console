@@ -1,5 +1,5 @@
 import type { MemoryItem, SessionMemory } from '@pi-console/contract';
-import { memoryPanelViewModel, type MemoryPanelViewModel } from '@pi-console/viewmodels';
+import { sessionLabels, memoryPanelViewModel, type MemoryPanelViewModel } from '@pi-console/viewmodels';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { itemHeadLines, memoryLines } from './session-memory.ts';
@@ -69,7 +69,7 @@ test('an unseen store renders a single explanatory line', () => {
 const rows = (lines: Line[]) => lines.map(line => line.map(part => part.text).join(''));
 
 test('an item leads with a coloured status badge and its text, then a smaller details line', () => {
-  const lines = memoryLines(memoryPanelViewModel({ memory, items: [item], now, sessionNames: new Map([['s1', 'Planner']]) }), 70);
+  const lines = memoryLines(memoryPanelViewModel({ memory, items: [item], now, sessionNames: new Map([['s1', sessionLabels({ id: 's1', name: 'Planner' })]]) }), 70);
   const text = rows(lines);
   const head = lines.find(line => line[0]?.text === '[proposed]');
   assert.ok(head);

@@ -17,7 +17,7 @@ test('the filter trims and matches job identity, session, kind, name, status and
   assert.deepEqual(filterWorkRows(rows, '  '), rows);
   assert.ok(filterWorkRows(rows, ` ${rows[0].name.toUpperCase()} `).includes(rows[0]));
   assert.ok(filterWorkRows(rows, rows[0].status.label).includes(rows[0]));
-  assert.ok(filterWorkRows(rows, rows[0].session).includes(rows[0]));
+  assert.ok(filterWorkRows(rows, rows[0].session.title).includes(rows[0]));
   assert.deepEqual(filterWorkRows(rows, 'no-such-job-zzz'), []);
 });
 

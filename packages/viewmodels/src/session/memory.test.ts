@@ -1,7 +1,8 @@
 import type { MemoryItem, SessionMemory } from '@pi-console/contract';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { memoryPanelViewModel } from './memory.ts';
+import { memoryPanelViewModel, type MemoryPanelInput } from './memory.ts';
+import { sessionLabels } from '../format/session-labels.ts';
 import { golden, now } from '../test-support.ts';
 
 const item = (id: string, over: Partial<MemoryItem> = {}): MemoryItem => ({
@@ -65,10 +66,14 @@ test('each item leads with a status badge and its text; scope, source and age go
 });
 
 test('a session scope shows the session name when known and a short id otherwise', () => {
-  const scoped = (key: string, names?: ReadonlyMap<string, string>) =>
+  const scoped = (key: string, names?: MemoryPanelInput['sessionNames']) =>
     memoryPanelViewModel({ memory, items: [item('item-1', { scope: { kind: 'session', key } })], now, sessionNames: names }).items[0].scope;
-  assert.equal(scoped('s2', new Map([['s2', 'Planner']])), 'session Planner');
+  assert.equal(scoped('s2', new Map([['s2', sessionLabels({ id: 's2', name: 'Planner' })]])), 'session Planner');
   assert.equal(scoped('s2', new Map()), 'session s2');
+  const longName = 'aurora implementation with a long name';
+  assert.equal(scoped('s2', new Map([['s2', sessionLabels({ id: 's2', name: longName, laneId: 'L192' })]])), 'session aurora implement… · L192');
+  assert.equal(scoped('s2', new Map([['s2', sessionLabels({ id: 's2', name: longName })]])), 'session aurora implementation w…');
+  assert.equal(scoped('s2', new Map([['s2', sessionLabels({ id: 's2', name: '', laneId: 'L192' })]])), 'session L192');
   assert.equal(scoped('0123456789abcdef'), 'session 0123456…');
   const repo = memoryPanelViewModel({ memory, items: [item('item-1', { scope: { kind: 'repo', key: 'app' } })], now }).items[0];
   assert.equal(repo.scope, 'repo:app');

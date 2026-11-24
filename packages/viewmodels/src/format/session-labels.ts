@@ -25,6 +25,8 @@ export function sessionLabels(session: SessionIdentity) {
   return { repository, lane, name, branch, attention: title, timeline: title, graph: title, title };
 }
 
+export type SessionLabel = Pick<ReturnType<typeof sessionLabels>, 'name' | 'lane' | 'title'>;
+
 /** Keep lane identity intact; only the readable name may be shortened to fit terminal cells. */
 export function fitSessionLabel({ name, lane }: Pick<ReturnType<typeof sessionLabels>, 'name' | 'lane'>, width: number, measure: TextWidth = displayWidth): string {
   if (!lane) return clip(name, width, measure);

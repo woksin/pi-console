@@ -1,6 +1,16 @@
 {
   "id": "s2",
   "title": "aurora implementation · L192",
+  "identity": {
+    "repository": "aurora",
+    "lane": "L192",
+    "name": "aurora implementation",
+    "branch": "feature/retry-cancellation",
+    "attention": "aurora implementation · L192",
+    "timeline": "aurora implementation · L192",
+    "graph": "aurora implementation · L192",
+    "title": "aurora implementation · L192"
+  },
   "status": {
     "status": "needs-you",
     "glyph": "!",
@@ -25,7 +35,16 @@
     {
       "id": "r3",
       "sessionId": "s2",
-      "session": "aurora implementation · L192",
+      "session": {
+        "repository": "aurora",
+        "lane": "L192",
+        "name": "aurora implementation",
+        "branch": "feature/retry-cancellation",
+        "attention": "aurora implementation · L192",
+        "timeline": "aurora implementation · L192",
+        "graph": "aurora implementation · L192",
+        "title": "aurora implementation · L192"
+      },
       "originLabel": "Unproven origin",
       "originEvidence": "The source does not establish who sent this prompt.",
       "status": {
@@ -43,7 +62,16 @@
     {
       "id": "r2",
       "sessionId": "s2",
-      "session": "aurora implementation · L192",
+      "session": {
+        "repository": "aurora",
+        "lane": "L192",
+        "name": "aurora implementation",
+        "branch": "feature/retry-cancellation",
+        "attention": "aurora implementation · L192",
+        "timeline": "aurora implementation · L192",
+        "graph": "aurora implementation · L192",
+        "title": "aurora implementation · L192"
+      },
       "originLabel": "Initial prompt",
       "originEvidence": "The source records a new session, not a relaunch.",
       "status": {
@@ -61,7 +89,16 @@
     {
       "id": "r1",
       "sessionId": "s2",
-      "session": "aurora implementation · L192",
+      "session": {
+        "repository": "aurora",
+        "lane": "L192",
+        "name": "aurora implementation",
+        "branch": "feature/retry-cancellation",
+        "attention": "aurora implementation · L192",
+        "timeline": "aurora implementation · L192",
+        "graph": "aurora implementation · L192",
+        "title": "aurora implementation · L192"
+      },
       "originLabel": "Human request",
       "originEvidence": "The source explicitly marks this prompt as user input.",
       "status": {
@@ -115,6 +152,16 @@
     {
       "id": "s4",
       "name": "aurora explore · L194",
+      "identity": {
+        "repository": "aurora",
+        "lane": "L194",
+        "name": "aurora explore",
+        "branch": "feature/schema-compat",
+        "attention": "aurora explore · L194",
+        "timeline": "aurora explore · L194",
+        "graph": "aurora explore · L194",
+        "title": "aurora explore · L194"
+      },
       "status": {
         "status": "waiting",
         "glyph": "~",
@@ -125,6 +172,16 @@
     {
       "id": "s5",
       "name": "aurora scout · L195",
+      "identity": {
+        "repository": "aurora",
+        "lane": "L195",
+        "name": "aurora scout",
+        "branch": "feature/cli-help",
+        "attention": "aurora scout · L195",
+        "timeline": "aurora scout · L195",
+        "graph": "aurora scout · L195",
+        "title": "aurora scout · L195"
+      },
       "status": {
         "status": "idle",
         "glyph": "–",

@@ -4,7 +4,16 @@
       {
         "id": "r10",
         "sessionId": "s10",
-        "session": "harbor scout · L200",
+        "session": {
+          "repository": "harbor",
+          "lane": "L200",
+          "name": "harbor scout",
+          "branch": "feature/test-isolation",
+          "attention": "harbor scout · L200",
+          "timeline": "harbor scout · L200",
+          "graph": "harbor scout · L200",
+          "title": "harbor scout · L200"
+        },
         "origin": "human",
         "originLabel": "Human request",
         "status": {
@@ -25,7 +34,16 @@
       {
         "id": "r11",
         "sessionId": "s11",
-        "session": "meadow coordinator · L201",
+        "session": {
+          "repository": "meadow",
+          "lane": "L201",
+          "name": "meadow coordinator",
+          "branch": "feature/cache-expiry",
+          "attention": "meadow coordinator · L201",
+          "timeline": "meadow coordinator · L201",
+          "graph": "meadow coordinator · L201",
+          "title": "meadow coordinator · L201"
+        },
         "origin": "launch",
         "originLabel": "Initial prompt",
         "status": {
@@ -46,7 +64,16 @@
       {
         "id": "r9",
         "sessionId": "s9",
-        "session": "harbor explore · L199",
+        "session": {
+          "repository": "harbor",
+          "lane": "L199",
+          "name": "harbor explore",
+          "branch": "feature/cli-help",
+          "attention": "harbor explore · L199",
+          "timeline": "harbor explore · L199",
+          "graph": "harbor explore · L199",
+          "title": "harbor explore · L199"
+        },
         "origin": "unproven",
         "originLabel": "Unproven origin",
         "status": {
@@ -67,7 +94,16 @@
       {
         "id": "r12",
         "sessionId": "s12",
-        "session": "meadow implementation · L202",
+        "session": {
+          "repository": "meadow",
+          "lane": "L202",
+          "name": "meadow implementation",
+          "branch": "feature/schema-compat",
+          "attention": "meadow implementation · L202",
+          "timeline": "meadow implementation · L202",
+          "graph": "meadow implementation · L202",
+          "title": "meadow implementation · L202"
+        },
         "origin": "unproven",
         "originLabel": "Unproven origin",
         "status": {
@@ -92,7 +128,16 @@
       {
         "id": "r8",
         "sessionId": "s8",
-        "session": "harbor review · L198",
+        "session": {
+          "repository": "harbor",
+          "lane": "L198",
+          "name": "harbor review",
+          "branch": "feature/schema-compat",
+          "attention": "harbor review · L198",
+          "timeline": "harbor review · L198",
+          "graph": "harbor review · L198",
+          "title": "harbor review · L198"
+        },
         "origin": "launch",
         "originLabel": "Initial prompt",
         "status": {
@@ -117,7 +162,16 @@
       {
         "id": "r5",
         "sessionId": "s5",
-        "session": "aurora scout · L195",
+        "session": {
+          "repository": "aurora",
+          "lane": "L195",
+          "name": "aurora scout",
+          "branch": "feature/cli-help",
+          "attention": "aurora scout · L195",
+          "timeline": "aurora scout · L195",
+          "graph": "aurora scout · L195",
+          "title": "aurora scout · L195"
+        },
         "origin": "launch",
         "originLabel": "Initial prompt",
         "status": {
@@ -138,7 +192,16 @@
       {
         "id": "r4",
         "sessionId": "s4",
-        "session": "aurora explore · L194",
+        "session": {
+          "repository": "aurora",
+          "lane": "L194",
+          "name": "aurora explore",
+          "branch": "feature/schema-compat",
+          "attention": "aurora explore · L194",
+          "timeline": "aurora explore · L194",
+          "graph": "aurora explore · L194",
+          "title": "aurora explore · L194"
+        },
         "origin": "human",
         "originLabel": "Human request",
         "status": {
@@ -163,7 +226,16 @@
       {
         "id": "r6",
         "sessionId": "s6",
-        "session": "harbor coordinator · L196",
+        "session": {
+          "repository": "harbor",
+          "lane": "L196",
+          "name": "harbor coordinator",
+          "branch": "feature/retry-cancellation",
+          "attention": "harbor coordinator · L196",
+          "timeline": "harbor coordinator · L196",
+          "graph": "harbor coordinator · L196",
+          "title": "harbor coordinator · L196"
+        },
         "origin": "unproven",
         "originLabel": "Unproven origin",
         "status": {
@@ -184,7 +256,16 @@
       {
         "id": "d6",
         "sessionId": "s1",
-        "session": "aurora coordinator · L0",
+        "session": {
+          "repository": "aurora",
+          "lane": "L0",
+          "name": "aurora coordinator",
+          "branch": "feature/queue-checkpoints",
+          "attention": "aurora coordinator · L0",
+          "timeline": "aurora coordinator · L0",
+          "graph": "aurora coordinator · L0",
+          "title": "aurora coordinator · L0"
+        },
         "origin": "unproven",
         "originLabel": "Unproven origin",
         "status": {
@@ -209,7 +290,16 @@
       {
         "id": "d5",
         "sessionId": "s1",
-        "session": "aurora coordinator · L0",
+        "session": {
+          "repository": "aurora",
+          "lane": "L0",
+          "name": "aurora coordinator",
+          "branch": "feature/queue-checkpoints",
+          "attention": "aurora coordinator · L0",
+          "timeline": "aurora coordinator · L0",
+          "graph": "aurora coordinator · L0",
+          "title": "aurora coordinator · L0"
+        },
         "origin": "unproven",
         "originLabel": "Unproven origin",
         "status": {
@@ -234,7 +324,16 @@
       {
         "id": "d4",
         "sessionId": "s1",
-        "session": "aurora coordinator · L0",
+        "session": {
+          "repository": "aurora",
+          "lane": "L0",
+          "name": "aurora coordinator",
+          "branch": "feature/queue-checkpoints",
+          "attention": "aurora coordinator · L0",
+          "timeline": "aurora coordinator · L0",
+          "graph": "aurora coordinator · L0",
+          "title": "aurora coordinator · L0"
+        },
         "origin": "unproven",
         "originLabel": "Unproven origin",
         "status": {
@@ -268,7 +367,16 @@
       {
         "id": "d3",
         "sessionId": "s1",
-        "session": "aurora coordinator · L0",
+        "session": {
+          "repository": "aurora",
+          "lane": "L0",
+          "name": "aurora coordinator",
+          "branch": "feature/queue-checkpoints",
+          "attention": "aurora coordinator · L0",
+          "timeline": "aurora coordinator · L0",
+          "graph": "aurora coordinator · L0",
+          "title": "aurora coordinator · L0"
+        },
         "origin": "unproven",
         "originLabel": "Unproven origin",
         "status": {
@@ -297,7 +405,16 @@
       {
         "id": "d2",
         "sessionId": "s1",
-        "session": "aurora coordinator · L0",
+        "session": {
+          "repository": "aurora",
+          "lane": "L0",
+          "name": "aurora coordinator",
+          "branch": "feature/queue-checkpoints",
+          "attention": "aurora coordinator · L0",
+          "timeline": "aurora coordinator · L0",
+          "graph": "aurora coordinator · L0",
+          "title": "aurora coordinator · L0"
+        },
         "origin": "unproven",
         "originLabel": "Unproven origin",
         "status": {
@@ -326,7 +443,16 @@
       {
         "id": "d1",
         "sessionId": "s1",
-        "session": "aurora coordinator · L0",
+        "session": {
+          "repository": "aurora",
+          "lane": "L0",
+          "name": "aurora coordinator",
+          "branch": "feature/queue-checkpoints",
+          "attention": "aurora coordinator · L0",
+          "timeline": "aurora coordinator · L0",
+          "graph": "aurora coordinator · L0",
+          "title": "aurora coordinator · L0"
+        },
         "origin": "launch",
         "originLabel": "Initial prompt",
         "status": {
@@ -355,7 +481,16 @@
       {
         "id": "r3",
         "sessionId": "s2",
-        "session": "aurora implementation · L192",
+        "session": {
+          "repository": "aurora",
+          "lane": "L192",
+          "name": "aurora implementation",
+          "branch": "feature/retry-cancellation",
+          "attention": "aurora implementation · L192",
+          "timeline": "aurora implementation · L192",
+          "graph": "aurora implementation · L192",
+          "title": "aurora implementation · L192"
+        },
         "origin": "unproven",
         "originLabel": "Unproven origin",
         "status": {
@@ -376,7 +511,16 @@
       {
         "id": "r2",
         "sessionId": "s2",
-        "session": "aurora implementation · L192",
+        "session": {
+          "repository": "aurora",
+          "lane": "L192",
+          "name": "aurora implementation",
+          "branch": "feature/retry-cancellation",
+          "attention": "aurora implementation · L192",
+          "timeline": "aurora implementation · L192",
+          "graph": "aurora implementation · L192",
+          "title": "aurora implementation · L192"
+        },
         "origin": "launch",
         "originLabel": "Initial prompt",
         "status": {
@@ -397,7 +541,16 @@
       {
         "id": "r1",
         "sessionId": "s2",
-        "session": "aurora implementation · L192",
+        "session": {
+          "repository": "aurora",
+          "lane": "L192",
+          "name": "aurora implementation",
+          "branch": "feature/retry-cancellation",
+          "attention": "aurora implementation · L192",
+          "timeline": "aurora implementation · L192",
+          "graph": "aurora implementation · L192",
+          "title": "aurora implementation · L192"
+        },
         "origin": "human",
         "originLabel": "Human request",
         "status": {
@@ -418,7 +571,16 @@
       {
         "id": "r7",
         "sessionId": "s7",
-        "session": "harbor implementation · L197",
+        "session": {
+          "repository": "harbor",
+          "lane": "L197",
+          "name": "harbor implementation",
+          "branch": "feature/cache-expiry",
+          "attention": "harbor implementation · L197",
+          "timeline": "harbor implementation · L197",
+          "graph": "harbor implementation · L197",
+          "title": "harbor implementation · L197"
+        },
         "origin": "human",
         "originLabel": "Human request",
         "status": {
@@ -498,7 +660,16 @@
       {
         "id": "d3",
         "sessionId": "s1",
-        "session": "aurora coordinator · L0",
+        "session": {
+          "repository": "aurora",
+          "lane": "L0",
+          "name": "aurora coordinator",
+          "branch": "feature/queue-checkpoints",
+          "attention": "aurora coordinator · L0",
+          "timeline": "aurora coordinator · L0",
+          "graph": "aurora coordinator · L0",
+          "title": "aurora coordinator · L0"
+        },
         "origin": "unproven",
         "originLabel": "Unproven origin",
         "status": {
@@ -527,7 +698,16 @@
       {
         "id": "d2",
         "sessionId": "s1",
-        "session": "aurora coordinator · L0",
+        "session": {
+          "repository": "aurora",
+          "lane": "L0",
+          "name": "aurora coordinator",
+          "branch": "feature/queue-checkpoints",
+          "attention": "aurora coordinator · L0",
+          "timeline": "aurora coordinator · L0",
+          "graph": "aurora coordinator · L0",
+          "title": "aurora coordinator · L0"
+        },
         "origin": "unproven",
         "originLabel": "Unproven origin",
         "status": {
@@ -615,7 +795,16 @@
       {
         "id": "r11",
         "sessionId": "s11",
-        "session": "meadow coordinator · L201",
+        "session": {
+          "repository": "meadow",
+          "lane": "L201",
+          "name": "meadow coordinator",
+          "branch": "feature/cache-expiry",
+          "attention": "meadow coordinator · L201",
+          "timeline": "meadow coordinator · L201",
+          "graph": "meadow coordinator · L201",
+          "title": "meadow coordinator · L201"
+        },
         "origin": "launch",
         "originLabel": "Initial prompt",
         "status": {
@@ -636,7 +825,16 @@
       {
         "id": "r8",
         "sessionId": "s8",
-        "session": "harbor review · L198",
+        "session": {
+          "repository": "harbor",
+          "lane": "L198",
+          "name": "harbor review",
+          "branch": "feature/schema-compat",
+          "attention": "harbor review · L198",
+          "timeline": "harbor review · L198",
+          "graph": "harbor review · L198",
+          "title": "harbor review · L198"
+        },
         "origin": "launch",
         "originLabel": "Initial prompt",
         "status": {
@@ -661,7 +859,16 @@
       {
         "id": "r5",
         "sessionId": "s5",
-        "session": "aurora scout · L195",
+        "session": {
+          "repository": "aurora",
+          "lane": "L195",
+          "name": "aurora scout",
+          "branch": "feature/cli-help",
+          "attention": "aurora scout · L195",
+          "timeline": "aurora scout · L195",
+          "graph": "aurora scout · L195",
+          "title": "aurora scout · L195"
+        },
         "origin": "launch",
         "originLabel": "Initial prompt",
         "status": {
@@ -682,7 +889,16 @@
       {
         "id": "d1",
         "sessionId": "s1",
-        "session": "aurora coordinator · L0",
+        "session": {
+          "repository": "aurora",
+          "lane": "L0",
+          "name": "aurora coordinator",
+          "branch": "feature/queue-checkpoints",
+          "attention": "aurora coordinator · L0",
+          "timeline": "aurora coordinator · L0",
+          "graph": "aurora coordinator · L0",
+          "title": "aurora coordinator · L0"
+        },
         "origin": "launch",
         "originLabel": "Initial prompt",
         "status": {
@@ -711,7 +927,16 @@
       {
         "id": "r2",
         "sessionId": "s2",
-        "session": "aurora implementation · L192",
+        "session": {
+          "repository": "aurora",
+          "lane": "L192",
+          "name": "aurora implementation",
+          "branch": "feature/retry-cancellation",
+          "attention": "aurora implementation · L192",
+          "timeline": "aurora implementation · L192",
+          "graph": "aurora implementation · L192",
+          "title": "aurora implementation · L192"
+        },
         "origin": "launch",
         "originLabel": "Initial prompt",
         "status": {
@@ -789,7 +1014,16 @@
   "detail": {
     "id": "d3",
     "sessionId": "s1",
-    "session": "aurora coordinator · L0",
+    "session": {
+      "repository": "aurora",
+      "lane": "L0",
+      "name": "aurora coordinator",
+      "branch": "feature/queue-checkpoints",
+      "attention": "aurora coordinator · L0",
+      "timeline": "aurora coordinator · L0",
+      "graph": "aurora coordinator · L0",
+      "title": "aurora coordinator · L0"
+    },
     "origin": "unproven",
     "originLabel": "Unproven origin",
     "status": {

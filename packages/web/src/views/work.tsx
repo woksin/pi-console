@@ -47,7 +47,7 @@ function WorkLine({ row, attributes, selected, onSelect }: { row: WorkRow; attri
   return (
     <tr {...attributes} className={`row${selected ? ' selected' : ''}`} onClick={onSelect}>
       <td className="truncate">{row.name}</td><td className="muted">{row.kind}</td><td><StatusBadge cell={row.status} /></td>
-      <td><a href={sessionHref(row.sessionId)}>{row.session}</a></td><td className="mono muted">{row.exit}</td><td className="num tnum muted">{row.age} ago</td>
+      <td><a href={sessionHref(row.sessionId)}>{row.session.title}</a></td><td className="mono muted">{row.exit}</td><td className="num tnum muted">{row.age} ago</td>
     </tr>
   );
 }

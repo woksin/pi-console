@@ -109,6 +109,12 @@ test('Settings names a missing agent directory and source, then shows them avail
   assert.ok(!recovered.some(line => line.includes('missing directory')));
 });
 
+test('Settings separates long diagnostic labels from numeric values at narrow widths', () => {
+  const lines = plain({ width: 60, height: 40 }, { eventLog: { lastSeq: 42 }, memory: { rssBytes: 2_097_152 } });
+  assert.ok(lines.some(line => /Last sequence\s+42$/.test(line)), lines.join('\n'));
+  assert.ok(lines.some(line => /Resident memory\s+2\.0 MB$/.test(line)), lines.join('\n'));
+});
+
 test('Settings keeps availability neutral for a daemon that does not report it', () => {
   const lines = plain({ width: 80, height: 60 }, { status: 'ok', sources: [{ source: 'issue-work', files: 1 }] });
   assert.ok(lines.some(line => /^Source adapters\s+availability not reported/.test(line)) || lines.some(line => /^Issue register\s+availability not reported/.test(line)));

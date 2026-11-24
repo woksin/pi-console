@@ -1,6 +1,6 @@
 import type { Question, Session } from '@pi-console/contract';
 import { age, sanitize } from '../format/format.ts';
-import { sessionLabels } from '../format/session-labels.ts';
+import { sessionLabels, type SessionLabel } from '../format/session-labels.ts';
 import { timeDisplay } from '../format/time.ts';
 import { questionMoot, type QuestionMoot } from './moot.ts';
 import { statusCell, type StatusCell } from '../format/status-cell.ts';
@@ -21,7 +21,7 @@ export interface QuestionHistoryRow {
   shortened: boolean;
 }
 export interface QuestionRow {
-  id: string; sessionId: string; session: string; kind: Question['kind']; urgent: boolean; blocking: boolean; status: StatusCell;
+  id: string; sessionId: string; session: SessionLabel; kind: Question['kind']; urgent: boolean; blocking: boolean; status: StatusCell;
   text: string; options: string[]; age: string;
   /** Stored revision time age; `–` when the source never supplied it. */
   updated: string; updatedAt: string | null;
@@ -102,14 +102,14 @@ const sorters: Record<QuestionSort, (activity: ReadonlyMap<string, string>) => C
 
 /** Read-only queue: by default blocking and high urgency first and answered or closed sunk; or newest update or activity first. */
 export function questionsViewModel(input: QuestionsInput): QuestionsViewModel {
-  const names = new Map(input.sessions.map(session => [session.id, sessionLabels(session).title]));
+  const names = new Map(input.sessions.map(session => [session.id, sessionLabels(session)]));
   const days = input.staleDays ?? defaultStaleDays;
   const activity = new Map(input.questions.map(question => [question.id, activityOf(question)]));
   const lastAt = new Map([...activity].map(([id, found]) => [id, found.at]));
   const rows = [...input.questions].sort(sorters[input.sort ?? 'priority'](lastAt)).map((question): QuestionRow => {
     const last = activity.get(question.id) ?? activityOf(question);
     return {
-      id: question.id, sessionId: question.sessionId, session: names.get(question.sessionId) ?? question.sessionId, kind: question.kind,
+      id: question.id, sessionId: question.sessionId, session: names.get(question.sessionId) ?? { name: question.sessionId, lane: '', title: question.sessionId }, kind: question.kind,
       urgent: question.urgency === 'high', blocking: question.blocking, status: statusCell(question.status === 'open' ? (question.blocking ? 'needs-you' : 'open') : 'done'),
       text: sanitize(question.text), options: question.options.map(sanitize), age: age(question.createdAt, input.now),
       updated: question.updatedAt === undefined ? '–' : age(question.updatedAt, input.now), updatedAt: question.updatedAt ?? null,
@@ -123,4 +123,4 @@ export function questionsViewModel(input: QuestionsInput): QuestionsViewModel {
 
 /** The `/` filter: case-insensitive substring over the question text and session name (shared by the TUI and web). */
 export const filterQuestionRows = <T extends Pick<QuestionRow, 'text' | 'session'>>(rows: readonly T[], filter: string): T[] =>
-  rows.filter(row => !filter || `${row.text} ${row.session}`.toLowerCase().includes(filter.toLowerCase()));
+  rows.filter(row => !filter || `${row.text} ${row.session.title}`.toLowerCase().includes(filter.toLowerCase()));

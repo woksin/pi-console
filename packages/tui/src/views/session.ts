@@ -1,4 +1,4 @@
-import { sessionLabels, glyphs, clip, startsNewDay, timeDisplay, memoryPanelViewModel, sessionViewModel, wrap, type ResetRequest, type SessionViewModel, type TranscriptLine, type TextWidth } from '@pi-console/viewmodels';
+import { displayWidth, fitSessionLabel, sessionLabels, glyphs, clip, startsNewDay, timeDisplay, memoryPanelViewModel, sessionViewModel, wrap, type ResetRequest, type SessionViewModel, type TranscriptLine, type TextWidth } from '@pi-console/viewmodels';
 import { Column, Lines, Panel, Row, h, type Line, type Part } from '../view/renderer.ts';
 import { pressureBar, blank, fit, pressureTone, rule, split, statusParts, t, type CellBudget } from '../view/parts.ts';
 import { sidePanes, type SidePane, type UiState } from '../state/ui.ts';
@@ -103,9 +103,12 @@ function headerMetadata(model: SessionViewModel): Line {
     .flatMap(part => [part, t(' · ', 'muted')]);
 }
 
-function header(model: SessionViewModel, width: number, phase: number, measure?: TextWidth): Line[] {
+function header(model: SessionViewModel, width: number, phase: number, measure: TextWidth = displayWidth): Line[] {
+  const status = [...statusParts(model.status, phase), t('  ')];
+  const updated = [t(`updated ${model.age} ago`, 'faint')];
+  const label = fitSessionLabel(model.identity, width - measure(status.map(part => part.text).join('')) - measure(updated.map(part => part.text).join('')) - 1, measure);
   return [
-    split([...statusParts(model.status, phase), t('  '), t(model.title, 'text', { bold: true })], [t(`updated ${model.age} ago`, 'faint')], width, { measure }),
+    split([...status, t(label, 'text', { bold: true })], updated, width, { measure }),
     fit([...headerMetadata(model), t(model.cost, 'text'), t('  ctx ', 'muted'), ...pressureBar(model.context.percent, 14), t(` ${String(model.context.percent)}% `, pressureTone(model.context.pressure)), ...contextSpark(model.context, 16)], width, undefined, measure),
   ];
 }
@@ -127,7 +130,7 @@ const questionLines: SidePaneBuilder = (model, inner, measure) => model.question
 
 const jobLines: SidePaneBuilder = (model, inner, measure) => [
   ...model.jobs.map(job => fit([...statusParts(job.status, 0, false), t(` ${job.name} `, 'text'), t(`${job.kind} ${job.exit}`, 'faint')], inner, undefined, measure)),
-  ...model.subagents.map(sub => fit([...statusParts(sub.status, 0, false), t(` ↳ ${sub.name}`, 'muted')], inner, undefined, measure)),
+  ...model.subagents.map(sub => fit([...statusParts(sub.status, 0, false), t(` ↳ ${fitSessionLabel(sub.identity, inner - 4, measure)}`, 'muted')], inner, undefined, measure)),
 ];
 
 const resetLines: SidePaneBuilder = (model, inner, measure) => model.resets.flatMap((reset): Line[] => [
@@ -220,7 +223,7 @@ export function sessionView(env: Env): SectionView {
       h(Row, { grow: 1, gap: 1 },
         h(Panel, { title, right: status, grow: 1, focused: true, accent: following ? 'green' : 'amber' },
           h(Lines, { lines, grow: 1 })),
-        ...contextPanel(model, ui.pane, { width: side, measure: env.measure }, () => memoryLines(memoryPanelViewModel({ memory: data.memory.get(model.id) ?? null, items: data.memoryItems.get(model.id) ?? [], now: env.now, review: data.memoryReviews.get(model.id), sessionNames: new Map(data.sessions.map(session => [session.id, sessionLabels(session).title])) }), { width: side - 4, measure: env.measure }, ui.memoryIndex, data.memoryHistory.get(model.id))))),
+        ...contextPanel(model, ui.pane, { width: side, measure: env.measure }, () => memoryLines(memoryPanelViewModel({ memory: data.memory.get(model.id) ?? null, items: data.memoryItems.get(model.id) ?? [], now: env.now, review: data.memoryReviews.get(model.id), sessionNames: new Map(data.sessions.map(session => [session.id, sessionLabels(session)])) }), { width: side - 4, measure: env.measure }, ui.memoryIndex, data.memoryHistory.get(model.id))))),
   };
 }
 
