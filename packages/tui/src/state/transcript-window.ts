@@ -67,14 +67,33 @@ function positionAt(layout: TranscriptLayout, line: number, limit: number): Tran
   return { key: layout.keys[index], offset: Math.max(0, line - startOf(layout, index)) - leadOf(layout, index), limit };
 }
 
+interface WindowBounds { bottom: number; rows: number }
+
+/** Keep the live tail's first timestamp: skip an incomplete older entry, or show the beginning of an oversized newest entry. */
+function tailStart(layout: TranscriptLayout, { bottom, rows }: WindowBounds): number {
+  const line = Math.max(0, bottom - rows);
+  const index = layout.ends.findIndex(end => end > line);
+  if (index < 0) return 0;
+  const start = startOf(layout, index);
+  if (line <= start + leadOf(layout, index)) return line;
+  return layout.ends[index] < bottom ? layout.ends[index] : start;
+}
+
+/** Aligned tails may leave spare rows; manual scrolling may still reach the end of an oversized entry. */
+const maximumStart = (layout: TranscriptLayout, bounds: WindowBounds): number => Math.max(0, bounds.bottom - bounds.rows, tailStart(layout, bounds));
+
 export function transcriptWindow(layout: TranscriptLayout, view: TranscriptView, height: number): TranscriptWindow {
   const all = total(layout);
   const anchor = view.anchor;
-  if (!anchor) return { start: Math.max(0, all - height), end: all, below: 0, paused: !view.follow, dropped: false };
+  if (!anchor) {
+    const start = tailStart(layout, { bottom: all, rows: height });
+    const end = Math.min(all, start + height);
+    return { start, end, below: all - end, paused: !view.follow, dropped: false };
+  }
   const dropped = isDropped(layout, anchor);
   const rows = dropped ? Math.max(1, height - 1) : height;
   const bottom = limitEnd(layout, anchor.limit);
-  const start = clamp(topOf(layout, anchor), 0, Math.max(0, bottom - rows));
+  const start = clamp(topOf(layout, anchor), 0, maximumStart(layout, { bottom, rows }));
   const end = Math.min(bottom, start + rows);
   return { start, end, below: all - end, paused: true, dropped };
 }
@@ -108,11 +127,12 @@ function targetLine(current: TranscriptWindow, motion: number | 'top', maximum: 
 export function scrollTranscript(layout: TranscriptLayout, view: TranscriptView, height: number, motion: TranscriptMotion): TranscriptView {
   if (motion === 'bottom') return resumeTranscript;
   const bottom = bottomOf(layout, view);
-  const maximum = Math.max(0, bottom - height);
+  const bounds = { bottom, rows: height };
+  const maximum = maximumStart(layout, bounds);
   const current = transcriptWindow(layout, view, height);
   const target = targetLine(current, motion, maximum);
   if (current.dropped && target === 0) return view;
   const position = positionAt(layout, target, limitOf(layout, view));
-  const live = target >= maximum && bottom === total(layout);
+  const live = target >= maximum && bottom === total(layout) && maximum === tailStart(layout, bounds);
   return position && !live ? { follow: false, anchor: position } : resumeTranscript;
 }
