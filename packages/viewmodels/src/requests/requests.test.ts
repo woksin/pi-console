@@ -63,9 +63,15 @@ test('stored text is data: one line, no control sequences, withheld text a visib
   assert.equal(singleLine(`a\r\nb${ESC}]0;title${String.fromCharCode(7)}`), 'a ⏎ b');
 });
 
-test('the detail says classified, never verified, and links every evidence entry to the transcript', () => {
+test('the detail gives a short inferred classification, never verified, and links every evidence entry to the transcript', () => {
   const detail = requestDetail({ request: derived[0], sessions: fixture.sessions, now });
-  assert.equal(detail.provenance, 'Classified as Initial prompt (derived from the session transcript; not verified)');
+  assert.equal(detail.provenance, 'Initial prompt · inferred from transcript');
+  assert.equal(detail.provenanceQualifier, 'not verified');
+  const human = requestDetail({ request: { ...derived[0], origin: 'human', originLabel: 'Human request' }, sessions: fixture.sessions, now });
+  assert.equal(human.provenance, 'Human request · inferred from transcript');
+  assert.equal(human.provenanceQualifier, 'not verified');
+  const stored = requestDetail({ request: { ...derived[0], derivedFrom: 'intent-memory' }, sessions: fixture.sessions, now });
+  assert.equal(stored.provenance, 'Initial prompt · reported by intent-memory');
   assert.deepEqual(detail.evidence.map(item => item.transcript), [{ sessionId, entryId: 'd1-e', fileOffset: null }]);
   const plain = requestDetail({ request: fixture.requests[0], sessions: fixture.sessions, now });
   assert.equal(plain.source, 'Reported by the source');

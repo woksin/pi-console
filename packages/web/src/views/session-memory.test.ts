@@ -4,16 +4,18 @@ import { resolve } from 'node:path';
 import { createElement, type ComponentType } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createServer, type ViteDevServer } from 'vite';
-import type { MemoryPanelItem } from '@pi-console/viewmodels';
+import { memoryPanelViewModel, type MemoryPanelItem, type MemoryPanelViewModel } from '@pi-console/viewmodels';
+import type { SessionMemory } from '@pi-console/contract';
 import type * as CopyNotice from '../app/copy-notice.ts';
 
 type ItemView = ComponentType<{ item: MemoryPanelItem; request: () => void }>;
 let server: ViteDevServer;
 let MemoryItemView: ItemView;
+let MemorySummary: ComponentType<{ view: MemoryPanelViewModel }>;
 let copy: typeof CopyNotice;
 before(async () => {
   server = await createServer({ configFile: false, root: resolve(import.meta.dirname, '../..'), server: { middlewareMode: true, watch: null, hmr: false }, appType: 'custom' });
-  ({ MemoryItemView } = await server.ssrLoadModule('/src/views/session-memory.tsx'));
+  ({ MemoryItemView, MemorySummary } = await server.ssrLoadModule('/src/views/session-memory.tsx'));
   copy = await server.ssrLoadModule('/src/app/copy-notice.ts') as typeof CopyNotice;
 });
 after(async () => { copy.cancelExpiry(); await server.close(); });
@@ -23,6 +25,33 @@ const item = (patch: Partial<MemoryPanelItem>): MemoryPanelItem => ({
   canRequest: true, review: null, command: '/memory confirm m1', rejectCommand: '/memory reject m1', ...patch,
 });
 const render = (patch: Partial<MemoryPanelItem>): string => renderToStaticMarkup(createElement(MemoryItemView, { item: item(patch), request: () => undefined }));
+
+const summary = (unresolved: SessionMemory['unresolved']): string => {
+  const memory: SessionMemory = {
+    sessionId: 's1', storeDetected: true, counts: { active: 0, proposed: 2, done: 0, superseded: 0, withdrawn: 0, rejected: 0 },
+    proposedConfirmable: 2, unresolved, wider: 0, handoffs: [],
+  };
+  const view = memoryPanelViewModel({ memory, items: [], now: 0 });
+  return renderToStaticMarkup(createElement(MemorySummary, { view }));
+};
+
+test('proposed memory items with no uncaptured human messages show no contradictory zero line or empty paragraph', () => {
+  assert.equal(summary({ lowerBound: 0, atLastHandoff: null }), '<p class="small muted">2 proposed</p>');
+});
+
+test('the memory summary names uncaptured human messages independently of proposed items', () => {
+  const html = summary({ lowerBound: 2, atLastHandoff: null });
+  assert.match(html, />2 proposed<\/p>/);
+  assert.match(html, />At least 2 human messages not yet captured in memory<\/p>/);
+  assert.doesNotMatch(html, /No unresolved|loaded history/);
+});
+
+test('a historical unresolved-message figure remains visible when the current lower bound is zero', () => {
+  const html = summary({ lowerBound: 0, atLastHandoff: { count: 1, at: '2026-11-20T09:10:00.000Z' } });
+  assert.match(html, />2 proposed<\/p>/);
+  assert.match(html, />Unresolved messages at last handoff: 1<\/p>/);
+  assert.doesNotMatch(html, /No unresolved|loaded history/);
+});
 
 test('confirm, reject and copy use the themed button class', () => {
   const html = render({});

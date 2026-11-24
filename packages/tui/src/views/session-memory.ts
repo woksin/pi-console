@@ -14,7 +14,7 @@ export function itemHeadLines(item: MemoryPanelItem, layout: { width: number; me
 export function selectionLines(panel: MemoryPanelViewModel, selected: number | undefined, inner: number): Line[] {
   if (selected === undefined || panel.items.length === 0) return [];
   const index = Math.max(0, Math.min(selected, panel.items.length - 1));
-  const lines = [fit([t(`[ ] item ${String(index + 1)} of ${String(panel.items.length)}`, 'cyan')], inner)];
+  const lines = [fit([t(`Item ${String(index + 1)} of ${String(panel.items.length)} · [ ] prev/next`, 'cyan')], inner)];
   if (panel.items[index].canRequest) lines.push([t('c Confirm… · x Reject…', 'cyan')]);
   return lines;
 }
@@ -22,10 +22,10 @@ export function selectionLines(panel: MemoryPanelViewModel, selected: number | u
 export function historyLines(progress: MemoryHistory | undefined, loaded: number, inner: number): Line[] {
   if (!progress) return [];
   const count = `${String(loaded)}/${progress.total === undefined ? '?' : String(progress.total)} loaded`;
-  const lines: Line[] = [fit([t(`${count}${progress.more ? ' · more · ] older' : ''}`, 'faint')], inner)];
-  if (progress.loading) lines.push([t('Loading older memory…', 'faint')]);
+  const lines: Line[] = [fit([t(`${count}${progress.more ? ' · more items · ] load more' : ''}`, 'faint')], inner)];
+  if (progress.loading) lines.push([t('Loading more memory items…', 'faint')]);
   if (progress.error) {
-    const message = progress.error === 'more' ? 'Could not load older memory · r retry' : 'Could not refresh memory · r retry';
+    const message = progress.error === 'more' ? 'Could not load more memory items · r retry' : 'Could not refresh memory · r retry';
     lines.push(...wrap(message, inner).map((text): Line => [t(text, 'amber')]));
   }
   return lines;
@@ -45,7 +45,8 @@ export function memoryLines(panel: MemoryPanelViewModel, budget: number | CellBu
     ...history,
     ...selectionLines(panel, selected, inner),
     ...fullViewHint(panel, selected),
-    fit([t(counts || 'no items', 'muted')], inner), fit([t(panel.unresolved.text, 'muted')], inner, undefined, measure), blank,
+    fit([t(counts || 'no items', 'muted')], inner),
+    ...(panel.unresolved.text ? [fit([t(panel.unresolved.text, 'muted')], inner, undefined, measure)] : []), blank,
     ...items.flatMap((item): Line[] => [
       ...itemHeadLines(item, { width: inner, measure }, 3),
       ...(item.review ? wrap(item.review.message, inner, 5, measure).map((text): Line => [t(text, 'amber')]) : []),

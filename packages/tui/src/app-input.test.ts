@@ -38,7 +38,7 @@ test('visible memory selection requests exactly the selected proposed item; othe
   memoryInput(selected, 'c', data, 120);
   assert.equal(requests.length, 2, 'selection without a request callback stays read-only');
   const text = memoryLines(memoryPanelViewModel({ memory, items: data.memoryItems.get('s1') ?? [], review, now: 0 }), 36, selected.memoryIndex).flat().map(part => part.text).join('');
-  assert.match(text, /item 2 of 2/);
+  assert.match(text, /Item 2 of 2/);
   assert.equal(memoryInput(ui, 'j', data, 120, request), null, 'transcript navigation is untouched');
   for (const variant of [{ ...ui, overlay: 'search' as const }, { ...ui, pane: 'requests' as const }, { ...ui, sessionId: null }]) assert.equal(memoryInput(variant, 'c', data, 120, request), null);
   assert.equal(memoryInput(ui, 'c', data, 90, request), null, 'hidden pane cannot act');

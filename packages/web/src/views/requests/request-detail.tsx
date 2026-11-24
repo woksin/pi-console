@@ -23,7 +23,8 @@ export function RequestDetailPane({ detail }: { detail: RequestDetail }) {
     <aside className="request-detail" aria-label="Request detail">
       <Panel title="Request" aside={<StatusBadge cell={detail.status} />}>
         <Lines lines={detail.textLines} withheld={detail.withheld} />
-        <p className="muted small" title={detail.originEvidence}>{detail.provenance}. {detail.originEvidence}</p>
+        <p className="small">{detail.provenance} <span className="muted">({detail.provenanceQualifier})</span></p>
+        <p className="muted small">Evidence: {detail.originEvidence}</p>
         {detail.uncertain && <p className="uncertain" data-testid="detail-uncertain">{detail.uncertain}</p>}
         {detail.possiblyUnseen && <p className="uncertain"><StatusBadge cell={detail.possiblyUnseen} /> The answer may have been lost at a reset.</p>}
         {link && <a className="btn" href={sessionHref(link.sessionId, link.entryId)} data-testid="request-jump">Open in transcript →</a>}

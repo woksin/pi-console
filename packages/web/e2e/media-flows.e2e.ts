@@ -7,7 +7,16 @@ import { connectFlow, firstRunFlow, liveFleetFlow, memoryReviewFlow } from '../.
 
 // The gallery's four live flows run with no encoder: the behaviour they show is asserted here, the pictures are `npm run media`'s.
 test('a visitor without a launch link pastes the token, connects and the token never reaches the address bar', { timeout: 60000 }, async () => { await connectFlow(); });
-test('a connected daemon with no data shows the first-run checklist from an empty snapshot and no attention', { timeout: 60000 }, async () => { await firstRunFlow(); });
+test('a connected daemon with no data shows the first-run checklist and a usable install link', { timeout: 60000 }, async () => {
+  await firstRunFlow(async page => {
+    const link = page.locator('.first-run').getByRole('link', { name: 'Install steps →' });
+    assert.equal(await link.getAttribute('href'), 'https://github.com/woksin/pi-console#optional-pi-extension-and-memory-review');
+    assert.equal(await link.getAttribute('target'), '_blank');
+    assert.equal(await link.getAttribute('rel'), 'noopener noreferrer');
+    assert.match(await page.locator('.first-run').innerText(), /See README → Optional pi extension and memory review\./);
+    assert.doesNotMatch(await page.locator('.first-run').innerText(), /README#/);
+  });
+});
 test('a finished session and a new blocking question arrive over SSE and raise the Needs you count without a reload', { timeout: 60000 }, async () => { await liveFleetFlow(); });
 test('a memory review stays proposed through request and receipts and turns active only on the producer update', { timeout: 60000 }, async () => { await memoryReviewFlow(); });
 

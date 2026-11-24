@@ -51,7 +51,7 @@ function detail(row: QuestionRow | undefined, width: number, full = false, measu
     ...wrap(row.text, width - 4, full ? Infinity : 8, measure).map((text): Line => [t(text, 'text')]), blank,
     ...(row.options.length ? [heading('Options'), ...optionLines(row.options, width, full, measure)] : []), blank,
     ...linkLines(row), ...mootLines(row, width, full, measure), ...(full ? [...historyLines(row, width, measure), blank] : [historySummary(row)]),
-    [t('Read-only in this version: answer in the session itself.', 'faint', { italic: true })],
+    [t('Read-only here · answer in the session', 'faint', { italic: true })],
   ];
 }
 

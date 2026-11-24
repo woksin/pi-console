@@ -54,7 +54,7 @@ function makeSessions(rng: () => number) {
       role: ['orchestrator', 'main', 'main', 'subagent', 'subagent'][slot],
       parentSessionId: slot >= 3 ? `s${group * 5 + 2}` : null,
       orchestratorSessionId: `s${group * 5 + 1}`, branch: `feature/${branches[(group + slot) % branches.length]}`,
-      cwd: `/synthetic/workspaces/${repositories[group]}`, model: models[(group + slot) % models.length],
+      cwd: `/home/dev/${repositories[group]}`, model: models[(group + slot) % models.length],
       status: statuses[i % statuses.length], startedAt: iso(start), updatedAt: iso(end),
       contextPercent: samples.at(-1)!.contextPercent, samples, costUsd, costIncomplete,
     };
@@ -69,7 +69,7 @@ function makeRequests() {
       id: `r${i + 1}`, sessionId: `s${owner + 1}`, text: requestTexts[i],
       origin: ['human', 'launch', 'unproven'][i % 3],
       originLabel: ['Human request', 'Initial prompt', 'Unproven origin'][i % 3],
-      originEvidence: ['Explicit synthetic user-input marker', 'Synthetic non-relaunch session-start marker', 'No positive origin evidence'][i % 3],
+      originEvidence: ['The source explicitly marks this prompt as user input.', 'The source records a new session, not a relaunch.', 'The source does not establish who sent this prompt.'][i % 3],
       status: ['interrupted', 'open', 'unanswered', 'answered'][i % 4],
       createdAt, resetId: i === 0 ? 'reset1' : null,
       answer: i % 4 === 3 ? { id: `a${i}`, text: requestAnswers[i], at: within(owner, 0.2 + i * 0.04), interim: false } : null,

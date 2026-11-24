@@ -41,12 +41,13 @@ function statusLabel(item: MemoryItem): string {
   return item.statusBasis === 'assumed' ? `${item.status} (assumed)` : item.status;
 }
 
-/** The count is a lower bound, so it reads "At least N", never a bare total; zero means none were found, not none exist. */
+/** The daemon counts human messages with neither a classification nor an item citation, independently of proposed items. */
 function unresolvedText(memory: SessionMemory): string {
   const last = memory.unresolved.atLastHandoff;
   const found = memory.unresolved.lowerBound;
-  const now = found === 0 ? 'No unresolved items found' : `At least ${String(found)} unresolved`;
-  return last ? `${now} · ${String(last.count)} at last handoff` : now;
+  const now = found === 0 ? '' : `At least ${String(found)} human ${found === 1 ? 'message' : 'messages'} not yet captured in memory`;
+  const handoff = last ? `Unresolved messages at last handoff: ${String(last.count)}` : '';
+  return [now, handoff].filter(Boolean).join(' · ');
 }
 
 const shortId = (id: string): string => clip(sanitize(id), 8);

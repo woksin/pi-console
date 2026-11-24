@@ -424,7 +424,7 @@ test('compact human requests fit six per viewport while detail keeps full text',
   const original = fixture.requests;
   const seed = original[0];
   fixture.requests = Array.from({ length: 12 }, (_, index) => ({
-    ...seed, id: `human-ux-${index}`, origin: 'human', originLabel: 'Classified as human', status: 'open',
+    ...seed, id: `human-ux-${index}`, origin: 'human', originLabel: 'Human request', status: 'open', derivedFrom: 'session-jsonl',
     text: 'A long human request with details. '.repeat(20), answer: null, interimAnswers: [],
     uncertain: false, uncertainReason: null, answerPossiblyUnseen: false,
   }));
@@ -432,7 +432,15 @@ test('compact human requests fit six per viewport while detail keeps full text',
   try {
     await page.locator('.human-request').nth(11).waitFor();
     assert.ok(await fullyVisible(page, '.human-request') >= 6);
-    assert.ok((await page.locator('.request-detail').innerText()).includes(fixture.requests[0].text.trim()));
+    const detail = page.getByRole('complementary', { name: 'Request detail' });
+    assert.ok((await detail.innerText()).includes(fixture.requests[0].text.trim()));
+    const classification = detail.locator('p').filter({ hasText: 'Human request · inferred from transcript' });
+    assert.equal(await classification.innerText(), 'Human request · inferred from transcript (not verified)');
+    assert.equal(await classification.locator('.muted').innerText(), '(not verified)');
+    const evidence = detail.locator('p').filter({ hasText: /^Evidence:/ });
+    assert.equal(await evidence.innerText(), `Evidence: ${seed.originEvidence}`);
+    assert.equal(await evidence.evaluate(element => element.previousElementSibling?.textContent), await classification.textContent());
+    assert.doesNotMatch(await classification.innerText(), /Evidence:|Classified as/);
     await page.keyboard.press('j');
     assert.equal(await page.locator('.request-card.selected').count(), 1);
   } finally { fixture.requests = original; await page.context().close(); }

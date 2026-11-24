@@ -8,7 +8,7 @@
     "label": "Needs you"
   },
   "branch": "feature/retry-cancellation",
-  "cwd": "/synthetic/workspaces/aurora",
+  "cwd": "/home/dev/aurora",
   "model": "claude-haiku-4-5",
   "role": "main",
   "age": "1m",
@@ -27,7 +27,7 @@
       "sessionId": "s2",
       "session": "aurora implementation · L192",
       "originLabel": "Unproven origin",
-      "originEvidence": "No positive origin evidence",
+      "originEvidence": "The source does not establish who sent this prompt.",
       "status": {
         "status": "unanswered",
         "glyph": "!",
@@ -45,7 +45,7 @@
       "sessionId": "s2",
       "session": "aurora implementation · L192",
       "originLabel": "Initial prompt",
-      "originEvidence": "Synthetic non-relaunch session-start marker",
+      "originEvidence": "The source records a new session, not a relaunch.",
       "status": {
         "status": "open",
         "glyph": "!",
@@ -63,7 +63,7 @@
       "sessionId": "s2",
       "session": "aurora implementation · L192",
       "originLabel": "Human request",
-      "originEvidence": "Explicit synthetic user-input marker",
+      "originEvidence": "The source explicitly marks this prompt as user input.",
       "status": {
         "status": "interrupted",
         "glyph": "/",

@@ -76,10 +76,12 @@ test('an open browser memory panel converges from real producer files without he
     await page.waitForFunction(() => [...document.querySelectorAll('li')].some(node => node.textContent.includes('Synthetic live order') && /Active/i.test(node.textContent)));
     spec.retire();
     await page.waitForFunction(() => [...document.querySelectorAll('li')].some(node => node.textContent.includes('Synthetic live order') && /Done/i.test(node.textContent)));
+    const uncaptured = page.getByText('At least 1 human message not yet captured in memory', { exact: true });
     spec.journal();
-    await page.getByText('At least 1 unresolved', { exact: false }).waitFor();
+    await uncaptured.waitFor();
     spec.classify();
-    await page.getByText('No unresolved items found', { exact: false }).waitFor();
+    await uncaptured.waitFor({ state: 'detached' });
+    assert.equal(await page.getByText(/No unresolved|loaded history/).count(), 0);
     assert.equal(actionCalls, 0, 'automatic refresh is read-only');
     assert.equal((await page.locator('body').innerText()).includes('PRIVATE JOURNAL BODY'), false);
   } finally {

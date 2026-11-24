@@ -39,6 +39,18 @@ function detailLines(heading: string, focus: readonly Marker[], gridWidth: numbe
   return [[t(heading, 'muted', { bold: true })], ...body];
 }
 
+function windowDuration(span: number): string {
+  const units = [[86400000, 'd'], [3600000, 'h'], [60000, 'm'], [1000, 's']] as const;
+  const first = units.findIndex(([size]) => span >= size);
+  if (first < 0) return '0s';
+  let remaining = span;
+  return units.slice(first, first + 2).map(([size, label]) => {
+    const count = Math.floor(remaining / size);
+    remaining %= size;
+    return count > 0 ? `${String(count)}${label}` : '';
+  }).filter(Boolean).join(' ');
+}
+
 export function timelineView(env: Env): SectionView {
   const { data, ui } = env;
   const width = Math.max(20, env.width - 4 - LABEL - 1);
@@ -56,14 +68,14 @@ export function timelineView(env: Env): SectionView {
   const heading = scrub === undefined ? `${label} · last markers in view` : `scrub ${clock(new Date(scrubAt).toISOString())} · ${label} · nearest markers`;
   const legend: Line = [t(' ', 'faint'), ...markerLegend.flatMap(entry => [t(entry.glyph, entry.color, { bold: true }), t(` ${entry.label}  `, 'muted')])];
   const detail = whenLoaded(data.loaded, () => model.lanes.length === 0 ? emptyLines(emptyStates.timeline, env.width - 4) : detailLines(heading, focus, env.width - 4, env.measure));
-  const spanSeconds = Math.round(model.window.span / 1000);
+  const duration = windowDuration(model.window.span);
   return {
     length: model.lanes.length,
     time: { fit: fitted, width },
     rowAt: index => ({ sessionId: model.lanes[index]?.sessionId ?? null, groupId: null }),
     idAt: index => model.lanes[index]?.sessionId ?? null,
     render: () => h(Column, { grow: 1 },
-      h(Panel, { title: `Timeline · window ${String(spanSeconds)}s · + − zoom · h l pan · t scrub`, focused: true, grow: 1, right: `${String(model.lanes.length)} lanes` },
+      h(Panel, { title: `Timeline · window ${duration} · + − zoom · h l pan · t scrub`, focused: true, grow: 1, right: `${String(model.lanes.length)} lanes` },
         h(Lines, { lines: [axisLine(model.axis, width, scrub, ''), ...model.lanes.slice(start, end).map((entry, offset) => laneLine(entry, start + offset === cursor, row)), blank, legend] }),
         h(Lines, { lines: detail, grow: 1 }))),
   };

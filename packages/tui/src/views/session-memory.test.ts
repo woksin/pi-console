@@ -1,8 +1,9 @@
 import type { MemoryItem, SessionMemory } from '@pi-console/contract';
-import { memoryPanelViewModel } from '@pi-console/viewmodels';
+import { memoryPanelViewModel, type MemoryPanelViewModel } from '@pi-console/viewmodels';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { itemHeadLines, memoryLines } from './session-memory.ts';
+import { memoryDocument } from './memory.ts';
 import type { Line } from '../view/renderer.ts';
 
 const now = Date.parse('2026-11-20T09:25:00.000Z');
@@ -15,6 +16,31 @@ const item: MemoryItem = {
   withheld: false, sourceType: 'coordinator_order', sourceMessageId: null, at: '2026-11-20T09:00:00.000Z', command: '/memory confirm item-1',
 };
 const plain = (lines: Line[]) => lines.map(line => line.map(part => part.text).join('')).join('\n');
+
+for (const [name, render] of [
+  ['rail', (panel: MemoryPanelViewModel) => memoryLines(panel, 200)],
+  ['full view', (panel: MemoryPanelViewModel) => memoryDocument(panel, { width: 200 }, 0)],
+] as const) {
+  test(`memory ${name} hides an uninformative zero next to proposed items without leaving an empty row`, () => {
+    const zero = { ...memory, unresolved: { lowerBound: 0, atLastHandoff: null } };
+    const rows = render(memoryPanelViewModel({ memory: zero, items: [item], now })).map(line => line.map(part => part.text).join('').trimEnd());
+    const index = rows.indexOf('1 proposed');
+    assert.ok(index >= 0);
+    assert.equal(rows[index + 1], '');
+    assert.notEqual(rows[index + 2], '');
+    assert.doesNotMatch(rows.join('\n'), /No unresolved|loaded history|not yet captured|at last handoff/);
+  });
+
+  test(`memory ${name} distinguishes uncaptured human messages from the last handoff figure`, () => {
+    const current = plain(render(memoryPanelViewModel({ memory, items: [item], now })));
+    assert.ok(current.includes('At least 1 human message not yet captured in memory'));
+    const historical = { ...memory, unresolved: { lowerBound: 0, atLastHandoff: { count: 2, at: '2026-11-20T09:10:00.000Z' } } };
+    const text = plain(render(memoryPanelViewModel({ memory: historical, items: [item], now })));
+    assert.match(text, /1 proposed/);
+    assert.match(text, /Unresolved messages at last handoff: 2/);
+    assert.doesNotMatch(text, /No unresolved|loaded history|not yet captured/);
+  });
+}
 
 test('a proposed item shows the exact confirm and reject commands and the unavailable fallback', () => {
   const text = plain(memoryLines(memoryPanelViewModel({ memory, items: [item], now }), 60));
@@ -29,6 +55,8 @@ test('hostile memory text is inert next to review controls and contains no termi
   const review = { availability: { version: 1 as const, available: true, providerVersion: 1, generation: 'g1', reason: 'available' as const }, items: new Map() };
   const text = plain(memoryLines(memoryPanelViewModel({ memory, items: [{ ...item, text: hostile }], review, now }), 200, 0));
   assert.match(text, /c Confirm… · x Reject…/);
+  assert.match(text, /Item 1 of 1 · \[ \] prev\/next/);
+  assert.doesNotMatch(text, /\[ \] item/);
   assert.match(text, /<img src=x onerror="globalThis.__memoryReviewXss=true">/);
   assert.equal(text.includes(escape), false);
   assert.match(text, /unsafe/);
@@ -50,7 +78,7 @@ test('an item leads with a coloured status badge and its text, then a smaller de
   assert.equal(head.length, 1);
   assert.ok(text.includes('  synthetic order'));
   assert.ok(text.includes('  order · session Planner · from a coordinator order · 25m ago'));
-  assert.match(text.join('\n'), /At least 1 unresolved/);
+  assert.match(text.join('\n'), /At least 1 human message not yet captured in memory/);
   assert.doesNotMatch(text.join('\n'), /lower bound/);
 });
 

@@ -814,7 +814,8 @@
       "entryId": "d3-e",
       "fileOffset": 300
     },
-    "provenance": "Origin not proven (derived from the session transcript; not verified)",
+    "provenance": "Origin not proven · inferred from transcript",
+    "provenanceQualifier": "not verified",
     "originEvidence": "Later prompt",
     "textLines": [
       "ask d3"

@@ -19,7 +19,7 @@ export function FirstRun({ connected, sessions }: { connected: boolean; sessions
         {checklist.steps.map(item => (
           <li key={item.label} className={`step-${item.state} tone-${item.color}`}>
             <span className="first-run-glyph" aria-hidden="true">{item.glyph}</span>
-            <span><strong>{item.label}</strong><span className="sr-only"> ({item.state === 'todo' ? 'not yet' : item.state})</span><br /><span className="muted">{item.detail}</span></span>
+            <span><strong>{item.label}</strong><span className="sr-only"> ({item.state === 'todo' ? 'not yet' : item.state})</span><br /><span className="muted">{item.detail}{item.state === 'optional' && <> <a href="https://github.com/woksin/pi-console#optional-pi-extension-and-memory-review" target="_blank" rel="noopener noreferrer">Install steps →</a></>}</span></span>
           </li>
         ))}
       </ol>
