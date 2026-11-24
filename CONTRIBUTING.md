@@ -53,6 +53,6 @@ Apply exactly one release-intent label to each PR: `major` (breaking changes), `
 
 The PR description is the release note. Keep only applicable `## Added`, `## Changed`, `## Fixed`, `## Removed`, `## Security` or `## Deprecated` sections, with concise user-facing bullets ending in bare issue references such as `(#194)`. Do not add `Closes` lines, verification notes or implementation checklists to the description. The [PR template](.github/pull_request_template.md) supplies the headings.
 
-Release notes live on [GitHub Releases](https://github.com/woksin/pi-console/releases); there is no CHANGELOG file.
+There are no tags or releases yet and the packages are version `0.0.0`. Release-intent labels are applied to PRs now; GitHub Releases, which hold the release notes (there is no CHANGELOG file), start with the first tagged version.
 
 Report vulnerabilities privately using the [security policy](SECURITY.md), not a public issue.
