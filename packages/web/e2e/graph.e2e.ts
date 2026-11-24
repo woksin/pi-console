@@ -61,3 +61,27 @@ test('sessions sharing a lane stay distinct only in the separate spawn relations
     await page.waitForURL('**/#/session/parent');
   } finally { await page.context().close(); await rig.close(); }
 });
+
+test('default mock graph groups six repositories with named nodes, a plain legend and one compact toolbar', async () => {
+  const rig = await startRig({ speed: 1e-9 });
+  const page = await rig.open('/messages?view=graph');
+  try {
+    const lanes = page.getByRole('region', { name: 'Lane communication' });
+    await lanes.locator('svg.graph').nth(5).waitFor();
+    assert.equal(await lanes.locator('svg.graph').count(), 6);
+    assert.deepEqual(await lanes.locator('svg.graph').evaluateAll(graphs => graphs.map(graph => graph.querySelectorAll('.node').length)), [5, 5, 5, 5, 5, 5]);
+    assert.ok(await lanes.locator('.node .label.name', { hasText: 'harbor coordinator' }).count() > 0);
+    assert.ok(await lanes.locator('.node title', { hasText: 'L196 · harbor coordinator' }).count() > 0);
+    const legend = page.getByRole('list', { name: 'Graph legend' });
+    for (const text of ['Messages sent', 'Started a session', 'Waiting for', 'Blocked by', 'Thicker lines mean more messages.']) assert.match(await legend.innerText(), new RegExp(text));
+    await page.keyboard.press('t');
+    const slider = page.getByRole('slider', { name: 'Time scrubber' });
+    const toolbar = page.locator('.graph-toolbar');
+    const [button, range] = await Promise.all([toolbar.getByRole('button').boundingBox(), slider.boundingBox()]);
+    assert.ok(button && range && Math.abs(button.y - range.y) < button.height, 'toggle and range share one row');
+    assert.ok(range.width <= 200, 'the scrubber is compact');
+    for (const bounds of await lanes.locator('.node text').evaluateAll(nodes => nodes.map(node => { const box = node.getBoundingClientRect(); const svg = (node.closest('svg') ?? node).getBoundingClientRect(); return [box.left - svg.left, svg.right - box.right, svg.bottom - box.bottom]; }))) {
+      assert.ok(bounds.every(edge => edge >= -1), `label stays inside its drawing: ${bounds.join(',')}`);
+    }
+  } finally { await page.context().close(); await rig.close(); }
+});

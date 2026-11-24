@@ -2,6 +2,8 @@ import { clip } from '@pi-console/viewmodels';
 
 /** The graph's square viewBox and the circle the nodes sit on. */
 export const graphSize = 360;
+/** Extra room below the circle for the bottom nodes' two label lines. */
+export const graphHeight = 384;
 const radius = 130;
 const centre = graphSize / 2;
 /** Longest label ever drawn; longer names are clipped and kept whole in the node's tooltip. */
