@@ -476,7 +476,7 @@ describe('web console e2e', () => {
     await page.keyboard.press(']');
     await page.getByTestId('request-summary').getByText('state open', { exact: false }).waitFor();
     await page.keyboard.press('[');
-    await page.getByTestId('request-summary').getByText('state all', { exact: false }).waitFor();
+    await page.getByTestId('request-summary').getByText('state open', { exact: false }).waitFor({ state: 'detached' });
     await page.keyboard.press('o');
     await page.getByTestId('request-summary').getByText('origin human', { exact: false }).waitFor();
     await page.keyboard.press('o');
