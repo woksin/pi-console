@@ -9,6 +9,14 @@ npm ci
 npm run gate
 ```
 
+To try the web console with isolated synthetic data after `npm ci`:
+
+```sh
+npm run console
+```
+
+This builds the web client and starts the demo daemon. Open the printed URL and paste the contents of the printed token file into the connection screen. Ctrl-C stops the daemon and removes its temporary data. `npm run demo` remains an alias for the same launcher.
+
 The Tier 1 gate runs typechecking, lint, unit specs, spike checks, web/TUI build checks, docs links, the secret sweep and contract checks. `npm test` runs the unit specs alone. Integration specs are separate:
 
 ```sh
