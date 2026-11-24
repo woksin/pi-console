@@ -27,7 +27,7 @@ function SettingValue({ value }: { value: string }) {
   return timestamp ? <time dateTime={value} title={value}>{timestamp}</time> : <>{value}</>;
 }
 
-const rows = (items: SettingsRow[]) => <dl className="kv wide">{items.map(row => <div key={row.label}><dt>{row.label}{row.detail && <span className="faint small mono"> {row.detail}</span>}</dt><dd className={`tone-text-${row.tone}`}><SettingValue value={row.value} /></dd></div>)}</dl>;
+const rows = (items: SettingsRow[]) => <dl className="kv wide">{items.map(row => <div key={row.label}><dt>{row.label}{row.detail && <>{' '}<span className="row-id faint small mono">{row.detail}</span></>}</dt><dd className={`tone-text-${row.tone}`}><SettingValue value={row.value} /></dd></div>)}</dl>;
 
 /** Sources, Event log and Stream in plain units; every raw daemon value, including unknown keys, stays under Details. */
 function DaemonHealth({ health, sources }: { health: unknown; sources: SettingsRow[] }) {
