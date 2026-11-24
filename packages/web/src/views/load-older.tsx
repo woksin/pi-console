@@ -21,5 +21,5 @@ export function LoadOlder({ state, collection, shown, noun, buttonLabel }: { sta
 function OlderButton({ status, label, onClick }: { status: ConsoleState['pageStatus'][WindowedCollection]; label: string | undefined; onClick: () => void }) {
   const failed = status === 'failed';
   const text = status === 'loading' ? 'Loading…' : failed ? 'Retry' : 'Load older';
-  return <button type="button" aria-label={label} disabled={status === 'loading'} aria-busy={status === 'loading'} onClick={onClick}>{text}</button>;
+  return <button type="button" className="btn" aria-label={label} disabled={status === 'loading'} aria-busy={status === 'loading'} onClick={onClick}>{text}</button>;
 }

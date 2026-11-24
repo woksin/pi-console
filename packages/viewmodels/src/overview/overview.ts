@@ -25,11 +25,16 @@ const reasonPriority = (reason: string): number => {
   return index < 0 ? reasonOrder.length : index;
 };
 
-/** One section per reason, in fixed priority order; retain the supplied order within each reason. */
+const pluralLabels: Readonly<Record<string, string>> = {
+  'Open request': 'Open requests', 'Blocking question': 'Blocking questions', 'Stale session': 'Stale sessions', 'Proposed memory': 'Proposed memories',
+};
+const sectionLabel = (label: string, count: number): string => (count === 1 ? label : pluralLabels[label] ?? label);
+
+/** One section per reason, in fixed priority order; retain the supplied order within each reason. Headings are plural unless the count is one. */
 export function attentionSections<T extends { reason: string; reasonLabel: string }>(cards: readonly T[]): { label: string; cards: T[] }[] {
   return [...Map.groupBy(cards, card => card.reason)]
     .sort(([left], [right]) => reasonPriority(left) - reasonPriority(right))
-    .map(([, group]) => ({ label: group[0].reasonLabel, cards: group }));
+    .map(([, group]) => ({ label: sectionLabel(group[0].reasonLabel, group.length), cards: group }));
 }
 
 const reasons: Record<AttentionReason, { label: string; status: string }> = {

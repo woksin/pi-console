@@ -18,7 +18,7 @@ export function Sidebar({ active, settings, attention, questions, collapsed, onC
             <a href={hrefFor(id)} aria-labelledby={`nav-${id}-label nav-${id}-badge`} aria-current={active === id ? 'page' : undefined} title={sectionMeta[id].hint}>
               <span className="nav-icon" aria-hidden="true">{sectionMeta[id].icon}</span>
               <span className="nav-label" id={`nav-${id}-label`}>{sectionMeta[id].label}</span>
-              {id === 'overview' && attention.badge && <span id={`nav-${id}-badge`} className={`nav-badge${attention.status === 'ready' ? ' hot' : ''}`} aria-label={attention.label} data-attention={attention.status}>{attention.badge}</span>}
+              {id === 'overview' && attention.glyph && <span id={`nav-${id}-badge`} className={`nav-badge${attention.status === 'ready' ? ' hot' : attention.status === 'unavailable' ? ' warn' : ''}`} aria-label={attention.label} title={attention.label} data-attention={attention.status}>{attention.glyph}</span>}
               {id === 'questions' && questions > 0 && <span id={`nav-${id}-badge`} className="nav-badge" aria-label={`${String(questions)} waiting`}>{questions}</span>}
               <Kbd>{index + 1}</Kbd>
             </a>

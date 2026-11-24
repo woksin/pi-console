@@ -13,7 +13,9 @@ import { useNewSince, useStatusFlash } from './overview-changes.ts';
 
 export function OverviewView({ state, now }: ViewProps) {
   const view = useMemo(() => overviewViewModel({ needsYou: state.needsYou, sessions: state.sessions, repositories: state.repositories.length, now }), [state.needsYou, state.sessions, state.repositories.length, now]);
-  const ready = attentionPresentation(state).status === 'ready';
+  const attentionStatus = attentionPresentation(state).status;
+  const ready = attentionStatus === 'ready';
+  const unavailable = attentionStatus === 'unavailable';
   const histogram = useMemo(() => pressureHistogram(state.sessions), [state.sessions]);
   const coverage = useMemo(() => fleetCostCoverage(state.sessions), [state.sessions]);
   const byId = new Map(view.cards.map(card => [card.id, card]));
@@ -28,7 +30,7 @@ export function OverviewView({ state, now }: ViewProps) {
         <p className="muted">{view.fleet.sessions} sessions · {view.fleet.repositories} repositories · {view.fleet.tokens} tokens · <FleetCost cost={view.fleet.cost} coverage={coverage} /></p>
       </section>
       {state.sessions.length > 0 && <div className="summary-strip" aria-label="Fleet summary">
-        <div className="summary-counts">{view.counts.map(entry => <span key={entry.status.status}><StatusBadge cell={entry.status} /> {entry.count}</span>)}</div>
+        <div className={`summary-counts${unavailable ? ' muted' : ''}`}>{view.counts.map(entry => <span key={entry.status.status}><StatusBadge cell={entry.status} /> {unavailable ? <span title="Counts are hidden while attention is unavailable">—</span> : entry.count}</span>)}</div>
         <Sparkline values={view.fleet.contextSeries} width={90} height={20} fill label="Average fleet context pressure" />
         <PressureHistogramFigure histogram={histogram} />
       </div>}
@@ -55,7 +57,7 @@ function AttentionSummary({ state, headline }: { state: ViewProps['state']; head
   if (attention.status === 'ready') return <h2 id="needs-you" className="hero-title">{headline}</h2>;
   return <div role={state.needsYouError ? 'alert' : 'status'} data-attention={attention.status}>
     <h2 id="needs-you" className="hero-title">{attention.label}</h2>
-    {state.needsYouError && <button onClick={() => { void store.refresh(); }}>Retry</button>}
+    {state.needsYouError && <p className="attention-reason muted small"><span>{attention.status === 'stale' ? 'Could not refresh; showing the last known list.' : 'Could not load what needs you.'}</span><button type="button" className="btn" onClick={() => { void store.refresh(); }}>Retry</button></p>}
   </div>;
 }
 

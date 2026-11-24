@@ -50,7 +50,7 @@ test('theme and sidebar saves do not persist the resolved OS motion preference',
   assert.deepEqual(env.persisted(), { theme: 'dawn', sidebarCollapsed: true, version: 1 });
   env.changeMotion(false);
   assert.equal(store.snapshot().reducedMotion, false);
-  assert.deepEqual(createPrefsStore(env.storage, env.motion).snapshot(), { theme: 'dawn', sidebarCollapsed: true, reducedMotion: false });
+  assert.deepEqual(createPrefsStore(env.storage, env.motion).snapshot(), { theme: 'dawn', sidebarCollapsed: true, reducedMotion: false, motionChoice: 'system' });
 });
 
 for (const choice of [false, true]) {
@@ -74,7 +74,7 @@ for (const legacy of [false, true]) {
     const env = environment({ theme: 'dawn', sidebarCollapsed: true, reducedMotion: legacy }, !legacy);
     const store = createPrefsStore(env.storage, env.motion);
     const unsubscribe = store.subscribe(() => undefined);
-    assert.deepEqual(store.snapshot(), { theme: 'dawn', sidebarCollapsed: true, reducedMotion: !legacy });
+    assert.deepEqual(store.snapshot(), { theme: 'dawn', sidebarCollapsed: true, reducedMotion: !legacy, motionChoice: 'system' });
     assert.deepEqual(env.persisted(), { theme: 'dawn', sidebarCollapsed: true, version: 1 });
     env.changeMotion(legacy);
     assert.equal(store.snapshot().reducedMotion, legacy);
@@ -105,4 +105,19 @@ test('stored motion overrides remain explicit and unavailable storage remains ta
   assert.equal(store.snapshot().reducedMotion, true);
   assert.doesNotThrow(() => { store.set({ reducedMotion: false }); });
   assert.equal(store.snapshot().reducedMotion, false);
+});
+
+test('the motion choice is System by default, then On or Off once chosen, and System again after following', () => {
+  const env = environment({}, true);
+  const store = createPrefsStore(env.storage, env.motion);
+  const unsubscribe = store.subscribe(() => undefined);
+  assert.equal(store.snapshot().motionChoice, 'system');
+  store.set({ reducedMotion: false });
+  assert.equal(store.snapshot().motionChoice, 'off');
+  store.set({ reducedMotion: true });
+  assert.equal(store.snapshot().motionChoice, 'on');
+  store.followSystemMotion();
+  assert.equal(store.snapshot().motionChoice, 'system');
+  assert.equal(Object.hasOwn(env.persisted(), 'motionChoice'), false);
+  unsubscribe();
 });

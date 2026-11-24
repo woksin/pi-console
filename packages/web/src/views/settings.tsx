@@ -2,7 +2,7 @@ import { daemonHealthRows, pressureGradient, settingsViewModel, themePreview, ty
 import type { CSSProperties } from 'react';
 import type { ViewProps } from '../app/view.tsx';
 import { Panel } from '../ui/primitives.tsx';
-import { followSystemMotion, setPrefs, usePrefs } from '../app/prefs.ts';
+import { setMotionChoice, setPrefs, usePrefs, type MotionChoice } from '../app/prefs.ts';
 import { colorsFor, themeIds, type ThemeId } from '../app/theme.ts';
 import { settingsTimestamp } from './settings-format.ts';
 import { healthGroups } from './settings-health.ts';
@@ -40,13 +40,16 @@ function DaemonHealth({ health, sources }: { health: unknown; sources: SettingsR
   );
 }
 
+const motionChoices: readonly (readonly [MotionChoice, string])[] = [['system', 'System'], ['on', 'On'], ['off', 'Off']];
+
 function Appearance() {
   const prefs = usePrefs();
   return (
     <Panel title="Appearance">
       <div className="theme-cards" role="group" aria-label="Theme">{themeIds.map((id: ThemeId) => <ThemeCard key={id} id={id} current={prefs.theme === id} />)}</div>
-      <label className="check"><input type="checkbox" checked={prefs.reducedMotion} onChange={event => { setPrefs({ reducedMotion: event.target.checked }); }} /> Reduce motion</label>
-      <button type="button" className="btn" onClick={followSystemMotion}>Follow system motion</button>
+      <div className="motion-control"><span id="motion-label">Reduce motion</span>
+        <div className="seg" role="group" aria-labelledby="motion-label">{motionChoices.map(([choice, label]) => <button key={choice} type="button" aria-pressed={prefs.motionChoice === choice} onClick={() => { setMotionChoice(choice); }}>{label}</button>)}</div>
+      </div>
     </Panel>
   );
 }

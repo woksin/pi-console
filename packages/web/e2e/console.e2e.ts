@@ -477,13 +477,13 @@ describe('web console e2e', () => {
     await page.locator('[data-testid="uncertain"]').first().waitFor();
     assert.ok(await page.locator('[data-request]').count() > 3);
     await page.keyboard.press(']');
-    await page.getByTestId('request-summary').getByText('state open', { exact: false }).waitFor();
+    await page.getByTestId('request-summary').getByText('State: Open', { exact: false }).waitFor();
     await page.keyboard.press('[');
-    await page.getByTestId('request-summary').getByText('state open', { exact: false }).waitFor({ state: 'detached' });
+    await page.getByTestId('request-summary').getByText('State: Open', { exact: false }).waitFor({ state: 'detached' });
     await page.keyboard.press('o');
-    await page.getByTestId('request-summary').getByText('origin human', { exact: false }).waitFor();
+    await page.getByTestId('request-summary').getByText('Origin: Human', { exact: false }).waitFor();
     await page.keyboard.press('o');
-    await page.getByTestId('request-summary').getByText('origin launch', { exact: false }).waitFor();
+    await page.getByTestId('request-summary').getByText('Origin: Launch', { exact: false }).waitFor();
     await page.keyboard.press('o');
     await page.keyboard.press('o');
     const cards = page.locator('[data-request]');

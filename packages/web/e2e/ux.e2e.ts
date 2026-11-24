@@ -36,7 +36,7 @@ test('dense attention groups by priority and recency, with counted headings, ten
   await connect(page);
   await page.locator('[data-reason]').nth(39).waitFor();
   assert.ok(await fullyVisible(page, '[data-reason]') >= 10);
-  assert.deepEqual(await page.locator('.attention-heading').allTextContents(), ['Blocking question 10', 'Open request 10', 'Possibly unseen 10', 'Stale session 10']);
+  assert.deepEqual(await page.locator('.attention-heading').allTextContents(), ['Blocking questions 10', 'Open requests 10', 'Possibly unseen 10', 'Stale sessions 10']);
   assert.deepEqual(await page.locator('[data-reason] .card-text').allTextContents(), ordered.map(item => item.text));
   await page.keyboard.press('j');
   assert.equal(await page.locator('[data-reason][aria-current="true"] .card-text').innerText(), ordered[1].text);
@@ -415,7 +415,7 @@ test('request filters keep every control inside the viewport at 768px and the st
       }), true, 'filter control is inside the viewport');
     }
     await state.selectOption('uncertain');
-    await page.getByTestId('request-summary').getByText('state uncertain').waitFor();
+    await page.getByTestId('request-summary').getByText('State: Uncertain').waitFor();
   } finally { await page.context().close(); }
 });
 
