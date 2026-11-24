@@ -23,21 +23,25 @@ const fullyVisible = (page: Page, selector: string): Promise<number> => page.loc
   return rect.top >= 0 && rect.bottom <= innerHeight - 30;
 }).length);
 
-test('dense attention keeps daemon order, ten visible items and keyboard selection', async () => {
+test('dense attention groups by priority and recency, with counted headings, ten visible items and keyboard selection', async () => {
   const page = await rig.open('/overview', { token: null, width: 1440, height: 900 });
-  const reasons: AttentionItem['reason'][] = ['blocking-question', 'open-request', 'answer-possibly-unseen', 'stale-session'];
+  const priority: AttentionItem['reason'][] = ['blocking-question', 'open-request', 'answer-possibly-unseen', 'stale-session'];
+  const reasons = priority.toReversed();
   const items: AttentionItem[] = Array.from({ length: 40 }, (_, index) => ({
     id: `attention-${index}`, reason: reasons[index % reasons.length], sessionId: 's2', laneId: null,
-    text: `Attention detail ${index}`, since: '2026-11-20T09:00:00Z', pointer: null,
+    text: `Attention detail ${index}`, since: new Date(Date.parse('2026-11-20T09:00:00Z') + index * 60_000).toISOString(), pointer: null,
   }));
+  const ordered = priority.flatMap(reason => items.filter(item => item.reason === reason).toReversed());
   await page.route('**/api/v1/needs-you', route => route.fulfill({ json: { items } }));
   await connect(page);
   await page.locator('[data-reason]').nth(39).waitFor();
   assert.ok(await fullyVisible(page, '[data-reason]') >= 10);
-  assert.equal(await page.locator('.attention-heading').count(), 40);
-  assert.deepEqual(await page.locator('[data-reason] .card-text').allTextContents(), items.map(item => item.text));
+  assert.deepEqual(await page.locator('.attention-heading').allTextContents(), ['Blocking question 10', 'Open request 10', 'Possibly unseen 10', 'Stale session 10']);
+  assert.deepEqual(await page.locator('[data-reason] .card-text').allTextContents(), ordered.map(item => item.text));
   await page.keyboard.press('j');
-  assert.equal(await page.locator('[data-reason][aria-current="true"] .card-text').innerText(), 'Attention detail 1');
+  assert.equal(await page.locator('[data-reason][aria-current="true"] .card-text').innerText(), ordered[1].text);
+  await page.keyboard.press('k');
+  assert.equal(await page.locator('[data-reason][aria-current="true"] .card-text').innerText(), ordered[0].text);
   await page.keyboard.press('Enter');
   await page.waitForURL('**/#/session/s2');
   await page.context().close();

@@ -180,7 +180,7 @@
           "label": "L192 main",
           "status": {
             "status": "failed",
-            "glyph": "×",
+            "glyph": "#",
             "color": "red",
             "label": "Failed"
           },
@@ -313,7 +313,7 @@
           "label": "L194 subagent",
           "status": {
             "status": "failed",
-            "glyph": "×",
+            "glyph": "#",
             "color": "red",
             "label": "Failed"
           },
@@ -502,7 +502,7 @@
           "label": "L0 orchestrator",
           "status": {
             "status": "failed",
-            "glyph": "×",
+            "glyph": "#",
             "color": "red",
             "label": "Failed"
           },
@@ -635,7 +635,7 @@
           "label": "L193 main",
           "status": {
             "status": "failed",
-            "glyph": "×",
+            "glyph": "#",
             "color": "red",
             "label": "Failed"
           },

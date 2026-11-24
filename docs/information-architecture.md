@@ -32,11 +32,14 @@ Colours and glyphs carry fixed meaning in web and TUI. Colour is never the only 
 | Working | `*` | cyan | session, lane, job, phase | Active turn or tool call within the staleness window |
 | Waiting | `~` | violet | lane, session | Waiting on a dependency or another lane (lane-status `waiting-on`, `barred-by`) |
 | Idle | `-` | slate (dim) | session, lane | Turn ended, no open request |
-| Blocked / stuck | `x` | orange | session, lane | Watchdog state stuck, repeated errors, or blocked on a guard |
-| Failed | `x` | red | job, phase, subagent, intervention | Non-zero exit, error stop reason, delivery failure |
+| Blocked / stuck | `×` | orange | session, lane | Watchdog state stuck, repeated errors, or blocked on a guard |
+| Failed | `#` | red | job, phase, subagent, intervention | Non-zero exit, error stop reason, delivery failure |
 | Done | `v` | green | job, phase, subagent, request, issue claim | Completed successfully or answered |
 | Interrupted | `/` | magenta | request, session | A reset or abort cut off the work before a final answer was recorded |
+| Possibly unseen | `¿` | orange | request, attention card | An answer exists but may not have been seen; not an unanswered request |
 | Stale / unknown | `?` | grey, dotted | session, lane | No heartbeat for more than five minutes, or the source is missing |
+
+Failed uses ASCII `#`, clearly distinct from blocked `×` in monospace and mono output. Possibly unseen uses `¿` because `?` is reserved for stale status. Both clients, including their fleet pulses and status previews, use the contract tokens.
 
 Precedence for a session's badge: Needs you, Blocked, Failed, Interrupted, Working, Waiting, Idle, Stale. Staleness uses the same five-minute heartbeat rule as the existing watchdog [R4 §S5]. Status is computed by projections, never stored by ingestion.
 
@@ -64,7 +67,7 @@ Common to all lists: `/` filters, `[` and `]` step through saved filters, `s` so
 
 ### 4.1 Overview / "Needs you"
 
-Answers "what needs me now". Sections in order: Needs you (amber), Interrupted requests, Blocked or stuck, Working summary, Host health (queue depth, disk, provider limits).
+Answers "what needs me now". Attention sections use a fixed priority: Blocking question, Open request, Possibly unseen, Lane waiting on you, Proposed memory, Stale session. Human replies come first, followed by lane and memory actions, then passive staleness. Each reason has one counted heading, with newest items first inside it. Web and TUI consume the shared viewmodel order. The fleet summary and host health sit alongside attention.
 
 Web:
 
@@ -79,7 +82,7 @@ Web:
 | / REQ-8838   | / REQ-8841  Interrupted by reset #3     L192 pi-console      42m ago     |
 |              |   "compare the two stack options and write the ADR ..."                   |
 | BLOCKED   1  |   Last answer: none recorded      [ Open session ] [ Re-ask ]            |
-| x L131       +--------------------------------------------------------------------------+
+| × L131       +--------------------------------------------------------------------------+
 |              | WORKING 11   ####------ 11/40 lanes  ctx p50 38%   cost today $41.20     |
 | HOST         | sparkline tokens/min  .:::-=+*####*+=-:..   queue: 2 running, 1 queued    |
 | queue 2/1    | 51 GiB free   provider: anthropic ok, openai ok                          |
@@ -97,7 +100,7 @@ TUI:
  │ / REQ-8841 interrupted by reset #3  L192  42m          │ └───────────────────────────────┘
  │   "compare the two stack options and write the ADR…"   │ ┌ WORKING (11) ────────────────┐
  │ / REQ-8838 interrupted               L140  1h          │ │ * L192 pi-console   ctx 41%   │
- │ x L131 blocked: guard denied push    L131  7m          │ │ * L118 pi-setup     ctx 72%   │
+ │ × L131 blocked: guard denied push    L131  7m          │ │ * L118 pi-setup     ctx 72%   │
  └────────────────────────────────────────────────────────┘ │ * L205 chronicle    ctx 18%   │
  j/k move  ⏎ open  a answer  / filter  Ctrl+P palette  ? help                └───────────────┘
 ```
@@ -175,7 +178,7 @@ Web:
  ! REQ-8850  L192  12m  "write the ADR for the TUI stack"        open, working
  v REQ-8830  L192  1h   "summarise R4 sources"                   answered 09:20 (1.2 KB)
      answer: "R4 lists 17 sources. The primary one is session JSONL ..."   [Copy] [Open]
- ? REQ-8822  L140  3h   "why did CI fail?"   answered, possibly unseen (reset right after)
+ ¿ REQ-8822  L140  3h   "why did CI fail?"   answered, possibly unseen (reset right after)
 ```
 
 TUI:
@@ -185,7 +188,7 @@ TUI:
  ┌──────────────────────────────────────────────────────────────────────────────────────┐
  │ / REQ-8841 L192 42m  compare the two stack options and write the ADR …   interrupted │
  │ ! REQ-8850 L192 12m  write the ADR for the TUI stack                     open        │
- │ ? REQ-8822 L140  3h  why did CI fail?                       answered, possibly unseen│
+ │ ¿ REQ-8822 L140  3h  why did CI fail?                       answered, possibly unseen│
  ├──────────────────────────────────────────────────────────────────────────────────────┤
  │ REQ-8841  "compare the two stack options and write the ADR …"                        │
  │ answer: none. boundary: reset #3 handoff, 09:31, open requests carried: 2            │

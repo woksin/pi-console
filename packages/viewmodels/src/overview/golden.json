@@ -2,91 +2,67 @@
   "headline": "19 things need you",
   "cards": [
     {
-      "id": "need-r1",
-      "reason": "open-request",
-      "reasonLabel": "Open request",
+      "id": "need-q5",
+      "reason": "blocking-question",
+      "reasonLabel": "Blocking question",
       "status": {
-        "status": "open",
+        "status": "needs-you",
         "glyph": "!",
         "color": "amber",
-        "label": "Open"
-      },
-      "title": "aurora/L192",
-      "text": "Compare the queue strategies and explain the trade-offs.",
-      "age": "3h",
-      "sessionId": "s2",
-      "pointer": {
-        "sessionId": "s2",
-        "entryId": "entry1",
-        "fileOffset": 128
-      }
-    },
-    {
-      "id": "need-r2",
-      "reason": "open-request",
-      "reasonLabel": "Open request",
-      "status": {
-        "status": "open",
-        "glyph": "!",
-        "color": "amber",
-        "label": "Open"
-      },
-      "title": "aurora/L192",
-      "text": "Write the handoff and preserve the pending decisions.",
-      "age": "2h",
-      "sessionId": "s2",
-      "pointer": {
-        "sessionId": "s2",
-        "entryId": "entry9",
-        "fileOffset": 1152
-      }
-    },
-    {
-      "id": "need-r4",
-      "reason": "answer-possibly-unseen",
-      "reasonLabel": "Answer possibly unseen",
-      "status": {
-        "status": "unanswered",
-        "glyph": "!",
-        "color": "amber",
-        "label": "Unanswered"
-      },
-      "title": "aurora/L194",
-      "text": "Find out why the cache expires entries before their TTL.",
-      "age": "2h",
-      "sessionId": "s4",
-      "pointer": null
-    },
-    {
-      "id": "need-r5",
-      "reason": "open-request",
-      "reasonLabel": "Open request",
-      "status": {
-        "status": "open",
-        "glyph": "!",
-        "color": "amber",
-        "label": "Open"
+        "label": "Needs you"
       },
       "title": "aurora/L195",
-      "text": "Make the CLI help output fit an 80 column terminal.",
+      "text": "How many retries before a job is marked failed?",
       "age": "2h",
       "sessionId": "s5",
       "pointer": null
     },
     {
-      "id": "need-r7",
-      "reason": "open-request",
-      "reasonLabel": "Open request",
+      "id": "need-q3",
+      "reason": "blocking-question",
+      "reasonLabel": "Blocking question",
       "status": {
-        "status": "open",
+        "status": "needs-you",
         "glyph": "!",
         "color": "amber",
-        "label": "Open"
+        "label": "Needs you"
+      },
+      "title": "aurora/L193",
+      "text": "May the migration dry run write its plan to disk?",
+      "age": "2h",
+      "sessionId": "s3",
+      "pointer": null
+    },
+    {
+      "id": "need-q7",
+      "reason": "blocking-question",
+      "reasonLabel": "Blocking question",
+      "status": {
+        "status": "needs-you",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Needs you"
       },
       "title": "harbor/L192",
-      "text": "Dry-run the schema migration and list the tables it would touch.",
+      "text": "Allow the test runner to delete stale temp directories?",
       "age": "3h",
       "sessionId": "s7",
+      "pointer": null
+    },
+    {
+      "id": "need-q1",
+      "reason": "blocking-question",
+      "reasonLabel": "Blocking question",
+      "status": {
+        "status": "needs-you",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Needs you"
+      },
+      "title": "aurora/L0",
+      "text": "Which retention window should the cache use?",
+      "age": "3h",
+      "sessionId": "s1",
       "pointer": null
     },
     {
@@ -122,83 +98,91 @@
       "pointer": null
     },
     {
-      "id": "need-q1",
-      "reason": "blocking-question",
-      "reasonLabel": "Blocking question",
+      "id": "need-r5",
+      "reason": "open-request",
+      "reasonLabel": "Open request",
       "status": {
-        "status": "needs-you",
+        "status": "open",
         "glyph": "!",
         "color": "amber",
-        "label": "Needs you"
-      },
-      "title": "aurora/L0",
-      "text": "Which retention window should the cache use?",
-      "age": "3h",
-      "sessionId": "s1",
-      "pointer": null
-    },
-    {
-      "id": "need-q3",
-      "reason": "blocking-question",
-      "reasonLabel": "Blocking question",
-      "status": {
-        "status": "needs-you",
-        "glyph": "!",
-        "color": "amber",
-        "label": "Needs you"
-      },
-      "title": "aurora/L193",
-      "text": "May the migration dry run write its plan to disk?",
-      "age": "2h",
-      "sessionId": "s3",
-      "pointer": null
-    },
-    {
-      "id": "need-q5",
-      "reason": "blocking-question",
-      "reasonLabel": "Blocking question",
-      "status": {
-        "status": "needs-you",
-        "glyph": "!",
-        "color": "amber",
-        "label": "Needs you"
+        "label": "Open"
       },
       "title": "aurora/L195",
-      "text": "How many retries before a job is marked failed?",
+      "text": "Make the CLI help output fit an 80 column terminal.",
       "age": "2h",
       "sessionId": "s5",
       "pointer": null
     },
     {
-      "id": "need-q7",
-      "reason": "blocking-question",
-      "reasonLabel": "Blocking question",
+      "id": "need-r2",
+      "reason": "open-request",
+      "reasonLabel": "Open request",
       "status": {
-        "status": "needs-you",
+        "status": "open",
         "glyph": "!",
         "color": "amber",
-        "label": "Needs you"
+        "label": "Open"
+      },
+      "title": "aurora/L192",
+      "text": "Write the handoff and preserve the pending decisions.",
+      "age": "2h",
+      "sessionId": "s2",
+      "pointer": {
+        "sessionId": "s2",
+        "entryId": "entry9",
+        "fileOffset": 1152
+      }
+    },
+    {
+      "id": "need-r1",
+      "reason": "open-request",
+      "reasonLabel": "Open request",
+      "status": {
+        "status": "open",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Open"
+      },
+      "title": "aurora/L192",
+      "text": "Compare the queue strategies and explain the trade-offs.",
+      "age": "3h",
+      "sessionId": "s2",
+      "pointer": {
+        "sessionId": "s2",
+        "entryId": "entry1",
+        "fileOffset": 128
+      }
+    },
+    {
+      "id": "need-r7",
+      "reason": "open-request",
+      "reasonLabel": "Open request",
+      "status": {
+        "status": "open",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Open"
       },
       "title": "harbor/L192",
-      "text": "Allow the test runner to delete stale temp directories?",
+      "text": "Dry-run the schema migration and list the tables it would touch.",
       "age": "3h",
       "sessionId": "s7",
       "pointer": null
     },
     {
-      "id": "need-s3-stale-session",
-      "reason": "stale-session",
-      "reasonLabel": "Stale session",
+      "id": "need-r4",
+      "reason": "answer-possibly-unseen",
+      "reasonLabel": "Possibly unseen",
       "status": {
-        "status": "idle",
-        "glyph": "–",
-        "color": "faint",
-        "label": "Idle"
+        "status": "answer-possibly-unseen",
+        "glyph": "¿",
+        "color": "orange",
+        "label": "Possibly unseen"
       },
-      "title": "aurora/L193",
-      "text": "aurora review has not progressed",
-      "age": "7m",
-      "sessionId": "s3",
+      "title": "aurora/L194",
+      "text": "Find out why the cache expires entries before their TTL.",
+      "age": "2h",
+      "sessionId": "s4",
       "pointer": null
     },
     {
@@ -218,19 +202,19 @@
       "pointer": null
     },
     {
-      "id": "need-s10-stale-session",
-      "reason": "stale-session",
-      "reasonLabel": "Stale session",
+      "id": "need-s25-lane-waiting-on-user",
+      "reason": "lane-waiting-on-user",
+      "reasonLabel": "Lane waiting on you",
       "status": {
-        "status": "idle",
-        "glyph": "–",
-        "color": "faint",
-        "label": "Idle"
+        "status": "waiting",
+        "glyph": "~",
+        "color": "violet",
+        "label": "Waiting"
       },
-      "title": "harbor/L195",
-      "text": "harbor scout has not progressed",
-      "age": "10m",
-      "sessionId": "s10",
+      "title": "willow/L195",
+      "text": "Lane L195 is waiting on you",
+      "age": "27m",
+      "sessionId": "s25",
       "pointer": null
     },
     {
@@ -250,22 +234,6 @@
       "pointer": null
     },
     {
-      "id": "need-s17-stale-session",
-      "reason": "stale-session",
-      "reasonLabel": "Stale session",
-      "status": {
-        "status": "idle",
-        "glyph": "–",
-        "color": "faint",
-        "label": "Idle"
-      },
-      "title": "quartz/L192",
-      "text": "quartz implementation has not progressed",
-      "age": "13m",
-      "sessionId": "s17",
-      "pointer": null
-    },
-    {
       "id": "need-s18-lane-waiting-on-user",
       "reason": "lane-waiting-on-user",
       "reasonLabel": "Lane waiting on you",
@@ -279,6 +247,22 @@
       "text": "Lane L193 is waiting on you",
       "age": "35m",
       "sessionId": "s18",
+      "pointer": null
+    },
+    {
+      "id": "need-s3-stale-session",
+      "reason": "stale-session",
+      "reasonLabel": "Stale session",
+      "status": {
+        "status": "idle",
+        "glyph": "–",
+        "color": "faint",
+        "label": "Idle"
+      },
+      "title": "aurora/L193",
+      "text": "aurora review has not progressed",
+      "age": "7m",
+      "sessionId": "s3",
       "pointer": null
     },
     {
@@ -298,19 +282,35 @@
       "pointer": null
     },
     {
-      "id": "need-s25-lane-waiting-on-user",
-      "reason": "lane-waiting-on-user",
-      "reasonLabel": "Lane waiting on you",
+      "id": "need-s10-stale-session",
+      "reason": "stale-session",
+      "reasonLabel": "Stale session",
       "status": {
-        "status": "waiting",
-        "glyph": "~",
-        "color": "violet",
-        "label": "Waiting"
+        "status": "idle",
+        "glyph": "–",
+        "color": "faint",
+        "label": "Idle"
       },
-      "title": "willow/L195",
-      "text": "Lane L195 is waiting on you",
-      "age": "27m",
-      "sessionId": "s25",
+      "title": "harbor/L195",
+      "text": "harbor scout has not progressed",
+      "age": "10m",
+      "sessionId": "s10",
+      "pointer": null
+    },
+    {
+      "id": "need-s17-stale-session",
+      "reason": "stale-session",
+      "reasonLabel": "Stale session",
+      "status": {
+        "status": "idle",
+        "glyph": "–",
+        "color": "faint",
+        "label": "Idle"
+      },
+      "title": "quartz/L192",
+      "text": "quartz implementation has not progressed",
+      "age": "13m",
+      "sessionId": "s17",
       "pointer": null
     }
   ],
@@ -336,7 +336,7 @@
     {
       "status": {
         "status": "failed",
-        "glyph": "×",
+        "glyph": "#",
         "color": "red",
         "label": "Failed"
       },

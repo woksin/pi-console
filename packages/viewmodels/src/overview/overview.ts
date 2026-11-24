@@ -12,27 +12,29 @@ export interface AttentionCard {
 }
 export interface OverviewViewModel {
   headline: string;
-  /** The daemon's `/needs-you` list in the daemon's order. The client never filters or re-ranks it. */
+  /** Fixed reason priority, newest first within each reason. */
   cards: AttentionCard[];
   counts: { status: StatusCell; count: number }[];
   fleet: { sessions: number; repositories: number; working: number; tokens: string; cost: string; contextSeries: number[]; contextSpark: string };
 }
 
-/** Group adjacent reasons only: the daemon's attention ranking remains authoritative. */
-export function attentionSections<T extends Pick<AttentionCard, 'reasonLabel'>>(cards: readonly T[]): { label: string; cards: T[] }[] {
-  const sections: { label: string; cards: T[] }[] = [];
-  for (const card of cards) {
-    const label = card.reasonLabel;
-    const previous = sections.at(-1);
-    if (previous?.label === label) previous.cards.push(card);
-    else sections.push({ label, cards: [card] });
-  }
-  return sections;
+// Human replies first, then lane and memory actions, then passive staleness. Unknown reasons sort last.
+const reasonOrder: string[] = ['blocking-question', 'open-request', 'answer-possibly-unseen', 'lane-waiting-on-user', 'proposed-memory', 'stale-session'];
+const reasonPriority = (reason: string): number => {
+  const index = reasonOrder.indexOf(reason);
+  return index < 0 ? reasonOrder.length : index;
+};
+
+/** One section per reason, in fixed priority order; retain the supplied order within each reason. */
+export function attentionSections<T extends { reason: string; reasonLabel: string }>(cards: readonly T[]): { label: string; cards: T[] }[] {
+  return [...Map.groupBy(cards, card => card.reason)]
+    .sort(([left], [right]) => reasonPriority(left) - reasonPriority(right))
+    .map(([, group]) => ({ label: group[0].reasonLabel, cards: group }));
 }
 
 const reasons: Record<AttentionReason, { label: string; status: string }> = {
   'open-request': { label: 'Open request', status: 'open' },
-  'answer-possibly-unseen': { label: 'Answer possibly unseen', status: 'unanswered' },
+  'answer-possibly-unseen': { label: 'Possibly unseen', status: 'answer-possibly-unseen' },
   'blocking-question': { label: 'Blocking question', status: 'needs-you' },
   'lane-waiting-on-user': { label: 'Lane waiting on you', status: 'waiting' },
   'stale-session': { label: 'Stale session', status: 'idle' },
@@ -62,12 +64,13 @@ function fleetSummary(sessions: readonly Session[], repositories: number): Overv
 
 export function overviewViewModel(input: OverviewInput): OverviewViewModel {
   const byId = new Map(input.sessions.map(session => [session.id, session]));
-  const cards = input.needsYou.map(item => ({
+  const recent = input.needsYou.toSorted((left, right) => Date.parse(right.since) - Date.parse(left.since));
+  const cards = recent.map(item => ({
     id: item.id, reason: item.reason, reasonLabel: reasons[item.reason].label, status: statusCell(reasons[item.reason].status),
     title: title(item, byId), text: clip(sanitize(item.text), 160), age: age(item.since, input.now), sessionId: item.sessionId, pointer: item.pointer,
   }));
   const counts = order.map(status => ({ status: statusCell(status), count: input.sessions.filter(session => session.status === status).length }));
   const calmHeadline = input.sessions.length === 0 ? emptyStates.fleet.title : 'All clear: nothing needs you';
   const headline = cards.length === 0 ? calmHeadline : `${String(cards.length)} ${cards.length === 1 ? 'thing needs' : 'things need'} you`;
-  return { headline, cards, counts, fleet: fleetSummary(input.sessions, input.repositories) };
+  return { headline, cards: attentionSections(cards).flatMap(section => section.cards), counts, fleet: fleetSummary(input.sessions, input.repositories) };
 }
