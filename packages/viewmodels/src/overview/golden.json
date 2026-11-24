@@ -384,7 +384,7 @@
     "repositories": 6,
     "working": 5,
     "tokens": "2.7M",
-    "cost": "$82.85 (known; 28/30 sessions)",
+    "cost": "≥$82.85",
     "contextSeries": [
       58,
       56,

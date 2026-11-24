@@ -36,7 +36,7 @@ test('real session headers omit missing metadata and distinguish unknown, zero a
   assert.match(unknown, />—<\/span>/);
   assert.doesNotMatch(unknown, /unassigned| · {2}· |\$0\.00/);
   assert.match(render({ ...session, costUsd: 0 }), /\$0\.00/);
-  assert.match(render({ ...session, costUsd: 1.25, costIncomplete: true }), /\$1\.25 \(known\)/);
+  assert.match(render({ ...session, costUsd: 1.25, costIncomplete: true }), /≥\$1\.25/);
 });
 
 test('the focused topbar heading uses readable session identity without changing rich mock labels', () => {

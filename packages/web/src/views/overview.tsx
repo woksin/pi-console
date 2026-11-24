@@ -1,4 +1,4 @@
-import { overviewEmpty, overviewViewModel, pressureHistogram, type PressureHistogram } from '@pi-console/viewmodels';
+import { overviewEmpty, fleetCostCoverage, overviewViewModel, pressureHistogram, type PressureHistogram } from '@pi-console/viewmodels';
 import { useMemo } from 'react';
 import type { ViewProps } from '../app/view.tsx';
 import { navigate, useListNav, useStore } from '../app/hooks.ts';
@@ -8,12 +8,14 @@ import { SkeletonRows, Sparkline, StatusBadge } from '../ui/primitives.tsx';
 import { EmptyFor, FirstRun } from '../ui/empty.tsx';
 import { useScrollIntoView } from '../ui/hooks.ts';
 import { groupAttentionCards } from './overview-sections.ts';
+import { partialCostExplanation } from './fleet-cost.ts';
 import { useNewSince, useStatusFlash } from './overview-changes.ts';
 
 export function OverviewView({ state, now }: ViewProps) {
   const view = useMemo(() => overviewViewModel({ needsYou: state.needsYou, sessions: state.sessions, repositories: state.repositories.length, now }), [state.needsYou, state.sessions, state.repositories.length, now]);
   const ready = attentionPresentation(state).status === 'ready';
   const histogram = useMemo(() => pressureHistogram(state.sessions), [state.sessions]);
+  const coverage = useMemo(() => fleetCostCoverage(state.sessions), [state.sessions]);
   const byId = new Map(view.cards.map(card => [card.id, card]));
   const sections = groupAttentionCards(view.cards);
   const fresh = useNewSince(view.cards.map(card => card.id), state.snapshotLoaded && state.needsYouLoaded);
@@ -23,7 +25,7 @@ export function OverviewView({ state, now }: ViewProps) {
     <div className="page overview">
       <section className={`hero${ready && view.cards.length === 0 ? ' clear' : ''}`} aria-labelledby="needs-you">
         <AttentionSummary state={state} headline={view.headline} />
-        <p className="muted">{view.fleet.sessions} sessions · {view.fleet.repositories} repositories · {view.fleet.tokens} tokens · {view.fleet.cost}</p>
+        <p className="muted">{view.fleet.sessions} sessions · {view.fleet.repositories} repositories · {view.fleet.tokens} tokens · <FleetCost cost={view.fleet.cost} coverage={coverage} /></p>
       </section>
       {state.sessions.length > 0 && <div className="summary-strip" aria-label="Fleet summary">
         <div className="summary-counts">{view.counts.map(entry => <span key={entry.status.status}><StatusBadge cell={entry.status} /> {entry.count}</span>)}</div>
@@ -86,4 +88,11 @@ function AttentionCard({ card, isNew, selected, onSelect }: CardProps) {
       </div>
     </li>
   );
+}
+
+/** The fleet cost; a partial total (`≥$x`) explains itself in a tooltip and to screen readers, with the pricing coverage. */
+export function FleetCost({ cost, coverage }: { cost: string; coverage: string | undefined }) {
+  if (!coverage) return <>{cost}</>;
+  const explanation = `${partialCostExplanation}; ${coverage}`;
+  return <span className="cost-cell" title={explanation}><span aria-hidden="true">{cost}</span><span className="sr-only">{`at least ${cost.slice(1)}. ${explanation}`}</span></span>;
 }

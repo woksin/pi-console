@@ -91,7 +91,7 @@
       "pressure": "hot",
       "spark": "▅▇▆▄▂▃▇▇▇▆▇▇",
       "age": "55m",
-      "cost": "$1.76 (known)",
+      "cost": "≥$1.76",
       "model": "claude-haiku-4-5",
       "branch": "feature/cli-help",
       "selectable": true
@@ -305,7 +305,7 @@
       "pressure": "calm",
       "spark": "▅▇▃▃▃▄▄▃▄▂▄▄",
       "age": "2h",
-      "cost": "$1.53 (known)",
+      "cost": "≥$1.53",
       "model": "gpt-5-mini",
       "branch": "feature/test-isolation",
       "selectable": true
@@ -585,7 +585,7 @@
       "pressure": "warm",
       "spark": "▂▄▆▃▇▆▄▄▂▇▇▅",
       "age": "4m",
-      "cost": "$1.46 (known)",
+      "cost": "≥$1.46",
       "model": "claude-sonnet-4-5",
       "branch": "feature/queue-checkpoints",
       "selectable": true

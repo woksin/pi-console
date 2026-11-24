@@ -30,7 +30,8 @@ export function daemonHealthRows(health: unknown, prefix = ''): SettingsRow[] {
 }
 
 export type Tone = 'good' | 'warn' | 'bad' | 'plain';
-export interface SettingsRow { label: string; value: string; tone: Tone }
+/** `detail` is secondary text for the label (a source's daemon id). */
+export interface SettingsRow { label: string; value: string; tone: Tone; detail?: string }
 export interface SettingsViewModel { health: SettingsRow[]; data: SettingsRow[]; sources: SettingsRow[] }
 
 /** Read-only health: connection, stream lag, what the daemon has told us and whether each source directory is available. */

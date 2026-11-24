@@ -1,4 +1,4 @@
-import { newSince, overviewEmpty, overviewViewModel, pressureHistogram, wrap, type NewSince, type OverviewViewModel, type PressureHistogram } from '@pi-console/viewmodels';
+import { newSince, overviewEmpty, overviewViewModel, pressureHistogram, fleetCostCoverage, type NewSince, type OverviewViewModel, type PressureHistogram } from '@pi-console/viewmodels';
 import { Lines, Panel, Row, h, type Line } from '../view/renderer.ts';
 import { bar, blank, fit, heading, statusParts, t } from '../view/parts.ts';
 import { checklistLines, emptyLines, type Env, type SectionView } from './common.ts';
@@ -102,17 +102,16 @@ function statusLines(model: OverviewViewModel, width: number): Line[] {
   });
 }
 
-/** Tokens, then cost wrapped at word boundaries so the "(known; N/M sessions)" qualifier never overflows the panel. */
-export function fleetTotals(model: Pick<OverviewViewModel, 'fleet'>, inner: number): Line[] {
-  const [first, ...rest] = wrap(`cost ${model.fleet.cost}`, inner, 3);
+/** Tokens, then cost (`≥` marks a partial total) with the pricing coverage as secondary text when there is one. */
+export function fleetTotals(model: Pick<OverviewViewModel, 'fleet'>, coverage?: string): Line[] {
   return [
     [t('tokens ', 'muted'), t(model.fleet.tokens, 'text')],
-    [t('cost ', 'muted'), t(first.replace(/^cost /, ''), 'text')],
-    ...rest.map(line => [t(line, 'text')]),
+    [t('cost ', 'muted'), t(model.fleet.cost, 'text')],
+    ...(coverage ? [[t(`     ${coverage}`, 'faint')]] : []),
   ];
 }
 
-function fleetPanel(model: OverviewViewModel, histogram: PressureHistogram, width: number, height: number): ReturnType<typeof h> {
+function fleetPanel(model: OverviewViewModel, fleet: { histogram: PressureHistogram; coverage: string | undefined }, width: number, height: number): ReturnType<typeof h> {
   const lines: Line[] = [
     [t(String(model.fleet.sessions), 'text', { bold: true }), t(` sessions in ${String(model.fleet.repositories)} repositories`, 'muted')],
     [t(String(model.fleet.working), 'cyan', { bold: true }), t(' working right now', 'muted')],
@@ -121,9 +120,9 @@ function fleetPanel(model: OverviewViewModel, histogram: PressureHistogram, widt
     blank, heading('Context, fleet average'),
     [t(model.fleet.contextSpark, 'cyan')],
     blank,
-    ...fleetTotals(model, width - 4),
+    ...fleetTotals(model, fleet.coverage),
   ];
-  const pressure = [blank, heading('Context pressure'), ...pressureLines(histogram)];
+  const pressure = [blank, heading('Context pressure'), ...pressureLines(fleet.histogram)];
   if (lines.length + pressure.length <= height - 2) lines.push(...pressure);
   return h(Panel, { title: 'Fleet', width }, h(Lines, { lines }));
 }
@@ -137,6 +136,6 @@ export function overviewView(env: Env): SectionView {
     idAt: index => model.cards[index]?.sessionId ?? null,
     render: () => h(Row, { grow: 1, gap: 1 },
       attentionPanel(model, env, wide ? env.width - 38 : env.width, env.height),
-      ...(wide ? [fleetPanel(model, pressureHistogram(env.data.sessions), 37, env.height)] : [])),
+      ...(wide ? [fleetPanel(model, { histogram: pressureHistogram(env.data.sessions), coverage: fleetCostCoverage(env.data.sessions) }, 37, env.height)] : [])),
   };
 }

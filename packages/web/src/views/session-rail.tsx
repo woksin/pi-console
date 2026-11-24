@@ -1,13 +1,14 @@
 import { glyphs, type SessionViewModel } from '@pi-console/viewmodels';
 import { PressureBar, Panel, Sparkline, StatusBadge } from '../ui/primitives.tsx';
 import { sessionHref } from '../app/routes.ts';
+import { partialCostExplanation } from './fleet-cost.ts';
 import { SessionMemory } from './session-memory.tsx';
 
 export function SessionHeader({ view }: { view: SessionViewModel }) {
   return (
     <header className="session-head">
       <div className="muted small mono">{[view.cwd, view.branch, view.model, view.role].filter(Boolean).join(' · ')}</div>
-      <span className="muted tnum">{view.cost}</span><span className="muted tnum">updated {view.age} ago</span>
+      <span className="muted tnum" title={view.cost.startsWith('≥') ? partialCostExplanation : undefined}>{view.cost}</span><span className="muted tnum">updated {view.age} ago</span>
     </header>
   );
 }
