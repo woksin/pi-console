@@ -4,10 +4,12 @@ import { spawnSync } from 'node:child_process';
 import process from 'node:process';
 import { clearInterval, setInterval } from 'node:timers';
 import { URL } from 'node:url';
-import { shots, webViews, budget, flowIds, byId } from './scenes.ts';
+import { shots, webViews, budget, flowIds, byId, fixedNow } from './scenes.ts';
 import { readFileSync } from 'node:fs';
 import { maxAdvanceMs, stepMs } from './web-page.ts';
 import { needsYouCount, quiesce, memoryReceipt, showcaseHealth } from './showcase.ts';
+import { memoryItems } from '../../packages/testkit/src/mock-daemon/memory.ts';
+import { showcaseMemory } from './fixture.mjs';
 import './clock.test.mjs';
 
 const ids = new Set(shots.map(shot => shot.id));
@@ -109,3 +111,33 @@ for (const fail of [false, true]) {
     assert.match(result.stdout, /intermediate frames removed/);
   });
 }
+
+test('showcase memory is realistic, recent and leads with the newest proposal while the withheld rejection stays last', () => {
+  const source = memoryItems();
+  const before = JSON.parse(JSON.stringify(source));
+  const items = showcaseMemory(source, fixedNow);
+  assert.deepEqual(source, before, 'the shared mock memory is not mutated');
+  assert.ok(items.every(item => !item.text.startsWith('synthetic memory item')));
+  assert.equal(new Set(items.map(item => item.text)).size, items.length, 'every item reads distinctly');
+  const newestFirst = [...items].sort((a, b) => Date.parse(b.at) - Date.parse(a.at));
+  assert.deepEqual(items.map(item => item.id), newestFirst.map(item => item.id), 'returned order is newest first');
+  assert.equal(items[0]?.status, 'proposed');
+  const withheld = items.findIndex(item => item.withheld);
+  assert.ok(withheld > 0, 'the withheld item is not first');
+  assert.equal(items[withheld]?.status, 'rejected');
+  const ages = items.map(item => Date.parse(fixedNow) - Date.parse(item.at));
+  assert.ok(ages.every(age => age > 0 && age < 6 * 3600_000), 'ages are minutes to hours before the transcript');
+});
+
+test('showcase memory keeps ids, status, provenance and the wider-scope example', () => {
+  const source = memoryItems();
+  const items = showcaseMemory(source, fixedNow);
+  for (const original of source) {
+    const decorated = items.find(item => item.id === original.id);
+    assert.ok(decorated, original.id);
+    assert.deepEqual([decorated.status, decorated.statusBasis, decorated.kind, decorated.sourceType, decorated.withheld, decorated.command],
+      [original.status, original.statusBasis, original.kind, original.sourceType, original.withheld, original.command]);
+  }
+  assert.ok(items.some(item => item.scope.kind === 'global'));
+  assert.ok(items.filter(item => item.sessionId !== null).every(item => item.sessionId === 's2' && item.scope.key === 's2'), 'session items sit with the transcript');
+});

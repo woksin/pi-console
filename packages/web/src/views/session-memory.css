@@ -1,0 +1,7 @@
+/* Memory panel layout: one compact action row per item, and the panel scrolls with its rail rather than being cut off. */
+.memory-panel { scroll-margin-bottom: var(--space-3); }
+.memory-panel .memory-item { scroll-margin-block: var(--space-3); }
+.memory-panel .memory-item .memory-actions { flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+.memory-panel .memory-item .memory-actions .btn { padding: 3px 8px; white-space: nowrap; }
+.memory-panel .memory-command summary { cursor: pointer; color: var(--faint); }
+.memory-panel .memory-command[open] summary { margin-bottom: 2px; }
