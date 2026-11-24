@@ -2,8 +2,10 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import process from 'node:process';
+import { clearInterval, setInterval } from 'node:timers';
 import { URL } from 'node:url';
-import { shots, webViews, budget } from './scenes.ts';
+import { shots, webViews, budget, flowIds, byId } from './scenes.ts';
+import { needsYouCount, quiesce, memoryReceipt, showcaseHealth } from './showcase.ts';
 import './clock.test.mjs';
 
 const ids = new Set(shots.map(shot => shot.id));
@@ -17,6 +19,40 @@ test('every main web view and history/retry scene has dark and light captures', 
     assert.ok(ids.has(`web-${id}`), id);
     assert.ok(ids.has(`web-${id}-light`), `${id} light`);
   }
+});
+
+test('the connect, first-run and live-state flows are registered as web captures', () => {
+  for (const id of flowIds) assert.equal(byId(id).client, 'web', id);
+  assert.deepEqual(flowIds.map(id => byId(id).kind), ['still', 'still', 'gif', 'gif']);
+});
+
+test('the Needs you headline parses to its count and calm text is not a count', () => {
+  assert.equal(needsYouCount('19 things need you'), 19);
+  assert.equal(needsYouCount('1 thing needs you'), 1);
+  assert.equal(needsYouCount('All clear'), null);
+});
+
+test('gallery health reports one sequence everywhere', () => {
+  const health = showcaseHealth(412, 1);
+  assert.deepEqual([health.eventLog.lastSeq, health.projection.position, health.stream.seq], [412, 412, 412]);
+  assert.ok(health.sources.every(source => source.availability === 'available'));
+});
+
+test('a synthetic receipt never expires within the fixed capture clock', () => {
+  const receipt = memoryReceipt('awaiting-ingestion', { requestId: 'r', itemId: 'i', action: 'confirm' });
+  assert.ok(receipt.expiresAt > Date.parse('2026-11-20T12:00:00Z'));
+  assert.equal(receipt.state, 'awaiting-ingestion');
+});
+
+test('quiesce resolves once the sequence stops moving and rejects when it never does', async () => {
+  let seq = 0;
+  const timer = setInterval(() => { if (seq < 5) seq++; }, 10);
+  assert.equal(await quiesce({ seq: () => seq }, { stableMs: 80 }), 5);
+  clearInterval(timer);
+  let moving = 0;
+  const busy = setInterval(() => { moving++; }, 5);
+  await assert.rejects(quiesce({ seq: () => moving }, { stableMs: 80, timeoutMs: 300 }), /never settled/);
+  clearInterval(busy);
 });
 
 test('terminal-only detail scenes are registered within the gallery budget', () => {

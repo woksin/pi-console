@@ -68,11 +68,18 @@ export const shots: readonly Shot[] = [
   tui('memory-review', 'An older proposed memory item after backfill, with interactive-pi review commands'),
   tui('attention-retry', 'Attention unavailable header and retry hint without claiming an all-clear'),
   tui('settings-scroll', 'Short-terminal Settings scrolled to the final rows with position and keyboard hints'),
+  web('connect', 'Connect to the daemon: the token screen a first visit without a launch link shows, with the Access token field and where to find the token'),
+  web('first-run', 'First run: a connected daemon that has seen no sessions yet, with the checklist of what to set up'),
+  gif('web-live-fleet', 'web', 'Live fleet over the real SSE stream: a working session finishes in Fleet, then a new blocking question raises the Needs you count on Overview'),
+  gif('web-memory-review', 'web', 'Memory review of a proposed item: Confirm… requests it, pi awaits confirmation then ingestion, and only the producer\'s own update makes the item active'),
   gif('web-palette', 'web', 'Ctrl+P, type "aur", the palette ranks matches by group, Enter opens the session'),
   gif('web-tour', 'web', 'Keyboard tour: Overview, Fleet, a session at its reset divider, Timeline'),
   gif('tui-tour', 'tui', 'TUI tour: Overview, Fleet, a session, the command palette, Timeline'),
   gif('tui-vhs', 'tui', 'VHS recording of the real TUI against the isolated demo daemon: Overview, Fleet, Requests, Settings'),
 ];
+
+/** The four live-state flows (`web-flows.ts`): each runs on its own rig and is never part of the paired stills. */
+export const flowIds: readonly string[] = ['web-connect', 'web-first-run', 'web-live-fleet', 'web-memory-review'];
 
 export const byId = (id: string): Shot => {
   const shot = shots.find(candidate => candidate.id === id);

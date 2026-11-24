@@ -17,14 +17,14 @@ The committed [tui.tape](../../scripts/media/tui.tape) records the real TUI agai
 
 ## Data and determinism
 
-- Only synthetic data: the mock daemon replays the checked-in fixture (`packages/testkit/src/fixture`) with a throwaway data directory. Gallery-only adaptations put that fixture's memory in its transcript session, extend a question and its options, give three questions synthetic history (one open for eleven days only while the Questions shots are taken, so it shows Stale without stretching the Timeline), advertise a synthetic live pi review provider for the web controls, and temporarily add 100 completed memory items so an older proposal requires backfill. The unavailable-attention scenes return a synthetic HTTP 503; the timeline-history scenes bound the initial message window to 10 of 40 rows. The VHS runner instead seeds the real demo daemon with generated synthetic events and disables all source ingestion. Nothing is read from `~/.pi`.
+- Only synthetic data: the mock daemon replays the checked-in fixture (`packages/testkit/src/fixture`) with a throwaway data directory. Gallery-only adaptations put that fixture's memory in its transcript session, extend a question and its options, give three questions synthetic history (one open for eleven days only while the Questions shots are taken, so it shows Stale without stretching the Timeline), advertise a synthetic live pi review provider for the web controls, and temporarily add 100 completed memory items so an older proposal requires backfill. The live and first-run scenes each start their own mock daemon: first-run empties its snapshot, live-fleet publishes a session update and a blocking question through the daemon's stream, and memory-review answers the review endpoints with synthetic provider receipts (the item turns active only when the daemon publishes the producer's update). Their health responses use the stream's own sequence, and Settings captures check that the four sequence figures match it. The unavailable-attention scenes return a synthetic HTTP 503; the timeline-history scenes bound the initial message window to 10 of 40 rows. The VHS runner instead seeds the real demo daemon with generated synthetic events and disables all source ingestion. Nothing is read from `~/.pi`.
 - For Playwright/PTY captures, the daemon stream is frozen (`speed: 1e-9`), the browser wall clock and the TUI's `PI_CONSOLE_NOW` are fixed at the shared capture time (`2026-11-20T12:00:00Z`). Web ages follow snapshot/stream time, not wall time alone, so the media rig also pins the fixture snapshot's `generatedAt` to that same instant without changing entity timestamps. The time zone is pinned to UTC (times are otherwise shown in the viewer's zone), `/api/v1/health` is mocked and motion is reduced. Animation frames have fixed holds.
 - VHS records wall-clock terminal rendering with scripted waits, not held screenshots; its timing and daemon health values can vary. Settings captures also show ephemeral loopback ports. The scripted `web-palette.gif` and `web-tour.gif` have also varied in byte-level comparisons across otherwise identical runs; their fixed fixture clock does not promise identical animation bytes. Fonts differ by OS. Regenerate on macOS and inspect the result; byte-identical output is not promised for these captures.
 - Raw PNG/GIF frames in `.ai-work/media-work/` are disposable and are removed on command exit, including failures. Only the encoded showcase files belong in `docs/media/`.
 
 ## Budget
 
-Total ≤ 6 MB (6144 KiB), no file over 600 KiB, heroes ≤ 400 KiB. The total allowance includes the additional dark/light history and retry scenes plus the TUI detail captures. `npm run media` fails when over budget. Git history still holds the larger media of earlier revisions.
+Total ≤ 6 MB (6144 KiB), no file over 600 KiB, heroes ≤ 400 KiB. The total allowance includes the additional dark/light history and retry scenes, the TUI detail captures and the connect, first-run and two live-state web scenes (roughly 0.9 MB together). `npm run media` fails when over budget. Git history still holds the larger media of earlier revisions.
 
 ## Shot list
 
@@ -49,6 +49,10 @@ The list below mirrors `scripts/media/scenes.ts`, which drives capture, encoding
 | `web-graph.webp`, `web-graph-light.webp` | web | Lane communication edges and separate session spawn relationships, midnight and dawn |
 | `web-timeline.webp`, `web-timeline-light.webp` | web | Timeline, midnight and dawn |
 | `web-themes.webp` | web | Theme preview cards (midnight, dawn, contrast) |
+| `web-connect.webp` | web | The token screen a visit without a launch link shows, before connecting |
+| `web-first-run.webp` | web | A connected daemon with no sessions: the Getting started checklist and an empty Needs you |
+| `web-live-fleet.gif` | web | Live over SSE: a working session finishes in Fleet, then a new blocking question raises the Needs you count on Overview |
+| `web-memory-review.gif` | web | A proposed memory item: Confirm… then awaiting confirmation in pi, awaiting producer ingestion, and active only after the producer's own update |
 | `web-palette.gif`, `web-tour.gif` | web | Palette typing `aur`; keyboard tour of four views |
 | `tui-overview.webp`, `tui-palette.webp`, `tui-session-resets.webp`, `tui-mono.webp` | tui | TUI stills, including the mono theme |
 | `tui-questions.webp` | tui | Questions list: sort and stale threshold in the title, a stale marker on an idle open question |

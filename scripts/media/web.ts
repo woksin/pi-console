@@ -2,16 +2,12 @@
 import type { Page } from 'playwright-core';
 import { startRig, type Rig } from '../../packages/web/e2e/harness.ts';
 import { memoryItems } from '../../packages/testkit/src/mock-daemon/memory.ts';
-import { fixedNow, shots, webViews } from './scenes.ts';
+import { fixedNow, flowIds, shots, webViews } from './scenes.ts';
 import { recordQuestionHistory, withStaleQuestion } from './questions.ts';
 import { FrameSet, wanted, writeStill, type Work } from './capture.ts';
-
-type Theme = 'midnight' | 'dawn';
-const size = { width: 1280, height: 800 };
-const health = {
-  status: 'ok', eventLog: { lastSeq: 45210, dbBytes: 138412032 }, projection: { position: 45210, queueDepth: 0, skipped: 0 },
-  stream: { seq: 45210, clients: 2, retained: 512 }, backfill: { complete: true, windowDays: 7 }, memory: { rssBytes: 112197632, heapUsedBytes: 50331648 },
-};
+import { quiesce, showcaseHealth } from './showcase.ts';
+import { connectLive, png, preparePage, settle, type Theme } from './web-page.ts';
+import { captureFlows } from './web-flows.ts';
 
 /** A frozen-stream rig: speed ≈ 0 publishes only the t=0 events. */
 export async function startFrozenRig(): Promise<Rig> {
@@ -21,6 +17,7 @@ export async function startFrozenRig(): Promise<Rig> {
     item.scope = { kind: 'session', key: 's2' };
   }
   const rig = await startRig({ speed: 1e-9 });
+  await quiesce(rig.daemon.store);
   // Web ages follow snapshot/stream time, not the pinned browser wall clock alone.
   rig.daemon.store.fixture.generatedAt = fixedNow;
   const question = rig.daemon.store.fixture.questions[0];
@@ -31,31 +28,20 @@ export async function startFrozenRig(): Promise<Rig> {
 }
 
 async function openConsole(rig: Rig, options: { theme: Theme; scale: number; route: string; before?: (page: Page) => Promise<void> }): Promise<Page> {
-  const context = await rig.browser.newContext({ viewport: size, deviceScaleFactor: options.scale, reducedMotion: 'reduce', timezoneId: 'UTC', colorScheme: options.theme === 'dawn' ? 'light' : 'dark' });
-  await context.addInitScript(prefs => { localStorage.setItem('pi-console.prefs', prefs); }, JSON.stringify({ theme: options.theme, reducedMotion: true, sidebarCollapsed: false }));
-  const page = await context.newPage();
-  await page.route('**/api/v1/health', route => route.fulfill({ json: health }));
+  const page = await preparePage(rig, options);
+  // Gallery health follows the stream's own sequence at request time, so Settings agrees with itself.
+  await page.route('**/api/v1/health', route => route.fulfill({ json: showcaseHealth(rig.daemon.store.seq(), rig.daemon.store.clients()) }));
   // Synthetic provider capability: the controls request a native pi review, never mutate memory here.
   await page.route('**/api/v1/sessions/s2/memory-actions', route => route.fulfill({ json: {
     version: 1, available: true, providerVersion: 1, generation: 'gallery-s2', reason: 'available',
   } }));
-  await page.clock.setFixedTime(new Date(fixedNow));
   await options.before?.(page);
-  await page.goto(`${rig.baseUrl}/#${options.route}?token=${rig.daemon.token}`);
-  await page.locator('.conn[data-connection="live"]').waitFor();
+  await connectLive(rig, page, options.route);
   await settle(page);
   return page;
 }
 
-const settle = async (page: Page): Promise<void> => {
-  await page.waitForTimeout(600);
-  await page.evaluate(async () => {
-    await document.fonts.ready;
-    await new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-  });
-};
 const go = async (page: Page, route: string): Promise<void> => { await page.evaluate(hash => { location.hash = hash; }, route); await settle(page); };
-const png = (page: Page): Promise<Buffer> => page.screenshot({ animations: 'disabled' });
 
 /** Pin the tail after fonts/layout settle, rather than recording a race with React's initial scrollIntoView effect. */
 async function showTranscriptTail(page: Page): Promise<void> {
@@ -95,21 +81,35 @@ const questionsStill = (rig: Rig, theme: Theme): Promise<Buffer> => withStaleQue
   return still;
 });
 
+/** What a view needs on screen before its still: the tail, the memory panel, older history, the settings check or the graph edges. */
+async function prepareView(page: Page, rig: Rig, id: string): Promise<void> {
+  if (id === 'session') {
+    await showTranscriptTail(page);
+    await page.locator('.memory-panel').scrollIntoViewIfNeeded();
+    await page.evaluate(() => { window.scrollTo(0, 0); });
+  }
+  if (id === 'transcript-history') await showOlderTranscript(page);
+  if (id === 'settings') await assertSettingsSequence(page, rig);
+  if (id === 'graph') await page.locator('[aria-label="Lane communication"] .edge.message').first().waitFor({ state: 'attached' });
+}
+
 async function captureWebViews(rig: Rig, page: Page, work: Work, suffix: string): Promise<void> {
   for (const view of webViews) {
     const id = `web-${view.id}${suffix}`;
     if (!wanted(work, id)) continue;
     if (view.id === 'questions') { writeStill(work, id, await questionsStill(rig, suffix === '-light' ? 'dawn' : 'midnight')); continue; }
     await go(page, view.route);
-    if (view.id === 'session') {
-      await showTranscriptTail(page);
-      await page.locator('.memory-panel').scrollIntoViewIfNeeded();
-      await page.evaluate(() => { window.scrollTo(0, 0); });
-    }
-    if (view.id === 'transcript-history') await showOlderTranscript(page);
-    if (view.id === 'graph') await page.locator('[aria-label="Lane communication"] .edge.message').first().waitFor({ state: 'attached' });
+    await prepareView(page, rig, view.id);
     writeStill(work, id, await png(page));
   }
+}
+
+/** The Connection sequence and all three health sequences are the stream's one sequence once the rig is quiescent. */
+async function assertSettingsSequence(page: Page, rig: Rig): Promise<void> {
+  const seq = String(rig.daemon.store.seq());
+  const values = await page.locator('.settings dl.kv div').evaluateAll(rows => rows.map(row => [row.querySelector('dt')?.textContent ?? '', row.querySelector('dd')?.textContent ?? '']));
+  const sequences = values.filter(([label]) => /(^|· )(Last sequence|Sequence)$/.test(label)).map(([, value]) => value);
+  if (sequences.length < 3 || sequences.some(value => value !== seq)) throw new Error(`Settings sequences ${JSON.stringify(sequences)} do not match the stream sequence ${seq}`);
 }
 
 async function showOlderTranscript(page: Page): Promise<void> {
@@ -222,8 +222,9 @@ async function tourGif(rig: Rig, work: Work): Promise<void> {
 }
 
 export async function captureWeb(rig: Rig, work: Work): Promise<void> {
-  const wantsStills = shots.some(shot => shot.client === 'web' && shot.kind === 'still' && wanted(work, shot.id));
+  const wantsStills = shots.some(shot => shot.client === 'web' && shot.kind === 'still' && !flowIds.includes(shot.id) && wanted(work, shot.id));
   if (wantsStills) { await stillsFor(rig, work, 'midnight'); await stillsFor(rig, work, 'dawn'); }
   if (wanted(work, 'web-palette')) await paletteGif(rig, work);
   if (wanted(work, 'web-tour')) await tourGif(rig, work);
+  await captureFlows(work);
 }

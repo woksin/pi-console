@@ -60,7 +60,7 @@ function makeSessions(rng: () => number) {
 function makeRequests() {
   return Array.from({ length: 12 }, (_, i) => {
     const owner = i < 3 ? 1 : i;
-    const createdAt = i < 3 ? timestamp([2000, 5000, 9000][i]) : within(owner, 0.1 + i * 0.04);
+    const createdAt = i < 3 ? timestamp([0, 1000, 2000][i]) : within(owner, 0.1 + i * 0.04);
     return {
       id: `r${i + 1}`, sessionId: `s${owner + 1}`, text: requestTexts[i],
       origin: ['human', 'launch', 'unproven'][i % 3],

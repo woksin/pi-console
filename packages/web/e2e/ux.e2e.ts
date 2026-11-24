@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import './memory-live.e2e.ts';
 import './timeline.e2e.ts';
 import './graph.e2e.ts';
+import './media-flows.e2e.ts';
 import { after, before, test } from 'node:test';
 import type { AttentionItem, MemoryItem } from '@pi-console/contract';
 import type { Page } from 'playwright-core';
