@@ -52,7 +52,7 @@ export function quietSession(fixture: Fixture, status: Session['status']): Sessi
   return found;
 }
 
-export const finishedSession = (session: Session): Session => ({ ...session, status: 'done', updatedAt: '2026-11-20T11:59:30Z', contextPercent: Math.min(session.contextPercent, 40) });
+export const finishedSession = (session: Session): Session => ({ ...session, status: 'done', updatedAt: '2026-11-20T11:59:00Z', contextPercent: Math.min(session.contextPercent, 40) });
 
 export const liveQuestionText = 'Approve the cache sweep before the nightly window starts?';
 export const liveQuestion = (sessionId: string): Question => ({

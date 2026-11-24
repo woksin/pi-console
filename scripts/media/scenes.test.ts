@@ -5,6 +5,8 @@ import process from 'node:process';
 import { clearInterval, setInterval } from 'node:timers';
 import { URL } from 'node:url';
 import { shots, webViews, budget, flowIds, byId } from './scenes.ts';
+import { readFileSync } from 'node:fs';
+import { maxAdvanceMs, stepMs } from './web-page.ts';
 import { needsYouCount, quiesce, memoryReceipt, showcaseHealth } from './showcase.ts';
 import './clock.test.mjs';
 
@@ -53,6 +55,16 @@ test('quiesce resolves once the sequence stops moving and rejects when it never 
   const busy = setInterval(() => { moving++; }, 5);
   await assert.rejects(quiesce({ seq: () => moving }, { stableMs: 80, timeoutMs: 300 }), /never settled/);
   clearInterval(busy);
+});
+
+test('the live flows never let the browser clock run on its own', () => {
+  const page = readFileSync(new URL('./web-page.ts', import.meta.url), 'utf8');
+  const flows = readFileSync(new URL('./web-flows.ts', import.meta.url), 'utf8');
+  assert.doesNotMatch(page, /clock\.resume\(/);
+  assert.doesNotMatch(flows, /'running'/);
+  assert.match(flows, /clock: 'controlled'/);
+  assert.match(page, /clock\.install\(\{ time: new Date\(fixedNow\) \}\)/);
+  assert.ok(stepMs > 0 && maxAdvanceMs % stepMs === 0, 'virtual time moves in whole steps up to a bound');
 });
 
 test('terminal-only detail scenes are registered within the gallery budget', () => {

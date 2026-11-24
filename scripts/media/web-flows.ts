@@ -10,7 +10,7 @@ import {
   applyProducerConfirmation, emptyFixture, finishedSession, liveQuestion, liveQuestionText, memoryReceipt, memoryReviewItem,
   memoryReviewSession, memoryReviewStages, needsYouCount, prepareMemoryReview, quiesce, quietSession, showcaseHealth,
 } from './showcase.ts';
-import { connectLive, png, preparePage, settle } from './web-page.ts';
+import { advanceUntil, connectLive, png, preparePage, settle } from './web-page.ts';
 
 /** One picture of the page's current state; `holdMs` is how long an animation shows it. */
 export type Snap = (page: Page, holdMs: number) => Promise<void>;
@@ -74,7 +74,7 @@ export async function liveFleetFlow(snap: Snap = quiet): Promise<void> {
     const { store } = rig.daemon;
     const working = quietSession(store.fixture, 'working');
     const idle = quietSession(store.fixture, 'idle');
-    const page = await preparePage(rig, { theme: 'midnight', scale: 1, clock: 'running' });
+    const page = await preparePage(rig, { theme: 'midnight', scale: 1, clock: 'controlled' });
     await healthFor(rig, page);
     await connectLive(rig, page, '/overview');
     await page.locator('[data-reason]').first().waitFor();
@@ -90,15 +90,16 @@ export async function liveFleetFlow(snap: Snap = quiet): Promise<void> {
     await settle(page);
     await snap(page, 1000);
     store.publish('session.updated', finishedSession(working));
-    await page.waitForFunction(id => /done/i.test(document.querySelector(`[data-session="${id}"]`)?.textContent ?? ''), working.id);
+    await advanceUntil(page, (id: string) => /done/i.test(document.querySelector(`[data-session="${id}"]`)?.textContent ?? ''), working.id);
     await settle(page);
     await snap(page, 1500);
 
     await go(page, '/overview');
     store.publish('question.asked', liveQuestion(idle.id));
     const card = page.locator('[data-reason="blocking-question"]').filter({ hasText: liveQuestionText });
+    // The count rises only after the store's 2 s refresh interval: the clock is stepped to it, never left to run.
+    await advanceUntil(page, (count: number) => Number(/^(\d+)/.exec(document.querySelector('#needs-you')?.textContent ?? '')?.[1]) > count, before);
     await card.waitFor();
-    await page.waitForFunction(count => /^(\d+) things? needs? you/.test(document.querySelector('#needs-you')?.textContent ?? '') && Number(/^(\d+)/.exec(document.querySelector('#needs-you')?.textContent ?? '')?.[1]) > count, before);
     await card.scrollIntoViewIfNeeded();
     await settle(page);
     assert.ok((await headline(page) ?? 0) > before, 'the Needs you count rose without a reload');
