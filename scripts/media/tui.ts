@@ -65,6 +65,8 @@ async function openSession(pty: Pty): Promise<void> {
   pty.send('@aurora implementation'); await pty.waitFor(/\b1 of \d+/);
   pty.send('\r'); await pty.waitFor('aurora / L192 / aurora implementation');
   await pty.waitFor('following tail');
+  // The status line shows before the first page arrives; every later key needs the loaded transcript.
+  await pty.waitFor(/\d\d:\d\d:\d\d [^\n]*\S/);
 }
 
 /** Searches for the reset divider so its carried/interrupted lists are on screen. */
@@ -75,7 +77,14 @@ async function showReset(pty: Pty): Promise<void> {
     pty.send('g'); await pause(600);
   }
   pty.send('/'); await pause(250);
-  pty.send('handoff\r'); await pty.waitFor('⟲ handoff');
+  pty.send('handoff\r'); await pty.waitFor('matching');
+  // Ordinary entries mention a handoff too (135 matches) and the divider is among the oldest: load and go to the top of the
+  // filtered list, then step down to it.
+  for (let page = 0; page < 8 && (page === 0 || pty.screen().includes('older entries above')); page++) {
+    pty.send('g'); await pause(700);
+  }
+  for (let step = 0; step < 80 && !pty.screen().includes('⟲ handoff'); step++) { pty.send('j'); await pause(150); }
+  await pty.waitFor('⟲ handoff');
 }
 
 async function stills(rig: Rig, work: Work): Promise<void> {
