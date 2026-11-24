@@ -11,7 +11,7 @@ const fixture = generate().fixture as unknown as { requests: Request[]; sessions
 const sessions = fixture.sessions.map(session => ({ ...session, name: 'A readable session with a deliberately long name', laneId: 'lane-220' }));
 const requests: Request[] = ['human', 'launch', 'unproven'].map((origin, index) => ({ ...fixture.requests[0], id: `r${String(index)}`, origin: origin as Request['origin'], text: 'TEXT-FREE-SPACE for the actual request', status: 'answered', uncertain: true, uncertainReason: 'shared-answer', answerPossiblyUnseen: true }));
 
-for (const width of [80, 100, 110, 120, 160]) {
+for (const width of [80, 100, 110, 120, 140, 160]) {
   test(`Requests gives text free width without hiding origin or uncertainty at ${String(width)} columns`, async () => {
     const store = new Store();
     const view = requestsView({ data: { ...store.getSnapshot(), requests, sessions }, ui: { ...initial, section: 'requests' }, width, height: 30, now: Date.parse(fixture.requests[0].createdAt), phase: 0, click: () => undefined });
@@ -20,6 +20,7 @@ for (const width of [80, 100, 110, 120, 160]) {
       await ui.settle();
       const frame = ui.frame();
       assert.match(frame, /● human · ◆ launch · \* unproven · ≈ uncertain · ◌ unseen\?/);
+      assert.equal(frame.includes('Provenance'), width >= 110);
       const rows = frame.split('\n').filter(line => line.includes('≈◌'));
       assert.equal(rows.length, 3);
       assert.ok(rows.every(line => line.includes('TEXT-FREE-SPACE for the')));

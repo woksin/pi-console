@@ -7,6 +7,7 @@ import { requestDetailLines } from './detail.ts';
 import { listFilter } from '../../state/ui.ts';
 
 const DETAIL_WIDTH = 56;
+const detailWidth = (env: Env): number => env.width < 140 ? 34 : DETAIL_WIDTH;
 export const originColor = (row: { origin: RequestsRow['origin'] }) => (row.origin === 'human' ? 'blue' as const : 'amber' as const);
 
 const originGlyph: Record<RequestsRow['origin'], string> = { human: '●', launch: '◆', unproven: '*' };
@@ -25,15 +26,18 @@ function rowLine(row: RequestsRow, env: Env, width: number, selected: boolean): 
 
 const summaryLine = (model: RequestsViewModel): Line => [t(` ${describeRequestFilter(model)}`, 'muted'), t(`  ${String(model.rows.length)} shown · ${String(model.uncertain)} uncertain · ${String(model.possiblyUnseen)} unseen?`, 'faint')];
 
-const detailPanel = (request: Request | undefined | false, env: Env) => h(Panel, { title: 'Provenance', width: DETAIL_WIDTH }, h(Lines, { lines: requestDetailLines(request, env, DETAIL_WIDTH).map(line => fit(line, DETAIL_WIDTH - 4, undefined, env.measure)) }));
+const detailPanel = (request: Request | undefined | false, env: Env) => {
+  const width = detailWidth(env);
+  return h(Panel, { title: 'Provenance', width }, h(Lines, { lines: requestDetailLines(request, env, width).map(line => fit(line, width - 4, undefined, env.measure)) }));
+};
 
 /** Requests and answers: list, filters (`[` `]` state, `o` origin, `S` session, `/` text) and the detail of the selected row; Enter opens the transcript at the prompt. */
 export function requestsView(env: Env): SectionView {
   const filter = { ...env.ui.requestFilter, query: listFilter(env.ui) };
   const model = requestsViewModel({ requests: env.data.requests, sessions: env.data.sessions, now: env.now, filter });
   const { rows } = model;
-  const wide = env.width >= 140;
-  const width = (wide ? env.width - DETAIL_WIDTH - 1 : env.width) - 4;
+  const wide = env.width >= 110;
+  const width = (wide ? env.width - detailWidth(env) - 1 : env.width) - 4;
   const cursor = Math.min(env.ui.cursor.requests, Math.max(0, rows.length - 1));
   const { start, end } = windowOf(rows.length, cursor, Math.max(1, env.height - 6));
   const lines = rows.slice(start, end).map((row, offset) => rowLine(row, env, width, start + offset === cursor));

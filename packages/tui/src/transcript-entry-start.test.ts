@@ -37,4 +37,32 @@ for (const width of [80, 120]) {
       assert.match(ui.frame(), /20 Nov 2026 09:0\d:00 UTC/);
     } finally { ui.destroy(); store.dispose(); }
   });
+
+  test(`streaming from eight to eleven lines keeps the newest line and cursor visible at ${String(width)}×18`, async () => {
+    const store = new Store();
+    store.apply({ seq: 1, type: 'snapshot', occurredAt: fixture.generatedAt, payload: fixture });
+    const streaming: TranscriptEntry = { ...entries[0], kind: 'assistant.delta', text: Array.from({ length: 8 }, (_, index) => `STREAM${String(index)}`).join('\n') };
+    store.mergeTranscript(id, [streaming]);
+    store.setConnection(true, '');
+    store.flush();
+    const ui = await mountHeadless(h(App, { store, endpoint: 'http://localhost', tokenSource: 'test', animate: false, initialState: { sessionId: id }, loadTranscript: () => undefined, loadMemory: () => undefined, onQuit: () => undefined }), { width, height: 18 });
+    try {
+      await ui.settle();
+      assert.match(ui.frame(), /STREAM7 ▍/);
+      const cursorRow = ui.frame().split('\n').findIndex(line => line.includes('STREAM7 ▍'));
+      for (const index of [8, 9, 10]) {
+        store.mergeTranscript(id, [{ ...streaming, id: `delta-${String(index)}`, cursor: index + 1, text: `\nSTREAM${String(index)}` }]);
+        store.flush();
+        await ui.settle();
+        assert.match(ui.frame(), /following tail/);
+        assert.equal(ui.frame().split('\n').findIndex(line => line.includes(`STREAM${String(index)} ▍`)), cursorRow);
+      }
+      for (const key of ['j', 'PAGEDOWN', 'END']) {
+        await ui.press('ARROW_UP');
+        await ui.press(key);
+        assert.match(ui.frame(), /following tail/);
+        assert.match(ui.frame(), /STREAM10 ▍/);
+      }
+    } finally { ui.destroy(); store.dispose(); }
+  });
 }
