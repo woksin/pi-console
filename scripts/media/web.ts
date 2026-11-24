@@ -110,7 +110,8 @@ async function assertSettingsSequence(page: Page, rig: Rig): Promise<void> {
 async function showOlderTranscript(page: Page): Promise<void> {
   await showTranscriptTail(page);
   await page.getByRole('button', { name: 'Load older', exact: true }).click();
-  await page.getByRole('button', { name: 'Return to live', exact: true }).waitFor();
+  // A paused transcript shows one tail action (#222): "Return to live" when newer lines are below, otherwise "Follow tail".
+  await page.locator('.transcript-controls .btn.follow').filter({ hasText: /Return to live|Follow tail/ }).waitFor();
   await settle(page);
 }
 
