@@ -1,5 +1,8 @@
 /* Memory panel layout: one compact action row per item, and the panel scrolls with its rail rather than being cut off. */
 .memory-panel { scroll-margin-bottom: var(--space-3); }
+.memory-panel .memory-counts { text-wrap: balance; }
+.memory-panel .memory-count { white-space: nowrap; }
+.memory-panel .memory-count:not(:last-child)::after { content: ' ·'; margin-right: 0.35em; }
 .memory-panel .memory-item { scroll-margin-block: var(--space-3); }
 .memory-panel .memory-item .memory-actions { flex-wrap: wrap; gap: 6px; margin-top: 4px; }
 .memory-panel .memory-item .memory-actions .btn { padding: 3px 8px; white-space: nowrap; }

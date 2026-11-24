@@ -134,3 +134,28 @@ describe('transcript times', () => {
     await page.context().close();
   });
 });
+
+describe('transcript chrome polish', () => {
+  test('a paused transcript offers one tail action and the sticky day heading sits flush at the pane edge', async () => {
+    const page = await openSession();
+    await page.locator('.transcript').hover();
+    await page.mouse.wheel(0, -900);
+    await page.getByRole('button', { name: /Follow tail/ }).waitFor();
+    assert.equal(await page.locator('.transcript-controls').getByRole('button', { name: /Follow tail|Return to live/ }).count(), 1, 'one tail action while paused');
+    const gap = await page.evaluate(() => {
+      const pane = document.querySelector('.transcript');
+      const head = [...document.querySelectorAll('.tday-head')].find(node => node.getBoundingClientRect().top <= (pane?.getBoundingClientRect().top ?? 0) + 40);
+      return pane && head ? Math.round(head.getBoundingClientRect().top - pane.getBoundingClientRect().top - pane.clientTop) : null;
+    });
+    assert.equal(gap, 0, 'no band above the sticky heading where a cut line could show');
+    await page.context().close();
+  });
+
+  test('request filter dropdowns match the search input height', async () => {
+    const page = await rig.open('/requests');
+    await page.locator('.request-filters select').first().waitFor();
+    const heights = await page.evaluate(() => ['.request-filters select', '.request-filters .search'].map(selector => Math.round(document.querySelector(selector)?.getBoundingClientRect().height ?? 0)));
+    assert.equal(heights[0], heights[1]);
+    await page.context().close();
+  });
+});

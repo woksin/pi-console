@@ -36,19 +36,19 @@ const summary = (unresolved: SessionMemory['unresolved']): string => {
 };
 
 test('proposed memory items with no uncaptured human messages show no contradictory zero line or empty paragraph', () => {
-  assert.equal(summary({ lowerBound: 0, atLastHandoff: null }), '<p class="small muted">2 proposed</p>');
+  assert.equal(summary({ lowerBound: 0, atLastHandoff: null }), '<p class="small muted memory-counts"><span class="memory-count">2 proposed</span></p>');
 });
 
 test('the memory summary names uncaptured human messages independently of proposed items', () => {
   const html = summary({ lowerBound: 2, atLastHandoff: null });
-  assert.match(html, />2 proposed<\/p>/);
+  assert.match(html, /2 proposed<\/span><\/p>/);
   assert.match(html, />At least 2 human messages not yet captured in memory<\/p>/);
   assert.doesNotMatch(html, /No unresolved|loaded history/);
 });
 
 test('a historical unresolved-message figure remains visible when the current lower bound is zero', () => {
   const html = summary({ lowerBound: 0, atLastHandoff: { count: 1, at: '2026-11-20T09:10:00.000Z' } });
-  assert.match(html, />2 proposed<\/p>/);
+  assert.match(html, /2 proposed<\/span><\/p>/);
   assert.match(html, />Unresolved messages at last handoff: 1<\/p>/);
   assert.doesNotMatch(html, /No unresolved|loaded history/);
 });

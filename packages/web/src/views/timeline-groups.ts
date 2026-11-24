@@ -14,3 +14,25 @@ export function timelineGroups(lanes: readonly TimelineLane[], sessions: readonl
     return group;
   });
 }
+
+interface LaneName { name: string; lane: string }
+
+/** Inside its repository group the name need not repeat the repository: drop a leading "repo-", "repo:" or "repo " prefix. */
+export function withoutRepositoryPrefix<T extends LaneName>(labels: T, repository: string): T {
+  const prefix = new RegExp(`^${repository.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}[\\s\\-_:·/]+`, 'i');
+  const name = repository ? labels.name.replace(prefix, '') : labels.name;
+  return name && name !== labels.name ? { ...labels, name } : labels;
+}
+
+const minLabelWidth = 170;
+const maxLabelWidth = 340;
+const cellPixels = 8;
+const labelChrome = 32;
+
+/** Label column in viewBox units: wide enough for the longest lane label, within bounds, so the lane id is never the part that is cut. */
+export function labelColumnWidth(fullLabelWidths: readonly number[]): number {
+  const widest = Math.max(0, ...fullLabelWidths);
+  return Math.min(maxLabelWidth, Math.max(minLabelWidth, labelChrome + widest * cellPixels));
+}
+
+export const labelCellsFor = (labelWidth: number): number => Math.floor((labelWidth - labelChrome) / cellPixels);

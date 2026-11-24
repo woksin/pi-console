@@ -42,10 +42,6 @@
 .note { color: var(--muted); font-size: var(--type-caption); } .note.warn, .warn-text { color: var(--orange); } .ok { color: var(--green); }
 .chip { display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--raised); border: 1px solid var(--border); border-radius: 14px; color: var(--text); }
 .options { display: flex; flex-wrap: wrap; gap: 6px; }
-.grid { width: 100%; border-collapse: collapse; }
-.grid th { text-align: left; font-size: var(--type-caption); text-transform: uppercase; letter-spacing: 0.05em; color: var(--faint); font-weight: 600; padding: 6px 10px; position: sticky; top: 0; background: var(--bg); z-index: 1; border-bottom: 1px solid var(--border); }
-.grid td { padding: 5px 10px; border-bottom: 1px solid color-mix(in oklab, var(--border) 50%, transparent); vertical-align: middle; }
-.grid th.num { text-align: right; }
 .row.selected { background: var(--select); box-shadow: inset 2px 0 0 var(--cyan); } .row:hover { background: color-mix(in oklab, var(--raised) 70%, transparent); } .row.flash { animation: flash 1.4s ease-out; }
 .row.attention td:first-child { box-shadow: inset 3px 0 0 var(--amber); }
 .group-row th { background: linear-gradient(90deg, color-mix(in oklab, var(--cyan) 10%, var(--bg)), var(--bg)); top: 27px; padding: 0; }
