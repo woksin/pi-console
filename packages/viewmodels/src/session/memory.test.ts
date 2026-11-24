@@ -40,9 +40,9 @@ test('memory panel is unavailable without a summary or a detected store, and san
 test('unresolved wording is plain and stays truthful about the lower bound', () => {
   const text = (lowerBound: number, atLastHandoff: SessionMemory['unresolved']['atLastHandoff'] = null) =>
     memoryPanelViewModel({ memory: { ...memory, unresolved: { lowerBound, atLastHandoff } }, items: [], now }).unresolved.text;
-  assert.equal(text(0), 'No unresolved items found');
+  assert.equal(text(0), 'No unresolved items found in loaded history');
   assert.equal(text(4), 'At least 4 unresolved');
-  assert.equal(text(0, { count: 1, at: '2026-11-20T09:10:00.000Z' }), 'No unresolved items found · 1 at last handoff');
+  assert.equal(text(0, { count: 1, at: '2026-11-20T09:10:00.000Z' }), 'No unresolved items found in loaded history · 1 at last handoff');
   assert.equal(memoryPanelViewModel({ memory: null, items: [], now }).unresolved.text, '');
 });
 

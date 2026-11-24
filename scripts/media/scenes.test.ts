@@ -9,7 +9,8 @@ import { readFileSync } from 'node:fs';
 import { maxAdvanceMs, stepMs } from './web-page.ts';
 import { needsYouCount, quiesce, memoryReceipt, showcaseHealth } from './showcase.ts';
 import { memoryItems } from '../../packages/testkit/src/mock-daemon/memory.ts';
-import { showcaseMemory } from './fixture.mjs';
+import { prepareShowcase, showcaseMemory } from './fixture.mjs';
+import { generate } from '../../packages/testkit/src/fixture/generate.ts';
 import './clock.test.mjs';
 
 const ids = new Set(shots.map(shot => shot.id));
@@ -40,6 +41,20 @@ test('gallery health reports one sequence everywhere', () => {
   const health = showcaseHealth(412, 1);
   assert.deepEqual([health.eventLog.lastSeq, health.projection.position, health.stream.seq], [412, 412, 412]);
   assert.ok(health.sources.every(source => source.availability === 'available'));
+});
+
+test('showcase questions use natural wording and actors from the visible lanes', () => {
+  const { fixture } = generate();
+  prepareShowcase(fixture, memoryItems().map(item => ({ ...item })));
+  const question = fixture.questions[0];
+  assert.match(question.text, /Which option should the coordinator use/);
+  assert.ok(question.options.every(option => option.includes('expire the cache entries')));
+  assert.doesNotMatch(JSON.stringify(fixture.questions), /synthetic|"L[1-3]"/);
+  const lanes = new Set(fixture.sessions.map(session => session.laneId));
+  for (const question of fixture.questions) {
+    const history = question.history ?? [];
+    for (const entry of history) assert.ok(lanes.has(entry.actor), entry.actor);
+  }
 });
 
 test('a synthetic receipt never expires within the fixed capture clock', () => {

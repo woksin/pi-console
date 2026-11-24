@@ -45,7 +45,7 @@ function statusLabel(item: MemoryItem): string {
 function unresolvedText(memory: SessionMemory): string {
   const last = memory.unresolved.atLastHandoff;
   const found = memory.unresolved.lowerBound;
-  const now = found === 0 ? 'No unresolved items found' : `At least ${String(found)} unresolved`;
+  const now = found === 0 ? 'No unresolved items found in loaded history' : `At least ${String(found)} unresolved`;
   return last ? `${now} · ${String(last.count)} at last handoff` : now;
 }
 

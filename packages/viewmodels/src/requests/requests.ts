@@ -30,7 +30,7 @@ export interface RequestsRow {
 }
 export interface EvidenceRow { label: string; at: string; age: string; transcript: TranscriptLink | null; resetId: string | null }
 export interface RequestDetail extends RequestsRow {
-  provenance: string; originEvidence: string; textLines: string[]; answerLines: string[]; interim: Excerpt[]; evidence: EvidenceRow[];
+  provenance: string; provenanceQualifier: string; originEvidence: string; textLines: string[]; answerLines: string[]; interim: Excerpt[]; evidence: EvidenceRow[];
 }
 export interface RequestsViewModel {
   rows: RequestsRow[]; open: number; uncertain: number; possiblyUnseen: number;
@@ -131,11 +131,12 @@ export function describeRequestFilter(model: RequestsViewModel): string {
   return `state ${model.filter.state} · origin ${model.filter.origin} · session ${model.filter.sessionId === null ? 'all' : session?.name ?? model.filter.sessionId}${query}`;
 }
 
-/** Origin is a classification from evidence: "classified as", never "verified". */
+/** Keep classification short without implying that the transcript proves who sent the prompt. */
 function provenance(request: Request): string {
-  const source = request.derivedFrom ? `${sourceLabels[request.derivedFrom].toLowerCase()}; ` : '';
-  const claim = request.origin === 'unproven' ? 'Origin not proven' : `Classified as ${request.originLabel}`;
-  return `${claim} (${source}not verified)`;
+  const sources = { 'session-jsonl': 'inferred from transcript', 'intent-memory': 'reported by intent-memory' };
+  const source = request.derivedFrom ? sources[request.derivedFrom] : 'reported by source';
+  const claim = request.origin === 'unproven' ? 'Origin not proven' : request.originLabel;
+  return `${claim} · ${source}`;
 }
 
 function evidenceRow(item: RequestEvidence, sessionId: string, now: number): EvidenceRow {
@@ -150,7 +151,7 @@ export function requestDetail(input: { request: Request; sessions: readonly Sess
   const { request, now } = input;
   return {
     ...row(request, sessionNames(input.sessions), now),
-    provenance: provenance(request),
+    provenance: provenance(request), provenanceQualifier: 'not verified',
     originEvidence: singleLine(request.originEvidence),
     textLines: lines(request.text, request.withheld === true),
     answerLines: request.answer ? lines(request.answer.text, request.answerWithheld === true) : [],

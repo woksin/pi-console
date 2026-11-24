@@ -1,4 +1,4 @@
-import { emptyStates, markerLegend, timelineViewModel, fitWindow, markers, clock, clip, pad, wrap, type Marker, type TimelineLane } from '@pi-console/viewmodels';
+import { emptyStates, markerLegend, timelineViewModel, fitWindow, markers, age, clock, clip, pad, wrap, type Marker, type TimelineLane } from '@pi-console/viewmodels';
 import { Column, Lines, Panel, h, type Line } from '../view/renderer.ts';
 import { blank, statusParts, t, windowOf } from '../view/parts.ts';
 import { emptyLines, whenLoaded, type Env, type SectionView } from './common.ts';
@@ -56,14 +56,14 @@ export function timelineView(env: Env): SectionView {
   const heading = scrub === undefined ? `${label} · last markers in view` : `scrub ${clock(new Date(scrubAt).toISOString())} · ${label} · nearest markers`;
   const legend: Line = [t(' ', 'faint'), ...markerLegend.flatMap(entry => [t(entry.glyph, entry.color, { bold: true }), t(` ${entry.label}  `, 'muted')])];
   const detail = whenLoaded(data.loaded, () => model.lanes.length === 0 ? emptyLines(emptyStates.timeline, env.width - 4) : detailLines(heading, focus, env.width - 4, env.measure));
-  const spanSeconds = Math.round(model.window.span / 1000);
+  const windowDuration = age(new Date(0).toISOString(), model.window.span);
   return {
     length: model.lanes.length,
     time: { fit: fitted, width },
     rowAt: index => ({ sessionId: model.lanes[index]?.sessionId ?? null, groupId: null }),
     idAt: index => model.lanes[index]?.sessionId ?? null,
     render: () => h(Column, { grow: 1 },
-      h(Panel, { title: `Timeline · window ${String(spanSeconds)}s · + − zoom · h l pan · t scrub`, focused: true, grow: 1, right: `${String(model.lanes.length)} lanes` },
+      h(Panel, { title: `Timeline · window ${windowDuration} · + − zoom · h l pan · t scrub`, focused: true, grow: 1, right: `${String(model.lanes.length)} lanes` },
         h(Lines, { lines: [axisLine(model.axis, width, scrub, ''), ...model.lanes.slice(start, end).map((entry, offset) => laneLine(entry, start + offset === cursor, row)), blank, legend] }),
         h(Lines, { lines: detail, grow: 1 }))),
   };

@@ -20,6 +20,16 @@ test('two generated recordings are byte-identical to the committed fixture', () 
   assert.notDeepEqual(generate(192), generate(193));
 });
 
+test('request evidence uses plain language without changing the origin classifications', () => {
+  const { fixture } = generate();
+  assert.deepEqual(fixture.requests.slice(0, 3).map(request => [request.origin, request.originEvidence]), [
+    ['human', 'The source explicitly marks this prompt as user input.'],
+    ['launch', 'The source records a new session, not a relaunch.'],
+    ['unproven', 'The source does not establish who sent this prompt.'],
+  ]);
+  for (const request of fixture.requests) assert.doesNotMatch(request.originEvidence, /synthetic|user-input|session-start/);
+});
+
 test('fixture has linked fleet, provenance, handoff, work, graph and transcript data', () => {
   const { fixture: f, timeline } = generate();
   assert.equal(f.sessions.length, 30);

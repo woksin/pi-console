@@ -5,7 +5,7 @@
       "sessionId": "s10",
       "session": "harbor scout",
       "originLabel": "Human request",
-      "originEvidence": "Explicit synthetic user-input marker",
+      "originEvidence": "The source explicitly marks this prompt as user input.",
       "status": {
         "status": "open",
         "glyph": "!",
@@ -23,7 +23,7 @@
       "sessionId": "s11",
       "session": "meadow coordinator",
       "originLabel": "Initial prompt",
-      "originEvidence": "Synthetic non-relaunch session-start marker",
+      "originEvidence": "The source records a new session, not a relaunch.",
       "status": {
         "status": "unanswered",
         "glyph": "!",
@@ -41,7 +41,7 @@
       "sessionId": "s9",
       "session": "harbor explore",
       "originLabel": "Unproven origin",
-      "originEvidence": "No positive origin evidence",
+      "originEvidence": "The source does not establish who sent this prompt.",
       "status": {
         "status": "interrupted",
         "glyph": "/",
@@ -59,7 +59,7 @@
       "sessionId": "s12",
       "session": "meadow implementation",
       "originLabel": "Unproven origin",
-      "originEvidence": "No positive origin evidence",
+      "originEvidence": "The source does not establish who sent this prompt.",
       "status": {
         "status": "answered",
         "glyph": "✓",
@@ -80,7 +80,7 @@
       "sessionId": "s8",
       "session": "harbor review",
       "originLabel": "Initial prompt",
-      "originEvidence": "Synthetic non-relaunch session-start marker",
+      "originEvidence": "The source records a new session, not a relaunch.",
       "status": {
         "status": "answered",
         "glyph": "✓",
@@ -101,7 +101,7 @@
       "sessionId": "s5",
       "session": "aurora scout",
       "originLabel": "Initial prompt",
-      "originEvidence": "Synthetic non-relaunch session-start marker",
+      "originEvidence": "The source records a new session, not a relaunch.",
       "status": {
         "status": "interrupted",
         "glyph": "/",
@@ -119,7 +119,7 @@
       "sessionId": "s4",
       "session": "aurora explore",
       "originLabel": "Human request",
-      "originEvidence": "Explicit synthetic user-input marker",
+      "originEvidence": "The source explicitly marks this prompt as user input.",
       "status": {
         "status": "answered",
         "glyph": "✓",
@@ -140,7 +140,7 @@
       "sessionId": "s6",
       "session": "harbor coordinator",
       "originLabel": "Unproven origin",
-      "originEvidence": "No positive origin evidence",
+      "originEvidence": "The source does not establish who sent this prompt.",
       "status": {
         "status": "open",
         "glyph": "!",
@@ -158,7 +158,7 @@
       "sessionId": "s2",
       "session": "aurora implementation",
       "originLabel": "Unproven origin",
-      "originEvidence": "No positive origin evidence",
+      "originEvidence": "The source does not establish who sent this prompt.",
       "status": {
         "status": "unanswered",
         "glyph": "!",
@@ -176,7 +176,7 @@
       "sessionId": "s2",
       "session": "aurora implementation",
       "originLabel": "Initial prompt",
-      "originEvidence": "Synthetic non-relaunch session-start marker",
+      "originEvidence": "The source records a new session, not a relaunch.",
       "status": {
         "status": "open",
         "glyph": "!",
@@ -194,7 +194,7 @@
       "sessionId": "s2",
       "session": "aurora implementation",
       "originLabel": "Human request",
-      "originEvidence": "Explicit synthetic user-input marker",
+      "originEvidence": "The source explicitly marks this prompt as user input.",
       "status": {
         "status": "interrupted",
         "glyph": "/",
@@ -215,7 +215,7 @@
       "sessionId": "s7",
       "session": "harbor implementation",
       "originLabel": "Human request",
-      "originEvidence": "Explicit synthetic user-input marker",
+      "originEvidence": "The source explicitly marks this prompt as user input.",
       "status": {
         "status": "unanswered",
         "glyph": "!",

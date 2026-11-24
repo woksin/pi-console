@@ -27,7 +27,7 @@
       "sessionId": "s2",
       "session": "aurora implementation",
       "originLabel": "Unproven origin",
-      "originEvidence": "No positive origin evidence",
+      "originEvidence": "The source does not establish who sent this prompt.",
       "status": {
         "status": "unanswered",
         "glyph": "!",
@@ -45,7 +45,7 @@
       "sessionId": "s2",
       "session": "aurora implementation",
       "originLabel": "Initial prompt",
-      "originEvidence": "Synthetic non-relaunch session-start marker",
+      "originEvidence": "The source records a new session, not a relaunch.",
       "status": {
         "status": "open",
         "glyph": "!",
@@ -63,7 +63,7 @@
       "sessionId": "s2",
       "session": "aurora implementation",
       "originLabel": "Human request",
-      "originEvidence": "Explicit synthetic user-input marker",
+      "originEvidence": "The source explicitly marks this prompt as user input.",
       "status": {
         "status": "interrupted",
         "glyph": "/",

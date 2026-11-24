@@ -29,6 +29,8 @@ test('hostile memory text is inert next to review controls and contains no termi
   const review = { availability: { version: 1 as const, available: true, providerVersion: 1, generation: 'g1', reason: 'available' as const }, items: new Map() };
   const text = plain(memoryLines(memoryPanelViewModel({ memory, items: [{ ...item, text: hostile }], review, now }), 200, 0));
   assert.match(text, /c Confirm… · x Reject…/);
+  assert.match(text, /Item 1 of 1 · \[ \] prev\/next/);
+  assert.doesNotMatch(text, /\[ \] item/);
   assert.match(text, /<img src=x onerror="globalThis.__memoryReviewXss=true">/);
   assert.equal(text.includes(escape), false);
   assert.match(text, /unsafe/);

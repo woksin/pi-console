@@ -58,7 +58,7 @@ for (const width of [80, 100, 160]) {
       let seen = ui.frame();
       assert.match(seen, /Memory/);
       assert.match(seen, /FIRSTMARK/);
-      assert.match(seen, /item 1 of 3/);
+      assert.match(seen, /Item 1 of 3 · \[ \] prev\/next/);
       assert.match(seen, /1–\d+ of \d+/);
       assert.doesNotMatch(seen, /LASTMARK/);
       assert.ok(seen.split('\n').some(line => line.length >= width - 6 && /w\d{3} w\d{3}/.test(line)), 'text uses the full width');
@@ -99,14 +99,14 @@ test('brackets change the selected item and reset only the Memory scroll; the ol
     assert.match(ui.frame(), /LASTMARK/);
     await ui.press(']');
     const second = ui.frame();
-    assert.match(second, /item 2 of 3/);
+    assert.match(second, /Item 2 of 3/);
     assert.match(second, /SHORTITEM/);
     assert.deepEqual(calls.loads, []);
     await ui.press(']');
     assert.match(ui.frame(), /THIRDITEM/);
     assert.deepEqual(calls.loads, [id], 'the loaded edge asks for older memory');
     await ui.press(']');
-    assert.match(ui.frame(), /item 3 of 3/);
+    assert.match(ui.frame(), /Item 3 of 3/);
     await ui.press('[');
     await ui.press('[');
     assert.match(ui.frame(), /FIRSTMARK/, 'a new selection starts at the top');
@@ -132,7 +132,7 @@ test('r retries a failed memory load from the Memory view, once per press', asyn
   const { ui, calls, done } = await mount({ width: 80, history: { cursor: 'c', more: true, loading: false, error: 'more' } });
   try {
     await ui.press('m');
-    assert.match(ui.frame(), /Could not load older memory/);
+    assert.match(ui.frame(), /Could not load more memory items/);
     await ui.press('r');
     assert.deepEqual(calls.loads, [id]);
   } finally { done(); }

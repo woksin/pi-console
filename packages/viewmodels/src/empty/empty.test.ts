@@ -20,11 +20,11 @@ test('fleet first run gives the start-pi instruction only once across the empty 
 
 test('the optional extension checklist points to an existing README heading', () => {
   const detail = firstRunChecklist({ connected: true, sessions: 0 }).steps[2].detail;
-  const anchor = /README#([a-z-]+)/.exec(detail)?.[1];
-  assert.ok(anchor, 'the install pointer includes a README anchor');
+  assert.match(detail, /See README → Optional pi extension and memory review\./);
+  assert.doesNotMatch(detail, /README#/);
   const readme = readFileSync(new URL('../../../../README.md', import.meta.url), 'utf8');
   assert.match(readme, /<summary>Optional pi extension and memory review<\/summary>/);
-  assert.ok(readme.includes(`<a id="${anchor}"></a>`), 'the collapsible README heading has the referenced anchor');
+  assert.ok(readme.includes('<a id="optional-pi-extension-and-memory-review"></a>'), 'the collapsible README heading has a link anchor');
 });
 
 test('the calm Overview promotes the working count', () => {
