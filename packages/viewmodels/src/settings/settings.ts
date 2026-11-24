@@ -1,4 +1,7 @@
 import { healthTone, sourceRows } from './source-rows.ts';
+import { healthText, healthValue } from './health-format.ts';
+export { formatBytes, healthTimestamp } from './health-format.ts';
+export { healthGroups, healthSourceRows, healthDetails, type HealthGroup } from './health.ts';
 
 export interface SettingsInput {
   endpoint: string; connected: boolean; error: string; tokenSource: string;
@@ -13,25 +16,25 @@ const healthLabels: Record<string, string> = {
   stream: 'Stream', seq: 'Sequence', clients: 'Clients', retained: 'Retained events',
   backfill: 'Backfill', complete: 'Complete', windowDays: 'Window (days)',
   memory: 'Memory', rssBytes: 'Resident memory', heapUsedBytes: 'Heap used',
-  startedAt: 'Started at', lastPollAt: 'Last poll', lagBytes: 'Lag (bytes)',
+  startedAt: 'Started at', lastPollAt: 'Last poll', lagBytes: 'Lag',
+  eventLoop: 'Event loop', p50: 'P50', p99: 'P99',
 };
-const healthLabel = (key: string): string => healthLabels[key] ?? key.replace(/([A-Z])/g, ' $1').replace(/^./, char => char.toUpperCase());
+const healthLabel = (key: string): string => Object.hasOwn(healthLabels, key) ? healthLabels[key] : key.replace(/([A-Z])/g, ' $1').replace(/^./, char => char.toUpperCase());
 
 /** Flatten daemon-owned health data without leaking object coercions into either client. */
-export function daemonHealthRows(health: unknown, prefix = ''): SettingsRow[] {
+export function daemonHealthRows(health: unknown, prefix = '', now = Date.now()): SettingsRow[] {
   if (health === null || typeof health !== 'object') return [];
   return Object.entries(health).flatMap(([key, value]): SettingsRow[] => {
-    const label = [prefix, healthLabel(key)].filter(Boolean).join(' · ');
-    if (value !== null && typeof value === 'object') return daemonHealthRows(value, label);
-    const text = key.endsWith('Bytes') && typeof value === 'number' && key !== 'lagBytes'
-      ? `${(value / 1048576).toFixed(1)} MB` : String(value ?? '–');
+    const label = [prefix, healthText(healthLabel(key))].filter(Boolean).join(' · ');
+    if (value !== null && typeof value === 'object') return daemonHealthRows(value, label, now);
+    const text = healthValue(key, value, now, prefix === 'Event loop');
     return [{ label, value: text, tone: healthTone(key, value) }];
   });
 }
 
 export type Tone = 'good' | 'warn' | 'bad' | 'plain';
-/** `detail` is secondary text for the label (a source's daemon id). */
-export interface SettingsRow { label: string; value: string; tone: Tone; detail?: string }
+/** `detail` identifies the label; `valueDetail` is a faint secondary fact such as the last poll time. */
+export interface SettingsRow { label: string; value: string; tone: Tone; detail?: string; valueDetail?: string }
 export interface SettingsViewModel { health: SettingsRow[]; data: SettingsRow[]; sources: SettingsRow[] }
 
 /** Read-only health: connection, stream lag, what the daemon has told us and whether each source directory is available. */

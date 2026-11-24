@@ -16,7 +16,7 @@ test('nested daemon health has readable labels, byte units and no object coercio
   const rows = daemonHealthRows({ eventLog: { lastSeq: 42, dbBytes: 1048576 }, memory: { rssBytes: 2097152 }, backfill: { complete: true }, unknownField: null });
   assert.deepEqual(rows.map(row => [row.label, row.value]), [
     ['Event log · Last sequence', '42'], ['Event log · Database size', '1.0 MB'],
-    ['Memory · Resident memory', '2.0 MB'], ['Backfill · Complete', 'true'], ['Unknown Field', '–'],
+    ['Memory · Resident memory', '2.0 MB'], ['Backfill · Complete', 'Complete'], ['Unknown Field', '–'],
   ]);
   assert.deepEqual(daemonHealthRows(null), []);
 });

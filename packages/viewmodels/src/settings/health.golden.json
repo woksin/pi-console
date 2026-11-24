@@ -1,0 +1,83 @@
+[
+  {
+    "title": "Sources",
+    "rows": [
+      {
+        "label": "session-jsonl",
+        "value": "available · 12 files · 2.0 KB behind",
+        "tone": "good",
+        "valueDetail": "polled 3s ago · 20 Nov 2026 11:59:57 UTC"
+      }
+    ]
+  },
+  {
+    "title": "Event log",
+    "rows": [
+      {
+        "label": "Database size",
+        "value": "4.0 MB",
+        "tone": "plain"
+      }
+    ]
+  },
+  {
+    "title": "Stream",
+    "rows": [
+      {
+        "label": "Connected clients",
+        "value": "2",
+        "tone": "plain"
+      },
+      {
+        "label": "Retained events",
+        "value": "512",
+        "tone": "plain"
+      }
+    ]
+  },
+  {
+    "title": "Details",
+    "rows": [
+      {
+        "label": "Daemon head",
+        "value": "1,200",
+        "tone": "plain"
+      },
+      {
+        "label": "Projection position",
+        "value": "1,198",
+        "tone": "plain"
+      },
+      {
+        "label": "Started at",
+        "value": "3s ago · 20 Nov 2026 11:59:57 UTC",
+        "tone": "plain"
+      },
+      {
+        "label": "Projection · Queue depth",
+        "value": "0",
+        "tone": "plain"
+      },
+      {
+        "label": "Event loop · P50",
+        "value": "6.3 ms",
+        "tone": "plain"
+      },
+      {
+        "label": "Event loop · P99",
+        "value": "10 ms",
+        "tone": "plain"
+      },
+      {
+        "label": "Event loop · Max",
+        "value": "12.8 ms",
+        "tone": "plain"
+      },
+      {
+        "label": "Backfill · Complete",
+        "value": "Complete",
+        "tone": "plain"
+      }
+    ]
+  }
+]

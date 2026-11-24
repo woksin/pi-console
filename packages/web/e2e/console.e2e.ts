@@ -166,18 +166,29 @@ describe('web console e2e', () => {
     const page = await rig.open('/settings', { token: null });
     await page.route('**/api/v1/health', route => route.fulfill({ json: {
       status: 'ok', eventLog: { lastSeq: 42, dbBytes: 1048576 },
-      projection: { position: 42, queueDepth: 0, skipped: 0 },
+      projection: { position: 40, queueDepth: 0, skipped: 0 },
       stream: { seq: 42, clients: 1, retained: 42 },
       backfill: { complete: true, windowDays: 7 }, memory: { rssBytes: 2097152, heapUsedBytes: 1048576 },
+      eventLoop: { p50: 6.283263, p99: 10, max: 12.78 }, agentRootAvailability: 'available',
+      sources: [{ source: 'session-jsonl', availability: 'available', files: 12, lagBytes: 0, errors: 0, lastPollAt: new Date().toISOString() }],
     } }));
     await page.getByLabel('Access token').fill(rig.daemon.token);
     await page.getByRole('button', { name: 'Connect' }).click();
     const eventLog = page.getByRole('region', { name: 'Event log' });
     await eventLog.getByText('1.0 MB', { exact: true }).waitFor();
+    const details = page.locator('.health-details');
+    assert.equal(await details.getByText('Daemon head', { exact: true }).isVisible(), false);
     await page.getByText('Details', { exact: true }).click();
-    await page.getByText('Event log · Last sequence', { exact: true }).waitFor();
-    assert.ok(!(await page.locator('.settings').innerText()).includes('[object'));
     await page.getByText('2.0 MB', { exact: true }).waitFor();
+    assert.equal(await details.getByText('Daemon head', { exact: true }).locator('..').locator('dd').innerText(), '42');
+    assert.equal(await details.getByText('Projection position', { exact: true }).locator('..').locator('dd').innerText(), '40');
+    const source = page.getByRole('region', { name: 'Sources' });
+    await source.getByText('available · 12 files · no lag', { exact: true }).waitFor();
+    assert.match(await source.locator('dd .faint.small').innerText(), /polled .* ago · .*\d{2}:\d{2}:\d{2}/);
+    await page.getByText('6.3 ms', { exact: true }).waitFor();
+    const settingsText = await page.locator('.settings').innerText();
+    assert.doesNotMatch(settingsText, /\[object|\bNaN\b|\btrue\b|\bfalse\b|\d+\.\d{2,}/);
+    assert.equal(await page.locator('.settings dt').filter({ hasText: /sequence/i }).count(), 1);
     await page.context().close();
   });
   test('P1 type scale stays readable and contained at desktop and narrow desktop widths', async () => {
