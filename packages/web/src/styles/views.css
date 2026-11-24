@@ -185,7 +185,7 @@
 .settings .kv.wide { grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); }
 .settings .kv dd { min-width: 0; overflow-wrap: break-word; }
 /* The secondary source ID never breaks inside itself; when the row is narrow it moves whole to the next line under the name. */
-.settings .kv dt .row-id { white-space: nowrap; }
+.settings .kv dt .row-id { display: block; white-space: nowrap; }
 .settings .health-group h4 { margin: 0 0 var(--space-2); font-size: var(--type-caption); color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .settings .health-group + .health-group { margin-top: var(--space-2); }
 .settings .health-details { margin-top: var(--space-2); }
