@@ -62,7 +62,7 @@ async function withTerminal(rig: Rig, options: TerminalOptions, capture: (term: 
 async function openSession(pty: Pty): Promise<void> {
   pty.send(':'); await pty.waitFor('Command palette');
   pty.send('@aurora implementation'); await pty.waitFor(/\b1 of \d+/);
-  pty.send('\r'); await pty.waitFor('aurora / L192 / aurora implementation');
+  pty.send('\r'); await pty.waitFor('aurora implementation · L192');
   await pty.waitFor('following tail');
   // The status line shows before the first page arrives; every later key needs the loaded transcript.
   await pty.waitFor(/\d\d:\d\d:\d\d [^\n]*\S/);
