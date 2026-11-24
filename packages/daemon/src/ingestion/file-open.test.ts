@@ -146,7 +146,7 @@ for (const mode of ['tail', 'snapshot', 'session']) {
       const result = JSON.parse(child.stdout);
       if (incomplete) assert.ok(result.pending.lagBytes > 0);
       assert.deepEqual(result, {
-        replaced: true, appended: accepted ? (mode === 'session' ? 7 : 1) : 0,
+        replaced: true, appended: accepted ? (mode === 'session' ? 10 : 1) : 0,
         checkpoints: accepted || incomplete ? 1 : 0, unclosed: 0, unsafeReads: 0,
         ...(incomplete ? { pending: { lagBytes: 2048, partialFiles: 1, offset: 0 } } : {}),
       });

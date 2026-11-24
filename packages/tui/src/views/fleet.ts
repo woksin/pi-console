@@ -1,4 +1,4 @@
-import { emptyStates, fleetColumns, fleetRowAt, fleetStructure, lastInput, pad, padStart, type FleetEntry, type FleetRow, type SessionRow, type TextWidth } from '@pi-console/viewmodels';
+import { emptyStates, fleetColumns, fleetRowAt, fleetStructure, lastInput, clip, pad, padStart, type FleetEntry, type FleetRow, type SessionRow, type TextWidth } from '@pi-console/viewmodels';
 import { Lines, Panel, Row, h, type Line } from '../view/renderer.ts';
 import { pressureBar, blank, fit, heading, pressureTone, selectable, statusParts, t, windowOf } from '../view/parts.ts';
 import { checklistLines, emptyLines, loadingLines, noMatchLines, type Env, type SectionView } from './common.ts';
@@ -35,18 +35,25 @@ function sessionLine(row: SessionRow, layout: Columns, env: Env, selected: boole
     ...statusParts(row.status, env.phase, false), t(' '), t(pad(row.status.label, 10), row.status.color), t(' '),
     ...pressureBar(row.contextPercent, layout.context - 5), t(padStart(`${String(row.contextPercent)}%`, 5), pressureTone(row.pressure)),
     ...(layout.spark ? [t(' '), t(row.spark.padEnd(12), 'faint')] : []),
-    ...(layout.details ? [t(padStart(row.cost, 7), 'faint'), t(padStart(row.age, 6), 'muted')] : []),
+    ...(layout.details ? [t(padStart(clip(row.cost, 7, env.measure), 7, env.measure), 'faint'), t(padStart(row.age, 6), 'muted')] : []),
   ], layout.width, selected, { flash: env.data.fresh.has(row.id), measure: env.measure });
 }
 
 function preview(row: FleetRow | undefined, sessions: number): ReturnType<typeof h> {
   const lines: Line[] = row?.kind === 'session' ? [
     [t(row.name, 'text', { bold: true })], [...statusParts(row.status, 0, true)], blank,
-    heading('Lane'), [t(row.lane, 'text')], heading('Branch'), [t(row.branch, 'muted')], heading('Model'), [t(row.model, 'muted')], blank,
+    ...metadataLines(row), heading('Model'), [t(row.model, 'muted')], blank,
     heading('Context'), [...pressureBar(row.contextPercent, 20), t(` ${String(row.contextPercent)}%`, pressureTone(row.pressure))], [t(row.spark, 'cyan')], blank,
     [t('cost ', 'muted'), t(row.cost, 'text'), t('   updated ', 'muted'), t(`${row.age} ago`, 'text')], blank, [t('⏎ ', 'cyan'), t('open transcript', 'muted')],
   ] : groupSummary(row, sessions);
   return h(Panel, { title: 'Selected', width: 39 }, h(Lines, { lines }));
+}
+
+function metadataLines(row: SessionRow): Line[] {
+  return [
+    ...(row.lane ? [heading('Lane'), [t(row.lane, 'text')]] : []),
+    ...(row.branch ? [heading('Branch'), [t(row.branch, 'muted')]] : []),
+  ];
 }
 
 function groupSummary(row: Exclude<FleetRow, SessionRow> | undefined, sessions: number): Line[] {

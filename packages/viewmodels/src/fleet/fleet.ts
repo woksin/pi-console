@@ -1,5 +1,7 @@
 import type { Session } from '@pi-console/contract';
-import { age, fuzzy, money, pressure, sparkline, type Pressure } from '../format/format.ts';
+import { age, fuzzy, pressure, sparkline, type Pressure } from '../format/format.ts';
+import { repositoryLabel, sessionLabels } from '../format/session-labels.ts';
+import { sessionCostLabel } from '../format/session-cost.ts';
 import { statusCell, type StatusCell } from '../format/status-cell.ts';
 
 export interface FleetInput {
@@ -43,11 +45,12 @@ export const fleetEntryKey = (entry: FleetEntry): string => (entry.kind === 'gro
 
 function sessionRow(session: Session, depth: number, now: number): SessionRow {
   const series = session.samples.map(sample => sample.contextPercent);
+  const labels = sessionLabels(session);
   return {
-    kind: 'session', id: session.id, name: session.name, lane: session.laneId, role: session.role, depth,
+    kind: 'session', id: session.id, name: labels.name, lane: labels.lane, role: session.role, depth,
     status: statusCell(session.status), contextPercent: session.contextPercent, pressure: pressure(session.contextPercent),
     spark: sparkline(series.slice(-12), 100), age: age(session.updatedAt, now),
-    cost: money(session.samples.reduce((sum, sample) => sum + sample.costUsd, 0)), model: session.model, branch: session.branch, selectable: true,
+    cost: sessionCostLabel(session), model: session.model, branch: labels.branch, selectable: true,
   };
 }
 
@@ -61,7 +64,7 @@ export function fleetStructure(input: Omit<FleetInput, 'now'>): FleetStructure {
   const entries: FleetEntry[] = [];
   for (const [repository, members] of groups) {
     const collapsed = input.collapsed?.has(repository) ?? false;
-    entries.push({ kind: 'group', id: repository, label: repository, sessions: members.length, collapsed, attention: members.filter(entry => attentionStatuses.has(entry.session.status)).length });
+    entries.push({ kind: 'group', id: repository, label: repositoryLabel(repository), sessions: members.length, collapsed, attention: members.filter(entry => attentionStatuses.has(entry.session.status)).length });
     if (!collapsed) entries.push(...members.map((entry): SessionEntry => ({ kind: 'session', id: entry.session.id, depth: entry.depth, session: entry.session })));
   }
   return { entries, keys: entries.map(fleetEntryKey), sessionCount: input.sessions.length, matched: visible.length, query };

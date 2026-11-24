@@ -1,5 +1,5 @@
 import type { Session } from '@pi-console/contract';
-import { clock, sanitize, statusCell } from '@pi-console/viewmodels';
+import { clock, sessionLabels, statusCell } from '@pi-console/viewmodels';
 import type { ConsoleState } from '../state/state.ts';
 import { Kbd, StatusBadge } from '../ui/primitives.tsx';
 import { FleetPulse } from './pulse.tsx';
@@ -41,9 +41,10 @@ export const staleData = (state: ConsoleState, wall: number): boolean =>
 interface TopBarProps { title: string; hint: string; state: ConsoleState; wall: number; session?: Session; onPalette: () => void; onHelp: () => void }
 
 export function TopBar({ title, hint, state, wall, session, onPalette, onHelp }: TopBarProps) {
+  const heading = session ? sessionLabels(session).title : title;
   return (
     <header className="topbar">
-      <h1 id="content-heading" tabIndex={-1} className="crumb truncate" title={session ? `${session.repositoryId} / ${session.laneId} / ${session.name}` : title}>{session ? `${sanitize(session.repositoryId)} / ${sanitize(session.laneId)} / ${sanitize(session.name)}` : title}</h1>
+      <h1 id="content-heading" tabIndex={-1} className="crumb truncate" title={heading}>{heading}</h1>
       {session && <StatusBadge cell={statusCell(session.status)} />}
       {hint && <span className="muted">{hint}</span>}
       <span className="grow" />

@@ -67,13 +67,13 @@ test('bad lane names and unmatched status lines are body-free warnings', () => {
 test('lane registry registers with repo, closes with its time, and never echoes other fields', () => {
   const events = map(fixture.lanes, laneMapper, 'lane-messages');
   assert.deepEqual(events.map(event => [event.type, event.payload]), [
-    ['LaneRegistered', { laneId: 'M1', name: 'M1', repositoryId: 'example/console' }],
-    ['LaneRegistered', { laneId: 'M2', name: 'M2', repositoryId: 'example/console' }],
+    ['LaneRegistered', { laneId: 'M1', name: 'M1', repositoryId: 'example/console', cwd: '/synthetic/console-m1', branch: 'synthetic' }],
+    ['LaneRegistered', { laneId: 'M2', name: 'M2', repositoryId: 'example/console', branch: 'synthetic-2' }],
     ['LaneClosed', { laneId: 'M2' }],
   ]);
   assert.equal(events[2].occurredAt, '2026-07-01T11:00:00Z');
   const text = JSON.stringify(events);
-  for (const leaked of ['Synthetic task', 'synthetic reason', '/synthetic/console-m1', 'worker']) assert.ok(!text.includes(leaked), leaked);
+  for (const leaked of ['Synthetic task', 'synthetic reason', 'worker']) assert.ok(!text.includes(leaked), leaked);
   assert.equal((map({ version: 1, lanes: [{ id: 'M3' }] }, laneMapper, 'lane-messages')[0].payload as { repositoryId: unknown }).repositoryId, null);
 });
 

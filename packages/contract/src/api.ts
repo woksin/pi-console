@@ -134,8 +134,10 @@ const snapshot = strict({
 const pageOf = (item: string) => strict({ items: array(ref(item)), nextCursor: nullable(str), hasMore: bool, total: int });
 
 const v0Session = apiV0Schema.$defs.session as { properties: Record<string, Schema>; required: string[] };
+/** Observed assistant dollars; null means no trusted total. Optional for legacy payloads. */
+const session = strict({ ...v0Session.properties, costUsd: nullable({ type: 'number', minimum: 0 }), costIncomplete: bool }, v0Session.required);
 /** Whole session plus an event-local canonical-memory invalidation; never stored on Session. */
-const sessionUpdate = strict({ ...v0Session.properties, memoryChanged: bool }, v0Session.required);
+const sessionUpdate = strict({ ...v0Session.properties, costUsd: nullable({ type: 'number', minimum: 0 }), costIncomplete: bool, memoryChanged: bool }, v0Session.required);
 const v0Event = apiV0Schema.$defs.event as { oneOf: { properties: Record<string, Schema> }[] };
 const event = {
   oneOf: v0Event.oneOf.map(branch => (branch.properties.type as { const: string }).const === 'session.updated'
@@ -143,7 +145,7 @@ const event = {
 };
 
 const v1Defs: Record<string, Schema> = {
-  sessionUpdate, event,
+  session, sessionUpdate, event,
   memoryActionRequest: memoryActionRequestSchema, memoryActionReceipt: memoryActionReceiptSchema, memoryActionAvailability: memoryActionAvailabilitySchema,
   snapshot, sessionPage: pageOf('session'), requestPage: pageOf('request'), questionPage: pageOf('question'),
   messagePage: pageOf('message'), jobPage: pageOf('job'), memoryItemPage: pageOf('memoryItem'), memoryItems: strict({ items: array(ref('memoryItem')) }), resetPage: pageOf('reset'), resets: strict({ items: array(ref('reset')) }),

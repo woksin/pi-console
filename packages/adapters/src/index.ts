@@ -9,7 +9,7 @@ export { AdapterSupervisor, type AdapterWorker, type SupervisorOptions } from '.
 export { readTranscript, readTranscriptFrames, validateTranscriptSource, transcriptUnavailable, type TranscriptRequest, type TranscriptPage, type TranscriptVersion } from './transcript.ts';
 export { transcriptEntry } from './session/transcript-mapper.ts';
 export { contextMapper } from './sources/context.ts';
-export { laneMapper, laneStatusMapper, rosterMapper, laneMessageMapper } from './sources/lanes.ts';
+export { laneMapper, laneMapperVersion, laneStatusMapper, rosterMapper, laneMessageMapper } from './sources/lanes.ts';
 export { orchMapper } from './sources/orch.ts';
 export { questionMapper, questionMapperVersion } from './sources/questions.ts';
 export { memoryEventMapper, memoryJournalMapper, crc32 } from './sources/memory.ts';

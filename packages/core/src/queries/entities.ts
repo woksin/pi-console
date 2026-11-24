@@ -6,6 +6,7 @@ import { evidenceOf } from '../projections/question-links.ts';
 import type { QuestionHistoryModel, QuestionModel } from '../projections/questions.ts';
 import type { RequestModel } from '../projections/requests.ts';
 import type { SessionModel } from '../projections/sessions.ts';
+import { laneLookup, sessionIdentity, type LaneLookup } from './session-identity.ts';
 
 /**
  * Read model to API v1 entity mapping. Fields the M1 event catalogue does not carry get explicit placeholders
@@ -44,13 +45,14 @@ function statusOf(session: SessionModel, attentionSessionIds: ReadonlySet<string
   return session.openTurnId === null ? 'idle' : 'working';
 }
 
-export function toSession(models: ReadModels, session: SessionModel, attentionSessionIds: ReadonlySet<string>): Session {
+export function toSession(models: ReadModels, session: SessionModel, attentionSessionIds: ReadonlySet<string>, lanes: LaneLookup = laneLookup(models.lanes.lanes)): Session {
   const burn = models.burn.sessions[session.id] as ReadModels['burn']['sessions'][string] | undefined;
   return {
-    id: session.id, repositoryId: repositoryOf(session), name: baseName(session.cwd) || session.id, laneId: unassignedLane,
-    role: session.role, parentSessionId: session.parentSessionId, orchestratorSessionId: rootOf(models, session), branch: '',
+    id: session.id, repositoryId: repositoryOf(session), name: baseName(session.cwd) || session.id, ...sessionIdentity(session.cwd, lanes),
+    role: session.role, parentSessionId: session.parentSessionId, orchestratorSessionId: rootOf(models, session),
     cwd: session.cwd, model: session.model ?? '', status: statusOf(session, attentionSessionIds), startedAt: session.startedAt,
     updatedAt: session.updatedAt, contextPercent: burn?.contextPercent ?? 0,
+    costUsd: burn?.knownCosts ? burn.costUsd : null, costIncomplete: (burn?.missingCosts ?? 0) > 0,
     samples: (burn?.samples ?? []).map(sample => ({ at: sample.at, contextPercent: sample.contextPercent, tokens: sample.tokens, costUsd: 0 })),
   };
 }

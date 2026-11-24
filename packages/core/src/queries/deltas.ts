@@ -20,6 +20,7 @@ const reset = target('resetId', (queries, id) => queries.resetById(id));
 
 /** Catalogue event type to the transport event it produces. Unlisted types produce no delta. */
 const routes: Record<string, [string, Target]> = {
+  SessionCostObserved: ['session.updated', session],
   SessionStarted: ['session.updated', session], SessionEnded: ['session.updated', session],
   ModelChanged: ['session.updated', session], ThinkingLevelChanged: ['session.updated', session],
   TurnStarted: ['session.updated', session], TurnEnded: ['session.updated', session],

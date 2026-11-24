@@ -1,6 +1,8 @@
 import type { AttentionItem, AttentionReason, Session, SourcePointer } from '@pi-console/contract';
-import { age, clip, compactNumber, money, sanitize, sparkline } from '../format/format.ts';
+import { age, clip, compactNumber, sanitize, sparkline } from '../format/format.ts';
 import { statusCell, type StatusCell } from '../format/status-cell.ts';
+import { sessionLabels } from '../format/session-labels.ts';
+import { fleetCostLabel } from '../format/session-cost.ts';
 import { emptyStates } from '../empty/empty.ts';
 
 export interface OverviewInput { needsYou: readonly AttentionItem[]; sessions: readonly Session[]; repositories: number; now: number }
@@ -40,7 +42,7 @@ const order = ['needs-you', 'blocked', 'failed', 'working', 'waiting', 'idle', '
 
 const title = (item: AttentionItem, sessions: ReadonlyMap<string, Session>): string => {
   const session = item.sessionId ? sessions.get(item.sessionId) : undefined;
-  return session ? `${session.repositoryId}/${session.laneId}` : (item.laneId ?? 'fleet');
+  return session ? sessionLabels(session).attention : (item.laneId ?? 'fleet');
 };
 
 function fleetSummary(sessions: readonly Session[], repositories: number): OverviewViewModel['fleet'] {
@@ -53,7 +55,7 @@ function fleetSummary(sessions: readonly Session[], repositories: number): Overv
   return {
     sessions: sessions.length, repositories, working: sessions.filter(session => session.status === 'working').length,
     tokens: compactNumber(samples.reduce((sum, sample) => sum + sample.tokens, 0)),
-    cost: money(samples.reduce((sum, sample) => sum + sample.costUsd, 0)),
+    cost: fleetCostLabel(sessions),
     contextSeries, contextSpark: sparkline(contextSeries, 100),
   };
 }

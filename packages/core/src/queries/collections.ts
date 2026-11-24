@@ -3,6 +3,7 @@ import type { AttentionItem } from '../attention/needs-you.ts';
 import type { ReadModels } from '../projections/index.ts';
 import type { RequestFilter } from './console-queries.ts';
 import type { Entry } from './paging.ts';
+import { laneLookup, type LaneLookup } from './session-identity.ts';
 import { resetsOf, toJob, toMessage, toQuestion, toRequest, toSession } from './entities.ts';
 
 
@@ -33,9 +34,9 @@ export function attentionSessionIds(attention: readonly AttentionItem[]): Readon
   return ids;
 }
 
-export function sessionEntries(models: ReadModels, attentionSessionIds: ReadonlySet<string>): Entry<Session>[] {
+export function sessionEntries(models: ReadModels, attentionSessionIds: ReadonlySet<string>, lanes: LaneLookup = laneLookup(models.lanes.lanes)): Entry<Session>[] {
   return Object.values(models.sessions.sessions).map(row => {
-    const session = toSession(models, row, attentionSessionIds);
+    const session = toSession(models, row, attentionSessionIds, lanes);
     return { key: session.startedAt, id: session.id, active: !inactiveSession.has(session.status), build: () => session };
   });
 }

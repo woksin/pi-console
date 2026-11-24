@@ -4,6 +4,9 @@ export interface LaneModel {
   id: string;
   name: string;
   repositoryId: string | null;
+  cwd?: string | null;
+  branch?: string | null;
+  metadataKeys?: Partial<Record<'cwd' | 'branch', string>>;
   status: string;
   waitingOn: string | null;
   barredBy: string | null;
@@ -21,15 +24,22 @@ export interface LanesState { lanes: Record<string, LaneModel> }
 
 const blank = (id: string, at: string) => (): LaneModel => ({
   id, name: id, repositoryId: null, status: 'unknown', waitingOn: null, barredBy: null, parked: false, closed: false,
-  registeredAt: at, statusAt: '', statusKey: '', issues: [],
+  registeredAt: at, statusAt: '', statusKey: '', issues: [], cwd: null, branch: null, metadataKeys: {},
 });
 
-export const lanesProjection = projection<LanesState>('lanes', 3, () => ({ lanes: {} }), {
+export const lanesProjection = projection<LanesState>('lanes', 4, () => ({ lanes: {} }), {
   LaneRegistered(state, payload, event) {
     markDirty(state, 'lanes', payload.laneId);
     const lane = entry(state.lanes, payload.laneId, blank(payload.laneId, event.occurredAt));
     // A roster entry knows no repository: it must not erase the one the lane registry gave.
     Object.assign(lane, { name: payload.name, repositoryId: payload.repositoryId ?? lane.repositoryId });
+    const key = orderKey(event);
+    const metadataKeys = lane.metadataKeys ??= {};
+    for (const field of ['cwd', 'branch'] as const) {
+      if (payload[field] === undefined || key < (metadataKeys[field] ?? '')) continue;
+      lane[field] = payload[field];
+      metadataKeys[field] = key;
+    }
   },
   LaneStatusChanged(state, payload, event) {
     markDirty(state, 'lanes', payload.laneId);

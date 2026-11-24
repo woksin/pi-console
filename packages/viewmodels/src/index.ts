@@ -1,5 +1,7 @@
 export * from './format/format.ts';
 export * from './format/lane-label.ts';
+export * from './format/session-labels.ts';
+export * from './format/session-cost.ts';
 export * from './format/pressure.ts';
 export * from './format/glyphs.ts';
 export * from './format/time.ts';
