@@ -109,10 +109,22 @@ export async function liveFleetFlow(snap: Snap = quiet): Promise<void> {
   });
 }
 
+/** Frame the Memory panel from its heading: only the rail that holds it scrolls, and every outer container stays at the top so the app header shows. Re-applied before each picture because clicking scrolls the page. */
+async function frameMemoryPanel(page: Page): Promise<void> {
+  await page.locator('.memory-panel').evaluate(panel => {
+    const rail = panel.parentElement;
+    if (rail) rail.scrollTop += panel.getBoundingClientRect().top - rail.getBoundingClientRect().top - 8;
+    for (let outer = rail?.parentElement; outer; outer = outer.parentElement) outer.scrollTop = 0;
+    window.scrollTo(0, 0);
+  });
+  await settle(page);
+}
+
 const stage = (page: Page, text: string) => page.locator(`[data-memory-item="${memoryReviewItem}"]`).getByRole('status').filter({ hasText: text });
 
 /** A proposed item is confirmed in pi (synthetic provider), and becomes active only when the producer's own update arrives. */
-export async function memoryReviewFlow(snap: Snap = quiet): Promise<void> {
+export async function memoryReviewFlow(capture: Snap = quiet): Promise<void> {
+  const snap: Snap = async (page, holdMs) => { await frameMemoryPanel(page); await capture(page, holdMs); };
   const restore = prepareMemoryReview();
   try {
     await withRig(async rig => {
@@ -131,7 +143,6 @@ export async function memoryReviewFlow(snap: Snap = quiet): Promise<void> {
       const row = page.locator(`[data-memory-item="${memoryReviewItem}"]`);
       const confirm = row.getByRole('button', { name: 'Confirm…', exact: true });
       await confirm.waitFor();
-      await row.evaluate(element => { element.scrollIntoView({ block: 'center' }); });
       await settle(page);
       assert.equal(await row.locator('[data-memory-status]').getAttribute('data-memory-status'), 'proposed');
       await snap(page, 1500);

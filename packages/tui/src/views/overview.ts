@@ -111,6 +111,16 @@ function statusLines(model: OverviewViewModel, width: number): Line[] {
   });
 }
 
+/** Tokens, then cost wrapped at word boundaries so the "(known; N/M sessions)" qualifier never overflows the panel. */
+export function fleetTotals(model: Pick<OverviewViewModel, 'fleet'>, inner: number): Line[] {
+  const [first, ...rest] = wrap(`cost ${model.fleet.cost}`, inner, 3);
+  return [
+    [t('tokens ', 'muted'), t(model.fleet.tokens, 'text')],
+    [t('cost ', 'muted'), t(first.replace(/^cost /, ''), 'text')],
+    ...rest.map(line => [t(line, 'text')]),
+  ];
+}
+
 function fleetPanel(model: OverviewViewModel, histogram: PressureHistogram, width: number, height: number): ReturnType<typeof h> {
   const lines: Line[] = [
     [t(String(model.fleet.sessions), 'text', { bold: true }), t(` sessions in ${String(model.fleet.repositories)} repositories`, 'muted')],
@@ -120,7 +130,7 @@ function fleetPanel(model: OverviewViewModel, histogram: PressureHistogram, widt
     blank, heading('Context, fleet average'),
     [t(model.fleet.contextSpark, 'cyan')],
     blank,
-    [t('tokens ', 'muted'), t(model.fleet.tokens, 'text'), t('   cost ', 'muted'), t(model.fleet.cost, 'text')],
+    ...fleetTotals(model, width - 4),
   ];
   const pressure = [blank, heading('Context pressure'), ...pressureLines(histogram)];
   if (lines.length + pressure.length <= height - 2) lines.push(...pressure);
