@@ -1,6 +1,7 @@
 import type { Request, RequestEvidence, Session } from '@pi-console/contract';
 import type { Action } from '../keymap/keymap.ts';
 import { age, sanitize } from '../format/format.ts';
+import { sessionLabels } from '../format/session-labels.ts';
 import { statusCell, type StatusCell } from '../format/status-cell.ts';
 
 /**
@@ -91,7 +92,7 @@ function row(request: Request, names: ReadonlyMap<string, string>, now: number):
   };
 }
 
-const sessionNames = (sessions: readonly Session[]) => new Map(sessions.map(session => [session.id, session.name]));
+const sessionNames = (sessions: readonly Session[]) => new Map(sessions.map(session => [session.id, sessionLabels(session).title]));
 
 export function requestsViewModel(input: { requests: readonly Request[]; sessions: readonly Session[]; now: number; filter?: RequestsFilter }): RequestsViewModel {
   const filter: Required<RequestsFilter> = { state: input.filter?.state ?? 'all', origin: input.filter?.origin ?? 'all', sessionId: input.filter?.sessionId ?? null, query: input.filter?.query ?? '' };

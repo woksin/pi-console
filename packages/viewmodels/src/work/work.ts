@@ -1,5 +1,6 @@
 import type { Job, Session } from '@pi-console/contract';
 import { age, sanitize } from '../format/format.ts';
+import { sessionLabels } from '../format/session-labels.ts';
 import { statusCell, type StatusCell } from '../format/status-cell.ts';
 
 export interface WorkRow { id: string; sessionId: string; session: string; kind: Job['kind']; name: string; status: StatusCell; exit: string; age: string }
@@ -13,7 +14,7 @@ export type WorkEntry = Omit<WorkRow, 'age'> & { startedAt: string };
 export interface WorkStructure { entries: readonly WorkEntry[]; running: number; failed: number }
 
 export function workStructure(input: { jobs: readonly Job[]; sessions: readonly Session[] }): WorkStructure {
-  const names = new Map(input.sessions.map(session => [session.id, session.name]));
+  const names = new Map(input.sessions.map(session => [session.id, sessionLabels(session).title]));
   const entries = [...input.jobs].sort((a, b) => rank[a.status] - rank[b.status] || Date.parse(b.startedAt) - Date.parse(a.startedAt)).map((job): WorkEntry => ({
     id: job.id, sessionId: job.sessionId, session: names.get(job.sessionId) ?? job.sessionId, kind: job.kind, name: sanitize(job.name),
     status: statusCell(job.status), exit: job.exitCode === null ? '' : `exit ${String(job.exitCode)}`, startedAt: job.startedAt,

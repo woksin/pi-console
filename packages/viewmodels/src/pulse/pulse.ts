@@ -1,6 +1,7 @@
 import type { Session } from '@pi-console/contract';
 import { compactNumber } from '../format/format.ts';
 import { laneLabel } from '../format/lane-label.ts';
+import { sessionLabels } from '../format/session-labels.ts';
 import { statusCell, type StatusCell } from '../format/status-cell.ts';
 
 /** One session, or a counted part of a status run for large fleets. */
@@ -69,7 +70,7 @@ function boundedCells(cells: PulseCell[]): PulseCell[] {
 export function pulseViewModel(input: { sessions: readonly Session[]; needsYou: number; minutes?: number }): PulseViewModel {
   const cells = boundedCells([...input.sessions]
     .sort((a, b) => severity(a.status) - severity(b.status) || laneLabel(a.repositoryId, a.laneId).localeCompare(laneLabel(b.repositoryId, b.laneId)) || a.name.localeCompare(b.name))
-    .map(session => ({ id: session.id, title: `${laneLabel(session.repositoryId, session.laneId)} ${session.name}`, status: statusCell(session.status), monoGlyph: statusCell(session.status).glyph, count: 1 })));
+    .map(session => ({ id: session.id, title: sessionLabels(session).title, status: statusCell(session.status), monoGlyph: statusCell(session.status).glyph, count: 1 })));
   const activity = fleetActivity(input.sessions, input.minutes ?? 24);
   const working = input.sessions.filter(session => session.status === 'working').length;
   const latest = activity.at(-1) ?? 0;

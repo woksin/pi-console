@@ -19,10 +19,10 @@ function watchErrors(page: Page): string[] {
 const connection = (page: Page): Promise<string | null> => page.locator('.conn').getAttribute('data-connection');
 
 describe('web console e2e', () => {
-  test('session topbar includes repository, lane, name and status', async () => {
+  test('session topbar includes name, secondary lane and status', async () => {
     const page = await rig.open('/session/s2');
     await page.locator('.conn[data-connection="live"]').waitFor();
-    assert.match(await page.locator('.topbar h1').innerText(), /.+ \/ L\d+ \/ .+/);
+    assert.match(await page.locator('.topbar h1').innerText(), /.+ · L\d+/);
     await page.locator('.topbar .badge').waitFor();
     await page.locator('.session-head').waitFor();
     assert.equal(await page.locator('.session-head h2, .session-head .badge').count(), 0, 'identity and status appear only in the topbar');
@@ -528,7 +528,7 @@ test('real-shaped identity and unknown dollars render without fake lane metadata
     // Existing snapshot sessions skip HTTP detail reads; update the authoritative stream instead.
     realRig.daemon.store.publish('session.updated', detail.session);
     await page.evaluate(() => { window.location.hash = '#/session/s2'; });
-    await page.getByRole('heading', { name: 's2 repo', exact: true }).waitFor();
+    await page.getByRole('heading', { name: 's2', exact: true }).waitFor();
     const header = await page.locator('.session-head').innerText();
     assert.match(header, /—/);
     assert.doesNotMatch(header, /unassigned|\$0\.00| · {2}· /);

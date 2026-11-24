@@ -1,4 +1,4 @@
-import { memoryPanelViewModel, memoryReviewPending, type MemoryPanelItem } from '@pi-console/viewmodels';
+import { sessionLabels, memoryPanelViewModel, memoryReviewPending, type MemoryPanelItem } from '@pi-console/viewmodels';
 import { useEffect, useMemo, type ReactNode } from 'react';
 import { copyWithNotice } from '../app/copy-notice.ts';
 import { clockNow, useConsole, useStore } from '../app/hooks.ts';
@@ -55,7 +55,7 @@ export function SessionMemory({ id }: { id: string }) {
   const now = clockNow(state, Date.now());
   useEffect(() => store.watchSessionMemory(id), [store, id]);
   const memory = state.memory[id] ?? null;
-  const sessionNames = useMemo(() => new Map(state.sessions.map(session => [session.id, session.name])), [state.sessions]);
+  const sessionNames = useMemo(() => new Map(state.sessions.map(session => [session.id, sessionLabels(session).title])), [state.sessions]);
   const view = memoryPanelViewModel({ memory, items: state.memoryItems[id] ?? [], now, review: state.memoryReviews.get(id), sessionNames });
   const status = state.memoryStatus[id];
   const notice = <MemoryNotice status={status} stale={view.available} retry={() => { void store.loadSessionMemory(id); }} />;

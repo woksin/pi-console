@@ -363,23 +363,23 @@ test('memory reject requests report pi decline and receipt loss as non-applied o
   }
 });
 
-test('repository lane labels, readable timeline ticks and selected row survive zoom and pan', async () => {
+test('session labels, readable timeline ticks and selected row survive zoom and pan', async () => {
   const page = await rig.open('/messages');
   await page.getByRole('list', { name: 'Messages', exact: true }).waitFor();
-  assert.ok((await page.getByRole('list', { name: 'Messages', exact: true }).innerText()).includes('/L0'));
+  assert.ok((await page.getByRole('list', { name: 'Messages', exact: true }).innerText()).includes('aurora coordinator · L0'));
   await page.getByRole('button', { name: /^Graph/ }).click();
   await page.locator('.node .label').first().waitFor();
   assert.ok((await page.getByRole('region', { name: 'Lane communication' }).locator('.node .label:not(.name)').allTextContents()).every(label => /^L\d+$/.test(label)));
-  assert.ok((await page.getByRole('region', { name: 'Session relationships' }).locator('.node .label:not(.name)').allTextContents()).every(label => label.includes('/L')));
+  assert.ok((await page.getByRole('region', { name: 'Session relationships' }).locator('.node title').allTextContents()).every(label => label.includes(' · L')));
   await page.evaluate(() => { location.hash = '/timeline'; });
   await page.locator('.lane.selected').waitFor();
-  assert.ok((await page.locator('.lane-label').allTextContents()).every(label => label.includes('/L')));
+  assert.ok((await page.locator('.lane-label').allTextContents()).every(label => label.includes(' · L')));
   await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
   await page.getByRole('button', { name: 'Pan later', exact: true }).click();
   const labels = await page.locator('.tl .axis').allTextContents();
   assert.ok(labels.length >= 2 && labels.every(label => /^\d{2}:\d{2}:[0-5]0$/.test(label)));
   const selected = await page.locator('.lane.selected .lane-label').textContent();
-  assert.ok(selected?.includes('/L'));
+  assert.ok(selected?.includes(' · L'));
   await page.keyboard.press('j');
   assert.notEqual(await page.locator('.lane.selected .lane-label').textContent(), selected);
   await page.context().close();

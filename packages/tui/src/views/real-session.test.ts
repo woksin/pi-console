@@ -21,12 +21,12 @@ for (const width of [80, 140]) {
     try {
       await ui.settle();
       const frame = ui.frame();
-      assert.match(frame, /abcdef01 repo/);
-      assert.match(frame, /fedcba98 repo/);
+      assert.match(frame, /abcdef01/);
+      assert.match(frame, /fedcba98/);
       assert.doesNotMatch(frame, /unassigned|\$0\.00/);
       const lines = frame.split('\n');
       assert.ok(lines.every(line => displayWidth(line) <= width));
-      const rows = lines.filter(line => line.includes('Idle') && /abcdef01 repo|fedcba98 repo/.test(line));
+      const rows = lines.filter(line => line.includes('Idle') && /abcdef01|fedcba98/.test(line));
       assert.equal(rows.length, 2);
       assert.equal(rows[0].indexOf('Idle'), rows[1].indexOf('Idle'));
       assert.match(rows[0], /—/);

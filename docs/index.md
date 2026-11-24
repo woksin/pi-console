@@ -1,6 +1,6 @@
 # pi-console documentation
 
-Design documents for pi-console (status: design, name provisional). Read in this order:
+Design and implementation documents for pi-console (status: implemented). Read in this order:
 
 1. [Vision](vision.md): the problem, the product, personas, non-goals.
 2. [Information architecture](information-architecture.md): what the user sees, in web and TUI.

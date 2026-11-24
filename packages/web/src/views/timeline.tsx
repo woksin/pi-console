@@ -1,4 +1,4 @@
-import { columnOf, laneLabel, markerLegend, pan, timelineTicks, timelineViewModel, zoom, type TimeWindow } from '@pi-console/viewmodels';
+import { columnOf, sessionLabels, markerLegend, pan, timelineTicks, timelineViewModel, zoom, type TimeWindow } from '@pi-console/viewmodels';
 import { useMemo, useState } from 'react';
 import type { ViewProps } from '../app/view.tsx';
 import { useActions } from '../app/commands.ts';
@@ -36,7 +36,7 @@ export function TimelineView({ state, now }: ViewProps) {
   const rows = useListNav(groups.flatMap(group => group.lanes.map(lane => lane.sessionId)));
   const ticks = timelineTicks(view.window, columns);
   const nowColumn = columnOf(now, view.window, columns);
-  const names = new Map(state.sessions.map(session => [session.id, laneLabel(session.repositoryId, session.laneId)]));
+  const names = new Map(state.sessions.map(session => [session.id, sessionLabels(session).timeline]));
   if (!state.snapshotLoaded) return <div className="page"><SkeletonRows label="timeline" columns={4} /></div>;
   const history = <TimelineHistory state={state} />;
   if (view.lanes.length === 0) return <><EmptyFor view="timeline" />{history}</>;

@@ -3,7 +3,7 @@
     {
       "id": "j8",
       "sessionId": "s8",
-      "session": "harbor review",
+      "session": "harbor review · L198",
       "kind": "phase",
       "name": "test isolation checks",
       "status": {
@@ -18,7 +18,7 @@
     {
       "id": "j4",
       "sessionId": "s4",
-      "session": "aurora explore",
+      "session": "aurora explore · L194",
       "kind": "job",
       "name": "watch cache sweep logs",
       "status": {
@@ -33,7 +33,7 @@
     {
       "id": "j9",
       "sessionId": "s9",
-      "session": "harbor explore",
+      "session": "harbor explore · L199",
       "kind": "ci",
       "name": "release verification (rc2)",
       "status": {
@@ -48,7 +48,7 @@
     {
       "id": "j5",
       "sessionId": "s5",
-      "session": "aurora scout",
+      "session": "aurora scout · L195",
       "kind": "phase",
       "name": "schema compatibility checks",
       "status": {
@@ -63,7 +63,7 @@
     {
       "id": "j1",
       "sessionId": "s1",
-      "session": "aurora coordinator",
+      "session": "aurora coordinator · L0",
       "kind": "job",
       "name": "watch inbox for replies",
       "status": {
@@ -78,7 +78,7 @@
     {
       "id": "j2",
       "sessionId": "s2",
-      "session": "aurora implementation",
+      "session": "aurora implementation · L192",
       "kind": "phase",
       "name": "unit checks: queue",
       "status": {
@@ -93,7 +93,7 @@
     {
       "id": "j6",
       "sessionId": "s6",
-      "session": "harbor coordinator",
+      "session": "harbor coordinator · L196",
       "kind": "ci",
       "name": "lint and typecheck",
       "status": {
@@ -108,7 +108,7 @@
     {
       "id": "j3",
       "sessionId": "s3",
-      "session": "aurora review",
+      "session": "aurora review · L193",
       "kind": "ci",
       "name": "release verification",
       "status": {
@@ -123,7 +123,7 @@
     {
       "id": "j7",
       "sessionId": "s7",
-      "session": "harbor implementation",
+      "session": "harbor implementation · L197",
       "kind": "job",
       "name": "watch migration dry run",
       "status": {

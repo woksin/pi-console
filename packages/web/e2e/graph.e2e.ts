@@ -56,7 +56,7 @@ test('sessions sharing a lane stay distinct only in the separate spawn relations
     assert.equal(await sessions.getByRole('link').count(), 3);
     assert.equal(await sessions.locator('path.edge.spawn').count(), 2);
     assert.equal(await sessions.locator('path.edge.message').count(), 0);
-    await sessions.getByRole('link', { name: /L0 orchestrator/ }).focus();
+    await sessions.getByRole('link', { name: new RegExp(`${base.name} · L0`) }).focus();
     await page.keyboard.press('Enter');
     await page.waitForURL('**/#/session/parent');
   } finally { await page.context().close(); await rig.close(); }

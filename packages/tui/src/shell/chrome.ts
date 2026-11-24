@@ -1,4 +1,4 @@
-import { connectionBanner, consoleTitle, displayWidth, hints, type PulseCell, type PulseViewModel, type TextWidth } from '@pi-console/viewmodels';
+import { sessionLabels, connectionBanner, consoleTitle, displayWidth, hints, type PulseCell, type PulseViewModel, type TextWidth } from '@pi-console/viewmodels';
 import { Clickable, Row, Spacer, Text, h, type Line, type Part } from '../view/renderer.ts';
 import { fit, split, t } from '../view/parts.ts';
 import { palette } from '../view/theme.ts';
@@ -12,7 +12,7 @@ const labels: Record<Section, string> = {
 /** The terminal title: needs-you count, then the open session's name or the section. Sanitised by `consoleTitle`. */
 export function terminalTitle(ui: Pick<UiState, 'section' | 'sessionId'>, data: { needsYou: readonly unknown[]; sessions: readonly { id: string; name: string }[] }): string {
   const session = ui.sessionId ? data.sessions.find(item => item.id === ui.sessionId) : undefined;
-  return consoleTitle({ needsYou: data.needsYou.length, place: session?.name ?? labels[ui.section] });
+  return consoleTitle({ needsYou: data.needsYou.length, place: session ? sessionLabels(session).title : labels[ui.section] });
 }
 
 type Attention = Pick<Data, 'needsYou' | 'needsYouLoaded' | 'needsYouError' | 'needsYouCached'>;

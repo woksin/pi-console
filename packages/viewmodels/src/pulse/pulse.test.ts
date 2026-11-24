@@ -9,7 +9,7 @@ test('one cell per session, most urgent first, like statuses in one run', () => 
   const statuses = pulse.cells.map(cell => cell.status.status);
   assert.equal(statuses[0], 'needs-you');
   assert.equal(new Set(statuses).size, statuses.filter((status, at) => status !== statuses[at - 1]).length, 'each status forms one contiguous run');
-  assert.ok(pulse.cells.every(cell => cell.status.glyph && cell.status.color && cell.title.includes('/')));
+  assert.ok(pulse.cells.every(cell => cell.status.glyph && cell.status.color && cell.title.includes(' · L')));
   assert.ok(pulse.cells.every(cell => cell.monoGlyph === cell.status.glyph), 'mono uses the contract glyph without overrides');
   assert.equal(pulse.cells.find(cell => cell.status.status === 'failed')?.status.glyph, '#');
   assert.equal(pulse.cells.find(cell => cell.status.status === 'blocked')?.status.glyph, '×');

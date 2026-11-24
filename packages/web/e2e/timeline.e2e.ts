@@ -137,7 +137,7 @@ async function assertLoadedTimeline(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
   for (const collection of collections) assert.match(await group(page, collection).innerText(), /Showing 2 of 2/);
   await page.getByRole('button', { name: 'Fit', exact: true }).click();
-  const event = page.getByRole('button', { name: /Human request.*repo\/old.*Old request/ });
+  const event = page.getByRole('button', { name: /Human request.*Old session · old.*Old request/ });
   await event.click();
   const detail = page.getByRole('region', { name: 'Timeline event detail' });
   assert.ok((await detail.innerText()).includes('Old request'));

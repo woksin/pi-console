@@ -95,7 +95,7 @@ test('the text filter matches shown text, session and origin, never withheld tex
 
 test('unproven requests are listed with their label and the summary names every active filter', () => {
   assert.ok(model({ origin: 'unproven' }).rows.some(row => row.id === 'd2' && row.originLabel === 'Unproven origin'));
-  assert.equal(describeRequestFilter(model({ state: 'open', origin: 'launch', sessionId, query: 'x' })), `state open · origin launch · session ${fixture.sessions[0].name} · “x”`);
+  assert.equal(describeRequestFilter(model({ state: 'open', origin: 'launch', sessionId, query: 'x' })), `state open · origin launch · session ${fixture.sessions[0].name} · ${fixture.sessions[0].laneId} · “x”`);
   assert.equal(describeRequestFilter(model()), 'state all · origin all · session all');
 });
 

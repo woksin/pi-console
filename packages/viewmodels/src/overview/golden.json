@@ -11,7 +11,7 @@
         "color": "amber",
         "label": "Needs you"
       },
-      "title": "aurora/L195",
+      "title": "aurora scout · L195",
       "text": "How many retries before a job is marked failed?",
       "age": "2h",
       "sessionId": "s5",
@@ -27,7 +27,7 @@
         "color": "amber",
         "label": "Needs you"
       },
-      "title": "aurora/L193",
+      "title": "aurora review · L193",
       "text": "May the migration dry run write its plan to disk?",
       "age": "2h",
       "sessionId": "s3",
@@ -43,7 +43,7 @@
         "color": "amber",
         "label": "Needs you"
       },
-      "title": "harbor/L197",
+      "title": "harbor implementation · L197",
       "text": "Allow the test runner to delete stale temp directories?",
       "age": "3h",
       "sessionId": "s7",
@@ -59,7 +59,7 @@
         "color": "amber",
         "label": "Needs you"
       },
-      "title": "aurora/L0",
+      "title": "aurora coordinator · L0",
       "text": "Which retention window should the cache use?",
       "age": "3h",
       "sessionId": "s1",
@@ -75,7 +75,7 @@
         "color": "amber",
         "label": "Open"
       },
-      "title": "harbor/L200",
+      "title": "harbor scout · L200",
       "text": "Cancel pending retries when the job is stopped.",
       "age": "1h",
       "sessionId": "s10",
@@ -91,7 +91,7 @@
         "color": "amber",
         "label": "Open"
       },
-      "title": "meadow/L201",
+      "title": "meadow coordinator · L201",
       "text": "Add a checkpoint after every queue batch.",
       "age": "1h",
       "sessionId": "s11",
@@ -107,7 +107,7 @@
         "color": "amber",
         "label": "Open"
       },
-      "title": "aurora/L195",
+      "title": "aurora scout · L195",
       "text": "Make the CLI help output fit an 80 column terminal.",
       "age": "2h",
       "sessionId": "s5",
@@ -123,7 +123,7 @@
         "color": "amber",
         "label": "Open"
       },
-      "title": "aurora/L192",
+      "title": "aurora implementation · L192",
       "text": "Write the handoff and preserve the pending decisions.",
       "age": "2h",
       "sessionId": "s2",
@@ -143,7 +143,7 @@
         "color": "amber",
         "label": "Open"
       },
-      "title": "aurora/L192",
+      "title": "aurora implementation · L192",
       "text": "Compare the queue strategies and explain the trade-offs.",
       "age": "3h",
       "sessionId": "s2",
@@ -163,7 +163,7 @@
         "color": "amber",
         "label": "Open"
       },
-      "title": "harbor/L197",
+      "title": "harbor implementation · L197",
       "text": "Dry-run the schema migration and list the tables it would touch.",
       "age": "3h",
       "sessionId": "s7",
@@ -179,7 +179,7 @@
         "color": "orange",
         "label": "Possibly unseen"
       },
-      "title": "aurora/L194",
+      "title": "aurora explore · L194",
       "text": "Find out why the cache expires entries before their TTL.",
       "age": "2h",
       "sessionId": "s4",
@@ -195,7 +195,7 @@
         "color": "violet",
         "label": "Waiting"
       },
-      "title": "aurora/L194",
+      "title": "aurora explore · L194",
       "text": "Lane L194 is waiting on you",
       "age": "25m",
       "sessionId": "s4",
@@ -211,7 +211,7 @@
         "color": "violet",
         "label": "Waiting"
       },
-      "title": "willow/L215",
+      "title": "willow scout · L215",
       "text": "Lane L215 is waiting on you",
       "age": "27m",
       "sessionId": "s25",
@@ -227,7 +227,7 @@
         "color": "violet",
         "label": "Waiting"
       },
-      "title": "meadow/L201",
+      "title": "meadow coordinator · L201",
       "text": "Lane L201 is waiting on you",
       "age": "30m",
       "sessionId": "s11",
@@ -243,7 +243,7 @@
         "color": "violet",
         "label": "Waiting"
       },
-      "title": "quartz/L208",
+      "title": "quartz review · L208",
       "text": "Lane L208 is waiting on you",
       "age": "35m",
       "sessionId": "s18",
@@ -259,7 +259,7 @@
         "color": "faint",
         "label": "Idle"
       },
-      "title": "aurora/L193",
+      "title": "aurora review · L193",
       "text": "aurora review has not progressed",
       "age": "7m",
       "sessionId": "s3",
@@ -275,7 +275,7 @@
         "color": "faint",
         "label": "Idle"
       },
-      "title": "willow/L214",
+      "title": "willow explore · L214",
       "text": "willow explore has not progressed",
       "age": "8m",
       "sessionId": "s24",
@@ -291,7 +291,7 @@
         "color": "faint",
         "label": "Idle"
       },
-      "title": "harbor/L200",
+      "title": "harbor scout · L200",
       "text": "harbor scout has not progressed",
       "age": "10m",
       "sessionId": "s10",
@@ -307,7 +307,7 @@
         "color": "faint",
         "label": "Idle"
       },
-      "title": "quartz/L207",
+      "title": "quartz implementation · L207",
       "text": "quartz implementation has not progressed",
       "age": "13m",
       "sessionId": "s17",

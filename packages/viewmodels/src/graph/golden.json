@@ -55,7 +55,7 @@
       "nodes": [
         {
           "sessionId": "s1",
-          "label": "L0 orchestrator",
+          "label": "aurora coordinator · L0",
           "status": {
             "status": "working",
             "glyph": "*",
@@ -66,7 +66,7 @@
         },
         {
           "sessionId": "s2",
-          "label": "L192 main",
+          "label": "aurora implementation · L192",
           "status": {
             "status": "needs-you",
             "glyph": "!",
@@ -77,7 +77,7 @@
         },
         {
           "sessionId": "s3",
-          "label": "L193 main",
+          "label": "aurora review · L193",
           "status": {
             "status": "blocked",
             "glyph": "×",
@@ -88,7 +88,7 @@
         },
         {
           "sessionId": "s4",
-          "label": "L194 subagent",
+          "label": "aurora explore · L194",
           "status": {
             "status": "waiting",
             "glyph": "~",
@@ -99,7 +99,7 @@
         },
         {
           "sessionId": "s5",
-          "label": "L195 subagent",
+          "label": "aurora scout · L195",
           "status": {
             "status": "idle",
             "glyph": "–",
@@ -166,7 +166,7 @@
       "nodes": [
         {
           "sessionId": "s6",
-          "label": "L196 orchestrator",
+          "label": "harbor coordinator · L196",
           "status": {
             "status": "done",
             "glyph": "✓",
@@ -177,7 +177,7 @@
         },
         {
           "sessionId": "s7",
-          "label": "L197 main",
+          "label": "harbor implementation · L197",
           "status": {
             "status": "failed",
             "glyph": "#",
@@ -188,7 +188,7 @@
         },
         {
           "sessionId": "s8",
-          "label": "L198 main",
+          "label": "harbor review · L198",
           "status": {
             "status": "working",
             "glyph": "*",
@@ -199,7 +199,7 @@
         },
         {
           "sessionId": "s9",
-          "label": "L199 subagent",
+          "label": "harbor explore · L199",
           "status": {
             "status": "needs-you",
             "glyph": "!",
@@ -210,7 +210,7 @@
         },
         {
           "sessionId": "s10",
-          "label": "L200 subagent",
+          "label": "harbor scout · L200",
           "status": {
             "status": "blocked",
             "glyph": "×",
@@ -277,7 +277,7 @@
       "nodes": [
         {
           "sessionId": "s11",
-          "label": "L201 orchestrator",
+          "label": "meadow coordinator · L201",
           "status": {
             "status": "waiting",
             "glyph": "~",
@@ -288,7 +288,7 @@
         },
         {
           "sessionId": "s12",
-          "label": "L202 main",
+          "label": "meadow implementation · L202",
           "status": {
             "status": "idle",
             "glyph": "–",
@@ -299,7 +299,7 @@
         },
         {
           "sessionId": "s13",
-          "label": "L203 main",
+          "label": "meadow review · L203",
           "status": {
             "status": "done",
             "glyph": "✓",
@@ -310,7 +310,7 @@
         },
         {
           "sessionId": "s14",
-          "label": "L204 subagent",
+          "label": "meadow explore · L204",
           "status": {
             "status": "failed",
             "glyph": "#",
@@ -321,7 +321,7 @@
         },
         {
           "sessionId": "s15",
-          "label": "L205 subagent",
+          "label": "meadow scout · L205",
           "status": {
             "status": "working",
             "glyph": "*",
@@ -388,7 +388,7 @@
       "nodes": [
         {
           "sessionId": "s16",
-          "label": "L206 orchestrator",
+          "label": "quartz coordinator · L206",
           "status": {
             "status": "needs-you",
             "glyph": "!",
@@ -399,7 +399,7 @@
         },
         {
           "sessionId": "s17",
-          "label": "L207 main",
+          "label": "quartz implementation · L207",
           "status": {
             "status": "blocked",
             "glyph": "×",
@@ -410,7 +410,7 @@
         },
         {
           "sessionId": "s18",
-          "label": "L208 main",
+          "label": "quartz review · L208",
           "status": {
             "status": "waiting",
             "glyph": "~",
@@ -421,7 +421,7 @@
         },
         {
           "sessionId": "s19",
-          "label": "L209 subagent",
+          "label": "quartz explore · L209",
           "status": {
             "status": "idle",
             "glyph": "–",
@@ -432,7 +432,7 @@
         },
         {
           "sessionId": "s20",
-          "label": "L210 subagent",
+          "label": "quartz scout · L210",
           "status": {
             "status": "done",
             "glyph": "✓",
@@ -499,7 +499,7 @@
       "nodes": [
         {
           "sessionId": "s21",
-          "label": "L211 orchestrator",
+          "label": "willow coordinator · L211",
           "status": {
             "status": "failed",
             "glyph": "#",
@@ -510,7 +510,7 @@
         },
         {
           "sessionId": "s22",
-          "label": "L212 main",
+          "label": "willow implementation · L212",
           "status": {
             "status": "working",
             "glyph": "*",
@@ -521,7 +521,7 @@
         },
         {
           "sessionId": "s23",
-          "label": "L213 main",
+          "label": "willow review · L213",
           "status": {
             "status": "needs-you",
             "glyph": "!",
@@ -532,7 +532,7 @@
         },
         {
           "sessionId": "s24",
-          "label": "L214 subagent",
+          "label": "willow explore · L214",
           "status": {
             "status": "blocked",
             "glyph": "×",
@@ -543,7 +543,7 @@
         },
         {
           "sessionId": "s25",
-          "label": "L215 subagent",
+          "label": "willow scout · L215",
           "status": {
             "status": "waiting",
             "glyph": "~",
@@ -610,7 +610,7 @@
       "nodes": [
         {
           "sessionId": "s26",
-          "label": "L216 orchestrator",
+          "label": "zenith coordinator · L216",
           "status": {
             "status": "idle",
             "glyph": "–",
@@ -621,7 +621,7 @@
         },
         {
           "sessionId": "s27",
-          "label": "L217 main",
+          "label": "zenith implementation · L217",
           "status": {
             "status": "done",
             "glyph": "✓",
@@ -632,7 +632,7 @@
         },
         {
           "sessionId": "s28",
-          "label": "L218 main",
+          "label": "zenith review · L218",
           "status": {
             "status": "failed",
             "glyph": "#",
@@ -643,7 +643,7 @@
         },
         {
           "sessionId": "s29",
-          "label": "L219 subagent",
+          "label": "zenith explore · L219",
           "status": {
             "status": "working",
             "glyph": "*",
@@ -654,7 +654,7 @@
         },
         {
           "sessionId": "s30",
-          "label": "L220 subagent",
+          "label": "zenith scout · L220",
           "status": {
             "status": "needs-you",
             "glyph": "!",

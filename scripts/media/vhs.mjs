@@ -1,9 +1,11 @@
 import { spawn } from 'node:child_process';
 import { join } from 'node:path';
 import { startDemo, root } from '../demo.mjs';
+import { fixedNow } from './scenes.ts';
 import { encodeRecording } from './encode.mjs';
 
-const demo = await startDemo();
+const now = new Date(fixedNow);
+const demo = await startDemo(undefined, () => now);
 let child;
 // On Ctrl-C or SIGTERM, stop VHS so the finally block below still shuts the demo daemon down.
 const interrupt = () => { child?.kill('SIGTERM'); };
@@ -16,7 +18,7 @@ try {
       env: {
         ...process.env, PI_CONSOLE_URL: `http://127.0.0.1:${demo.port}`,
         PI_CONSOLE_DEMO_TOKEN_FILE: demo.tokenFile, PI_CONSOLE_THEME: 'midnight',
-        PI_CONSOLE_REDUCED_MOTION: '1', PI_CONSOLE_NOW: '2026-11-20T12:00:00Z', TZ: 'UTC',
+        PI_CONSOLE_REDUCED_MOTION: '1', PI_CONSOLE_NOW: now.toISOString(), TZ: 'UTC',
       },
     });
     child.once('error', reject);

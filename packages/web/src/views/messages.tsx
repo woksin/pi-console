@@ -1,4 +1,4 @@
-import { filterMessageRows, laneLabel, messagesViewModel, type MessageRow } from '@pi-console/viewmodels';
+import { filterMessageRows, sessionLabels, messagesViewModel, type MessageRow } from '@pi-console/viewmodels';
 import { useMemo, useRef, useState } from 'react';
 import type { ViewProps } from '../app/view.tsx';
 import { navigate, useListNav, useSearchFocus } from '../app/hooks.ts';
@@ -17,7 +17,7 @@ function useMessageRows(state: ViewProps['state'], now: number, mode: Mode, quer
   const model = useMemo(() => messagesViewModel({ messages: state.messages, sessions: state.sessions, now }), [state.messages, state.sessions, now]);
   const matched = useMemo(() => filterMessageRows(model.rows, mode === 'list' ? query : ''), [model.rows, mode, query]);
   const view = useMemo(() => {
-    const names = new Map(state.sessions.map(session => [session.id, laneLabel(session.repositoryId, session.laneId)]));
+    const names = new Map(state.sessions.map(session => [session.id, sessionLabels(session).title]));
     return { rows: matched.map(row => ({ ...row, from: names.get(row.fromSessionId) ?? row.from, to: names.get(row.toSessionId) ?? row.to })) };
   }, [matched, state.sessions]);
   return { view, total: model.rows.length };
