@@ -21,6 +21,14 @@ test('stale carries an explicit neutral question mark', () => {
   assert.equal(statusToken('stale').color, 'muted');
 });
 
+test('blocked and failed remain distinct without colour, as do possibly unseen and stale', () => {
+  assert.equal(statusToken('blocked').glyph, '×');
+  assert.equal(statusToken('failed').glyph, '#');
+  assert.equal(statusToken('answer-possibly-unseen').glyph, '¿');
+  assert.equal(statusToken('answer-possibly-unseen').label, 'Possibly unseen');
+  assert.notEqual(statusToken('answer-possibly-unseen').glyph, statusToken('stale').glyph);
+});
+
 test('unknown status words fall back to a muted neutral token', () => {
   assert.deepEqual(statusToken('nonsense'), { glyph: '·', color: 'muted', label: 'Unknown', tint: 'color-mix(in srgb, var(--muted) 14%, transparent)' });
   assert.ok(Object.values(statusTaxonomy).every(token => token.glyph.length === 1));

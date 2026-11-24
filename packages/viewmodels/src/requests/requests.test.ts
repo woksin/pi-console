@@ -50,7 +50,7 @@ test('uncertain pairings and possibly unseen answers are always labelled', () =>
   const rows = new Map(model().rows.map(row => [row.id, row]));
   assert.equal(rows.get('d2')?.uncertain, uncertainLabels['shared-answer']);
   assert.equal(rows.get('d1')?.uncertain, null);
-  assert.equal(rows.get('d4')?.possiblyUnseen?.label, 'Answer possibly unseen');
+  assert.equal(rows.get('d4')?.possiblyUnseen?.label, 'Possibly unseen');
   assert.equal(rows.get('d1')?.transcript?.entryId, 'd1-e');
 });
 

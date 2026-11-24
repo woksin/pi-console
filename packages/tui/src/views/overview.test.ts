@@ -83,7 +83,7 @@ test('attention loading and failure stay separate from connection; retry reaches
     assert.match(ui.frame(), /Loading…/);
     store.setNeedsYou(needsYou(fixture).items);
     await settleStore();
-    assert.doesNotMatch(ui.frame(), /stale|unavailable|[Aa]ll clear/);
+    assert.doesNotMatch(ui.frame(), /things need you · stale|unavailable|[Aa]ll clear/);
   } finally { ui.destroy(); store.dispose(); }
 });
 
@@ -107,6 +107,8 @@ test('Overview marks non-empty cached attention stale after a failed refresh', a
 test('new attention items get a divider and a tag until the Overview is left', async () => {
   const fixture = generate().fixture;
   const items = needsYou(fixture).items;
+  const visible = items.find(item => item.reason === 'blocking-question');
+  assert.ok(visible, 'a high-priority card is visible after grouping');
   const changes = { look: new LookTracker(), flash: new FlashTracker(), motion: false };
   const frame = async (list: typeof items, needsYouLoaded = true): Promise<string> => {
     const data = { ...new Store().getSnapshot(), loaded: true, sessions: (fixture as unknown as { sessions: Session[] }).sessions, needsYou: list, needsYouLoaded };
@@ -115,7 +117,7 @@ test('new attention items get a divider and a tag until the Overview is left', a
     try { await ui.settle(); return ui.frame(); } finally { ui.destroy(); }
   };
   await frame([], false);
-  assert.doesNotMatch(await frame(items.slice(1)), /new since you looked/, 'the first look after the attention list arrives is the baseline');
+  assert.doesNotMatch(await frame(items.filter(item => item.id !== visible.id)), /new since you looked/, 'the first look after the attention list arrives is the baseline');
   const fresh = await frame(items);
   assert.match(fresh, /── 1 new since you looked ─+/);
   assert.equal(fresh.match(/ new\b(?! since)/g)?.length, 1, 'exactly the one new card is tagged');

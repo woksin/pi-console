@@ -254,9 +254,9 @@
         "uncertain": null,
         "possiblyUnseen": {
           "status": "answer-possibly-unseen",
-          "glyph": "?",
+          "glyph": "¿",
           "color": "orange",
-          "label": "Answer possibly unseen"
+          "label": "Possibly unseen"
         },
         "source": "Derived from the session transcript",
         "transcript": {

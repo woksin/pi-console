@@ -102,7 +102,19 @@ Long-running work spreads across sessions, lanes and file stores. Context resets
 
 ### Needs you first
 
-Overview groups open requests, possibly unseen answers, blocking questions and blocked lanes. The fleet pulse and context-pressure histogram sit alongside them. Fleet, Requests, Questions, Messages, Timeline and Work are one keypress away.
+Overview groups attention by reason: blocking questions, open requests, possibly unseen answers, lanes waiting on you, proposed memory, then stale sessions. Each section has a count and shows the newest items first. Human replies take priority over lane and memory actions, with passive staleness last. Web and TUI share this order. The fleet pulse and context-pressure histogram sit alongside them. Fleet, Requests, Questions, Messages, Timeline and Work are one keypress away.
+
+Status glyphs carry meaning even without colour:
+
+| Status | Glyph |
+|---|---|
+| Needs you | `!` |
+| Blocked | `×` |
+| Failed | `#` |
+| Possibly unseen | `¿` |
+| Stale | `?` |
+
+Failed uses ASCII `#` to stay clearly distinct from blocked `×` in monospace fonts. Possibly unseen uses `¿` because `?` already means stale; its chip reads “Possibly unseen”, never “Unanswered”.
 
 <img src="docs/media/web-tour.gif" alt="Web keyboard tour moving from Overview to Fleet, a session reset divider and the Timeline" width="900">
 

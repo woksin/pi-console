@@ -157,7 +157,7 @@
       "depth": 0,
       "status": {
         "status": "failed",
-        "glyph": "×",
+        "glyph": "#",
         "color": "red",
         "label": "Failed"
       },
@@ -297,7 +297,7 @@
       "depth": 1,
       "status": {
         "status": "failed",
-        "glyph": "×",
+        "glyph": "#",
         "color": "red",
         "label": "Failed"
       },
@@ -489,7 +489,7 @@
       "depth": 0,
       "status": {
         "status": "failed",
-        "glyph": "×",
+        "glyph": "#",
         "color": "red",
         "label": "Failed"
       },
@@ -695,7 +695,7 @@
       "depth": 0,
       "status": {
         "status": "failed",
-        "glyph": "×",
+        "glyph": "#",
         "color": "red",
         "label": "Failed"
       },

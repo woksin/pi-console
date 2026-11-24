@@ -69,7 +69,7 @@ function boundedCells(cells: PulseCell[]): PulseCell[] {
 export function pulseViewModel(input: { sessions: readonly Session[]; needsYou: number; minutes?: number }): PulseViewModel {
   const cells = boundedCells([...input.sessions]
     .sort((a, b) => severity(a.status) - severity(b.status) || laneLabel(a.repositoryId, a.laneId).localeCompare(laneLabel(b.repositoryId, b.laneId)) || a.name.localeCompare(b.name))
-    .map(session => ({ id: session.id, title: `${laneLabel(session.repositoryId, session.laneId)} ${session.name}`, status: statusCell(session.status), monoGlyph: session.status === 'failed' ? '#' : statusCell(session.status).glyph, count: 1 })));
+    .map(session => ({ id: session.id, title: `${laneLabel(session.repositoryId, session.laneId)} ${session.name}`, status: statusCell(session.status), monoGlyph: statusCell(session.status).glyph, count: 1 })));
   const activity = fleetActivity(input.sessions, input.minutes ?? 24);
   const working = input.sessions.filter(session => session.status === 'working').length;
   const latest = activity.at(-1) ?? 0;

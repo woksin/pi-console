@@ -1,19 +1,9 @@
-import { newSince, overviewEmpty, overviewViewModel, pressureHistogram, wrap, type AttentionCard, type NewSince, type OverviewViewModel, type PressureHistogram } from '@pi-console/viewmodels';
+import { newSince, overviewEmpty, overviewViewModel, pressureHistogram, wrap, type NewSince, type OverviewViewModel, type PressureHistogram } from '@pi-console/viewmodels';
 import { Lines, Panel, Row, h, type Line } from '../view/renderer.ts';
-import { bar, blank, fit, heading, selectable, split, statusParts, t, windowOf } from '../view/parts.ts';
+import { bar, blank, fit, heading, statusParts, t } from '../view/parts.ts';
 import { checklistLines, emptyLines, type Env, type SectionView } from './common.ts';
 
-const CARD_HEIGHT = 3;
-
-interface CardMarks { selected: boolean; isNew: boolean; flash: boolean }
-
-function cardLines(card: AttentionCard, width: number, marks: CardMarks, env: Env): Line[] {
-  const head: Line = split(
-    [...statusParts(card.status, env.phase, false), t(' '), t(card.reasonLabel, card.status.color, { bold: true }), t('  '), t(card.title, 'text'), ...(marks.isNew ? [t(' new', 'cyan', { bold: true })] : [])],
-    [t(card.age, 'faint')], width - 1, { measure: env.measure });
-  const text = wrap(card.text, width - 3, 1, env.measure)[0] ?? '';
-  return [selectable(head, width, marks.selected, { flash: marks.flash, measure: env.measure }), selectable([t('  '), t(text, 'muted')], width, marks.selected, { flash: marks.flash, measure: env.measure }), [t('')]];
-}
+import { attentionPage } from './overview-attention.ts';
 
 function attentionLoaded(env: Env): boolean {
   return env.data.loaded && env.data.needsYouLoaded;
@@ -51,16 +41,17 @@ function attentionPanel(model: OverviewViewModel, env: Env, width: number, heigh
   const ready = env.data.needsYouLoaded && !env.data.needsYouError;
   const status = attentionLoad(model, env);
   const divider: Line[] = [...status.lines, ...(fresh.label ? [newSinceLine(fresh.label, inner)] : [])];
-  const visible = Math.max(1, Math.floor((height - 4 - divider.length) / CARD_HEIGHT));
   const cursor = env.ui.cursor.overview;
-  const { start, end } = windowOf(model.cards.length, cursor, visible);
+  const page = attentionPage({ cards: model.cards, cursor, width: inner, height: height - 4 - divider.length, fresh, flashing, env });
   const lines: Line[] = model.cards.length === 0
     ? (ready ? calmLines(model, env, inner) : status.lines)
-    : [...divider, ...model.cards.slice(start, end).flatMap((card, offset) =>
-      cardLines(card, inner, { selected: start + offset === cursor, isNew: fresh.ids.has(card.id), flash: flashing(card.id) }, env))];
-  const more = attentionPosition(model.cards.length, end, cursor);
+    : [...divider, ...page.lines];
+  const more = attentionPosition(model.cards.length, page.end, cursor);
   return h(Panel, { title: status.title ?? model.headline, right: more, focused: true, accent: ready ? attentionAccent(model) : status.accent, grow: 1 },
-    h(Lines, { lines, grow: 1, onLineClick: index => { if (index >= divider.length) env.click(start + Math.floor((index - divider.length) / CARD_HEIGHT)); } }));
+    h(Lines, { lines, grow: 1, onLineClick: index => {
+      const card = page.indices[index - divider.length];
+      if (card !== undefined && card !== null) env.click(card);
+    } }));
 }
 
 function attentionLoad(model: OverviewViewModel, env: Env): { title?: string; lines: Line[]; accent?: 'amber' | 'muted' } {

@@ -8,7 +8,7 @@
       "name": "test isolation checks",
       "status": {
         "status": "failed",
-        "glyph": "×",
+        "glyph": "#",
         "color": "red",
         "label": "Failed"
       },
@@ -23,7 +23,7 @@
       "name": "watch cache sweep logs",
       "status": {
         "status": "failed",
-        "glyph": "×",
+        "glyph": "#",
         "color": "red",
         "label": "Failed"
       },

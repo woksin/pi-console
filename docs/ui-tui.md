@@ -23,7 +23,7 @@ Number keys jump, clicks work on tabs and rows. Everything except explicit memor
 
 | Key | View | What it shows |
 |---|---|---|
-| `1` | Overview | "Needs you" cards from `/needs-you` plus a fleet summary: status bars, context sparkline, tokens, cost |
+| `1` | Overview | "Needs you" cards grouped by shared reason priority with counted headings and newest-first order within each reason, plus a fleet summary: status bars, context sparkline, tokens, cost |
 | `2` | Fleet | Repositories, then sessions by lane with status glyph, context bar, age, cost; `/` filters, `space` folds a group, `Enter` opens a session |
 | (Enter) | Session | Transcript with tool calls, diffs and reset markers; `f` follows the tail, `/` searches, `m` opens the full-width Memory view at any width (see [Memory review](#memory-review)), `Enter` opens the entry at the top of the view in full (wrapped, scrollable with `↑`/`↓`, `PgUp`/`PgDn`, `Home`/`End`; `Esc` closes it and returns to the same place; shortened previews end with "… N more lines"; with a search active it opens scrolled to the first match, highlighted); right rail cycles requests, questions, jobs, resets (`Tab`) |
 | `3` | Requests | Requests with origin evidence, answer state and partial-answer flags; `[` / `]` step the state filter, `o` the origin filter and `S` the session filter (each wraps, and the header line shows what is on) |
@@ -47,6 +47,8 @@ The graph scrubber starts at the newest lane-edge activity and shows edges whose
 Help and Settings scroll with arrows or `j`/`k`, PgUp/PgDn and Home/End (or `g`/`G`), including on short terminals, and show the visible row range. Esc closes either overlay; `?` also closes Help.
 
 Fleet, Requests, Questions, Messages and Work load older history when you reach the last loaded row; Timeline also loads older resets. If a history page fails, press `r` to retry, or try moving forward again at the end of the list.
+
+Status glyphs follow the contract in every theme: blocked `×`, failed `#`, possibly unseen `¿` (chip: “Possibly unseen”), and stale `?`. ASCII `#` remains distinct from blocked in mono output; `¿` avoids reusing stale's `?`.
 
 "Needs you" also refreshes every 60 seconds while connected, even without new stream events. After a failed load, press `r` in Overview to retry.
 
