@@ -105,7 +105,7 @@ test('requests show uncertain and possibly-unseen labels, filter with the shared
 
 const requestFlags = (frame: string) => frame.split('\n').flatMap(line => {
   // Origin then two fixed flag columns; the legend and provenance panel are not request rows.
-  const flags = / [●◆?] ([≈ ])([◌ ]) /.exec(line);
+  const flags = / [●◆*] ([≈ ])([◌ ]) /.exec(line);
   return flags ? [{ line, uncertain: flags[1] === '≈', possiblyUnseen: flags[2] === '◌' }] : [];
 });
 

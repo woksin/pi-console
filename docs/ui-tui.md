@@ -72,7 +72,19 @@ Help and Settings scroll with arrows or `j`/`k`, PgUp/PgDn and Home/End (or `g`/
 
 Fleet, Requests, Questions, Messages and Work load older history when you reach the last loaded row; Timeline also loads older resets. If a history page fails, press `r` to retry, or try moving forward again at the end of the list.
 
-Status glyphs follow the contract in every theme: blocked `×`, failed `#`, possibly unseen `¿` (chip: “Possibly unseen”), and stale `?`. ASCII `#` remains distinct from blocked in mono output; `¿` avoids reusing stale's `?`.
+### Glyph legend
+
+Glyphs need no icon font; labels and position carry their meaning in every theme, including mono and no-colour output.
+
+| Context | Glyphs |
+|---|---|
+| Request origin (classification, not proof) | `●` human · `◆` launch · `*` unproven (ASCII in every terminal) |
+| Request flags | `≈` uncertain · `◌` possibly unseen; the status chip uses `¿` (“Possibly unseen”) |
+| Status | `×` blocked · `#` failed · `?` stale; these contract glyphs are unchanged |
+| Transcript | `▍` user · `●` assistant · `◌` thinking · `⚙` tool · `↳` result · `±` diff · `⟲` reset |
+| Timeline markers | `◆` request · `╳` interrupted · `●` final answer · `◐` partial · `⟲` reset · `?` question · `›` message |
+
+`?` still marks a question on the Timeline or a text-labelled stale status, never an unproven request origin. Memory navigation uses `[/] prev/next` for the `[` and `]` keys, not an empty checkbox.
 
 "Needs you" also refreshes every 60 seconds while connected, even without new stream events. After a failed load, press `r` in Overview to retry.
 

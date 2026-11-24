@@ -7,24 +7,29 @@ import { requestDetailLines } from './detail.ts';
 import { listFilter } from '../../state/ui.ts';
 
 const DETAIL_WIDTH = 56;
+const detailWidth = (env: Env): number => env.width < 140 ? 34 : DETAIL_WIDTH;
 export const originColor = (row: { origin: RequestsRow['origin'] }) => (row.origin === 'human' ? 'blue' as const : 'amber' as const);
 
-const originGlyph: Record<RequestsRow['origin'], string> = { human: '●', launch: '◆', unproven: '?' };
-const legend: Line = [t(' ● human · ◆ launch · ? unproven', 'muted'), t(' · ≈ uncertain · ◌ unseen?', 'amber')];
+const originGlyph: Record<RequestsRow['origin'], string> = { human: '●', launch: '◆', unproven: '*' };
+const legend: Line = [t(' ● human · ◆ launch · * unproven', 'muted'), t(' · ≈ uncertain · ◌ unseen?', 'amber')];
 
 /** Fixed glyph columns stay before the text, so clipping never hides uncertainty or possibly-unseen. */
 const flags = (row: RequestsRow): Line => [t(row.uncertain ? '≈' : ' ', 'amber'), t(row.possiblyUnseen ? '◌' : ' ', 'amber'), t(' ')];
 
 function rowLine(row: RequestsRow, env: Env, width: number, selected: boolean): Line {
   const text = t(row.text, row.withheld ? 'faint' : 'text', row.withheld ? { italic: true } : {});
+  const sessionWidth = Math.max(12, Math.min(18, Math.floor(width * 0.18)));
   return selectable(split(
     [...statusParts(row.status, env.phase, false), t(' '), t(pad(row.status.label, 12), row.status.color), t(` ${originGlyph[row.origin]} `, originColor(row)), ...flags(row), text],
-    [t(pad(fitSessionLabel(row.session, width >= 100 ? 22 : 14, env.measure), width >= 100 ? 22 : 14, env.measure), 'muted'), t(row.age.padStart(4), 'faint')], width - 1, { measure: env.measure }), width, selected, { measure: env.measure });
+    [t(pad(fitSessionLabel(row.session, sessionWidth, env.measure), sessionWidth, env.measure), 'muted'), t(row.age.padStart(4), 'faint')], width - 1, { measure: env.measure }), width, selected, { measure: env.measure });
 }
 
 const summaryLine = (model: RequestsViewModel): Line => [t(` ${describeRequestFilter(model)}`, 'muted'), t(`  ${String(model.rows.length)} shown · ${String(model.uncertain)} uncertain · ${String(model.possiblyUnseen)} unseen?`, 'faint')];
 
-const detailPanel = (request: Request | undefined | false, env: Env) => h(Panel, { title: 'Provenance', width: DETAIL_WIDTH }, h(Lines, { lines: requestDetailLines(request, env, DETAIL_WIDTH).map(line => fit(line, DETAIL_WIDTH - 4, undefined, env.measure)) }));
+const detailPanel = (request: Request | undefined | false, env: Env) => {
+  const width = detailWidth(env);
+  return h(Panel, { title: 'Provenance', width }, h(Lines, { lines: requestDetailLines(request, env, width).map(line => fit(line, width - 4, undefined, env.measure)) }));
+};
 
 /** Requests and answers: list, filters (`[` `]` state, `o` origin, `S` session, `/` text) and the detail of the selected row; Enter opens the transcript at the prompt. */
 export function requestsView(env: Env): SectionView {
@@ -32,7 +37,7 @@ export function requestsView(env: Env): SectionView {
   const model = requestsViewModel({ requests: env.data.requests, sessions: env.data.sessions, now: env.now, filter });
   const { rows } = model;
   const wide = env.width >= 110;
-  const width = (wide ? env.width - DETAIL_WIDTH - 1 : env.width) - 4;
+  const width = (wide ? env.width - detailWidth(env) - 1 : env.width) - 4;
   const cursor = Math.min(env.ui.cursor.requests, Math.max(0, rows.length - 1));
   const { start, end } = windowOf(rows.length, cursor, Math.max(1, env.height - 6));
   const lines = rows.slice(start, end).map((row, offset) => rowLine(row, env, width, start + offset === cursor));

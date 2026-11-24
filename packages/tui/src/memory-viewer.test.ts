@@ -59,7 +59,7 @@ for (const width of [80, 100, 160]) {
       let seen = ui.frame();
       assert.match(seen, /Memory/);
       assert.match(seen, /FIRSTMARK/);
-      assert.match(seen, /Item 1 of 3 · \[ \] prev\/next/);
+      assert.match(seen, /Item 1 of 3 · \[\/\] prev\/next/);
       assert.match(seen, /1–\d+ of \d+/);
       assert.doesNotMatch(seen, /LASTMARK/);
       assert.ok(seen.split('\n').some(line => line.length >= width - 6 && /w\d{3} w\d{3}/.test(line)), 'text uses the full width');

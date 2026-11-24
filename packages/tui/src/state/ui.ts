@@ -37,7 +37,7 @@ export interface UiState {
   collapsed: readonly string[];
   /** True while following the live tail. */
   follow: boolean;
-  /** Stable position of a paused viewport (entry cursor + wrapped-line offset, see transcript-window.ts); `null` while following. */
+  /** Stable position of a paused viewport (see transcript-window.ts), or a one-time initial-open alignment while following. */
   anchor: TranscriptAnchor | null;
   /** Requests list filters (the text filter is `filter`); cycled with `[` `]` `o` `S`. */
   requestFilter: Required<Omit<RequestsFilter, 'query'>>;

@@ -55,11 +55,13 @@ function detail(row: QuestionRow | undefined, width: number, full = false, measu
   ];
 }
 
+const detailTitle = (row: QuestionRow | undefined, { width, measure }: Pick<Env, 'width' | 'measure'>): string => row ? `Question · ${fitSessionLabel(row.session, Math.max(1, width - 19), measure)}` : 'Question';
+
 function fullDetail(row: QuestionRow | undefined, env: Env) {
   const lines = detail(row, env.width, true, env.measure);
   const page = Math.max(1, env.height - 2), max = Math.max(0, lines.length - page);
   const start = Math.min(env.ui.detailScroll, max);
-  return { bounds: { max, page }, render: () => h(Panel, { title: 'Question', right: `↑↓ scroll · PgUp/PgDn · enter session · esc back · ${String(start + 1)}–${String(Math.min(lines.length, start + page))} of ${String(lines.length)}`, focused: true, grow: 1 }, h(Lines, { lines: lines.slice(start, start + page), grow: 1 })) };
+  return { bounds: { max, page }, render: () => h(Panel, { title: detailTitle(row, env), right: `↑↓ scroll · PgUp/PgDn · enter session · esc back · ${String(start + 1)}–${String(Math.min(lines.length, start + page))} of ${String(lines.length)}`, focused: true, grow: 1 }, h(Lines, { lines: lines.slice(start, start + page), grow: 1 })) };
 }
 
 const preferenceTitle = (env: Env): string => ` · ${questionSortLabels[env.ui.questionSort].toLowerCase()} · stale ${String(env.ui.questionStaleDays)}d`;
@@ -87,6 +89,6 @@ export function questionsView(env: Env): SectionView {
     idAt: index => rows[index]?.id ?? null,
     render: questionDetailShown(env.ui) ? full.render : () => h(Row, { grow: 1, gap: 1 },
       h(Panel, { title: `Questions · ${String(model.open)} open · ${String(model.blocking)} blocking${preferenceTitle(env)}${shownOf(env.data, 'questions', rows.length)}`, focused: true, grow: 1 }, h(Lines, { lines: listBody({ loaded: env.data.loaded, lines, query: env.ui.filter, noun: 'question', anyRows: model.rows.length > 0, empty: () => emptyLines(emptyStates.questions, env.width - 4) }), grow: 1, onLineClick: index => { env.click(start + index); } })),
-      ...(wide ? [h(Panel, { title: 'Question · v expand', width: 48 }, h(Lines, { lines: detail(rows[cursor], 48, false, env.measure) }))] : [])),
+      ...(wide ? [h(Panel, { title: `${detailTitle(rows[cursor], { width: 37, measure: env.measure })} · v expand`, width: 48 }, h(Lines, { lines: detail(rows[cursor], 48, false, env.measure) }))] : [])),
   };
 }
