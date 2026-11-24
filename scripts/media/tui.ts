@@ -3,7 +3,6 @@ import { fileURLToPath } from 'node:url';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import type { BrowserContext, Page } from 'playwright-core';
 import { themeTokens } from '../../packages/contract/src/index.ts';
-import { memoryItems } from '../../packages/testkit/src/mock-daemon/memory.ts';
 import { startPty, type Pty } from '../../packages/tui/src/testing/pty.ts';
 import { screenToSvg } from '../../packages/tui/src/testing/svg.ts';
 import type { Rig } from '../../packages/web/e2e/harness.ts';
@@ -138,10 +137,10 @@ async function settingsStill(rig: Rig, work: Work): Promise<void> {
 }
 
 async function memoryStills(rig: Rig, work: Work): Promise<void> {
-  const items = memoryItems();
+  const items = rig.daemon.store.memory;
   const originalLength = items.length;
   const base = items.find(item => item.sessionId === 's2')!;
-  // Extend the existing synthetic store just for this scene, so an older proposal lies beyond the first 100 rows.
+  // Extend the rig's own store-local memory just for this scene, so an older proposal lies beyond the first 100 rows.
   items.push(...Array.from({ length: 100 }, (_, index) => ({
     ...base, id: `gallery-done-${String(index)}`, status: 'done' as const, statusBasis: 'recorded' as const,
     text: `Completed synthetic checkpoint ${String(index + 1)}`, at: new Date(Date.parse(fixedNow) - index * 1000).toISOString(), command: null,
@@ -155,7 +154,8 @@ async function memoryStills(rig: Rig, work: Work): Promise<void> {
       if (!wanted(work, 'tui-memory-review')) return;
       for (let item = 0; item < 99; item++) { term.pty.send(']'); await pause(15); }
       await term.pty.waitFor('107/107 loaded');
-      for (let item = 0; item < 6; item++) { term.pty.send(']'); await pause(50); }
+      // The 100 history rows are newest; the showcase proposal is the next, 101st, row.
+      term.pty.send(']'); await pause(50);
       await term.pty.waitFor('/memory confirm item-2');
       writeStill(work, 'tui-memory-review', await snap(term, 'pi-console TUI older memory proposal'));
     });
