@@ -26,7 +26,7 @@ test('mono draws greys only and carries meaning by weight; Settings previews it'
     try {
       await ui.settle();
       const frame = ui.frame();
-      assert.match(frame, /Theme\s+mono\s+PI_CONSOLE_THEME=midnight\|contrast\|mono/);
+      assert.match(frame, /Theme\s+mono · PI_CONSOLE_THEME=midnight\|contrast\|mono/);
       assert.match(frame, /! Needs you\s+\* Working/);
       assert.match(frame, /Text\s+Muted\s+Faint/);
     } finally { ui.destroy(); }

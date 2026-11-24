@@ -4,7 +4,7 @@ import { App } from '../app.ts';
 import { countsOf } from '../app-input.ts';
 import { Store } from '../store/store.ts';
 import { h, mountHeadless } from '../view/renderer.ts';
-import { healthTimestamp } from '@pi-console/viewmodels';
+import { displayWidth, healthTimestamp } from '@pi-console/viewmodels';
 import { settingsViewport } from './overlays.ts';
 
 async function settingsAt(size: { width: number; height: number }, health?: Record<string, unknown>) {
@@ -39,9 +39,10 @@ for (const size of [{ width: 80, height: 24 }, { width: 60, height: 16 }]) {
       const viewport = settingsViewport(size, input);
       const { page, max } = viewport.bounds;
       const first = ui.frame();
-      assert.equal(viewport.lines.length, 25);
+      const total = viewport.lines.length;
+      assert.equal(total, size.width === 80 ? 25 : 27);
       assert.equal(page, size.height - 4);
-      assert.ok(first.includes(`1–${page} of 25`));
+      assert.ok(first.includes(`1–${String(page)} of ${String(total)}`));
       assert.match(first, /↑↓ PgUp\/PgDn Home\/End · esc closes/);
       assert.doesNotMatch(first, /context ramp/);
       let seen = first;
@@ -51,7 +52,7 @@ for (const size of [{ width: 80, height: 24 }, { width: 60, height: 16 }]) {
         assert.ok(textOf(seen).includes(textOf(text)), text);
       }
       const last = ui.frame();
-      assert.ok(last.includes(`${max + 1}–25 of 25`));
+      assert.ok(last.includes(`${String(max + 1)}–${String(total)} of ${String(total)}`));
       assert.match(last, /context ramp/);
       await ui.press('ARROW_DOWN');
       assert.equal(ui.frame(), last, 'clamped at the end');
@@ -93,16 +94,16 @@ test('Settings resize clamps the visible offset and the next key starts from tha
   const { ui, destroy } = await settingsAt({ width: 60, height: 16 });
   try {
     await ui.press('END');
-    assert.ok(ui.frame().includes('14–25 of 25'));
+    assert.ok(ui.frame().includes('16–27 of 27'));
     await ui.resize(80, 24);
     assert.ok(ui.frame().includes('6–25 of 25'));
     assert.match(ui.frame(), /context ramp/);
     await ui.press('ARROW_UP');
     assert.ok(ui.frame().includes('5–24 of 25'));
     await ui.resize(60, 16);
-    assert.ok(ui.frame().includes('5–16 of 25'));
+    assert.ok(ui.frame().includes('5–16 of 27'));
     await ui.press('END');
-    assert.ok(ui.frame().includes('14–25 of 25'));
+    assert.ok(ui.frame().includes('16–27 of 27'));
   } finally { destroy(); }
 });
 
@@ -182,3 +183,15 @@ test('Settings keeps availability neutral for a daemon that does not report it',
   assert.ok(lines.some(line => /^Source adapters\s+availability not reported/.test(line)) || lines.some(line => /^Issue register\s+availability not reported/.test(line)));
   assert.ok(!lines.some(line => /^Issue register\s+available\s*$/.test(line)));
 });
+
+for (const width of [50, 60, 76]) {
+  test(`Settings wraps the Theme hint inside the value column at width ${width}`, () => {
+    const lines = plain({ width, height: 60 }, null);
+    const theme = lines.findIndex(line => /^Theme\s+\S+/.test(line));
+    assert.ok(theme >= 0, lines.join('\n'));
+    const hint = lines.slice(theme, theme + 3);
+    assert.ok(hint.every(line => displayWidth(line) <= width - 4), lines.join('\n'));
+    const text = hint.join(' ').replace(/\s+/g, '');
+    assert.ok(text.includes('PI_CONSOLE_THEME=midnight|contrast|mono'), lines.join('\n'));
+  });
+}

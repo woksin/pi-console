@@ -121,10 +121,10 @@ function settingsLine(row: SettingsRow, column: SettingsColumn): Line[] {
 const section = ({ title, rows }: { title: string; rows: SettingsRow[] }, column: SettingsColumn): Line[] => [heading(title), ...rows.flatMap(row => settingsLine(row, column)), blank];
 
 /** The same samples the web Settings shows, in the theme this terminal is drawing with. */
-function themeLines({ labelWidth }: SettingsColumn): Line[] {
+function themeLines(column: SettingsColumn): Line[] {
   const preview = themePreview();
   return [heading('Theme'),
-    [t(`${pad('Theme', labelWidth)}  `, 'muted'), t(palette.theme, 'text', { bold: true }), t('  PI_CONSOLE_THEME=midnight|contrast|mono', 'faint')],
+    ...settingsLine({ label: 'Theme', value: palette.theme, valueDetail: 'PI_CONSOLE_THEME=midnight|contrast|mono', tone: 'plain' }, column),
     preview.statuses.flatMap((sample, index) => [...(index ? [t('  ')] : []), t(sample.text, sample.color)]),
     [...preview.text.flatMap(sample => [t(sample.text, sample.color), t('  ')]), ...preview.ramp.map(value => t('██', `pressure:${value}` as const)), t(' context ramp', 'faint')],
     blank];

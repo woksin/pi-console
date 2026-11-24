@@ -51,6 +51,7 @@ code, .mono, pre { font-family: var(--mono); }
 }
 .muted { color: var(--muted); } .faint { color: var(--faint); } .small { font-size: var(--type-caption); }
 .tnum { font-variant-numeric: tabular-nums; } .grow { flex: 1 1 auto; } .end { text-align: right; }
+.nowrap { white-space: nowrap; }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .num { text-align: right; }
 .tone-cyan { --tone: var(--cyan); } .tone-blue { --tone: var(--blue); } .tone-amber { --tone: var(--amber); } .tone-green { --tone: var(--green); }

@@ -76,14 +76,29 @@ const questionsStill = (rig: Rig, theme: Theme): Promise<Buffer> => withStaleQue
   return still;
 });
 
+/** Moves the transcript up just far enough that the entry the sticky day header covers starts directly below it, so no entry header is shown half hidden. */
+async function clearStickyHeader(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const pane = document.querySelector('.transcript');
+    const head = pane?.querySelector('.tday-head');
+    if (!pane || !head) return;
+    const edge = head.getBoundingClientRect().bottom;
+    const covered = [...pane.querySelectorAll('.tline, .reset-marker')].find(line => line.getBoundingClientRect().bottom > edge);
+    const top = covered?.getBoundingClientRect().top ?? edge;
+    if (top < edge) pane.scrollTop -= edge - top;
+  });
+  await settle(page);
+}
+
 /** What a view needs on screen before its still: the tail, the memory panel, older history, the settings check or the graph edges. */
 async function prepareView(page: Page, rig: Rig, id: string): Promise<void> {
   if (id === 'session') {
     await showTranscriptTail(page);
     await page.locator('.memory-panel').scrollIntoViewIfNeeded();
     await page.evaluate(() => { window.scrollTo(0, 0); });
+    await clearStickyHeader(page);
   }
-  if (id === 'transcript-history') await showOlderTranscript(page);
+  if (id === 'transcript-history') { await showOlderTranscript(page); await clearStickyHeader(page); }
   if (id === 'settings') await assertSettingsSequence(page, rig);
   if (id === 'graph') await page.locator('[aria-label="Lane communication"] .edge.message').first().waitFor({ state: 'attached' });
 }
