@@ -1,4 +1,4 @@
-// `npm run console`: a real, loopback-only daemon with an isolated synthetic event log.
+// `npm run console`: the gallery's loopback-only mock daemon, serving isolated sample data.
 // Keep this entry JavaScript-only until the shared Node preflight has passed.
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -6,7 +6,7 @@ import { join, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { spawn, spawnSync } from 'node:child_process';
 import { once } from 'node:events';
-import { setInterval, clearInterval } from 'node:timers';
+import timers from 'node:timers';
 import { nodeVersionError } from '../packages/cli/bin/node-version.mjs';
 
 export const root = resolve(import.meta.dirname, '..');
@@ -16,55 +16,74 @@ function preflight() {
   if (error) throw new Error(error);
 }
 
-function startTicker(log, tick, interval) {
+export function startTicker(publish, tick, interval) {
   let pending = Promise.resolve();
-  const timer = setInterval(() => {
+  const timer = timers.setInterval(() => {
     pending = pending.then(async () => {
       const events = tick();
-      if (events.length === 0) clearInterval(timer);
-      else await log.append(events);
+      if (events.length === 0) timers.clearInterval(timer);
+      else await publish(events);
     }).catch(error => {
-      clearInterval(timer);
+      timers.clearInterval(timer);
       console.error(`Demo live updates stopped: ${error.message}`);
     });
   }, interval);
   timer.unref();
-  return async () => { clearInterval(timer); await pending; };
+  return async () => { timers.clearInterval(timer); await pending; };
+}
+
+async function startWeb(webDist, daemon) {
+  if (!webDist) return undefined;
+  const { createStaticServer } = await import('../packages/web/src/server/static-server.ts');
+  const server = createStaticServer({ root: webDist, daemon: { host: '127.0.0.1', port: daemon.port } });
+  await new Promise((done, reject) => {
+    server.once('error', reject);
+    server.listen(0, '127.0.0.1', done);
+  });
+  return server;
+}
+
+async function cleanup(daemon, web, directory) {
+  try { await daemon?.close(); }
+  finally {
+    if (web) {
+      web.closeAllConnections();
+      await new Promise(done => { web.close(done); });
+    }
+    rmSync(directory, { recursive: true, force: true });
+  }
 }
 
 /** Used by the interactive launcher and the VHS recorder. Never enables filesystem ingestion. */
 export async function startDemo(webDist) {
   preflight();
-  const { SqliteEventLog } = await import('../packages/core/src/event-log/sqlite-event-log.ts');
-  const { defaultConfig } = await import('../packages/daemon/src/config.ts');
-  const { startDaemon } = await import('../packages/daemon/src/daemon.ts');
+  const { startDaemon } = await import('../packages/testkit/src/mock-daemon/server.ts');
   const { demoData, demoTickMs } = await import('./demo-data.mjs');
   const directory = mkdtempSync(join(tmpdir(), 'pi-console-demo-'));
   let daemon;
+  let web;
   let stopTicker;
   try {
-    const { events, transcripts, tick } = demoData();
-    const log = new SqliteEventLog(join(directory, 'console.db'));
-    try { await log.append(events); } finally { log.close(); }
-    daemon = await startDaemon({
-      ...defaultConfig(directory), port: 0, ingest: false, sessionRoots: [],
-      agentRoot: join(directory, 'no-agent'), orchRoot: join(directory, 'no-orch'),
-      lanesRoot: join(directory, 'no-lanes'), laneStatusDir: join(directory, 'no-status'),
-      memoryRoot: join(directory, 'no-memory'), webDist, transcripts,
-    });
-    stopTicker = startTicker(daemon.log, tick, demoTickMs);
+    const { fixture, memory, memoryHandoffAt, tick } = demoData();
+    daemon = await startDaemon({ port: 0, speed: 0, dataDirectory: directory });
+    // The media rig serves the fixture directly, including explicit names, lanes and repository identities.
+    Object.assign(daemon.store.fixture, fixture);
+    daemon.store.memory = memory;
+    daemon.store.memoryHandoffAt = memoryHandoffAt;
+    web = await startWeb(webDist, daemon);
+    stopTicker = startTicker(events => {
+      events.forEach(({ type, payload }) => daemon.store.publish(type, payload));
+    }, tick, demoTickMs);
     return {
-      port: daemon.port, directory, tokenFile: join(directory, 'token'),
+      port: web?.address().port ?? daemon.port, address: daemon.address, directory, tokenFile: join(directory, 'token'),
       async close() {
         await stopTicker();
-        await daemon.close();
-        rmSync(directory, { recursive: true, force: true });
+        await cleanup(daemon, web, directory);
       },
     };
   } catch (error) {
     await stopTicker?.();
-    await daemon?.close();
-    rmSync(directory, { recursive: true, force: true });
+    await cleanup(daemon, web, directory);
     throw error;
   }
 }
@@ -120,7 +139,8 @@ async function main() {
       const url = launchUrl(demo);
       console.log(`\nSynthetic demo (no live agents or user files).\nWeb: ${url}\n` +
         `Terminal demo: npm run console -- --tui\n` +
-        `Live samples run for 15 minutes. Ctrl-C stops the daemon and removes its temporary data and token.`);
+        `Live samples run for 15 minutes. Ctrl-C stops the daemon and removes its temporary data and token.\n` +
+        `--open passes this throwaway loopback token to your browser opener; it may appear in local process arguments.`);
       if (process.argv.includes('--open')) openBrowser(url);
     }
     if (tui) await runTui(demo, stopped);

@@ -23,16 +23,16 @@ export const memoryItems = (): MemoryItem[] => items;
 /** The summary for a known session; the first session carries the synthetic store, the rest report none. */
 export function sessionMemory(store: Store, sessionId: string): SessionMemory | undefined {
   if (!store.fixture.sessions.some(session => session.id === sessionId)) return undefined;
-  const own = items.filter(row => row.sessionId === sessionId);
+  const own = store.memory.filter(row => row.sessionId === sessionId);
   const count = (status: MemoryItem['status']) => own.filter(row => row.status === status).length;
   return {
     sessionId, storeDetected: true,
     counts: { active: count('active'), proposed: count('proposed'), done: count('done'), superseded: count('superseded'), withdrawn: count('withdrawn'), rejected: count('rejected') },
     proposedConfirmable: own.filter(row => row.status === 'proposed' && row.statusBasis === 'recorded').length,
-    unresolved: { lowerBound: sessionId === 's1' ? 2 : 0, atLastHandoff: sessionId === 's1' ? { count: 3, at: at(30) } : null },
-    wider: items.filter(row => row.sessionId === null && ['active', 'proposed'].includes(row.status)).length,
+    unresolved: { lowerBound: sessionId === 's1' ? 2 : 0, atLastHandoff: sessionId === 's1' ? { count: 3, at: store.memoryHandoffAt } : null },
+    wider: store.memory.filter(row => row.sessionId === null && ['active', 'proposed'].includes(row.status)).length,
     handoffs: sessionId === 's1' ? [{
-      handoffId: 'sess-1-1.md', at: at(30), degraded: false,
+      handoffId: 'sess-1-1.md', at: store.memoryHandoffAt, degraded: false,
       memoryIndex: { items: 8, messages: 4, unresolved: 3, withheld: 1, proposed: 1, rejected: 1 }, resumeCheck: { activeDirectives: 3, unresolvedMessages: 3, proposedItems: 1 },
     }] : [],
   };

@@ -1,24 +1,26 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { URL } from 'node:url';
-import { startDemo, launchUrl, openBrowser } from './demo.mjs';
+import { setImmediate } from 'node:timers/promises';
+import { startDemo, startTicker, launchUrl, openBrowser } from './demo.mjs';
 import { demoData, demoTickLimit, demoTickMs } from './demo-data.mjs';
+import { rebase } from './media/fixture.mjs';
 import { generate } from '../packages/testkit/src/fixture/generate.ts';
-import { SqliteEventLog } from '../packages/core/src/event-log/sqlite-event-log.ts';
-import { Projector } from '../packages/core/src/projector/projector.ts';
-import { consoleProjections, readModels } from '../packages/core/src/projections/index.ts';
-import { ConsoleQueries } from '../packages/core/src/queries/console-queries.ts';
+import { createStore } from '../packages/testkit/src/mock-daemon/store.ts';
+import { apiV1Schema as schema, validate } from '../packages/contract/src/index.ts';
 import { loadToken } from '../packages/web/src/client/token.ts';
 
-test('demo is authenticated, synthetic, ingestion-free and removes its private data on close', async () => {
+function grouping(sessions) {
+  return Object.groupBy(sessions.map(({ id, repositoryId }) => ({ id, repositoryId })), session => session.repositoryId);
+}
+
+test('console serves the gallery fixture on loopback, requires its temporary token and cleans up', async () => {
   const demo = await startDemo();
   const url = `http://127.0.0.1:${demo.port}`;
   try {
-    assert.equal(statSync(demo.directory).mode & 0o777, 0o700);
-    assert.equal(statSync(demo.tokenFile).mode & 0o777, 0o600);
-    assert.equal((await globalThis.fetch(`${url}/api/v1/sessions`)).status, 401);
+    assert.equal(demo.address, '127.0.0.1');
     const link = new URL(launchUrl(demo));
     assert.equal(link.pathname, '/');
     assert.equal(link.search, '');
@@ -26,89 +28,104 @@ test('demo is authenticated, synthetic, ingestion-free and removes its private d
     assert.equal(token, readFileSync(demo.tokenFile, 'utf8').trim());
     assert.equal(cleanHash, '');
     const headers = { Authorization: `Bearer ${token}` };
-    const get = async path => {
-      const response = await globalThis.fetch(`${url}/api/v1/${path}`, { headers });
-      assert.equal(response.status, 200, path);
-      return response.json();
-    };
-    const sessions = await get('sessions');
+    for (const path of ['/sessions', '/stream']) assert.equal((await globalThis.fetch(`${url}/api/v1${path}`)).status, 401);
+    const sessions = await (await globalThis.fetch(`${url}/api/v1/sessions`, { headers })).json();
+    validate(sessions, schema.$defs.sessions, schema);
     assert.equal(sessions.items.length, 30);
-    assert.ok(sessions.items.every(session => session.cwd.startsWith('/synthetic/')));
-    assert.ok((await get('requests')).items.length > 0);
-    assert.ok((await get('questions')).items.length > 0);
-    assert.ok((await get('messages')).items.length > 0);
-    assert.ok((await get('jobs')).items.length > 0);
-    assert.ok((await get('sessions/s2/transcript')).items.length > 0);
-    const settings = await get('settings');
-    assert.ok(settings.sources.every(source => !source.enabled));
-    assert.equal((await get('health')).projection.skipped, 0);
+    assert.deepEqual(grouping(sessions.items), grouping(generate(192).fixture.sessions));
+    const settings = await (await globalThis.fetch(`${url}/api/v1/settings`, { headers })).json();
+    assert.deepEqual(settings.sources, [{ source: 'mock', enabled: true }]);
+    const memory = await (await globalThis.fetch(`${url}/api/v1/memory-items`, { headers })).json();
+    assert.ok(memory.items.length > 0);
+    assert.ok(memory.items.every(item => Date.now() - Date.parse(item.at) < 86400000));
   } finally { await demo.close(); }
   assert.equal(existsSync(demo.directory), false);
   await assert.rejects(globalThis.fetch(`${url}/api/v1/health`));
 });
 
-async function project(events, now, check) {
-  const log = new SqliteEventLog(':memory:');
-  try {
-    await log.append(events); // Also validates every seed/ticker payload against the event contract.
-    const projector = new Projector(log, consoleProjections());
-    await projector.catchUp();
-    const queries = new ConsoleQueries(() => readModels(projector), () => now);
-    await check(queries);
-  } finally { log.close(); }
-}
-
-test('seed preserves showcase labels, lanes, branches, costs and mixed statuses with recent ages', async () => {
+test('seed preserves gallery repository grouping and identities without changing cwd', () => {
   const now = new Date('2030-04-03T12:00:00Z');
-  const { fixture } = generate(192);
-  const { events } = demoData(now);
-  await project(events, now, queries => {
-    const sessions = queries.sessions();
-    assert.equal(sessions.length, fixture.sessions.length);
-    for (const session of sessions) {
-      const original = fixture.sessions.find(item => item.id === session.id);
-      assert.equal(session.name, original.name);
-      assert.doesNotMatch(session.name, /^s\d+$/);
-      assert.equal(session.laneId, `${original.laneId}-${original.repositoryId}`);
-      assert.notEqual(session.laneId, 'unassigned');
-      assert.equal(session.branch, original.branch);
-      assert.equal(session.costUsd, original.costUsd);
-      assert.ok(now.getTime() - Date.parse(session.updatedAt) < 86400000);
-    }
-    assert.ok(sessions.filter(session => session.costUsd !== null).length > sessions.length * 0.8);
-    assert.ok(sessions.some(session => session.status === 'working'));
-    assert.ok(sessions.some(session => session.status === 'failed'));
-    assert.ok(queries.memoryItems().length > 0);
+  const gallery = generate(192).fixture;
+  const { fixture, memory } = demoData(now);
+  assert.equal(fixture.sessions.length, 30);
+  assert.equal(Object.keys(grouping(fixture.sessions)).length, 6);
+  assert.deepEqual(grouping(fixture.sessions), grouping(gallery.sessions));
+  fixture.sessions.forEach((session, index) => {
+    const original = gallery.sessions[index];
+    for (const key of ['name', 'cwd', 'laneId', 'branch', 'repositoryId', 'costUsd']) assert.equal(session[key], original[key]);
+    assert.doesNotMatch(session.name, /^s\d+$/);
+    assert.notEqual(session.laneId, 'unassigned');
+    assert.ok(now.getTime() - Date.parse(session.updatedAt) < 86400000);
   });
-  const times = events.map(event => Date.parse(event.occurredAt));
-  assert.ok(Math.max(...times) <= now.getTime());
-  assert.ok(now.getTime() - Math.max(...times) < 60000);
-  assert.ok(now.getTime() - Math.min(...times) < 86400000);
+  assert.ok(fixture.sessions.filter(session => session.costUsd !== null).length > 24);
+  assert.ok(fixture.sessions.some(session => session.status === 'working'));
+  assert.ok(fixture.sessions.some(session => session.status === 'failed'));
+  assert.ok(memory.some(item => item.sessionId === 's2'));
+  assert.equal(fixture.generatedAt, now.toISOString());
+  assert.equal(Date.parse(gallery.generatedAt), Date.parse('2026-11-20T12:00:00Z'), 'media retains its pinned recording clock');
 });
 
-test('all seed clocks move together, including burn samples, transcript entries and memory', async () => {
+test('all seed clocks shift together, including transcript, request history and memory', () => {
   const first = demoData(new Date('2030-01-01T00:00:00Z'));
   const second = demoData(new Date('2030-01-01T01:00:00Z'));
-  assert.deepEqual(first.events.map(event => event.id), second.events.map(event => event.id));
-  assert.deepEqual(second.events.map((event, index) => Date.parse(event.occurredAt) - Date.parse(first.events[index].occurredAt)), first.events.map(() => 3600000));
-  const a = await first.transcripts.page('s2', 0, 1);
-  const b = await second.transcripts.page('s2', 0, 1);
-  assert.equal(Date.parse(b.items[0].at) - Date.parse(a.items[0].at), 3600000);
+  assert.deepEqual(rebase(first.fixture, 3600000), second.fixture);
+  assert.deepEqual(rebase(first.memory, 3600000), second.memory);
+  assert.equal(rebase(first.memoryHandoffAt, 3600000), second.memoryHandoffAt);
 });
 
-test('ticker emits valid activity, a finish and questions, then stops at its event budget', async () => {
+test('ticker publishes valid SSE updates and questions, then stops at a bounded event budget', () => {
   const now = new Date('2030-04-03T12:00:00Z');
-  const { events, tick } = demoData(now);
-  const live = Array.from({ length: demoTickLimit }, (_, index) => tick(new Date(now.getTime() + (index + 1) * demoTickMs))).flat();
-  assert.equal(live.filter(event => event.type === 'SessionHeartbeat').length, demoTickLimit);
-  assert.equal(live.filter(event => event.type === 'SessionEnded').length, 1);
-  assert.ok(live.some(event => event.type === 'QuestionAsked'));
-  assert.deepEqual(tick(now), []);
-  await project([...events, ...live], now, queries => {
-    assert.equal(queries.sessions().length, 30);
-    assert.equal(queries.sessions().find(session => session.id === 's22').status, 'done');
-    assert.ok(queries.questions().some(question => question.id.startsWith('demo-live-')));
-  });
+  const { fixture, tick } = demoData(now);
+  const store = createStore(0);
+  Object.assign(store.fixture, fixture);
+  const live = [];
+  try {
+    for (let index = 0; index < demoTickLimit; index++) {
+      tick(new Date(now.getTime() + (index + 1) * demoTickMs)).forEach(({ type, payload }) => {
+        const event = store.publish(type, payload);
+        validate(event, schema.$defs.event, schema);
+        live.push(event);
+      });
+    }
+    assert.equal(live.filter(event => event.type === 'session.updated').length, demoTickLimit + 1);
+    assert.ok(live.some(event => event.type === 'question.asked'));
+    assert.deepEqual(tick(now), []);
+    assert.equal(store.fixture.sessions.length, 30);
+    const finished = live.find(event => event.type === 'session.updated' && event.payload.status === 'done');
+    assert.ok(finished);
+    assert.equal(store.fixture.sessions.find(session => session.id === finished.payload.id).status, 'done');
+    assert.ok(store.fixture.questions.some(question => question.id.startsWith('demo-live-')));
+    assert.ok(store.seq() < demoTickLimit + 20);
+    assert.deepEqual(grouping(store.fixture.sessions), grouping(generate(192).fixture.sessions));
+  } finally { store.close(); }
+});
+
+test('ticker scheduler publishes, stops at exhaustion and drains pending work on shutdown', async t => {
+  t.mock.timers.enable({ apis: ['setInterval'] });
+  const batches = [];
+  let ticks = 0;
+  const stop = startTicker(events => { batches.push(events); }, () => ++ticks === 1 ? [{ type: 'sample' }] : [], 10);
+  t.mock.timers.tick(10);
+  await setImmediate();
+  assert.equal(batches.length, 1);
+  t.mock.timers.tick(10);
+  await setImmediate();
+  t.mock.timers.tick(1000);
+  await stop();
+  assert.equal(ticks, 2);
+  assert.equal(batches.length, 1);
+});
+
+test('ticker shutdown cancels its timer before another publication', async t => {
+  t.mock.timers.enable({ apis: ['setInterval'] });
+  let publications = 0;
+  const stop = startTicker(() => { publications++; }, () => [{}], 10);
+  t.mock.timers.tick(10);
+  await stop();
+  assert.equal(publications, 1);
+  t.mock.timers.tick(1000);
+  await setImmediate();
+  assert.equal(publications, 1);
 });
 
 test('browser opening is optional and best effort on supported platforms', () => {

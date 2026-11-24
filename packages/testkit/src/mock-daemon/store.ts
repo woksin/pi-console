@@ -5,6 +5,7 @@ import { HttpError } from './security.ts';
 import { derivedRequest } from './requests-derived.ts';
 import { windowed } from './paging.ts';
 import { sessionDeltas } from './session-deltas.ts';
+import { memoryItems } from './memory.ts';
 
 type Fixture = ReturnType<typeof generate>['fixture'];
 export type StreamEvent = { seq: number; type: string; occurredAt: string; payload: unknown };
@@ -131,10 +132,12 @@ export function createStore(speed: number, rate?: number, replayWindow = 10000) 
     if (!client.destroyed) clients.add(client);
     client.on('close', () => clients.delete(client));
   }
-  const timer = setInterval(tick, 10);
+  // A zero speed leaves publishing to the caller (the interactive demo's bounded ticker).
+  const timer = speed === 0 ? undefined : setInterval(tick, 10);
   const heartbeat = setInterval(() => { for (const client of clients) client.write(': heartbeat\n\n'); }, 15000);
   return {
-    fixture, interventions, publish, connect, snapshot, seq: () => seq, clients: () => clients.size,
+    fixture, memory: memoryItems(), memoryHandoffAt: '2026-07-01T10:30:00.000Z',
+    interventions, publish, connect, snapshot, seq: () => seq, clients: () => clients.size,
     close() { clearInterval(timer); clearInterval(heartbeat); for (const client of clients) client.destroy(); },
   };
 }

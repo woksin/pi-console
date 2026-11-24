@@ -30,6 +30,8 @@ npm ci
 npm run console -- --open
 ```
 
+**This demo serves sample data, not your sessions.** To watch real sessions, use the live-data daemon command documented below (`node packages/cli/bin/pi-console.mjs daemon --web-dist packages/web/dist`).
+
 The launcher prints a one-click login link and opens it in your browser (best effort; omit `--open` to just print the link). You'll see the gallery's synthetic fleet with recent activity, costs, memory, mixed statuses, and sample requests, questions and transcripts. Live samples run for 15 minutes with a fixed event budget. For the terminal demo, use `npm run console -- --tui` instead. The launcher builds the web client and starts an isolated demo daemon; it reads no local pi data. **Ctrl-C** stops it and removes its temporary data and token.
 
 <table>
@@ -42,7 +44,7 @@ The launcher prints a one-click login link and opens it in your browser (best ef
 <details>
 <summary>Demo, real data and the terminal client</summary>
 
-`npm run console` and `npm run demo` use the same launcher. The synthetic event log is static, and each run starts fresh on a free loopback port. The launcher prints a command to open the TUI in another terminal against the same demo. `npm start` is the separate developer mock, not the live-data daemon.
+`npm run console` and `npm run demo` use the same launcher. It serves the gallery's fixture-backed mock daemon with a bounded live stream; each run starts fresh on a free loopback port. Use `npm run console -- --tui` for a terminal demo. `npm start` is the developer mock, not the live-data daemon.
 
 To use your own pi data, run these from the checkout:
 
@@ -64,7 +66,7 @@ The web and terminal clients share the same daemon. There is no global install y
 <details>
 <summary>Tokens, configuration and connection troubleshooting</summary>
 
-- **Web authentication:** the live daemon's launch link carries the token in `#token=`, a URL fragment that never reaches the server. The client removes it from the address bar. You can instead paste the contents of `<data-dir>/token`. The demo prints only the token file path, never the token.
+- **Web authentication:** the live daemon's launch link carries the token in `#token=`, a URL fragment that never reaches the server. The client removes it from the address bar. You can instead paste the contents of `<data-dir>/token`. The demo uses the same fragment login flow with a throwaway loopback token. With `--open`, that URL is passed to the browser opener and may be visible in local process arguments.
 - **Data directory:** `--data-dir` overrides `PI_CONSOLE_DATA_DIR`, then defaults to `~/.pi-console`. The daemon reads `config.json` there on startup; restart after changing it.
 - **Port:** the live daemon defaults to `4777`. For a one-off port, use `daemon --port 5888 --web-dist packages/web/dist`, then `tui --url http://127.0.0.1:5888` with the CLI above. The TUI resolves its URL from `--url`, `PI_CONSOLE_URL`, the data directory's configured port, then `http://127.0.0.1:4777`. Use the same `--data-dir` for both clients when changing it.
 - **API-only message:** build the web client and pass `--web-dist packages/web/dist`. A missing bundle or `index.html` means the daemon serves only the API and prints no launch link.
