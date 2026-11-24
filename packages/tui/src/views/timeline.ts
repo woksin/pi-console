@@ -45,7 +45,7 @@ export function timelineView(env: Env): SectionView {
   const base = { sessions: data.sessions, requests: data.requests, resets: data.resets, questions: data.questions, messages: data.messages };
   const all = markers(base);
   const fitted = fitWindow(all);
-  const model = timelineViewModel({ ...base, window: ui.window ?? fitted, width });
+  const model = timelineViewModel({ ...base, window: ui.window ?? fitted, width, labelWidth: LABEL - 3, measure: env.measure });
   const cursor = Math.min(ui.cursor.timeline, Math.max(0, model.lanes.length - 1));
   const { scrub, scrubAt } = scrubOf(ui, width, model.window);
   const lane = model.lanes[cursor];

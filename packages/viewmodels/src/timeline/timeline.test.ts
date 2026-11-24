@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { markers, pan, timelineViewModel, zoom } from './timeline.ts';
 import { fixture, golden } from '../test-support.ts';
+import { displayWidth } from '../format/format.ts';
 
 const input = { sessions: fixture.sessions, requests: fixture.requests, resets: fixture.resets, questions: fixture.questions, messages: fixture.messages, width: 80 };
 
@@ -12,6 +13,18 @@ test('timeline builds one lane per session with markers, within the window', () 
   assert.ok(model.markers.some(marker => marker.glyph === '╳'), 'interrupted request marker');
   assert.ok(model.markers.some(marker => marker.glyph === '⟲'), 'reset marker');
   golden('timeline', { ...model, markers: model.markers.length });
+});
+
+test('same-name timeline lanes stay distinct at the viewmodel and renderer label widths', () => {
+  const sessions = fixture.sessions.slice(0, 2).map((session, index) => ({ ...session, name: 'aurora implementation', laneId: `L${String(index + 1)}` }));
+  const resets = sessions.map(session => ({ id: session.id, sessionId: session.id, at: session.startedAt, kind: 'compaction' as const, carriedRequestIds: [], interruptedRequestIds: [] }));
+  for (const labelWidth of [undefined, 21, 14]) {
+    const { lanes } = timelineViewModel({ sessions, resets, requests: [], questions: [], messages: [], width: 80, labelWidth });
+    assert.notEqual(lanes[0].label, lanes[1].label);
+    assert.match(lanes[0].label, /… · L1$/);
+    assert.match(lanes[1].label, /… · L2$/);
+    assert.ok(lanes.every(lane => displayWidth(lane.label) <= (labelWidth ?? 22)));
+  }
 });
 
 test('partial answers are labelled as not final', () => {

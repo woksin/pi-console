@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import type { Session } from '@pi-console/contract';
-import { repositoryLabel, sessionLabels } from './session-labels.ts';
+import { fitSessionLabel, repositoryLabel, sessionLabels } from './session-labels.ts';
+import { displayWidth, graphemes } from './format.ts';
 import { fleetViewModel } from '../fleet/fleet.ts';
 import { overviewViewModel } from '../overview/overview.ts';
 import { timelineViewModel } from '../timeline/timeline.ts';
@@ -15,6 +16,28 @@ const session: Session = {
 };
 
 const variants = ['attention', 'timeline', 'graph', 'title'] as const;
+
+test('fitting preserves the complete lane and clips only the readable name', () => {
+  const label = { name: 'aurora implementation', lane: 'L192' };
+  assert.equal(fitSessionLabel(label, 40), 'aurora implementation · L192');
+  assert.equal(fitSessionLabel(label, 14), 'aurora… · L192');
+  assert.equal(fitSessionLabel(label, 8), '… · L192');
+  for (const width of [-1, 0, 1, 4, 7]) assert.equal(fitSessionLabel(label, width), 'L192');
+  assert.equal(fitSessionLabel({ name: 'L192', lane: 'L192' }, 1), 'L192');
+  assert.equal(fitSessionLabel({ name: '', lane: 'L192' }, 1), 'L192');
+  assert.equal(fitSessionLabel({ name: 'aurora', lane: '' }, 4), 'aur…');
+  assert.equal(fitSessionLabel({ name: 'aurora', lane: '' }, 0), '');
+});
+
+test('fitting counts wide graphemes and supports the renderer cell measurement', () => {
+  for (const name of ['界界界review', '👩‍💻👩‍💻👩‍💻review']) {
+    const fitted = fitSessionLabel({ name, lane: 'L192' }, 12);
+    assert.equal(displayWidth(fitted), 12);
+    assert.match(fitted, /… · L192$/);
+  }
+  assert.equal(fitSessionLabel({ name: '界界界review', lane: 'L192' }, 12), '界界… · L192');
+  assert.equal(fitSessionLabel({ name: '界界界review', lane: 'L192' }, 10, text => graphemes(text).length), '界界… · L192');
+});
 
 test('one identity keeps the readable name first and lane secondary in every single-string variant', () => {
   const labels = sessionLabels({ ...session, name: ' aurora scout ', repositoryId: 'aurora', laneId: ' L195 ', branch: 'lane-195' });
