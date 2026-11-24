@@ -45,7 +45,8 @@ export function memoryLines(panel: MemoryPanelViewModel, budget: number | CellBu
     ...history,
     ...selectionLines(panel, selected, inner),
     ...fullViewHint(panel, selected),
-    fit([t(counts || 'no items', 'muted')], inner), fit([t(panel.unresolved.text, 'muted')], inner, undefined, measure), blank,
+    fit([t(counts || 'no items', 'muted')], inner),
+    ...(panel.unresolved.text ? [fit([t(panel.unresolved.text, 'muted')], inner, undefined, measure)] : []), blank,
     ...items.flatMap((item): Line[] => [
       ...itemHeadLines(item, { width: inner, measure }, 3),
       ...(item.review ? wrap(item.review.message, inner, 5, measure).map((text): Line => [t(text, 'amber')]) : []),

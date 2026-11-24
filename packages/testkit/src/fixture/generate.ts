@@ -54,7 +54,7 @@ function makeSessions(rng: () => number) {
       role: ['orchestrator', 'main', 'main', 'subagent', 'subagent'][slot],
       parentSessionId: slot >= 3 ? `s${group * 5 + 2}` : null,
       orchestratorSessionId: `s${group * 5 + 1}`, branch: `feature/${branches[(group + slot) % branches.length]}`,
-      cwd: `/synthetic/workspaces/${repositories[group]}`, model: models[(group + slot) % models.length],
+      cwd: `/home/dev/${repositories[group]}`, model: models[(group + slot) % models.length],
       status: statuses[i % statuses.length], startedAt: iso(start), updatedAt: iso(end),
       contextPercent: samples.at(-1)!.contextPercent, samples, costUsd, costIncomplete,
     };

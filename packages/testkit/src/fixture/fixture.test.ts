@@ -20,6 +20,17 @@ test('two generated recordings are byte-identical to the committed fixture', () 
   assert.notDeepEqual(generate(192), generate(193));
 });
 
+test('user-visible fixture paths, questions and request evidence never call themselves synthetic', () => {
+  const { fixture } = generate();
+  const visible = [
+    ...fixture.sessions.map(session => session.cwd),
+    JSON.stringify(fixture.questions),
+    ...fixture.requests.map(request => request.originEvidence),
+  ];
+  for (const text of visible) assert.doesNotMatch(text, /synthetic/i);
+  for (const session of fixture.sessions) assert.match(session.cwd, /^\/home\/dev\//);
+});
+
 test('request evidence uses plain language without changing the origin classifications', () => {
   const { fixture } = generate();
   assert.deepEqual(fixture.requests.slice(0, 3).map(request => [request.origin, request.originEvidence]), [

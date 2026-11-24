@@ -21,7 +21,7 @@ const items = [item('item-1'), item('item-2', { status: 'active', statusBasis: '
 test('memory panel: counts, unresolved bound with the last handoff figure, items, commands and handoffs', () => {
   const model = memoryPanelViewModel({ memory, items, now });
   assert.equal(model.available, true);
-  assert.equal(model.unresolved.text, 'At least 2 unresolved · 3 at last handoff');
+  assert.equal(model.unresolved.text, 'At least 2 human messages not yet captured in memory · Unresolved messages at last handoff: 3');
   assert.deepEqual(model.items.map(row => [row.statusLabel, row.command, row.rejectCommand]), [
     ['proposed', '/memory confirm item-1', '/memory reject item-1'], ['active (assumed)', null, null], ['rejected', null, null],
   ]);
@@ -37,12 +37,21 @@ test('memory panel is unavailable without a summary or a detected store, and san
   assert.equal(dirty.items[0].text, 'ared');
   });
 
-test('unresolved wording is plain and stays truthful about the lower bound', () => {
+test('proposed items do not imply uncaptured human messages; hide an uninformative zero', () => {
+  const proposed = { ...memory, unresolved: { lowerBound: 0, atLastHandoff: null } };
+  const model = memoryPanelViewModel({ memory: proposed, items, now });
+  assert.equal(model.counts.find(cell => cell.status === 'proposed')?.count, 1);
+  assert.equal(model.unresolved.text, '');
+});
+
+test('uncaptured human messages and the historical handoff figure are separate metrics', () => {
   const text = (lowerBound: number, atLastHandoff: SessionMemory['unresolved']['atLastHandoff'] = null) =>
     memoryPanelViewModel({ memory: { ...memory, unresolved: { lowerBound, atLastHandoff } }, items: [], now }).unresolved.text;
-  assert.equal(text(0), 'No unresolved items found in loaded history');
-  assert.equal(text(4), 'At least 4 unresolved');
-  assert.equal(text(0, { count: 1, at: '2026-11-20T09:10:00.000Z' }), 'No unresolved items found in loaded history · 1 at last handoff');
+  assert.equal(text(1), 'At least 1 human message not yet captured in memory');
+  assert.equal(text(4), 'At least 4 human messages not yet captured in memory');
+  assert.equal(text(0, { count: 1, at: '2026-11-20T09:10:00.000Z' }), 'Unresolved messages at last handoff: 1');
+  assert.equal(text(0, { count: 0, at: '2026-11-20T09:10:00.000Z' }), 'Unresolved messages at last handoff: 0');
+  assert.equal(text(2, { count: 3, at: '2026-11-20T09:10:00.000Z' }), 'At least 2 human messages not yet captured in memory · Unresolved messages at last handoff: 3');
   assert.equal(memoryPanelViewModel({ memory: null, items: [], now }).unresolved.text, '');
 });
 
