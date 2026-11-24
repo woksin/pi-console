@@ -39,6 +39,16 @@
     "title": "Details",
     "rows": [
       {
+        "label": "Daemon head",
+        "value": "1,200",
+        "tone": "plain"
+      },
+      {
+        "label": "Projection position",
+        "value": "1,198",
+        "tone": "plain"
+      },
+      {
         "label": "Started at",
         "value": "3s ago · 20 Nov 2026 11:59:57 UTC",
         "tone": "plain"

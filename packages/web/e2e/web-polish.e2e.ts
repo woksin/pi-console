@@ -6,7 +6,7 @@ let rig: Rig;
 before(async () => { rig = await startRig({ speed: 0.000000001 }); });
 after(async () => { await rig.close(); });
 
-test('settings groups readable daemon health without repeating sources or sequences under Details', async () => {
+test('settings keeps ingestion checkpoints under Details without repeating visible health groups', async () => {
   const page = await rig.open('/settings');
   try {
     const health = page.locator('.health-panel');
@@ -15,9 +15,13 @@ test('settings groups readable daemon health without repeating sources or sequen
     assert.equal(await health.getByText(/Sources · \d/).count(), 0);
     const details = health.locator('details.health-details');
     assert.equal(await details.evaluate(node => (node as HTMLDetailsElement).open), false);
+    assert.equal(await details.getByText('Daemon head', { exact: true }).isVisible(), false);
     await details.locator('summary').click();
     assert.equal(await details.evaluate(node => (node as HTMLDetailsElement).open), true);
     await details.getByText('Event loop · P50', { exact: true }).waitFor();
+    await details.getByText('Daemon head', { exact: true }).waitFor();
+    await details.getByText('Projection position', { exact: true }).waitFor();
+    assert.equal(await health.locator('.health-group dt').filter({ hasText: /Daemon head|Projection position/ }).count(), 0);
     assert.equal(await details.locator('dt').filter({ hasText: /sequence|Sources/ }).count(), 0);
     assert.equal(await page.locator('.settings dt').filter({ hasText: /sequence/i }).count(), 1);
     await health.getByText('available · 12 files · no lag', { exact: true }).first().waitFor();

@@ -1,4 +1,4 @@
-import { keyLabel, keymapGroups, pad, paletteScopes, paletteView, healthGroups, displayWidth, settingsViewModel, themePreview, wrap, type KeymapGroup, type PaletteItem, type PaletteView, type SettingsInput, type SettingsRow, type Tone, type TextWidth } from '@pi-console/viewmodels';
+import { keyLabel, keymapGroups, pad, paletteScopes, paletteView, healthGroups, displayWidth, settingsViewModel, themePreview, wrap, wrapWithSources, type KeymapGroup, type PaletteItem, type PaletteView, type SettingsInput, type SettingsRow, type Tone, type TextWidth } from '@pi-console/viewmodels';
 import { Lines, Overlay, Panel, h, useTextWidth, type Line, type Part } from '../view/renderer.ts';
 import { blank, fit, gap, heading, rule, selectable, split, t, windowOf } from '../view/parts.ts';
 import type { Data } from '../store/store.ts';
@@ -96,14 +96,25 @@ export function Help(props: { width: number; height: number; scroll?: number }) 
 }
 
 const tone: Record<Tone, Color> = { good: 'green', warn: 'amber', bad: 'red', plain: 'text' };
-interface SettingsColumn { labelWidth: number }
+interface SettingsColumn { labelWidth: number; valueWidth: number }
 
-/** Long labels wrap within one shared column; every value has at least two spaces of separation. */
-function settingsLine(row: SettingsRow, { labelWidth }: SettingsColumn): Line[] {
-  const labels = wrap(row.label, labelWidth);
+/** Keep secondary facts faint even when a wrapped line crosses from the value into its detail. */
+function settingsValues(row: SettingsRow, { valueWidth }: SettingsColumn): Line[] {
+  const text = row.value + (row.valueDetail ? ` · ${row.valueDetail}` : '');
+  return wrapWithSources(text, valueWidth).map(line => {
+    const detail = line.source.findIndex(at => at >= row.value.length);
+    if (detail < 0) return [t(line.text, tone[row.tone])];
+    return [t(line.text.slice(0, detail), tone[row.tone]), t(line.text.slice(detail), 'faint')];
+  });
+}
+
+/** Labels and values wrap independently, keeping every value continuation in the shared column. */
+function settingsLine(row: SettingsRow, column: SettingsColumn): Line[] {
+  const labels = wrap(row.label, column.labelWidth);
   return [
-    ...labels.map((label, index): Line => [t(`${pad(label, labelWidth)}  `, 'muted'), ...index === labels.length - 1 ? [t(row.value, tone[row.tone]), t(row.valueDetail ? ` · ${row.valueDetail}` : '', 'faint')] : []]),
-    ...row.detail ? [[t(`  ${row.detail}`, 'faint')]] : [],
+    ...labels.slice(0, -1).map((label): Line => [t(`${pad(label, column.labelWidth)}  `, 'muted')]),
+    ...settingsValues(row, column).map((value, index): Line => [t(`${pad(index === 0 ? labels.at(-1) ?? '' : '', column.labelWidth)}  `, 'muted'), ...value]),
+    ...row.detail ? wrap(row.detail, column.labelWidth + column.valueWidth).map((detail): Line => [t(`  ${detail}`, 'faint')]) : [],
   ];
 }
 
@@ -124,9 +135,12 @@ export function settingsViewport(size: { width: number; height: number }, input:
   const model = settingsViewModel({ ...input, daemonHealth: reported });
   const groups = [{ title: 'Health', rows: model.health }, ...healthGroups(reported, model.sources, input.now), { title: 'Data', rows: model.data }];
   const longest = Math.max(5, ...groups.flatMap(group => group.rows.map(row => displayWidth(row.label))));
-  const column: SettingsColumn = { labelWidth: Math.max(5, Math.min(longest, 32, Math.floor((size.width - 8) / 2))) };
+  const wanted = { width: 76, height: 27 };
+  const inner = frame(size.width, size.height, wanted).width - 4; // Panel borders and horizontal padding.
+  const labelWidth = Math.max(5, Math.min(longest, 32, Math.floor((inner - 2) / 2)));
+  const column: SettingsColumn = { labelWidth, valueWidth: Math.max(1, inner - labelWidth - 2) };
   const lines = [...groups.flatMap(group => section(group, column)), ...themeLines(column)];
-  return overlayViewport(size, lines, { width: 76, height: 27 });
+  return overlayViewport(size, lines, wanted);
 }
 
 export function Settings(props: { input: SettingsInput; health?: Record<string, unknown> | null; width: number; height: number; scroll?: number }) {

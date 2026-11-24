@@ -4,10 +4,12 @@ import { App } from '../app.ts';
 import { countsOf } from '../app-input.ts';
 import { Store } from '../store/store.ts';
 import { h, mountHeadless } from '../view/renderer.ts';
+import { healthTimestamp } from '@pi-console/viewmodels';
 import { settingsViewport } from './overlays.ts';
 
-async function settingsAt(size: { width: number; height: number }) {
+async function settingsAt(size: { width: number; height: number }, health?: Record<string, unknown>) {
   const store = new Store();
+  if (health) store.setHealth(health);
   const input = { endpoint: 'http://localhost', tokenSource: 'test', ...store.getSnapshot().connection, now: 0, counts: countsOf(store.getSnapshot()) };
   const ui = await mountHeadless(h(App, { store, endpoint: input.endpoint, tokenSource: input.tokenSource, animate: false, clock: () => 0, loadTranscript: () => undefined, loadMemory: () => undefined, onQuit: () => undefined }), size);
   await ui.settle();
@@ -16,6 +18,19 @@ async function settingsAt(size: { width: number; height: number }) {
 }
 
 const textOf = (frame: string): string => frame.replace(/[│\s]+/g, ' ');
+
+/** Collect each logical content line from the real headless frame, without overlapping scroll pages. */
+async function scrollSettings({ ui, viewport }: { ui: Awaited<ReturnType<typeof settingsAt>>['ui']; viewport: ReturnType<typeof settingsViewport> }): Promise<string[]> {
+  const rendered: string[] = [];
+  for (let offset = 0; offset <= viewport.bounds.max; offset++) {
+    const frame = ui.frame().split('\n');
+    const first = viewport.box.top + 1;
+    const rows = offset === 0 ? frame.slice(first, first + viewport.bounds.page) : [frame[first + viewport.bounds.page - 1]];
+    rendered.push(...rows.map(row => row.slice(viewport.box.left + 2, viewport.box.left + viewport.box.width - 2).trimEnd()));
+    await ui.press('ARROW_DOWN');
+  }
+  return rendered;
+}
 
 for (const size of [{ width: 80, height: 24 }, { width: 60, height: 16 }]) {
   test(`${size.width}x${size.height}: Settings keyboard scrolling reaches every row and shows its position`, async () => {
@@ -112,6 +127,7 @@ test('Settings names a missing agent directory and source, then shows them avail
 test('Settings separates long diagnostic labels from numeric values at narrow widths', () => {
   const lines = plain({ width: 60, height: 40 }, { eventLog: { lastSeq: 42 }, memory: { rssBytes: 2_097_152 } });
   assert.ok(!lines.some(line => line.includes('Last sequence')), lines.join('\n'));
+  assert.ok(lines.some(line => /Daemon head\s+42$/.test(line)), lines.join('\n'));
   assert.ok(lines.some(line => /memory\s+2\.0 MB$/.test(line)), lines.join('\n'));
 });
 
@@ -133,6 +149,31 @@ for (const width of [60, 80, 120]) {
     const theme = lines.find(line => line[0]?.text.trim() === 'Theme' && line.length > 1);
     assert.equal(theme?.[0].text.length, columns[0]);
     assert.ok(lines.some(line => line[0]?.text.includes('Very Long Diagnostic')));
+  });
+}
+
+for (const width of [60, 80, 120]) {
+  test(`Settings source errors and complete poll times remain readable by scrolling at width ${width}`, async () => {
+    const size = { width, height: 16 };
+    const polled = '1970-01-01T00:00:00Z';
+    const health = { eventLog: { lastSeq: 42 }, projection: { position: 40 }, sources: [{ source: 'session-jsonl', availability: 'available', files: 12, lagBytes: 0, errors: 2, lastPollAt: polled }] };
+    const { ui, input, destroy } = await settingsAt(size, health);
+    try {
+      const viewport = settingsViewport(size, input, health);
+      const start = viewport.lines.findIndex(line => line[0]?.text.trim() === 'Session transcripts');
+      const end = viewport.lines.findIndex(line => line[0]?.text === '  session-jsonl');
+      assert.ok(start >= 0 && end > start);
+      const expected = viewport.lines.slice(start, end);
+      const rendered = await scrollSettings({ ui, viewport });
+      const source = rendered.slice(start, end);
+      assert.deepEqual(source, expected.map(line => line.map(part => part.text).join('').trimEnd()), 'headless frames show every wrapped character');
+      const indent = expected[0][0].text.length;
+      assert.ok(source.slice(1).every(line => line.slice(0, indent) === ' '.repeat(indent)), 'continuations align with the value column');
+      assert.equal(source.map(line => line.slice(indent).trim()).join(' '), `available · 12 files · no lag · 2 errors · polled ${healthTimestamp(polled, 0)}`);
+      assert.ok(expected.some(line => line.some(part => part.text.includes('polled') && part.color === 'faint')));
+      assert.match(rendered.join('\n'), /Daemon head\s+42/);
+      assert.match(rendered.join('\n'), /Projection position\s+40/);
+    } finally { destroy(); }
   });
 }
 

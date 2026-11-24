@@ -72,7 +72,17 @@ function sourceDetails(health: Record<string, unknown>, now: number): SettingsRo
   });
 }
 
-/** Connection's received sequence is the single sequence row; grouped facts are not repeated in Details. */
+/** Distinct daemon checkpoints let a received client sequence be compared with ingestion and projection. */
+function checkpointRows(health: Record<string, unknown>): SettingsRow[] {
+  const log = objectOf(health.eventLog);
+  const projection = objectOf(health.projection);
+  return [
+    ...log?.lastSeq === undefined ? [] : [numberRow('Daemon head', log.lastSeq)],
+    ...projection?.position === undefined ? [] : [numberRow('Projection position', projection.position)],
+  ];
+}
+
+/** Visible groups stay deduplicated; daemon checkpoints and remaining diagnostics belong in Details. */
 export function healthDetails(health: unknown, now = Date.now()): SettingsRow[] {
   const reported = objectOf(health);
   if (reported === undefined) return [];
@@ -83,7 +93,7 @@ export function healthDetails(health: unknown, now = Date.now()): SettingsRow[] 
     if (entry === undefined) continue;
     rest[key] = Object.fromEntries(Object.entries(entry).filter(([field]) => !fields.includes(field)));
   }
-  return [...daemonHealthRows(rest, '', now), ...sourceDetails(reported, now)];
+  return [...checkpointRows(reported), ...daemonHealthRows(rest, '', now), ...sourceDetails(reported, now)];
 }
 
 /** Shared readable groups, with the remaining daemon fields under Details. */
