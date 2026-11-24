@@ -29,7 +29,7 @@ function sessionName(row: SessionRow, width: number, measure?: TextWidth): Line 
   return [t(pad(indent + row.name, width, measure), row.role === 'subagent' ? 'muted' : 'text')];
 }
 
-const compactCost = (cost: string): string => cost === 'unknown —' ? '—' : cost.replace(/^(.*) \(known\)$/, '≥$1');
+const compactCost = (cost: string): string => cost.replace(/^(.*) \(known\)$/, '≥$1');
 
 function sessionLine(row: SessionRow, layout: Columns, env: Env, selected: boolean) {
   return selectable([
