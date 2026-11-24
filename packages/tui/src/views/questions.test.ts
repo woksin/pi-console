@@ -41,6 +41,7 @@ test('80x24: Enter opens full-width question detail; scrolling reaches every par
     assert.match(ui.frame(), /esc back/);
     let seen = ui.frame();
     for (let page = 0; page < 10; page++) { await ui.press('\u001b[6~'); seen += ui.frame(); }
+    assert.match(seen, /Read-only here · answer in the session/);
     for (const paragraph of paragraphs) assert.ok(seen.includes(paragraph.split(' ')[0]), paragraph);
     for (let index = 0; index < options.length; index++) {
       assert.ok(seen.includes(`Option ${String(index).padStart(2, '0')}`));

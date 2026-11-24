@@ -2,7 +2,7 @@ import type { Job, Question, Request, Reset, Session, SessionDetail, TranscriptE
 import type { ThemeToken } from '@pi-console/contract';
 import { age, clip, clock, pressure, sanitize, sparkline, type Pressure } from '../format/format.ts';
 import { statusCell, type StatusCell } from '../format/status-cell.ts';
-import { sessionLabels } from '../format/session-labels.ts';
+import { sessionLabels, type SessionLabel } from '../format/session-labels.ts';
 import { sessionCostLabel } from '../format/session-cost.ts';
 import { requestListViewModel, type RequestRow } from '../request-list/request-list.ts';
 
@@ -27,13 +27,13 @@ export interface ResetRequest { id: string; text: string }
 export interface ResetDivider { kind: Reset['kind']; summary: string; carried: ResetRequest[]; interrupted: ResetRequest[] }
 
 export interface SessionViewModel {
-  id: string; title: string; status: StatusCell; branch: string; cwd: string; model: string; role: Session['role']; age: string; cost: string;
+  id: string; title: string; identity: SessionLabel; status: StatusCell; branch: string; cwd: string; model: string; role: Session['role']; age: string; cost: string;
   /** `resetMarks` are indexes into `spark` (one per sample) at which a reset happened, for ticks on the sparkline. */
   context: { percent: number; pressure: Pressure; spark: string; resetMarks: number[] };
   requests: RequestRow[]; questions: { id: string; text: string; blocking: boolean; status: string }[];
   jobs: { id: string; name: string; kind: string; status: StatusCell; exit: string }[];
   resets: { id: string; kind: Reset['kind']; time: string; carried: number; interrupted: number }[];
-  subagents: { id: string; name: string; status: StatusCell }[];
+  subagents: { id: string; name: string; identity: SessionLabel; status: StatusCell }[];
   transcript: TranscriptLine[];
 }
 
@@ -122,12 +122,12 @@ export function sessionViewModel(input: { detail: SessionDetail; transcript: rea
   const requests: readonly Request[] = input.detail.requests;
   const all = withResetDividers(transcriptLines(input.transcript), input.detail.resets, requests);
   return {
-    id: session.id, title: sessionLabels(session).title, status: statusCell(session.status), branch: sessionLabels(session).branch, cwd: session.cwd,
+    id: session.id, title: sessionLabels(session).title, identity: sessionLabels(session), status: statusCell(session.status), branch: sessionLabels(session).branch, cwd: session.cwd,
     model: session.model, role: session.role, age: age(session.updatedAt, input.now), cost: sessionCostLabel(session),
     context: { percent: session.contextPercent, pressure: pressure(session.contextPercent), spark: sparkline(session.samples.map(sample => sample.contextPercent), 100), resetMarks: resetMarks(session.samples, input.detail.resets) },
     requests: requestListViewModel({ requests, sessions: [session], now: input.now }).rows, questions: questionRows(input.detail.questions), jobs: jobRows(input.detail.jobs),
     resets: input.detail.resets.map(reset => ({ id: reset.id, kind: reset.kind, time: clock(reset.at), carried: reset.carriedRequestIds.length, interrupted: reset.interruptedRequestIds.length })),
-    subagents: input.detail.subagents.map(sub => ({ id: sub.id, name: sessionLabels(sub).name, status: statusCell(sub.status) })),
+    subagents: input.detail.subagents.map(sub => ({ id: sub.id, name: sessionLabels(sub).title, identity: sessionLabels(sub), status: statusCell(sub.status) })),
     transcript: needle ? all.filter(item => matchesSearch(item.text, needle) || item.kind === 'reset') : all,
   };
 }

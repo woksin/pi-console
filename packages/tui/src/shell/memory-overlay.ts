@@ -1,4 +1,4 @@
-import { memoryPanelViewModel, type TextWidth } from '@pi-console/viewmodels';
+import { sessionLabels, memoryPanelViewModel, type TextWidth } from '@pi-console/viewmodels';
 import { Lines, Overlay, Panel, h, useTextWidth } from '../view/renderer.ts';
 import { blank, t } from '../view/parts.ts';
 import type { UiState } from '../state/ui.ts';
@@ -17,7 +17,7 @@ const boxOf = (size: Size) => frame(size.width, size.height, size);
 export function memoryViewport(size: Size, view: MemoryView, measure: TextWidth) {
   const box = boxOf(size);
   const id = view.sessionId ?? '';
-  const panel = memoryPanelViewModel({ memory: view.data.memory.get(id) ?? null, items: view.data.memoryItems.get(id) ?? [], now: view.now, review: view.data.memoryReviews.get(id), sessionNames: new Map(view.data.sessions.map(session => [session.id, session.name])) });
+  const panel = memoryPanelViewModel({ memory: view.data.memory.get(id) ?? null, items: view.data.memoryItems.get(id) ?? [], now: view.now, review: view.data.memoryReviews.get(id), sessionNames: new Map(view.data.sessions.map(session => [session.id, sessionLabels(session)])) });
   const index = Math.max(0, Math.min(view.index, panel.items.length - 1));
   const lines = memoryDocument(panel, { width: box.width - 4, measure }, index, view.data.memoryHistory.get(id));
   const page = Math.max(1, box.height - 4);
@@ -33,7 +33,7 @@ export function MemoryViewer(props: { ui: UiState; data: MemoryData; now: number
   const view = memoryViewport(props.size, { data: props.data, sessionId: props.ui.sessionId, index: props.ui.memoryIndex, now: props.now }, measure);
   const start = Math.max(0, Math.min(props.ui.memoryScroll, view.bounds.max));
   const right = `${positionOf({ start, page: view.bounds.page, total: view.lines.length })}esc closes`;
-  const keys = `[ ] item · ↑↓ PgUp/PgDn Home/End scroll${view.requestable ? ' · c/x request review in pi' : ''}`;
+  const keys = `[ ] prev/next · ↑↓ PgUp/PgDn Home/End scroll${view.requestable ? ' · c/x request review in pi' : ''}`;
   return h(Overlay, view.box, h(Panel, { title: 'Memory', right, focused: true, grow: 1, background: 'raised' },
     h(Lines, { lines: view.lines.slice(start, start + view.bounds.page), grow: 1 }),
     h(Lines, { lines: [blank, [t(keys, 'faint')]], height: 2 })));

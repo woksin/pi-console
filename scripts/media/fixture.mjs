@@ -42,8 +42,8 @@ export function showcaseMemory(source, now) {
 export function prepareShowcase(fixture, memory) {
   decorateMemory(memory);
   const question = fixture.questions[0];
-  question.text += '\n\nKeep the cache bounded while preserving enough history to inspect a completed checkpoint. The selected window must apply consistently to the worker queue and its retry budget.\n\nWhich option should the synthetic coordinator use before the next migration checkpoint?';
-  question.options = question.options.map(option => `${option} — retain completed checkpoint metadata for this window, then expire the synthetic cache entries without changing pending decisions or the worker retry budget.`);
+  question.text += '\n\nKeep the cache bounded while preserving enough history to inspect a completed checkpoint. The selected window must apply consistently to the worker queue and its retry budget.\n\nWhich option should the coordinator use before the next migration checkpoint?';
+  question.options = question.options.map(option => `${option} — retain completed checkpoint metadata for this window, then expire the cache entries without changing pending decisions or the worker retry budget.`);
   recordQuestionHistory(fixture.questions);
 }
 

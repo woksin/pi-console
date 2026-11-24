@@ -55,7 +55,7 @@ async function cleanup(daemon, web, directory) {
 }
 
 /** Used by the interactive launcher and the VHS recorder. Never enables filesystem ingestion. */
-export async function startDemo(webDist) {
+export async function startDemo(webDist, now = () => new Date()) {
   preflight();
   const { startDaemon } = await import('../packages/testkit/src/mock-daemon/server.ts');
   const { demoData, demoTickMs } = await import('./demo-data.mjs');
@@ -64,7 +64,7 @@ export async function startDemo(webDist) {
   let web;
   let stopTicker;
   try {
-    const { fixture, memory, memoryHandoffAt, tick } = demoData();
+    const { fixture, memory, memoryHandoffAt, tick } = demoData(now());
     daemon = await startDaemon({ port: 0, speed: 0, dataDirectory: directory });
     // The media rig serves the fixture directly, including explicit names, lanes and repository identities.
     Object.assign(daemon.store.fixture, fixture);
@@ -73,7 +73,7 @@ export async function startDemo(webDist) {
     web = await startWeb(webDist, daemon);
     stopTicker = startTicker(events => {
       events.forEach(({ type, payload }) => daemon.store.publish(type, payload));
-    }, tick, demoTickMs);
+    }, () => tick(now()), demoTickMs);
     return {
       port: web?.address().port ?? daemon.port, address: daemon.address, directory, tokenFile: join(directory, 'token'),
       async close() {

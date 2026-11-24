@@ -1,7 +1,7 @@
 import type {
   AttentionItem, Event as ApiEvent, Graph, Intervention, Job, MemoryItem, Message, Overview, Question, Request, Reset, Session, SessionMemory, Snapshot, TranscriptEntry,
 } from '@pi-console/contract';
-import type { MemoryReviewSession, Totals, WindowedCollection } from '@pi-console/viewmodels';
+import { sessionLabels, type MemoryReviewSession, type Totals, type WindowedCollection } from '@pi-console/viewmodels';
 import type { TranscriptProgress } from './transcript-history.ts';
 
 export type Repository = Snapshot['repositories'][number];
@@ -85,7 +85,7 @@ export const sessionById = (state: ConsoleState, id: string): Session | undefine
 /** Short display label for a session: lane plus name. */
 export const sessionLabel = (state: ConsoleState, id: string): string => {
   const session = sessionById(state, id);
-  return session ? `${session.laneId} ${session.name}` : id;
+  return session ? sessionLabels(session).title : id;
 };
 
 export const repositoryName = (state: ConsoleState, id: string): string => state.repositories.find(repository => repository.id === id)?.name ?? id;

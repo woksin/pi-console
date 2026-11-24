@@ -1,11 +1,12 @@
 import type { MemoryItem, SessionMemory, ThemeToken } from '@pi-console/contract';
 import { age, clip, sanitize } from '../format/format.ts';
+import { fitSessionLabel, type SessionLabel } from '../format/session-labels.ts';
 import { emptyMemoryReview, memoryReviewHint, memoryReviewPending, memoryReviewRetryable, type MemoryReviewProgress, type MemoryReviewSession } from './memory-review.ts';
 
 export interface MemoryPanelInput {
   memory: SessionMemory | null; items: readonly MemoryItem[]; now: number; review?: MemoryReviewSession;
-  /** Optional session id → display name; an id with no name falls back to a short id. */
-  sessionNames?: ReadonlyMap<string, string>;
+  /** Optional session id → display identity; an id with no name falls back to a short id. */
+  sessionNames?: ReadonlyMap<string, Pick<SessionLabel, 'name' | 'lane'>>;
 }
 export interface MemoryPanelItem {
   id: string; kind: MemoryItem['kind']; scope: string; status: MemoryItem['status']; statusLabel: string;
@@ -41,22 +42,23 @@ function statusLabel(item: MemoryItem): string {
   return item.statusBasis === 'assumed' ? `${item.status} (assumed)` : item.status;
 }
 
-/** The count is a lower bound, so it reads "At least N", never a bare total; zero means none were found, not none exist. */
+/** The daemon counts human messages with neither a classification nor an item citation, independently of proposed items. */
 function unresolvedText(memory: SessionMemory): string {
   const last = memory.unresolved.atLastHandoff;
   const found = memory.unresolved.lowerBound;
-  const now = found === 0 ? 'No unresolved items found' : `At least ${String(found)} unresolved`;
-  return last ? `${now} · ${String(last.count)} at last handoff` : now;
+  const now = found === 0 ? '' : `At least ${String(found)} human ${found === 1 ? 'message' : 'messages'} not yet captured in memory`;
+  const handoff = last ? `Unresolved messages at last handoff: ${String(last.count)}` : '';
+  return [now, handoff].filter(Boolean).join(' · ');
 }
 
 const shortId = (id: string): string => clip(sanitize(id), 8);
 
-function scopeLabel(item: MemoryItem, names: ReadonlyMap<string, string> | undefined): string {
+function scopeLabel(item: MemoryItem, names: MemoryPanelInput['sessionNames']): string {
   const { kind, key } = item.scope;
-  return kind === 'session' ? `session ${clip(sanitize(names?.get(key) ?? shortId(key)), 24)}` : `${kind}:${sanitize(key)}`;
+  return kind === 'session' ? `session ${fitSessionLabel(names?.get(key) ?? { name: shortId(key), lane: '' }, 24)}` : `${kind}:${sanitize(key)}`;
 }
 
-function itemOf(item: MemoryItem, context: { review: MemoryReviewSession; busy: boolean; now: number; names?: ReadonlyMap<string, string> }): MemoryPanelItem {
+function itemOf(item: MemoryItem, context: { review: MemoryReviewSession; busy: boolean; now: number; names?: MemoryPanelInput['sessionNames'] }): MemoryPanelItem {
   const { review, busy } = context;
   const scope = scopeLabel(item, context.names);
   return {

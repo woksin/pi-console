@@ -1,4 +1,4 @@
-import { clip } from '@pi-console/viewmodels';
+import { clip, fitSessionLabel, type SessionLabel } from '@pi-console/viewmodels';
 
 /** The graph's square viewBox and the circle the nodes sit on. */
 export const graphSize = 440;
@@ -21,18 +21,21 @@ export function placeNodes(ids: readonly string[]): Map<string, NodePlace> {
   }));
 }
 
-const fitted = (label: string, width: number): string => clip(label, Math.max(4, Math.min(maxLabel, Math.floor(width / labelCharWidth))));
+const fitted = (label: string, width: number, identity?: SessionLabel): string => {
+  const budget = Math.max(4, Math.min(maxLabel, Math.floor(width / labelCharWidth)));
+  return identity ? fitSessionLabel(identity, budget) : clip(label, budget);
+};
 
 /**
  * Nodes on the left and right of the circle label toward the centre and stop short of it, so a mirrored pair never
  * collides and nothing is clipped by a narrow (1024 px) panel. Every other node keeps a centred label, clipped to the
  * room it has: inside the drawing and short of its mirror node, so a bottom or top pair stays apart too.
  */
-export function placeLabel(label: string, at: NodePlace): LabelPlace {
+export function placeLabel(label: string, at: NodePlace, identity?: SessionLabel): LabelPlace {
   const offset = at.x - centre;
   const side = Math.abs(at.y - centre) <= radius * 0.45;
-  if (side && offset < 0) return { text: fitted(label, -offset + 11), anchor: 'start', dx: -15 };
-  if (side && offset > 0) return { text: fitted(label, offset + 11), anchor: 'end', dx: 15 };
+  if (side && offset < 0) return { text: fitted(label, -offset + 11, identity), anchor: 'start', dx: -15 };
+  if (side && offset > 0) return { text: fitted(label, offset + 11, identity), anchor: 'end', dx: 15 };
   const mirror = Math.abs(offset) < 1 ? Infinity : 2 * Math.abs(offset) - 8;
-  return { text: fitted(label, Math.min(2 * Math.min(at.x, graphSize - at.x), mirror)), anchor: 'middle', dx: 0 };
+  return { text: fitted(label, Math.min(2 * Math.min(at.x, graphSize - at.x), mirror), identity), anchor: 'middle', dx: 0 };
 }

@@ -134,6 +134,9 @@ export interface Headless {
   destroy: () => void;
 }
 
+// OpenTUI's mock key table omits these names; sending them literally would type G (go to bottom).
+const headlessPageKeys: Record<string, string> = { PAGEUP: '\u001b[5~', PAGEDOWN: '\u001b[6~' };
+
 /** Mounts in OpenTUI's in-memory test renderer; width-specific fixtures can opt out of host terminal detection. */
 export async function mountHeadless(node: ReactNode, size: { width: number; height: number; widthMethod?: 'wcwidth' | 'unicode' }): Promise<Headless> {
   const widthOptions = size.widthMethod === undefined ? {} : {
@@ -156,7 +159,7 @@ export async function mountHeadless(node: ReactNode, size: { width: number; heig
     frame: () => ui.captureCharFrame(),
     spans: () => ui.captureSpans(),
     press: async (key, modifiers) => {
-      await inAct(async () => { ui.mockInput.pressKey(key, modifiers); if (key === 'ESCAPE') await new Promise(resolve => setTimeout(resolve, 40)); });
+      await inAct(async () => { ui.mockInput.pressKey(headlessPageKeys[key] ?? key, modifiers); if (key === 'ESCAPE') await new Promise(resolve => setTimeout(resolve, 40)); });
       await settle();
     },
     type: async text => { await inAct(async () => { await ui.mockInput.typeText(text); }); await settle(); },

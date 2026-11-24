@@ -96,7 +96,7 @@ function sessionLink(id: string) {
 
 function GraphNode({ node, at }: { node: WebGraphNode; at: NodePlace | undefined }) {
   if (!at) return null;
-  const label = placeLabel(node.label, at);
+  const label = placeLabel(node.label, at, node.identity);
   const name = node.name === null ? null : placeLabel(node.name, at);
   const full = node.name === null ? node.label : `${node.label} · ${node.name}`;
   const interaction = node.sessionId === null ? { role: 'img' as const } : sessionLink(node.sessionId);

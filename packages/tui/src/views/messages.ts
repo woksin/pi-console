@@ -1,4 +1,4 @@
-import { emptyStates, repositoryLabel, graphViewModel, filterMessageRows, messagesViewModel, pad, wrap, age, type LaneGraphEdgeView, type MessageRow } from '@pi-console/viewmodels';
+import { emptyStates, repositoryLabel, graphViewModel, filterMessageRows, fitSessionLabel, sessionLabels, displayWidth, messagesViewModel, pad, wrap, age, type LaneGraphEdgeView, type MessageRow } from '@pi-console/viewmodels';
 import { Column, Lines, Panel, Row, h, type Line } from '../view/renderer.ts';
 import { blank, fit, heading, selectable, split, t, windowOf } from '../view/parts.ts';
 import type { Color } from '../view/theme.ts';
@@ -10,11 +10,16 @@ const deliveryColor: Record<MessageRow['delivery'], Color> = { sent: 'faint', de
 function listView(env: Env): SectionView {
   const model = messagesViewModel({ messages: env.data.messages, sessions: env.data.sessions, now: env.now });
   const rows = filterMessageRows(model.rows, env.ui.filter);
+  const identities = new Map(env.data.sessions.map(session => [session.id, sessionLabels(session)]));
+  const endpoint = (id: string, fallback: string): string => {
+    const label = fitSessionLabel(identities.get(id) ?? { name: fallback, lane: '' }, 14, env.measure);
+    return label + ' '.repeat(Math.max(0, 14 - (env.measure ?? displayWidth)(label)));
+  };
   const width = env.width - 4;
   const cursor = Math.min(env.ui.cursor.messages, Math.max(0, rows.length - 1));
   const { start, end } = windowOf(rows.length, cursor, Math.max(1, env.height - 4));
   const lines = rows.slice(start, end).map((row, offset): Line => selectable(split(
-    [t(row.time, 'faint'), t('  '), t(pad(row.from, 7, env.measure), 'cyan'), t('→ ', 'faint'), t(pad(row.to, 7, env.measure), 'violet'), t(`${row.deliveryGlyph} ${pad(row.delivery, 10)}`, deliveryColor[row.delivery]), t(row.text, 'text')],
+    [t(row.time, 'faint'), t('  '), t(endpoint(row.fromSessionId, row.from), 'cyan'), t(' → ', 'faint'), t(endpoint(row.toSessionId, row.to), 'violet'), t(` ${row.deliveryGlyph} ${pad(row.delivery, 10)}`, deliveryColor[row.delivery]), t(row.text, 'text')],
     [t(row.age.padStart(4), 'faint')], width - 1, { measure: env.measure }), width, start + offset === cursor, { flash: env.data.fresh.has(row.id), measure: env.measure }));
   return {
     length: rows.length,

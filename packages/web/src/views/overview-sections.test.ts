@@ -10,7 +10,7 @@ test('groups requests together after blocking questions using the shared reason 
   ];
   assert.deepEqual(groupAttentionCards(cards), [
     { reason: 'blocking-question', label: 'Blocking question', cards: [cards[1]] },
-    { reason: 'open-request', label: 'Open request', cards: [cards[0], cards[2]] },
+    { reason: 'open-request', label: 'Open requests', cards: [cards[0], cards[2]] },
   ]);
   assert.deepEqual(groupAttentionCards(cards).flatMap(section => section.cards), [cards[1], cards[0], cards[2]]);
   assert.deepEqual(groupAttentionCards([]), []);
@@ -18,5 +18,5 @@ test('groups requests together after blocking questions using the shared reason 
 
 test('keeps the shared viewmodel order inside each reason', () => {
   const cards = ['request A', 'request C'].map(id => ({ id, reason: 'open-request', reasonLabel: 'Open request' }));
-  assert.deepEqual(groupAttentionCards(cards), [{ reason: 'open-request', label: 'Open request', cards }]);
+  assert.deepEqual(groupAttentionCards(cards), [{ reason: 'open-request', label: 'Open requests', cards }]);
 });

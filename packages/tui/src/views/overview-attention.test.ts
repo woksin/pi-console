@@ -24,7 +24,7 @@ const text = (lines: ReturnType<typeof attentionPage>['lines']) => lines.map(lin
 test('TUI shows one counted heading per shared reason and maps card lines, not headings, to navigation indices', () => {
   const result = page(0, 30);
   assert.match(text(result.lines), /BLOCKING QUESTION \(1\)/);
-  assert.equal(text(result.lines).match(/OPEN REQUEST \(2\)/g)?.length, 1);
+  assert.equal(text(result.lines).match(/OPEN REQUESTS \(2\)/g)?.length, 1);
   assert.match(text(result.lines), /POSSIBLY UNSEEN \(1\)\n.*¿ Possibly unseen/);
   assert.deepEqual(result.indices, [null, 0, 0, 0, null, 1, 1, 1, 2, 2, 2, null, 3, 3, 3]);
   assert.deepEqual(cards.map(card => card.id), ['question B', 'request C', 'request A', 'unseen D']);
@@ -36,6 +36,6 @@ test('short viewports keep the selected card, full group count and aligned click
     assert.ok(result.lines.length <= 7);
     assert.ok(result.indices.includes(cursor));
     assert.ok(result.end > cursor);
-    if (cursor === 1 || cursor === 2) assert.match(text(result.lines), /OPEN REQUEST \(2\)/);
+    if (cursor === 1 || cursor === 2) assert.match(text(result.lines), /OPEN REQUESTS \(2\)/);
   }
 });

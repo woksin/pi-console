@@ -40,13 +40,13 @@ function render(state: ConsoleState): string {
   ));
 }
 
-const cases: { status: AttentionPresentation['status']; overrides: Partial<ConsoleState>; label: string }[] = [
-  { status: 'checking', overrides: {}, label: 'Checking needs you…' },
-  { status: 'unavailable', overrides: { needsYouError: true }, label: 'Needs you unavailable' },
-  { status: 'stale', overrides: { needsYouCached: true, needsYouError: true }, label: '0 need you · stale' },
-  { status: 'stale', overrides: { needsYouCached: true, needsYouError: true, needsYou: [item] }, label: '1 need you · stale' },
+const cases: { status: AttentionPresentation['status']; overrides: Partial<ConsoleState>; label: string; glyph: string }[] = [
+  { status: 'checking', overrides: {}, label: 'Checking needs you…', glyph: '…' },
+  { status: 'unavailable', overrides: { needsYouError: true }, label: 'Needs you unavailable', glyph: '!' },
+  { status: 'stale', overrides: { needsYouCached: true, needsYouError: true }, label: '0 need you · stale', glyph: '0?' },
+  { status: 'stale', overrides: { needsYouCached: true, needsYouError: true, needsYou: [item] }, label: '1 need you · stale', glyph: '1?' },
 ];
-for (const { status, overrides, label } of cases) {
+for (const { status, overrides, label, glyph } of cases) {
   test(`${status}: ${label} is consistent in the title, favicon, sidebar, Overview and pulse`, () => {
     const state = { ...base(), ...overrides };
     const attention = attentionPresentation(state);
@@ -60,6 +60,10 @@ for (const { status, overrides, label } of cases) {
     assert.match(icon, /<circle/);
     const html = render(state);
     assert.ok(html.includes(`aria-label="${label}"`), 'sidebar badge names the state');
+    assert.ok(html.includes(`title="${label}" data-attention="${status}">${glyph}</span>`), 'the badge is a compact glyph with the full wording as its tooltip');
+    assert.ok(attention.glyph.length <= 3);
+    assert.equal(html.includes('class="summary-counts muted"'), status === 'unavailable', 'status counts are muted only while attention is unavailable');
+    assert.equal(html.includes('count unavailable'), status === 'unavailable', 'muted counts keep a screen-reader reading');
     assert.ok(html.includes(`class="hero-title">${label}</h2>`), 'Overview names the same state');
     assert.ok(html.includes(`working, ${label};`), 'the pulse also retains the state');
     assert.doesNotMatch(html, /All clear/);
@@ -114,5 +118,5 @@ test('a successful positive count retains the existing attention badge and title
   const attention = attentionPresentation(state);
   assert.equal(attentionTitle(attention, 'Overview'), '(1) Overview · pi console');
   assert.match(faviconHref(attention), /<circle/);
-  assert.match(render(state), /aria-label="1 need you" data-attention="ready">1<\/span>/);
+  assert.match(render(state), /aria-label="1 need you" title="1 need you" data-attention="ready">1<\/span>/);
 });

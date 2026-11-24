@@ -63,9 +63,15 @@ test('stored text is data: one line, no control sequences, withheld text a visib
   assert.equal(singleLine(`a\r\nb${ESC}]0;title${String.fromCharCode(7)}`), 'a ⏎ b');
 });
 
-test('the detail says classified, never verified, and links every evidence entry to the transcript', () => {
+test('the detail gives a short inferred classification, never verified, and links every evidence entry to the transcript', () => {
   const detail = requestDetail({ request: derived[0], sessions: fixture.sessions, now });
-  assert.equal(detail.provenance, 'Classified as Initial prompt (derived from the session transcript; not verified)');
+  assert.equal(detail.provenance, 'Initial prompt · inferred from transcript');
+  assert.equal(detail.provenanceQualifier, 'not verified');
+  const human = requestDetail({ request: { ...derived[0], origin: 'human', originLabel: 'Human request' }, sessions: fixture.sessions, now });
+  assert.equal(human.provenance, 'Human request · inferred from transcript');
+  assert.equal(human.provenanceQualifier, 'not verified');
+  const stored = requestDetail({ request: { ...derived[0], derivedFrom: 'intent-memory' }, sessions: fixture.sessions, now });
+  assert.equal(stored.provenance, 'Initial prompt · reported by intent-memory');
   assert.deepEqual(detail.evidence.map(item => item.transcript), [{ sessionId, entryId: 'd1-e', fileOffset: null }]);
   const plain = requestDetail({ request: fixture.requests[0], sessions: fixture.sessions, now });
   assert.equal(plain.source, 'Reported by the source');
@@ -95,7 +101,7 @@ test('the text filter matches shown text, session and origin, never withheld tex
 
 test('unproven requests are listed with their label and the summary names every active filter', () => {
   assert.ok(model({ origin: 'unproven' }).rows.some(row => row.id === 'd2' && row.originLabel === 'Unproven origin'));
-  assert.equal(describeRequestFilter(model({ state: 'open', origin: 'launch', sessionId, query: 'x' })), `state open · origin launch · session ${fixture.sessions[0].name} · “x”`);
+  assert.equal(describeRequestFilter(model({ state: 'open', origin: 'launch', sessionId, query: 'x' })), `state open · origin launch · session ${fixture.sessions[0].name} · ${fixture.sessions[0].laneId} · “x”`);
   assert.equal(describeRequestFilter(model()), 'state all · origin all · session all');
 });
 

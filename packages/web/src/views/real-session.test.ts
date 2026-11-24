@@ -39,15 +39,15 @@ test('real session headers omit missing metadata and distinguish unknown, zero a
   assert.match(render({ ...session, costUsd: 1.25, costIncomplete: true }), /≥\$1\.25/);
 });
 
-test('the focused topbar heading uses readable session identity without changing rich mock labels', () => {
+test('the focused topbar heading uses name-first identity with a secondary lane', () => {
   const render = (row?: Session) => renderToStaticMarkup(createElement(TopBar, {
     title: 'Session', hint: '', state: emptyState(), wall: 0, session: row, onPalette: () => undefined, onHelp: () => undefined,
   }));
   const real = render(session);
-  assert.match(real, /<h1 id="content-heading" tabindex="-1" class="crumb truncate" title="abcdef01 repo">abcdef01 repo<\/h1>/);
+  assert.match(real, /<h1 id="content-heading" tabindex="-1" class="crumb truncate" title="abcdef01">abcdef01<\/h1>/);
   assert.doesNotMatch(real, /\/work\/repo|unassigned/);
   const rich = render({ ...session, repositoryId: 'aurora', laneId: 'L1', name: 'aurora worker' });
-  assert.match(rich, />aurora \/ L1 \/ aurora worker<\/h1>/);
+  assert.match(rich, />aurora worker · L1<\/h1>/);
   assert.match(render(), />Session<\/h1>/);
 });
 

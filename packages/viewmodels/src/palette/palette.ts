@@ -2,6 +2,7 @@ import { statusToken, type Message, type Question, type Request, type Session, t
 import { clip } from '../format/format.ts';
 import { glyphs } from '../format/glyphs.ts';
 import { laneLabel } from '../format/lane-label.ts';
+import { sessionLabels } from '../format/session-labels.ts';
 import { bindingsFor, type Action, type KeyClient } from '../keymap/keymap.ts';
 import { matchQuery, segments, type MatchSegment } from './match.ts';
 
@@ -68,7 +69,7 @@ function commandCandidates(client: KeyClient): Candidate[] {
 }
 
 const sessionCandidate = (session: Session): Candidate => ({
-  id: `session:${session.id}`, group: 'Session', label: session.name, detail: laneLabel(session.repositoryId, session.laneId), key: '',
+  id: `session:${session.id}`, group: 'Session', label: sessionLabels(session).name, detail: sessionLabels(session).lane, key: '',
   ...statusFields(session.status), target: { kind: 'session', sessionId: session.id },
 });
 
@@ -110,7 +111,7 @@ function entityCandidates(input: PaletteInput, names: ReadonlyMap<string, string
 
 function candidates(input: PaletteInput): Candidate[] {
   const sessions = [...input.sessions].sort((a, b) => severity(a.status) - severity(b.status));
-  const names = new Map(input.sessions.map(session => [session.id, session.name]));
+  const names = new Map(input.sessions.map(session => [session.id, sessionLabels(session).title]));
   return [...commandCandidates(input.client ?? 'tui'), ...sessions.map(sessionCandidate), ...laneCandidates(sessions), ...entityCandidates(input, names)];
 }
 

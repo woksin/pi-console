@@ -1,8 +1,9 @@
 import type { Job, Session } from '@pi-console/contract';
 import { age, sanitize } from '../format/format.ts';
+import { sessionLabels, type SessionLabel } from '../format/session-labels.ts';
 import { statusCell, type StatusCell } from '../format/status-cell.ts';
 
-export interface WorkRow { id: string; sessionId: string; session: string; kind: Job['kind']; name: string; status: StatusCell; exit: string; age: string }
+export interface WorkRow { id: string; sessionId: string; session: SessionLabel; kind: Job['kind']; name: string; status: StatusCell; exit: string; age: string }
 export interface WorkViewModel { rows: WorkRow[]; running: number; failed: number }
 
 const rank: Record<Job['status'], number> = { failed: 0, running: 1, queued: 2, done: 3 };
@@ -13,9 +14,9 @@ export type WorkEntry = Omit<WorkRow, 'age'> & { startedAt: string };
 export interface WorkStructure { entries: readonly WorkEntry[]; running: number; failed: number }
 
 export function workStructure(input: { jobs: readonly Job[]; sessions: readonly Session[] }): WorkStructure {
-  const names = new Map(input.sessions.map(session => [session.id, session.name]));
+  const names = new Map(input.sessions.map(session => [session.id, sessionLabels(session)]));
   const entries = [...input.jobs].sort((a, b) => rank[a.status] - rank[b.status] || Date.parse(b.startedAt) - Date.parse(a.startedAt)).map((job): WorkEntry => ({
-    id: job.id, sessionId: job.sessionId, session: names.get(job.sessionId) ?? job.sessionId, kind: job.kind, name: sanitize(job.name),
+    id: job.id, sessionId: job.sessionId, session: names.get(job.sessionId) ?? { name: job.sessionId, lane: '', title: job.sessionId }, kind: job.kind, name: sanitize(job.name),
     status: statusCell(job.status), exit: job.exitCode === null ? '' : `exit ${String(job.exitCode)}`, startedAt: job.startedAt,
   }));
   return { entries, running: input.jobs.filter(job => job.status === 'running').length, failed: input.jobs.filter(job => job.status === 'failed').length };
@@ -36,5 +37,5 @@ export function workViewModel(input: { jobs: readonly Job[]; sessions: readonly 
 /** The `/` filter: trimmed, case-insensitive substring over the job's identity, session, kind, name, status and exit (shared by the TUI and web). */
 export const filterWorkRows = <T extends Pick<WorkRow, 'id' | 'sessionId' | 'session' | 'kind' | 'name' | 'status' | 'exit'>>(rows: readonly T[], filter: string): T[] => {
   const query = filter.trim().toLowerCase();
-  return rows.filter(row => [row.id, row.sessionId, row.session, row.kind, row.name, row.status.label, row.exit].join(' ').toLowerCase().includes(query));
+  return rows.filter(row => [row.id, row.sessionId, row.session.title, row.kind, row.name, row.status.label, row.exit].join(' ').toLowerCase().includes(query));
 };

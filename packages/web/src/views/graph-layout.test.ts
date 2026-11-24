@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { cells } from '@pi-console/viewmodels';
+import { cells, sessionLabels } from '@pi-console/viewmodels';
 import { graphHeight, graphSize, labelCharWidth, placeLabel, placeNodes } from './graph-layout.ts';
 
 /** Horizontal span of a placed label at the layout's own per-character budget. */
@@ -48,6 +48,17 @@ test('a five-node group keeps its usual names whole', () => {
   const names = ['aurora/L0 orchestrator', 'aurora/L192 main', 'aurora/L193 main', 'aurora/L194 subagent', 'aurora/L195 subagent'];
   const labels = layout(5, index => names[index]);
   assert.deepEqual(labels.map(entry => entry.label.text), names);
+});
+
+test('session labels keep their lane suffix when clipped at every node position', () => {
+  const positions = placeNodes(Array.from({ length: 8 }, (_, index) => String(index)));
+  const identity = sessionLabels({ id: 's1', name: 'aurora implementation with a long name', laneId: 'L192' });
+  for (const at of positions.values()) {
+    const label = placeLabel(identity.title, at, identity);
+    assert.match(label.text, /… · L192$/);
+    const [left, right] = extent(at.x, label);
+    assert.ok(left >= 0 && right <= graphSize);
+  }
 });
 
 test('the drawing reserves room under the lowest node for its lane-ID line and its name line', () => {

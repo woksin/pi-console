@@ -57,15 +57,15 @@ test('the memory client preserves page metadata and escapes the exclusive older 
 test('summary counts do not imply complete loading: memory shows loaded/total, more, loading and retry', () => {
   const store = seed();
   try {
-    assert.match(panelText(store), /100\/102 loaded.*more.*\] older/);
+    assert.match(panelText(store), /100\/102 loaded.*more items.*\] load more/);
     assert.match(panelText(store), /1 proposed/);
     store.setMemoryHistory('s1', { ...progress, loading: true });
-    assert.match(panelText(store), /Loading older memory/);
+    assert.match(panelText(store), /Loading more memory items/);
     store.setMemoryHistory('s1', { ...progress, error: 'more' });
-    assert.match(panelText(store), /Could not load older memory.*r retry/);
+    assert.match(panelText(store), /Could not load more memory items.*r retry/);
     store.setMemoryHistory('s1', { cursor: null, more: false, total: 100, loading: false });
     assert.match(panelText(store), /100\/100 loaded/);
-    assert.doesNotMatch(panelText(store), /more|\] older|r retry/);
+    assert.doesNotMatch(panelText(store), /more items|\] load more|r retry/);
   } finally { store.dispose(); }
 });
 

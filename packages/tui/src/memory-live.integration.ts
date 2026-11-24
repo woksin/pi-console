@@ -77,8 +77,8 @@ test('visible headless memory panel follows real producer appends; hidden pane c
     await waitFor(frame => /active[\s\S]*Synthetic live order/i.test(frame));
     assert.equal(runtime.store.getSnapshot().memoryItems.get('s1')?.[0].status, 'active');
     assert.equal(Object.hasOwn(runtime.store.getSnapshot().sessions[0], 'memoryChanged'), false);
-    spec.journal(); await waitFor('At least 1 unresolved');
-    spec.classify(); await waitFor('No unresolved items found');
+    spec.journal(); await waitFor('At least 1 human message');
+    spec.classify(); await waitFor(frame => runtime.store.getSnapshot().memory.get('s1')?.unresolved.lowerBound === 0 && !frame.includes('At least 1 human message'));
     await ui.press('ESCAPE'); await waitFor('Fleet ·');
     spec.retire();
     // Canonical REST advances while the panel is closed; reopening must fetch independently of later SSE.

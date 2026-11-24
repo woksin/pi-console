@@ -3,7 +3,16 @@
     {
       "id": "q1",
       "sessionId": "s1",
-      "session": "aurora coordinator",
+      "session": {
+        "repository": "aurora",
+        "lane": "L0",
+        "name": "aurora coordinator",
+        "branch": "feature/queue-checkpoints",
+        "attention": "aurora coordinator · L0",
+        "timeline": "aurora coordinator · L0",
+        "graph": "aurora coordinator · L0",
+        "title": "aurora coordinator · L0"
+      },
       "kind": "question",
       "urgent": true,
       "blocking": true,
@@ -30,7 +39,16 @@
     {
       "id": "q7",
       "sessionId": "s7",
-      "session": "harbor implementation",
+      "session": {
+        "repository": "harbor",
+        "lane": "L197",
+        "name": "harbor implementation",
+        "branch": "feature/cache-expiry",
+        "attention": "harbor implementation · L197",
+        "timeline": "harbor implementation · L197",
+        "graph": "harbor implementation · L197",
+        "title": "harbor implementation · L197"
+      },
       "kind": "approval",
       "urgent": true,
       "blocking": true,
@@ -57,7 +75,16 @@
     {
       "id": "q3",
       "sessionId": "s3",
-      "session": "aurora review",
+      "session": {
+        "repository": "aurora",
+        "lane": "L193",
+        "name": "aurora review",
+        "branch": "feature/cache-expiry",
+        "attention": "aurora review · L193",
+        "timeline": "aurora review · L193",
+        "graph": "aurora review · L193",
+        "title": "aurora review · L193"
+      },
       "kind": "approval",
       "urgent": true,
       "blocking": true,
@@ -84,7 +111,16 @@
     {
       "id": "q5",
       "sessionId": "s5",
-      "session": "aurora scout",
+      "session": {
+        "repository": "aurora",
+        "lane": "L195",
+        "name": "aurora scout",
+        "branch": "feature/cli-help",
+        "attention": "aurora scout · L195",
+        "timeline": "aurora scout · L195",
+        "graph": "aurora scout · L195",
+        "title": "aurora scout · L195"
+      },
       "kind": "question",
       "urgent": true,
       "blocking": true,
@@ -111,7 +147,16 @@
     {
       "id": "q6",
       "sessionId": "s6",
-      "session": "harbor coordinator",
+      "session": {
+        "repository": "harbor",
+        "lane": "L196",
+        "name": "harbor coordinator",
+        "branch": "feature/retry-cancellation",
+        "attention": "harbor coordinator · L196",
+        "timeline": "harbor coordinator · L196",
+        "graph": "harbor coordinator · L196",
+        "title": "harbor coordinator · L196"
+      },
       "kind": "decision",
       "urgent": false,
       "blocking": false,
@@ -138,7 +183,16 @@
     {
       "id": "q2",
       "sessionId": "s2",
-      "session": "aurora implementation",
+      "session": {
+        "repository": "aurora",
+        "lane": "L192",
+        "name": "aurora implementation",
+        "branch": "feature/retry-cancellation",
+        "attention": "aurora implementation · L192",
+        "timeline": "aurora implementation · L192",
+        "graph": "aurora implementation · L192",
+        "title": "aurora implementation · L192"
+      },
       "kind": "decision",
       "urgent": false,
       "blocking": false,
@@ -165,7 +219,16 @@
     {
       "id": "q4",
       "sessionId": "s4",
-      "session": "aurora explore",
+      "session": {
+        "repository": "aurora",
+        "lane": "L194",
+        "name": "aurora explore",
+        "branch": "feature/schema-compat",
+        "attention": "aurora explore · L194",
+        "timeline": "aurora explore · L194",
+        "graph": "aurora explore · L194",
+        "title": "aurora explore · L194"
+      },
       "kind": "fyi",
       "urgent": false,
       "blocking": false,
@@ -192,7 +255,16 @@
     {
       "id": "q8",
       "sessionId": "s8",
-      "session": "harbor review",
+      "session": {
+        "repository": "harbor",
+        "lane": "L198",
+        "name": "harbor review",
+        "branch": "feature/schema-compat",
+        "attention": "harbor review · L198",
+        "timeline": "harbor review · L198",
+        "graph": "harbor review · L198",
+        "title": "harbor review · L198"
+      },
       "kind": "fyi",
       "urgent": false,
       "blocking": false,

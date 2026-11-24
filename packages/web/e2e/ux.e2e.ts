@@ -36,7 +36,7 @@ test('dense attention groups by priority and recency, with counted headings, ten
   await connect(page);
   await page.locator('[data-reason]').nth(39).waitFor();
   assert.ok(await fullyVisible(page, '[data-reason]') >= 10);
-  assert.deepEqual(await page.locator('.attention-heading').allTextContents(), ['Blocking question 10', 'Open request 10', 'Possibly unseen 10', 'Stale session 10']);
+  assert.deepEqual(await page.locator('.attention-heading').allTextContents(), ['Blocking questions 10', 'Open requests 10', 'Possibly unseen 10', 'Stale sessions 10']);
   assert.deepEqual(await page.locator('[data-reason] .card-text').allTextContents(), ordered.map(item => item.text));
   await page.keyboard.press('j');
   assert.equal(await page.locator('[data-reason][aria-current="true"] .card-text').innerText(), ordered[1].text);
@@ -363,23 +363,23 @@ test('memory reject requests report pi decline and receipt loss as non-applied o
   }
 });
 
-test('repository lane labels, readable timeline ticks and selected row survive zoom and pan', async () => {
+test('session labels, readable timeline ticks and selected row survive zoom and pan', async () => {
   const page = await rig.open('/messages');
   await page.getByRole('list', { name: 'Messages', exact: true }).waitFor();
-  assert.ok((await page.getByRole('list', { name: 'Messages', exact: true }).innerText()).includes('/L0'));
+  assert.ok((await page.getByRole('list', { name: 'Messages', exact: true }).innerText()).includes('aurora coordinator · L0'));
   await page.getByRole('button', { name: /^Graph/ }).click();
   await page.locator('.node .label').first().waitFor();
   assert.ok((await page.getByRole('region', { name: 'Lane communication' }).locator('.node .label:not(.name)').allTextContents()).every(label => /^L\d+$/.test(label)));
-  assert.ok((await page.getByRole('region', { name: 'Session relationships' }).locator('.node .label:not(.name)').allTextContents()).every(label => label.includes('/L')));
+  assert.ok((await page.getByRole('region', { name: 'Session relationships' }).locator('.node title').allTextContents()).every(label => label.includes(' · L')));
   await page.evaluate(() => { location.hash = '/timeline'; });
   await page.locator('.lane.selected').waitFor();
-  assert.ok((await page.locator('.lane-label').allTextContents()).every(label => label.includes('/L')));
+  assert.ok((await page.locator('.lane-label').allTextContents()).every(label => label.includes(' · L')));
   await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
   await page.getByRole('button', { name: 'Pan later', exact: true }).click();
   const labels = await page.locator('.tl .axis').allTextContents();
   assert.ok(labels.length >= 2 && labels.every(label => /^\d{2}:\d{2}:[0-5]0$/.test(label)));
   const selected = await page.locator('.lane.selected .lane-label').textContent();
-  assert.ok(selected?.includes('/L'));
+  assert.ok(selected?.includes(' · L'));
   await page.keyboard.press('j');
   assert.notEqual(await page.locator('.lane.selected .lane-label').textContent(), selected);
   await page.context().close();
@@ -415,7 +415,7 @@ test('request filters keep every control inside the viewport at 768px and the st
       }), true, 'filter control is inside the viewport');
     }
     await state.selectOption('uncertain');
-    await page.getByTestId('request-summary').getByText('state uncertain').waitFor();
+    await page.getByTestId('request-summary').getByText('State: Uncertain').waitFor();
   } finally { await page.context().close(); }
 });
 
@@ -424,7 +424,7 @@ test('compact human requests fit six per viewport while detail keeps full text',
   const original = fixture.requests;
   const seed = original[0];
   fixture.requests = Array.from({ length: 12 }, (_, index) => ({
-    ...seed, id: `human-ux-${index}`, origin: 'human', originLabel: 'Classified as human', status: 'open',
+    ...seed, id: `human-ux-${index}`, origin: 'human', originLabel: 'Human request', status: 'open', derivedFrom: 'session-jsonl',
     text: 'A long human request with details. '.repeat(20), answer: null, interimAnswers: [],
     uncertain: false, uncertainReason: null, answerPossiblyUnseen: false,
   }));
@@ -432,7 +432,15 @@ test('compact human requests fit six per viewport while detail keeps full text',
   try {
     await page.locator('.human-request').nth(11).waitFor();
     assert.ok(await fullyVisible(page, '.human-request') >= 6);
-    assert.ok((await page.locator('.request-detail').innerText()).includes(fixture.requests[0].text.trim()));
+    const detail = page.getByRole('complementary', { name: 'Request detail' });
+    assert.ok((await detail.innerText()).includes(fixture.requests[0].text.trim()));
+    const classification = detail.locator('p').filter({ hasText: 'Human request · inferred from transcript' });
+    assert.equal(await classification.innerText(), 'Human request · inferred from transcript (not verified)');
+    assert.equal(await classification.locator('.muted').innerText(), '(not verified)');
+    const evidence = detail.locator('p').filter({ hasText: /^Evidence:/ });
+    assert.equal(await evidence.innerText(), `Evidence: ${seed.originEvidence}`);
+    assert.equal(await evidence.evaluate(element => element.previousElementSibling?.textContent), await classification.textContent());
+    assert.doesNotMatch(await classification.innerText(), /Evidence:|Classified as/);
     await page.keyboard.press('j');
     assert.equal(await page.locator('.request-card.selected').count(), 1);
   } finally { fixture.requests = original; await page.context().close(); }

@@ -12,7 +12,7 @@ function setIdleQuestion(questions: GalleryQuestion[], idle: boolean): void {
   const [created, deferred] = idle ? ['2026-11-02T09:00:00Z', '2026-11-08T14:00:00Z'] : ['2026-11-20T09:02:00Z', '2026-11-20T09:10:00Z'];
   question.createdAt = created;
   question.updatedAt = deferred;
-  question.history = [entry(2, 'deferred', deferred, 'L0', 'Parked until the migration window opens.'), entry(1, 'created', created, 'L3')];
+  question.history = [entry(2, 'deferred', deferred, 'L0', 'Parked until the migration window opens.'), entry(1, 'created', created, 'L194')];
 }
 
 export function recordQuestionHistory(questions: GalleryQuestion[]): void {
@@ -22,14 +22,14 @@ export function recordQuestionHistory(questions: GalleryQuestion[]): void {
     q1.updatedAt = '2026-11-20T09:15:00Z';
     q1.history = [
       entry(3, 'comment', '2026-11-20T09:15:00Z', 'L0', 'Leaning towards 14 days; the queue budget is the constraint.'),
-      entry(2, 'edited', '2026-11-20T09:08:00Z', 'L1', 'Added the retry budget to the question.'),
-      entry(1, 'created', '2026-11-20T09:00:00Z', 'L1'),
+      entry(2, 'edited', '2026-11-20T09:08:00Z', 'L192', 'Added the retry budget to the question.'),
+      entry(1, 'created', '2026-11-20T09:00:00Z', 'L192'),
     ];
   }
   const q2 = byId.get('q2');
   if (q2) {
     q2.updatedAt = '2026-11-20T09:12:00Z';
-    q2.history = [entry(2, 'comment', '2026-11-20T09:12:00Z', 'L2', 'Waiting for the checkpoint contract to be verified.'), entry(1, 'created', q2.createdAt, 'L2')];
+    q2.history = [entry(2, 'comment', '2026-11-20T09:12:00Z', 'L193', 'Waiting for the checkpoint contract to be verified.'), entry(1, 'created', q2.createdAt, 'L193')];
   }
   setIdleQuestion(questions, false);
 }

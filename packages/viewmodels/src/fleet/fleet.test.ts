@@ -28,7 +28,7 @@ test('the filter matches the displayed fallback name as well as the raw name', (
   const model = fleetViewModel({ sessions, now });
   const row = model.rows.find(row => row.kind === 'session' && row.id === session.id);
   assert.ok(row?.kind === 'session');
-  assert.equal(row.name, 'abcdef01 repo');
+  assert.equal(row.name, 'abcdef01');
   for (const query of [row.name, session.name]) {
     const filtered = fleetViewModel({ sessions: [session], now, query });
     assert.equal(filtered.matched, 1, query);

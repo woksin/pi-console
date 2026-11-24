@@ -1,7 +1,8 @@
 import type { MemoryItem, SessionMemory } from '@pi-console/contract';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { memoryPanelViewModel } from './memory.ts';
+import { memoryPanelViewModel, type MemoryPanelInput } from './memory.ts';
+import { sessionLabels } from '../format/session-labels.ts';
 import { golden, now } from '../test-support.ts';
 
 const item = (id: string, over: Partial<MemoryItem> = {}): MemoryItem => ({
@@ -21,7 +22,7 @@ const items = [item('item-1'), item('item-2', { status: 'active', statusBasis: '
 test('memory panel: counts, unresolved bound with the last handoff figure, items, commands and handoffs', () => {
   const model = memoryPanelViewModel({ memory, items, now });
   assert.equal(model.available, true);
-  assert.equal(model.unresolved.text, 'At least 2 unresolved · 3 at last handoff');
+  assert.equal(model.unresolved.text, 'At least 2 human messages not yet captured in memory · Unresolved messages at last handoff: 3');
   assert.deepEqual(model.items.map(row => [row.statusLabel, row.command, row.rejectCommand]), [
     ['proposed', '/memory confirm item-1', '/memory reject item-1'], ['active (assumed)', null, null], ['rejected', null, null],
   ]);
@@ -37,12 +38,21 @@ test('memory panel is unavailable without a summary or a detected store, and san
   assert.equal(dirty.items[0].text, 'ared');
   });
 
-test('unresolved wording is plain and stays truthful about the lower bound', () => {
+test('proposed items do not imply uncaptured human messages; hide an uninformative zero', () => {
+  const proposed = { ...memory, unresolved: { lowerBound: 0, atLastHandoff: null } };
+  const model = memoryPanelViewModel({ memory: proposed, items, now });
+  assert.equal(model.counts.find(cell => cell.status === 'proposed')?.count, 1);
+  assert.equal(model.unresolved.text, '');
+});
+
+test('uncaptured human messages and the historical handoff figure are separate metrics', () => {
   const text = (lowerBound: number, atLastHandoff: SessionMemory['unresolved']['atLastHandoff'] = null) =>
     memoryPanelViewModel({ memory: { ...memory, unresolved: { lowerBound, atLastHandoff } }, items: [], now }).unresolved.text;
-  assert.equal(text(0), 'No unresolved items found');
-  assert.equal(text(4), 'At least 4 unresolved');
-  assert.equal(text(0, { count: 1, at: '2026-11-20T09:10:00.000Z' }), 'No unresolved items found · 1 at last handoff');
+  assert.equal(text(1), 'At least 1 human message not yet captured in memory');
+  assert.equal(text(4), 'At least 4 human messages not yet captured in memory');
+  assert.equal(text(0, { count: 1, at: '2026-11-20T09:10:00.000Z' }), 'Unresolved messages at last handoff: 1');
+  assert.equal(text(0, { count: 0, at: '2026-11-20T09:10:00.000Z' }), 'Unresolved messages at last handoff: 0');
+  assert.equal(text(2, { count: 3, at: '2026-11-20T09:10:00.000Z' }), 'At least 2 human messages not yet captured in memory · Unresolved messages at last handoff: 3');
   assert.equal(memoryPanelViewModel({ memory: null, items: [], now }).unresolved.text, '');
 });
 
@@ -56,10 +66,14 @@ test('each item leads with a status badge and its text; scope, source and age go
 });
 
 test('a session scope shows the session name when known and a short id otherwise', () => {
-  const scoped = (key: string, names?: ReadonlyMap<string, string>) =>
+  const scoped = (key: string, names?: MemoryPanelInput['sessionNames']) =>
     memoryPanelViewModel({ memory, items: [item('item-1', { scope: { kind: 'session', key } })], now, sessionNames: names }).items[0].scope;
-  assert.equal(scoped('s2', new Map([['s2', 'Planner']])), 'session Planner');
+  assert.equal(scoped('s2', new Map([['s2', sessionLabels({ id: 's2', name: 'Planner' })]])), 'session Planner');
   assert.equal(scoped('s2', new Map()), 'session s2');
+  const longName = 'aurora implementation with a long name';
+  assert.equal(scoped('s2', new Map([['s2', sessionLabels({ id: 's2', name: longName, laneId: 'L192' })]])), 'session aurora implement… · L192');
+  assert.equal(scoped('s2', new Map([['s2', sessionLabels({ id: 's2', name: longName })]])), 'session aurora implementation w…');
+  assert.equal(scoped('s2', new Map([['s2', sessionLabels({ id: 's2', name: '', laneId: 'L192' })]])), 'session L192');
   assert.equal(scoped('0123456789abcdef'), 'session 0123456…');
   const repo = memoryPanelViewModel({ memory, items: [item('item-1', { scope: { kind: 'repo', key: 'app' } })], now }).items[0];
   assert.equal(repo.scope, 'repo:app');

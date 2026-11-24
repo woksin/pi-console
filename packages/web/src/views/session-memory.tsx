@@ -1,4 +1,4 @@
-import { memoryPanelViewModel, memoryReviewPending, type MemoryPanelItem } from '@pi-console/viewmodels';
+import { sessionLabels, memoryPanelViewModel, memoryReviewPending, type MemoryPanelItem, type MemoryPanelViewModel } from '@pi-console/viewmodels';
 import { useEffect, useMemo, type ReactNode } from 'react';
 import { copyWithNotice } from '../app/copy-notice.ts';
 import { clockNow, useConsole, useStore } from '../app/hooks.ts';
@@ -48,6 +48,13 @@ function UnavailableMemory({ title, status, notice }: { title: string; status: M
   </Panel>;
 }
 
+export function MemorySummary({ view }: { view: MemoryPanelViewModel }) {
+  return <>
+    <p className="small muted">{view.counts.filter(cell => cell.count > 0).map(cell => `${String(cell.count)} ${cell.label}`).join(' · ') || 'no items'}</p>
+    {view.unresolved.text && <p className="small muted">{view.unresolved.text}</p>}
+  </>;
+}
+
 /** Memory stays producer-owned; these controls only request a native human review in pi. */
 export function SessionMemory({ id }: { id: string }) {
   const store = useStore();
@@ -55,7 +62,7 @@ export function SessionMemory({ id }: { id: string }) {
   const now = clockNow(state, Date.now());
   useEffect(() => store.watchSessionMemory(id), [store, id]);
   const memory = state.memory[id] ?? null;
-  const sessionNames = useMemo(() => new Map(state.sessions.map(session => [session.id, session.name])), [state.sessions]);
+  const sessionNames = useMemo(() => new Map(state.sessions.map(session => [session.id, sessionLabels(session)])), [state.sessions]);
   const view = memoryPanelViewModel({ memory, items: state.memoryItems[id] ?? [], now, review: state.memoryReviews.get(id), sessionNames });
   const status = state.memoryStatus[id];
   const notice = <MemoryNotice status={status} stale={view.available} retry={() => { void store.loadSessionMemory(id); }} />;
@@ -63,8 +70,7 @@ export function SessionMemory({ id }: { id: string }) {
   return (
     <Panel title={view.title} aside={memory?.counts.proposed ? `${String(memory.counts.proposed)} proposed` : undefined} className="memory-panel">
       {notice}
-      <p className="small muted">{view.counts.filter(cell => cell.count > 0).map(cell => `${String(cell.count)} ${cell.label}`).join(' · ') || 'no items'}</p>
-      <p className="small muted">{view.unresolved.text}</p>
+      <MemorySummary view={view} />
       <ul className="mini-list stacked">
         {view.items.map(item => <MemoryItemView key={item.id} item={item} request={action => { void store.requestMemoryAction(id, item.id, action); }} />)}
       </ul>

@@ -1,4 +1,4 @@
-import { emptyStates, filterQuestionRows, questionSortLabels, questionsViewModel, wrap, pad, type QuestionRow, type TextWidth } from '@pi-console/viewmodels';
+import { fitSessionLabel, emptyStates, filterQuestionRows, questionSortLabels, questionsViewModel, wrap, pad, type QuestionRow, type TextWidth } from '@pi-console/viewmodels';
 import { questionDetailShown } from '../state/ui.ts';
 import { Lines, Panel, Row, h, type Line } from '../view/renderer.ts';
 import { blank, heading, selectable, split, statusParts, t, windowOf } from '../view/parts.ts';
@@ -51,7 +51,7 @@ function detail(row: QuestionRow | undefined, width: number, full = false, measu
     ...wrap(row.text, width - 4, full ? Infinity : 8, measure).map((text): Line => [t(text, 'text')]), blank,
     ...(row.options.length ? [heading('Options'), ...optionLines(row.options, width, full, measure)] : []), blank,
     ...linkLines(row), ...mootLines(row, width, full, measure), ...(full ? [...historyLines(row, width, measure), blank] : [historySummary(row)]),
-    [t('Read-only in this version: answer in the session itself.', 'faint', { italic: true })],
+    [t('Read-only here · answer in the session', 'faint', { italic: true })],
   ];
 }
 
@@ -66,7 +66,7 @@ const preferenceTitle = (env: Env): string => ` · ${questionSortLabels[env.ui.q
 
 function rowLine(row: QuestionRow, env: Env, width: number, selected: boolean): Line {
   const left = [...statusParts(row.status, env.phase, false), t(row.urgent ? ' ‼ ' : '   ', 'red'), ...(row.moot?.label ? [t(`${row.moot.label} · `, 'amber', { bold: true })] : []), t(row.text, row.status.status === 'done' ? 'muted' : 'text')];
-  const right = [t(row.stale ? 'stale ' : '', 'amber'), t(pad(row.session, 22, env.measure), 'muted'), t(row.age.padStart(4), 'faint')];
+  const right = [t(row.stale ? 'stale ' : '', 'amber'), t(pad(fitSessionLabel(row.session, 22, env.measure), 22, env.measure), 'muted'), t(row.age.padStart(4), 'faint')];
   return selectable(split(left, right, width - 1, { measure: env.measure }), width, selected, { measure: env.measure });
 }
 
@@ -74,7 +74,7 @@ export function questionsView(env: Env): SectionView {
   const model = questionsViewModel({ questions: env.data.questions, sessions: env.data.sessions, now: env.now, sort: env.ui.questionSort, staleDays: env.ui.questionStaleDays });
   const rows = filterQuestionRows(model.rows, env.ui.filter);
   const wide = env.width >= 110;
-  const width = (wide ? env.width - 48 : env.width) - 4;
+  const width = (wide ? env.width - 49 : env.width) - 4;
   const cursor = Math.min(env.ui.cursor.questions, Math.max(0, rows.length - 1));
   const full = fullDetail(rows[cursor], env);
   const viewport = wide && !questionDetailShown(env.ui) ? undefined : full.bounds;

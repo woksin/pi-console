@@ -135,8 +135,9 @@
   .grid[aria-label='Fleet'] td, .grid[aria-label='Fleet'] th { padding-left: 8px; padding-right: 8px; }
   .grid[aria-label='Fleet'] .pressure-track { width: 64px; }
 }
-.tday-head { position: sticky; top: 0; z-index: 2; margin: 0; padding: 3px 14px; background-color: var(--panel); opacity: 1; border-bottom: 1px solid var(--border); color: var(--muted); font-size: var(--type-caption); font-weight: 650; letter-spacing: 0.02em; }
-.tday .tline, .tday .reset-marker { scroll-margin-top: 28px; }
+/* The pane pads its top by 8px, which sticky respects: offset by it so no line shows above the header, and pad the header back down. */
+.tday-head { position: sticky; top: -8px; z-index: 2; margin: 0; padding: 11px 14px 3px; background-color: var(--panel); opacity: 1; border-bottom: 1px solid var(--border); color: var(--muted); font-size: var(--type-caption); font-weight: 650; letter-spacing: 0.02em; }
+.tday .tline, .tday .reset-marker { scroll-margin-top: 36px; }
 .tline { display: grid; grid-template-columns: 28px 1fr; gap: 6px; padding: 7px 14px; border-left: 3px solid transparent; cursor: default; }
 .tline:hover { background: color-mix(in oklab, var(--raised) 55%, transparent); }
 .tline.selected { background: var(--select); border-left-color: var(--cyan); }
@@ -213,3 +214,5 @@
 .memory-panel .memory-actions .btn:disabled { cursor: not-allowed; opacity: 0.5; }
 .memory-panel .memory-actions .btn[aria-busy='true']:disabled { cursor: progress; }
 .questions .field { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
+
+.motion-control { display: flex; align-items: center; gap: 12px; }

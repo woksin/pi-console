@@ -578,7 +578,7 @@ test('disconnecting after a successful zero read makes attention stale, not all 
   disconnects[0](); await settle();
   assert.equal(store.getState().needsYouLoaded, true, 'the last fetch succeeded');
   assert.equal(store.getState().connection, 'offline');
-  assert.deepEqual(attentionPresentation(store.getState()), { status: 'stale', count: 0, label: '0 need you · stale', badge: '0 stale' });
+  assert.deepEqual(attentionPresentation(store.getState()), { status: 'stale', count: 0, label: '0 need you · stale', badge: '0 stale', glyph: '0?' });
   await tick(reconnectDelays[0]);
   assert.equal(store.getState().connection, 'reconnecting');
   assert.equal(attentionPresentation(store.getState()).status, 'stale');

@@ -7,11 +7,11 @@ import { sessionHref } from '../../app/routes.ts';
 import { EmptyState, SkeletonRows, SearchBox } from '../../ui/primitives.tsx';
 import { EmptyFor } from '../../ui/empty.tsx';
 import { LoadOlder } from '../load-older.tsx';
-import { activeFilterChips, defaultRequestFilter } from './request-summary.ts';
+import { activeFilterChips, defaultRequestFilter, filterValueLabel } from './request-summary.ts';
 import { RequestCard } from './request-card.tsx';
 import { RequestDetailPane } from './request-detail.tsx';
 
-const stateOptions = requestStateFilters.map(id => ({ id, label: id === 'possibly-unseen' ? 'Possibly unseen' : id[0].toUpperCase() + id.slice(1) }));
+const stateOptions = requestStateFilters.map(id => ({ id, label: filterValueLabel(id) }));
 
 /** Requests and answers: the list with filters, and the detail of the selected row. Read-only; text is rendered as text. */
 function RequestSummary({ view }: { view: ReturnType<typeof requestsViewModel> }) {
@@ -52,12 +52,12 @@ export function RequestsView({ state, now }: ViewProps) {
         </label>
         <label className="field">Origin
           <select value={view.filter.origin} onChange={event => { setFilter({ ...view.filter, origin: event.target.value as typeof filter.origin }); }}>
-            {['all', 'human', 'launch', 'unproven'].map(id => <option key={id} value={id}>{id}</option>)}
+            {['all', 'human', 'launch', 'unproven'].map(id => <option key={id} value={id}>{filterValueLabel(id)}</option>)}
           </select>
         </label>
         <label className="field">Session
           <select value={view.filter.sessionId ?? ''} onChange={event => { setFilter({ ...view.filter, sessionId: event.target.value || null }); }}>
-            <option value="">all</option>
+            <option value="">All</option>
             {view.sessions.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}
           </select>
         </label>

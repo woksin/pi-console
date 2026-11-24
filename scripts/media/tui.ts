@@ -62,7 +62,7 @@ async function withTerminal(rig: Rig, options: TerminalOptions, capture: (term: 
 async function openSession(pty: Pty): Promise<void> {
   pty.send(':'); await pty.waitFor('Command palette');
   pty.send('@aurora implementation'); await pty.waitFor(/\b1 of \d+/);
-  pty.send('\r'); await pty.waitFor('aurora / L192 / aurora implementation');
+  pty.send('\r'); await pty.waitFor('aurora implementation · L192');
   await pty.waitFor('following tail');
   // The status line shows before the first page arrives; every later key needs the loaded transcript.
   await pty.waitFor(/\d\d:\d\d:\d\d [^\n]*\S/);
@@ -202,8 +202,8 @@ async function tourGif(rig: Rig, work: Work): Promise<void> {
     await showReset(pty); await hold(1400);
     pty.send('\u001b'); await pause(300);
     pty.send(ctrlP); await pause(300); await hold(500);
-    for (const letter of 'aur') { pty.send(letter); await hold(200); }
-    await hold(800);
+    for (const letter of 'au') { pty.send(letter); await hold(200); }
+    await hold(1000);
     pty.send('\u001b'); await pause(300);
     pty.send('6'); await pty.waitFor('Timeline'); await hold(1400);
     frames.finish();

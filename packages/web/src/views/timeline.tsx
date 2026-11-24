@@ -1,4 +1,4 @@
-import { columnOf, laneLabel, markerLegend, pan, timelineTicks, timelineViewModel, zoom, type TimeWindow } from '@pi-console/viewmodels';
+import { columnOf, fitSessionLabel, sessionLabels, markerLegend, pan, timelineTicks, timelineViewModel, zoom, type TimeWindow } from '@pi-console/viewmodels';
 import { useMemo, useState } from 'react';
 import type { ViewProps } from '../app/view.tsx';
 import { useActions } from '../app/commands.ts';
@@ -13,6 +13,8 @@ import { TimelineDetail } from './timeline-detail.tsx';
 
 const columns = 120;
 const labelWidth = 170;
+// Reserve the glyph and margins; estimate eight pixels per cell at the 12px label font.
+const labelCells = Math.floor((labelWidth - 32) / 8);
 const plotWidth = 960;
 const x = (column: number): number => labelWidth + column / (columns - 1) * plotWidth;
 
@@ -36,7 +38,8 @@ export function TimelineView({ state, now }: ViewProps) {
   const rows = useListNav(groups.flatMap(group => group.lanes.map(lane => lane.sessionId)));
   const ticks = timelineTicks(view.window, columns);
   const nowColumn = columnOf(now, view.window, columns);
-  const names = new Map(state.sessions.map(session => [session.id, laneLabel(session.repositoryId, session.laneId)]));
+  const names = new Map(state.sessions.map(session => [session.id, sessionLabels(session).timeline]));
+  const labels = new Map(state.sessions.map(session => [session.id, fitSessionLabel(sessionLabels(session), labelCells)]));
   if (!state.snapshotLoaded) return <div className="page"><SkeletonRows label="timeline" columns={4} /></div>;
   const history = <TimelineHistory state={state} />;
   if (view.lanes.length === 0) return <><EmptyFor view="timeline" />{history}</>;
@@ -59,7 +62,7 @@ export function TimelineView({ state, now }: ViewProps) {
           {group.lanes.map((lane, index) => (
           <g key={lane.sessionId} transform={`translate(0 ${String(groupHeight + index * laneHeight)})`} className={`lane tone-${lane.status.color}${rows.selected === lane.sessionId ? ' selected' : ''}`} onClick={() => { rows.select(lane.sessionId); }}>
             <rect className="lane-bg" x={0} y={0} width={labelWidth + plotWidth + 20} height={laneHeight - 4} rx={6} />
-            <text className="lane-label" x={10} y={20}><tspan className="lane-glyph">{lane.status.glyph}</tspan> {names.get(lane.sessionId) ?? lane.label}</text>
+            <text className="lane-label" x={10} y={20}><title>{names.get(lane.sessionId) ?? lane.label}</title><tspan className="lane-glyph">{lane.status.glyph}</tspan> {labels.get(lane.sessionId) ?? lane.label}</text>
             <line className="lane-line" x1={labelWidth} x2={labelWidth + plotWidth} y1={15} y2={15} />
             {lane.cells.map(cell => {
               const marker = markersById.get(cell.markerId);

@@ -32,7 +32,7 @@ test('interleaved reasons form one section each, with newest cards first inside 
   ];
   const view = overviewViewModel({ needsYou, sessions: fixture.sessions, repositories: fixture.repositories.length, now });
   const sections = attentionSections(view.cards);
-  assert.deepEqual(sections.map(section => section.label), ['Blocking question', 'Open request']);
+  assert.deepEqual(sections.map(section => section.label), ['Blocking question', 'Open requests']);
   assert.deepEqual(sections.map(section => section.cards.map(card => card.id)), [['question B'], ['request C', 'request A']]);
   assert.deepEqual(needsYou.map(item => item.id), ['request A', 'question B', 'request C'], 'input remains unchanged');
   assert.deepEqual(sections.flatMap(section => section.cards), view.cards);
@@ -55,4 +55,22 @@ test('first run uses the information architecture wording instead of declaring a
 
 test('empty needs-you with sessions reads as all clear', () => {
   assert.equal(overviewViewModel({ needsYou: [], sessions: fixture.sessions, repositories: fixture.repositories.length, now }).headline, 'All clear: nothing needs you');
+});
+
+test('section headings are plural unless the count is exactly one', () => {
+  const card = (reason: string, reasonLabel: string) => ({ reason, reasonLabel });
+  const labels = (cards: { reason: string; reasonLabel: string }[]) => attentionSections(cards).map(section => section.label);
+  assert.deepEqual(labels([card('blocking-question', 'Blocking question')]), ['Blocking question']);
+  assert.deepEqual(labels([card('blocking-question', 'Blocking question'), card('blocking-question', 'Blocking question')]), ['Blocking questions']);
+  assert.deepEqual(labels([card('stale-session', 'Stale session'), card('stale-session', 'Stale session')]), ['Stale sessions']);
+  assert.deepEqual(labels([card('proposed-memory', 'Proposed memory'), card('proposed-memory', 'Proposed memory')]), ['Proposed memories']);
+  assert.deepEqual(labels([card('answer-possibly-unseen', 'Possibly unseen'), card('answer-possibly-unseen', 'Possibly unseen')]), ['Possibly unseen']);
+});
+
+test('every attention reason has a heading that is singular for one card and plural for several', () => {
+  const singular = ['Open request', 'Possibly unseen', 'Blocking question', 'Lane waiting on you', 'Stale session', 'Proposed memory'];
+  const plural = ['Open requests', 'Possibly unseen', 'Blocking questions', 'Lanes waiting on you', 'Stale sessions', 'Proposed memories'];
+  const heading = (label: string, count: number) => attentionSections(Array.from({ length: count }, () => ({ reason: label, reasonLabel: label })))[0].label;
+  assert.deepEqual(singular.map(label => heading(label, 1)), singular);
+  assert.deepEqual(singular.map(label => heading(label, 2)), plural);
 });

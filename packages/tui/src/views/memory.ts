@@ -27,7 +27,8 @@ export function memoryDocument(panel: MemoryPanelViewModel, layout: Layout, sele
   return [
     ...history,
     ...selectionLines(panel, selected, layout.width),
-    ...wrapped(counts || 'no items', 'muted', layout), ...wrapped(panel.unresolved.text, 'muted', layout), blank,
+    ...wrapped(counts || 'no items', 'muted', layout),
+    ...(panel.unresolved.text ? wrapped(panel.unresolved.text, 'muted', layout) : []), blank,
     ...(item ? itemLines(item, layout) : []),
     ...panel.handoffs.flatMap(handoff => wrapped(`handoff ${handoff.id} · ${handoff.age} ago · ${handoff.text}`, 'faint', layout)),
     blank, ...wrapped(panel.hint, 'faint', layout),

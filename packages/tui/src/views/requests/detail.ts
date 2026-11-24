@@ -18,8 +18,9 @@ export function requestDetailLines(request: Request | undefined | false, env: En
   const inner = paneWidth - 4;
   return [
     [...statusParts(detail.status, 0, true), t(`  ${detail.age} ago`, 'faint')],
-    [t(detail.originLabel, detail.origin === 'human' ? 'blue' : 'amber', { bold: true })], [t(detail.provenance, 'faint', { italic: true })],
-    ...wrap(detail.originEvidence, inner, 3, env.measure).map((text): Line => [t(text, 'faint', { italic: true })]),
+    ...wrap(detail.provenance, inner, undefined, env.measure).map((text): Line => [t(text, detail.origin === 'human' ? 'blue' : 'amber', { bold: true })]),
+    [t(`(${detail.provenanceQualifier})`, 'faint', { italic: true })],
+    ...wrap(`Evidence: ${detail.originEvidence}`, inner, undefined, env.measure).map((text): Line => [t(text, 'faint')]),
     ...(detail.uncertain ? [[t(`≈ ${detail.uncertain}`, 'amber')] as Line] : []),
     ...(detail.possiblyUnseen ? [[t('◌ The answer may have been lost at a reset.', 'amber')] as Line] : []),
     blank, heading('Request'), ...body(detail.textLines, detail.withheld, { width: inner, measure: env.measure }, 8), blank,

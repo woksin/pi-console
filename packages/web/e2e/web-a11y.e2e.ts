@@ -79,7 +79,7 @@ test('request state is a native select reachable by Tab and changed from the key
     assert.equal(await page.getByRole('tablist').count(), 0);
     assert.equal(await state.inputValue(), 'all');
     await state.selectOption('open');
-    await page.getByTestId('request-summary').getByText('state open').waitFor();
+    await page.getByTestId('request-summary').getByText('State: Open').waitFor();
     await page.keyboard.press('Tab');
     await focused(page.getByRole('combobox', { name: 'Origin', exact: true }));
   } finally { await page.context().close(); }
@@ -137,16 +137,16 @@ test('motion follows OS changes, unrelated saves do not override it, and explici
     await page.locator('html[data-motion="full"]').waitFor();
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.locator('html[data-motion="reduced"]').waitFor();
-    await page.getByLabel('Reduce motion').uncheck();
+    await page.getByRole('group', { name: 'Reduce motion' }).getByRole('button', { name: 'Off', exact: true }).click();
     await page.emulateMedia({ reducedMotion: 'no-preference' });
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.reload();
     await page.locator('html[data-motion="full"]').waitFor();
     await page.emulateMedia({ reducedMotion: 'no-preference' });
-    await page.getByLabel('Reduce motion').check();
+    await page.getByRole('group', { name: 'Reduce motion' }).getByRole('button', { name: 'On', exact: true }).click();
     await page.reload();
     await page.locator('html[data-motion="reduced"]').waitFor();
-    await page.getByRole('button', { name: 'Follow system motion', exact: true }).click();
+    await page.getByRole('group', { name: 'Reduce motion' }).getByRole('button', { name: 'System', exact: true }).click();
     await page.locator('html[data-motion="full"]').waitFor();
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.locator('html[data-motion="reduced"]').waitFor();

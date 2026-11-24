@@ -177,12 +177,10 @@ Click any thumbnail for the full-size image. The web client offers midnight (def
 <td><a href="docs/media/web-session.webp"><img src="docs/media/web-session.webp" width="280" alt="Midnight session transcript and memory review controls"></a><br>Session and memory review</td>
 </tr>
 <tr>
-<td><a href="docs/media/web-transcript-history.webp"><img src="docs/media/web-transcript-history.webp" width="280" alt="Midnight transcript showing older history and paging controls"></a><br>Older transcript history</td>
-<td><a href="docs/media/web-timeline-history.webp"><img src="docs/media/web-timeline-history.webp" width="280" alt="Midnight Timeline showing loaded and total history counts"></a><br>Timeline history</td>
 <td><a href="docs/media/web-attention-retry.webp"><img src="docs/media/web-attention-retry.webp" width="280" alt="Midnight Overview reporting unavailable attention with Retry"></a><br>Unavailable, not all clear</td>
+<td><a href="docs/media/web-settings.webp"><img src="docs/media/web-settings.webp" width="280" alt="Midnight Settings with source health and theme preferences"></a><br>Settings</td>
 </tr>
 <tr>
-<td><a href="docs/media/web-settings.webp"><img src="docs/media/web-settings.webp" width="280" alt="Midnight Settings with source health and theme preferences"></a><br>Settings</td>
 <td><a href="docs/media/web-session-resets.webp"><img src="docs/media/web-session-resets.webp" width="280" alt="Transcript reset divider listing carried and interrupted requests"></a><br>Context resets</td>
 <td><a href="docs/media/web-pulse.webp"><img src="docs/media/web-pulse.webp" width="280" alt="Fleet pulse status counts and context-pressure histogram"></a><br>Fleet pulse</td>
 </tr>
@@ -208,7 +206,7 @@ Click any thumbnail for the full-size image. The web client offers midnight (def
 </tr>
 </table>
 
-### Light theme · dawn
+<details><summary>Dawn theme</summary>
 
 <table>
 <tr>
@@ -227,16 +225,16 @@ Click any thumbnail for the full-size image. The web client offers midnight (def
 <td><a href="docs/media/web-session-light.webp"><img src="docs/media/web-session-light.webp" width="280" alt="Dawn session transcript beside memory review controls"></a><br>Session and memory review</td>
 </tr>
 <tr>
-<td><a href="docs/media/web-transcript-history-light.webp"><img src="docs/media/web-transcript-history-light.webp" width="280" alt="Dawn transcript showing older history and paging controls"></a><br>Older transcript history</td>
-<td><a href="docs/media/web-timeline-history-light.webp"><img src="docs/media/web-timeline-history-light.webp" width="280" alt="Dawn Timeline showing loaded and total history counts"></a><br>Timeline history</td>
 <td><a href="docs/media/web-attention-retry-light.webp"><img src="docs/media/web-attention-retry-light.webp" width="280" alt="Dawn Overview reporting unavailable attention with Retry"></a><br>Unavailable, not all clear</td>
+<td><a href="docs/media/web-settings-light.webp"><img src="docs/media/web-settings-light.webp" width="280" alt="Dawn Settings with source health and theme preferences"></a><br>Settings</td>
 </tr>
 <tr>
-<td><a href="docs/media/web-settings-light.webp"><img src="docs/media/web-settings-light.webp" width="280" alt="Dawn Settings with source health and theme preferences"></a><br>Settings</td>
 <td><a href="docs/media/web-session-resets-light.webp"><img src="docs/media/web-session-resets-light.webp" width="280" alt="Dawn transcript reset divider with carried and interrupted requests"></a><br>Context resets</td>
 <td><a href="docs/media/web-themes.webp"><img src="docs/media/web-themes.webp" width="280" alt="Settings preview cards for midnight, dawn and high contrast"></a><br>Theme previews</td>
 </tr>
 </table>
+
+</details>
 
 ## Architecture
 

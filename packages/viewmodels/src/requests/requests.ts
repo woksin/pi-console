@@ -1,6 +1,7 @@
 import type { Request, RequestEvidence, Session } from '@pi-console/contract';
 import type { Action } from '../keymap/keymap.ts';
 import { age, sanitize } from '../format/format.ts';
+import { sessionLabels, type SessionLabel } from '../format/session-labels.ts';
 import { statusCell, type StatusCell } from '../format/status-cell.ts';
 
 /**
@@ -19,7 +20,7 @@ export const requestOriginFilters: readonly RequestOriginFilter[] = ['all', 'hum
 export interface TranscriptLink { sessionId: string; entryId: string; fileOffset: number | null }
 export interface Excerpt { text: string; withheld: boolean; age: string }
 export interface RequestsRow {
-  id: string; sessionId: string; session: string; origin: Request['origin']; originLabel: string; status: StatusCell;
+  id: string; sessionId: string; session: SessionLabel; origin: Request['origin']; originLabel: string; status: StatusCell;
   text: string; withheld: boolean; age: string; answer: Excerpt | null;
   /** Shown beside the status whenever the pairing is heuristic; `null` when it is not. */
   uncertain: string | null;
@@ -30,7 +31,7 @@ export interface RequestsRow {
 }
 export interface EvidenceRow { label: string; at: string; age: string; transcript: TranscriptLink | null; resetId: string | null }
 export interface RequestDetail extends RequestsRow {
-  provenance: string; originEvidence: string; textLines: string[]; answerLines: string[]; interim: Excerpt[]; evidence: EvidenceRow[];
+  provenance: string; provenanceQualifier: string; originEvidence: string; textLines: string[]; answerLines: string[]; interim: Excerpt[]; evidence: EvidenceRow[];
 }
 export interface RequestsViewModel {
   rows: RequestsRow[]; open: number; uncertain: number; possiblyUnseen: number;
@@ -65,22 +66,22 @@ function matchesState(request: Request, state: RequestStateFilter): boolean {
   return request.status === state;
 }
 
-const matches = (request: Request, filter: Required<RequestsFilter>, names: ReadonlyMap<string, string>) =>
+const matches = (request: Request, filter: Required<RequestsFilter>, names: ReadonlyMap<string, SessionLabel>) =>
   matchesState(request, filter.state) && (filter.origin === 'all' || request.origin === filter.origin)
   && (filter.sessionId === null || request.sessionId === filter.sessionId) && matchesQuery(request, filter.query, names);
 
 /** Free-text filter over what a row shows: request text, session name, origin label and state. Withheld text is never searched. */
-function matchesQuery(request: Request, query: string, names: ReadonlyMap<string, string>): boolean {
+function matchesQuery(request: Request, query: string, names: ReadonlyMap<string, SessionLabel>): boolean {
   const wanted = query.trim().toLowerCase();
   if (wanted === '') return true;
   const text = request.withheld === true ? '' : request.text;
-  return `${text} ${names.get(request.sessionId) ?? request.sessionId} ${request.originLabel} ${request.status}`.toLowerCase().includes(wanted);
+  return `${text} ${names.get(request.sessionId)?.title ?? request.sessionId} ${request.originLabel} ${request.status}`.toLowerCase().includes(wanted);
 }
 
-function row(request: Request, names: ReadonlyMap<string, string>, now: number): RequestsRow {
+function row(request: Request, names: ReadonlyMap<string, SessionLabel>, now: number): RequestsRow {
   const answer = request.answer;
   return {
-    id: request.id, sessionId: request.sessionId, session: names.get(request.sessionId) ?? request.sessionId,
+    id: request.id, sessionId: request.sessionId, session: names.get(request.sessionId) ?? { name: request.sessionId, lane: '', title: request.sessionId },
     origin: request.origin, originLabel: request.originLabel, status: statusCell(request.status),
     text: shown(request.text, request.withheld === true), withheld: request.withheld === true, age: age(request.createdAt, now),
     answer: answer ? { text: shown(answer.text, request.answerWithheld === true), withheld: request.answerWithheld === true, age: age(answer.at, now) } : null,
@@ -91,7 +92,7 @@ function row(request: Request, names: ReadonlyMap<string, string>, now: number):
   };
 }
 
-const sessionNames = (sessions: readonly Session[]) => new Map(sessions.map(session => [session.id, session.name]));
+const sessionNames = (sessions: readonly Session[]) => new Map(sessions.map(session => [session.id, sessionLabels(session)]));
 
 export function requestsViewModel(input: { requests: readonly Request[]; sessions: readonly Session[]; now: number; filter?: RequestsFilter }): RequestsViewModel {
   const filter: Required<RequestsFilter> = { state: input.filter?.state ?? 'all', origin: input.filter?.origin ?? 'all', sessionId: input.filter?.sessionId ?? null, query: input.filter?.query ?? '' };
@@ -103,7 +104,7 @@ export function requestsViewModel(input: { requests: readonly Request[]; session
   const sessionIds = [...new Set(input.requests.map(request => request.sessionId))].sort();
   return {
     rows, open: count('open') + count('unanswered'), uncertain: count('uncertain'), possiblyUnseen: count('possibly-unseen'), filter,
-    sessions: sessionIds.map(id => ({ id, name: names.get(id) ?? id })),
+    sessions: sessionIds.map(id => ({ id, name: names.get(id)?.title ?? id })),
   };
 }
 
@@ -131,11 +132,12 @@ export function describeRequestFilter(model: RequestsViewModel): string {
   return `state ${model.filter.state} · origin ${model.filter.origin} · session ${model.filter.sessionId === null ? 'all' : session?.name ?? model.filter.sessionId}${query}`;
 }
 
-/** Origin is a classification from evidence: "classified as", never "verified". */
+/** Keep classification short without implying that the transcript proves who sent the prompt. */
 function provenance(request: Request): string {
-  const source = request.derivedFrom ? `${sourceLabels[request.derivedFrom].toLowerCase()}; ` : '';
-  const claim = request.origin === 'unproven' ? 'Origin not proven' : `Classified as ${request.originLabel}`;
-  return `${claim} (${source}not verified)`;
+  const sources = { 'session-jsonl': 'inferred from transcript', 'intent-memory': 'reported by intent-memory' };
+  const source = request.derivedFrom ? sources[request.derivedFrom] : 'reported by source';
+  const claim = request.origin === 'unproven' ? 'Origin not proven' : request.originLabel;
+  return `${claim} · ${source}`;
 }
 
 function evidenceRow(item: RequestEvidence, sessionId: string, now: number): EvidenceRow {
@@ -150,7 +152,7 @@ export function requestDetail(input: { request: Request; sessions: readonly Sess
   const { request, now } = input;
   return {
     ...row(request, sessionNames(input.sessions), now),
-    provenance: provenance(request),
+    provenance: provenance(request), provenanceQualifier: 'not verified',
     originEvidence: singleLine(request.originEvidence),
     textLines: lines(request.text, request.withheld === true),
     answerLines: request.answer ? lines(request.answer.text, request.answerWithheld === true) : [],
