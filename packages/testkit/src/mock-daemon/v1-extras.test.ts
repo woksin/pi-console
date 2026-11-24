@@ -1,7 +1,26 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
+import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { generate } from '../fixture/generate.ts';
-import { graph } from './v1-extras.ts';
+import { createStore } from './store.ts';
+import { graph, health } from './v1-extras.ts';
+
+test('mock health reports available sample sources with fixture poll times', t => {
+  const store = createStore(1);
+  t.after(() => { store.close(); });
+  const histogram = monitorEventLoopDelay({ resolution: 5 });
+  t.after(() => { histogram.disable(); });
+  const report = health(store, new Date().toISOString(), 10000, histogram);
+  assert.equal(report.agentRootAvailability, 'available');
+  assert.deepEqual(report.sources.map(source => source.source), ['session-jsonl', 'issue-work', 'lane-messages']);
+  for (const source of report.sources) {
+    assert.equal(source.files, 12);
+    assert.equal(source.lagBytes, 0);
+    assert.equal(source.errors, 0);
+    assert.equal(source.availability, 'available');
+    assert.equal(source.lastPollAt, store.fixture.generatedAt);
+  }
+});
 
 test('mock graph includes waiting-on and barred-by dependencies to known parent/coordinator lanes', () => {
   const fixture = generate().fixture;

@@ -14,7 +14,7 @@ export function itemHeadLines(item: MemoryPanelItem, layout: { width: number; me
 export function selectionLines(panel: MemoryPanelViewModel, selected: number | undefined, inner: number): Line[] {
   if (selected === undefined || panel.items.length === 0) return [];
   const index = Math.max(0, Math.min(selected, panel.items.length - 1));
-  const lines = [fit([t(`Item ${String(index + 1)} of ${String(panel.items.length)} · [ ] prev/next`, 'cyan')], inner)];
+  const lines = [fit([t(`Item ${String(index + 1)} of ${String(panel.items.length)} · [/] prev/next`, 'cyan')], inner)];
   if (panel.items[index].canRequest) lines.push([t('c Confirm… · x Reject…', 'cyan')]);
   return lines;
 }

@@ -3,18 +3,17 @@ import { test } from 'node:test';
 import { emptyProgress } from '../state/transcript-history.ts';
 import { historyControls, retryDirection, shouldLoadOlder } from './transcript-history-controls.ts';
 
-test('following at the tail hides return-to-live, while paused or newer-below windows show it', () => {
-  assert.deepEqual(historyControls(undefined, true), { busy: false, showLive: false });
-  assert.deepEqual(historyControls(emptyProgress, true), { busy: false, showLive: false });
-  assert.deepEqual(historyControls(undefined, false), { busy: false, showLive: true });
-  assert.deepEqual(historyControls({ ...emptyProgress, newer: true }, true), { busy: false, showLive: true });
+test('return-to-live replaces the follow toggle only when newer lines are below; a paused tail window offers just Follow tail', () => {
+  assert.deepEqual(historyControls(undefined), { busy: false, showLive: false });
+  assert.deepEqual(historyControls(emptyProgress), { busy: false, showLive: false });
+  assert.deepEqual(historyControls({ ...emptyProgress, newer: true }), { busy: false, showLive: true });
 });
 
 test('every loading direction disables controls; an error alone leaves them retryable', () => {
   for (const loading of ['tail', 'around', 'older', 'newer'] as const) {
-    assert.equal(historyControls({ ...emptyProgress, loading }, true).busy, true);
+    assert.equal(historyControls({ ...emptyProgress, loading }).busy, true);
   }
-  assert.equal(historyControls({ ...emptyProgress, error: 'older' }, false).busy, false);
+  assert.equal(historyControls({ ...emptyProgress, error: 'older' }).busy, false);
 });
 
 test('scrolling upward into the top tolerance loads an available older page', () => {

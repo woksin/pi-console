@@ -16,7 +16,7 @@ function HistoryControls({ progress, onPage, onLive }: HistoryActions) {
     if (direction === 'tail') onLive();
     else onPage(direction);
   };
-  const { busy } = historyControls(progress, false);
+  const { busy } = historyControls(progress);
   return <>
     {progress.older && <button type="button" className="btn" disabled={busy} onClick={() => { onPage('older'); }}>Load older</button>}
     {progress.newer && <button type="button" className="btn" disabled={busy} onClick={() => { onPage('newer'); }}>Load newer</button>}
@@ -26,11 +26,9 @@ function HistoryControls({ progress, onPage, onLive }: HistoryActions) {
 }
 
 function FollowControls({ scroll, progress, onLive }: Pick<HistoryActions, 'progress' | 'onLive'> & { scroll: TranscriptScroll }) {
-  const { busy, showLive } = historyControls(progress, scroll.follow);
-  return <>
-    <button type="button" className="btn follow" aria-pressed={scroll.follow} disabled={busy} onClick={scroll.toggleFollow}>{scroll.follow ? '● Following' : '○ Follow tail'} <kbd className="kbd">f</kbd></button>
-    {showLive && <button type="button" className="btn" disabled={busy} onClick={onLive}>Return to live</button>}
-  </>;
+  const { busy, showLive } = historyControls(progress);
+  if (showLive) return <button type="button" className="btn follow" disabled={busy} onClick={onLive}>Return to live</button>;
+  return <button type="button" className="btn follow" aria-pressed={scroll.follow} disabled={busy} onClick={scroll.toggleFollow}>{scroll.follow ? '● Following' : '○ Follow tail'} <kbd className="kbd">f</kbd></button>;
 }
 
 export function TranscriptHistoryBar({ scroll, progress, onPage, onLive }: HistoryActions & { scroll: TranscriptScroll }) {

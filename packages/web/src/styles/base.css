@@ -5,7 +5,7 @@
   --cyan: #66d9ef; --blue: #819cff; --amber: #f5bf65; --green: #85d9a0; --red: #fa7989; --orange: #f49b6c; --violet: #b49afa; --pink: #e996d0;
   --select: #1b3244; --flash: #27352f;
   --type-caption: 12px; --type-body: 14px; --type-section: 16px; --type-title: 20px;
-  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-6: 24px;
+  --control-height: 36px; --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-6: 24px;
   --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
   --radius: 8px;
@@ -51,6 +51,7 @@ code, .mono, pre { font-family: var(--mono); }
 }
 .muted { color: var(--muted); } .faint { color: var(--faint); } .small { font-size: var(--type-caption); }
 .tnum { font-variant-numeric: tabular-nums; } .grow { flex: 1 1 auto; } .end { text-align: right; }
+.nowrap { white-space: nowrap; }
 .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
 .num { text-align: right; }
 .tone-cyan { --tone: var(--cyan); } .tone-blue { --tone: var(--blue); } .tone-amber { --tone: var(--amber); } .tone-green { --tone: var(--green); }

@@ -36,9 +36,9 @@ npm ci
 npm run console -- --open
 ```
 
-**This demo serves sample data, not your sessions.** To watch real sessions, use the live-data daemon command documented below (`node packages/cli/bin/pi-console.mjs daemon --web-dist packages/web/dist`).
+**This demo serves sample data, not your sessions.** To watch real sessions, build the web client, then start the live-data daemon: `npm run build -w @pi-console/web`, then `node packages/cli/bin/pi-console.mjs daemon --web-dist packages/web/dist` (details below).
 
-The launcher prints a one-click login link and opens it in your browser (best effort; omit `--open` to just print the link). You'll see the gallery's synthetic fleet with recent activity, costs, memory, mixed statuses, and sample requests, questions and transcripts. Live samples run for 15 minutes with a fixed event budget. For the terminal demo, use `npm run console -- --tui` instead. The launcher builds the web client and starts an isolated demo daemon; it reads no local pi data. **Ctrl-C** stops it and removes its temporary data and token.
+The launcher prints a one-click login link and opens it in your browser (best effort; omit `--open` to just print the link). You'll see the gallery's sample fleet with recent activity, costs, memory, mixed statuses, and sample requests, questions and transcripts. Live samples run for 15 minutes with a fixed event budget. For the terminal demo, use `npm run console -- --tui` instead. The launcher builds the web client and starts an isolated demo daemon; it reads no local pi data. **Ctrl-C** stops it and removes its temporary data and token.
 
 <table>
 <tr>
@@ -106,7 +106,7 @@ The console can read pi session logs without an extension. The extension adds an
 
 ## Tour
 
-> The name `pi-console` is provisional. All images below use synthetic demo data, not live sessions.
+> The name `pi-console` is provisional. All images below use sample data, not live sessions.
 
 Long-running work spreads across sessions, lanes and file stores. Context resets make it harder to follow what was asked and what still needs an answer. pi-console brings those records together without treating uncertain or missing history as complete. See [request coverage and limitations](docs/requests.md).
 
@@ -152,7 +152,7 @@ The [OpenTUI](https://github.com/anomalyco/opentui) client uses the same API, vi
 
 A [VHS tape](scripts/media/tui.tape) records the terminal client against the isolated demo daemon. An animated keyboard tour is in the [TUI guide](docs/ui-tui.md).
 
-<img src="docs/media/tui-vhs.gif" alt="Terminal recording showing Overview, Fleet, Requests and Settings with synthetic data" width="880">
+<img src="docs/media/tui-vhs.gif" alt="Terminal recording showing Overview, Fleet, Requests and Settings with sample data" width="880">
 
 ## Gallery
 
@@ -275,7 +275,7 @@ See the [threat model](docs/security.md) and [security policy](SECURITY.md) for 
 
 ## Demo data and regenerating the media
 
-`npm run generate` rebuilds the synthetic fixture. `npm run media` regenerates the gallery; it needs Chromium, `ffmpeg` and `cwebp`. VHS recording also needs `vhs` and `ttyd`; otherwise the runner reports a PTY-capture fallback. Media generation is manual, not part of CI. See the [media guide](docs/media/README.md) for individual captures, budgets and determinism notes.
+`npm run generate` rebuilds the sample fixture. `npm run media` regenerates the gallery; it needs Chromium, `ffmpeg` and `cwebp`. VHS recording also needs `vhs` and `ttyd`; otherwise the runner reports a PTY-capture fallback. Media generation is manual, not part of CI. See the [media guide](docs/media/README.md) for individual captures, budgets and determinism notes.
 
 ## Status
 

@@ -5,6 +5,7 @@ import { contextFor } from './keys.ts';
 import { pickTarget, useShortcuts, type Overlay } from './shortcuts.ts';
 import { Help, Palette } from './overlays.tsx';
 import { sectionMeta, titleFor, sectionFor } from './routes.ts';
+import { visibleHints } from './hints.ts';
 import { Banner, Hints, Sidebar, TopBar, staleData } from './shell.tsx';
 import { applyTheme } from './theme.ts';
 import { faviconHref, setFavicon } from './favicon.ts';
@@ -47,7 +48,7 @@ export function App() {
         <Banner state={state} wall={wall} />
         <main className={`content${staleData(state, wall) ? ' stale' : ''}`} data-stale={staleData(state, wall)} id="content" aria-labelledby="content-heading" tabIndex={-1}><View route={route} state={state} now={now} /></main>
         <CopyNotice />
-        <Hints items={hints(context, 'web')} />
+        <Hints items={visibleHints(hints(context, 'web'), context, state)} />
       </div>
       {overlay === 'palette' && <Palette data={state} recents={recents} onClose={() => { setOverlay(null); }} onPick={pick} />}
       {overlay === 'help' && <Help onClose={() => { setOverlay(null); }} />}

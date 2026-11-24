@@ -6,7 +6,7 @@ import { fixedNow, flowIds, shots, webViews } from './scenes.ts';
 import { withStaleQuestion } from './questions.ts';
 import { memoryClock, prepareShowcase, rebase } from './fixture.mjs';
 import { FrameSet, wanted, writeStill, type Work } from './capture.ts';
-import { quiesce, showcaseHealth } from './showcase.ts';
+import { quiesce } from './showcase.ts';
 import { connectLive, png, preparePage, settle, type Theme } from './web-page.ts';
 import { captureFlows } from './web-flows.ts';
 
@@ -26,8 +26,6 @@ export async function startFrozenRig(): Promise<Rig> {
 
 async function openConsole(rig: Rig, options: { theme: Theme; scale: number; route: string; before?: (page: Page) => Promise<void> }): Promise<Page> {
   const page = await preparePage(rig, options);
-  // Gallery health follows the stream's own sequence at request time, so Settings agrees with itself.
-  await page.route('**/api/v1/health', route => route.fulfill({ json: showcaseHealth(rig.daemon.store.seq(), rig.daemon.store.clients()) }));
   // Synthetic provider capability: the controls request a native pi review, never mutate memory here.
   await page.route('**/api/v1/sessions/s2/memory-actions', route => route.fulfill({ json: {
     version: 1, available: true, providerVersion: 1, generation: 'gallery-s2', reason: 'available',
@@ -78,14 +76,29 @@ const questionsStill = (rig: Rig, theme: Theme): Promise<Buffer> => withStaleQue
   return still;
 });
 
+/** Moves the transcript up just far enough that the entry the sticky day header covers starts directly below it, so no entry header is shown half hidden. */
+async function clearStickyHeader(page: Page): Promise<void> {
+  await page.evaluate(() => {
+    const pane = document.querySelector('.transcript');
+    const head = pane?.querySelector('.tday-head');
+    if (!pane || !head) return;
+    const edge = head.getBoundingClientRect().bottom;
+    const covered = [...pane.querySelectorAll('.tline, .reset-marker')].find(line => line.getBoundingClientRect().bottom > edge);
+    const top = covered?.getBoundingClientRect().top ?? edge;
+    if (top < edge) pane.scrollTop -= edge - top;
+  });
+  await settle(page);
+}
+
 /** What a view needs on screen before its still: the tail, the memory panel, older history, the settings check or the graph edges. */
 async function prepareView(page: Page, rig: Rig, id: string): Promise<void> {
   if (id === 'session') {
     await showTranscriptTail(page);
     await page.locator('.memory-panel').scrollIntoViewIfNeeded();
     await page.evaluate(() => { window.scrollTo(0, 0); });
+    await clearStickyHeader(page);
   }
-  if (id === 'transcript-history') await showOlderTranscript(page);
+  if (id === 'transcript-history') { await showOlderTranscript(page); await clearStickyHeader(page); }
   if (id === 'settings') await assertSettingsSequence(page, rig);
   if (id === 'graph') await page.locator('[aria-label="Lane communication"] .edge.message').first().waitFor({ state: 'attached' });
 }
@@ -101,18 +114,19 @@ async function captureWebViews(rig: Rig, page: Page, work: Work, suffix: string)
   }
 }
 
-/** The Connection sequence and all three health sequences are the stream's one sequence once the rig is quiescent. */
+/** Settings shows the received stream sequence once, matching the quiescent rig. */
 async function assertSettingsSequence(page: Page, rig: Rig): Promise<void> {
   const seq = String(rig.daemon.store.seq());
   const values = await page.locator('.settings dl.kv div').evaluateAll(rows => rows.map(row => [row.querySelector('dt')?.textContent ?? '', row.querySelector('dd')?.textContent ?? '']));
   const sequences = values.filter(([label]) => /(^|· )(Last sequence|Sequence)$/.test(label)).map(([, value]) => value);
-  if (sequences.length < 3 || sequences.some(value => value !== seq)) throw new Error(`Settings sequences ${JSON.stringify(sequences)} do not match the stream sequence ${seq}`);
+  if (sequences.length !== 1 || sequences.some(value => value !== seq)) throw new Error(`Settings sequences ${JSON.stringify(sequences)} do not match the stream sequence ${seq}`);
 }
 
 async function showOlderTranscript(page: Page): Promise<void> {
   await showTranscriptTail(page);
   await page.getByRole('button', { name: 'Load older', exact: true }).click();
-  await page.getByRole('button', { name: 'Return to live', exact: true }).waitFor();
+  // A paused transcript shows one tail action (#222): "Return to live" when newer lines are below, otherwise "Follow tail".
+  await page.locator('.transcript-controls .btn.follow').filter({ hasText: /Return to live|Follow tail/ }).waitFor();
   await settle(page);
 }
 

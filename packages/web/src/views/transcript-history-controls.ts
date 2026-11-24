@@ -5,8 +5,9 @@ interface ScrollPosition {
   progress?: TranscriptProgress; following: boolean; searching: boolean;
 }
 
-export function historyControls(progress: TranscriptProgress | undefined, following: boolean): { busy: boolean; showLive: boolean } {
-  return { busy: progress?.loading !== undefined, showLive: !following || progress?.newer === true };
+/** One tail action at a time: a window with newer lines below needs "Return to live"; otherwise the follow toggle is the way back to the tail. */
+export function historyControls(progress: TranscriptProgress | undefined): { busy: boolean; showLive: boolean } {
+  return { busy: progress?.loading !== undefined, showLive: progress?.newer === true };
 }
 
 function olderAllowed({ progress, following, searching }: ScrollPosition): boolean {

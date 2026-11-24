@@ -67,13 +67,16 @@ function statusEdges(fixture: Fixture, sessions: Map<string, Fixture['sessions']
 export function health(store: Store, startedAt: string, replayWindow: number, histogram: ELDHistogram) {
   const memory = process.memoryUsage();
   return {
-    status: 'ok', startedAt, eventLog: { lastSeq: store.seq(), dbBytes: 0 },
+    status: 'ok', startedAt, agentRootAvailability: 'available', eventLog: { lastSeq: store.seq(), dbBytes: 4194304 },
     projection: { position: store.seq(), queueDepth: 0, skipped: 0 },
     eventLoop: histogram.count === 0 ? { p50: 0, p99: 0, max: 0 } : {
       p50: histogram.percentile(50) / 1e6, p99: histogram.percentile(99) / 1e6, max: histogram.max / 1e6,
     },
     stream: { seq: store.seq(), clients: store.clients(), retained: Math.min(store.seq(), replayWindow) },
-    sources: [], backfill: { complete: true, windowDays: 14 },
+    sources: ['session-jsonl', 'issue-work', 'lane-messages'].map(source => ({
+      source, files: 12, lagBytes: 0, lastPollAt: store.fixture.generatedAt, errors: 0, availability: 'available',
+    })),
+    backfill: { complete: true, windowDays: 14 },
     memory: { rssBytes: memory.rss, heapUsedBytes: memory.heapUsed },
   };
 }

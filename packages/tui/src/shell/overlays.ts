@@ -1,4 +1,4 @@
-import { keyLabel, keymapGroups, pad, paletteScopes, paletteView, daemonHealthRows, settingsViewModel, themePreview, wrap, type KeymapGroup, type PaletteItem, type PaletteView, type SettingsInput, type SettingsRow, type Tone, type TextWidth } from '@pi-console/viewmodels';
+import { keyLabel, keymapGroups, pad, paletteScopes, paletteView, healthGroups, displayWidth, settingsViewModel, themePreview, wrap, wrapWithSources, type KeymapGroup, type PaletteItem, type PaletteView, type SettingsInput, type SettingsRow, type Tone, type TextWidth } from '@pi-console/viewmodels';
 import { Lines, Overlay, Panel, h, useTextWidth, type Line, type Part } from '../view/renderer.ts';
 import { blank, fit, gap, heading, rule, selectable, split, t, windowOf } from '../view/parts.ts';
 import type { Data } from '../store/store.ts';
@@ -96,24 +96,51 @@ export function Help(props: { width: number; height: number; scroll?: number }) 
 }
 
 const tone: Record<Tone, Color> = { good: 'green', warn: 'amber', bad: 'red', plain: 'text' };
-/** A row is its label and value; a row's secondary `detail` (a source's id) sits on a faint line of its own so a long value never clips it. */
-const section = (title: string, rows: SettingsRow[], labelWidth = 18): Line[] => [heading(title), ...rows.flatMap((row): Line[] => [[t(row.label.padEnd(Math.max(labelWidth, row.label.length + 1)), 'muted'), t(row.value, tone[row.tone])], ...row.detail ? [[t(`  ${row.detail}`, 'faint')]] : []]), blank];
+interface SettingsColumn { labelWidth: number; valueWidth: number }
+
+/** Keep secondary facts faint even when a wrapped line crosses from the value into its detail. */
+function settingsValues(row: SettingsRow, { valueWidth }: SettingsColumn): Line[] {
+  const text = row.value + (row.valueDetail ? ` · ${row.valueDetail}` : '');
+  return wrapWithSources(text, valueWidth).map(line => {
+    const detail = line.source.findIndex(at => at >= row.value.length);
+    if (detail < 0) return [t(line.text, tone[row.tone])];
+    return [t(line.text.slice(0, detail), tone[row.tone]), t(line.text.slice(detail), 'faint')];
+  });
+}
+
+/** Labels and values wrap independently, keeping every value continuation in the shared column. */
+function settingsLine(row: SettingsRow, column: SettingsColumn): Line[] {
+  const labels = wrap(row.label, column.labelWidth);
+  return [
+    ...labels.slice(0, -1).map((label): Line => [t(`${pad(label, column.labelWidth)}  `, 'muted')]),
+    ...settingsValues(row, column).map((value, index): Line => [t(`${pad(index === 0 ? labels.at(-1) ?? '' : '', column.labelWidth)}  `, 'muted'), ...value]),
+    ...row.detail ? wrap(row.detail, column.labelWidth + column.valueWidth).map((detail): Line => [t(`  ${detail}`, 'faint')]) : [],
+  ];
+}
+
+const section = ({ title, rows }: { title: string; rows: SettingsRow[] }, column: SettingsColumn): Line[] => [heading(title), ...rows.flatMap(row => settingsLine(row, column)), blank];
 
 /** The same samples the web Settings shows, in the theme this terminal is drawing with. */
-function themeLines(): Line[] {
+function themeLines(column: SettingsColumn): Line[] {
   const preview = themePreview();
   return [heading('Theme'),
-    [t('Theme'.padEnd(18), 'muted'), t(palette.theme, 'text', { bold: true }), t('  PI_CONSOLE_THEME=midnight|contrast|mono', 'faint')],
+    ...settingsLine({ label: 'Theme', value: palette.theme, valueDetail: 'PI_CONSOLE_THEME=midnight|contrast|mono', tone: 'plain' }, column),
     preview.statuses.flatMap((sample, index) => [...(index ? [t('  ')] : []), t(sample.text, sample.color)]),
     [...preview.text.flatMap(sample => [t(sample.text, sample.color), t('  ')]), ...preview.ramp.map(value => t('██', `pressure:${value}` as const)), t(' context ramp', 'faint')],
     blank];
 }
 
 export function settingsViewport(size: { width: number; height: number }, input: SettingsInput, health: Record<string, unknown> | null = null) {
-  const model = settingsViewModel({ ...input, daemonHealth: input.daemonHealth ?? health });
-  const daemon = daemonHealthRows(health);
-  const lines = [...section('Health', model.health), ...(daemon.length > 0 ? section('Daemon health', daemon) : []), ...section('Data', model.data), ...section('Sources', model.sources, 20), ...themeLines()];
-  return overlayViewport(size, lines, { width: 76, height: 27 });
+  const reported = input.daemonHealth ?? health;
+  const model = settingsViewModel({ ...input, daemonHealth: reported });
+  const groups = [{ title: 'Health', rows: model.health }, ...healthGroups(reported, model.sources, input.now), { title: 'Data', rows: model.data }];
+  const longest = Math.max(5, ...groups.flatMap(group => group.rows.map(row => displayWidth(row.label))));
+  const wanted = { width: 76, height: 27 };
+  const inner = frame(size.width, size.height, wanted).width - 4; // Panel borders and horizontal padding.
+  const labelWidth = Math.max(5, Math.min(longest, 32, Math.floor((inner - 2) / 2)));
+  const column: SettingsColumn = { labelWidth, valueWidth: Math.max(1, inner - labelWidth - 2) };
+  const lines = [...groups.flatMap(group => section(group, column)), ...themeLines(column)];
+  return overlayViewport(size, lines, wanted);
 }
 
 export function Settings(props: { input: SettingsInput; health?: Record<string, unknown> | null; width: number; height: number; scroll?: number }) {

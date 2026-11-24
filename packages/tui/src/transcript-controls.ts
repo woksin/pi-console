@@ -1,7 +1,7 @@
 import { useEffect, useRef, type EffectCallback, type RefObject } from 'react';
 import { resolve } from '@pi-console/viewmodels';
 import { contextOf, type UiState } from './state/ui.ts';
-import { pauseTranscript, resumeTranscript, transcriptWindow, type TranscriptLayout } from './state/transcript-window.ts';
+import { openTranscript, pauseTranscript, resumeTranscript, transcriptWindow, type TranscriptLayout } from './state/transcript-window.ts';
 import type { Data } from './store/store.ts';
 import type { TranscriptLoad, TranscriptProgress } from './store/transcript-history.ts';
 
@@ -60,8 +60,31 @@ function pageUi(ui: UiState, progress: TranscriptProgress | undefined, layout: T
   return progress?.newer ? { ...ui, ...pauseTranscript(layout, ui, viewport) } : ui;
 }
 
+interface WindowControl { ref: RefObject<UiState>; apply: (ui: UiState) => void; layout: TranscriptLayout; viewport: number }
+
+function openingUi({ ui, layout, viewport }: Omit<WindowState, 'data'>, initial: boolean): UiState {
+  if (!ui.follow) return ui;
+  if (initial && !ui.focusEntry) return { ...ui, ...openTranscript(layout, viewport) };
+  const opening = ui.anchor?.opening;
+  return opening && opening.layout !== layout ? { ...ui, ...resumeTranscript } : ui;
+}
+
+/** Align the first populated view once; subsequent content updates always follow the actual bottom. */
+function useTranscriptOpening({ ref, apply, layout, viewport }: WindowControl): void {
+  const id = ref.current.sessionId;
+  const initialized = useRef<string | null>(null);
+  useEffect(() => {
+    if (layout.keys.length === 0) { initialized.current = null; return; }
+    const next = openingUi({ ui: ref.current, layout, viewport }, initialized.current !== id);
+    initialized.current = id;
+    if (next !== ref.current) apply(next);
+  }, [id, layout, viewport]);
+}
+
 /** Page merges retain the stable top anchor and make newly loaded newer entries navigable. */
-export function useTranscriptWindow({ ref, apply, data, layout, viewport }: { ref: RefObject<UiState>; apply: (ui: UiState) => void; data: Data; layout: TranscriptLayout; viewport: number }): void {
+export function useTranscriptWindow(state: WindowControl & { data: Data }): void {
+  useTranscriptOpening(state);
+  const { ref, apply, data, layout, viewport } = state;
   const id = ref.current.sessionId;
   const progress = id ? data.transcriptHistory.get(id) : undefined;
   const previousId = useRef<string | null>(null);

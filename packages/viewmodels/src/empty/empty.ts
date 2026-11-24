@@ -22,10 +22,10 @@ export function overviewEmpty(working: number): EmptyStateModel {
   return { title: 'Nothing needs you.', mark: '✓', body: now };
 }
 
-export interface ChecklistStep { label: string; detail: string; state: 'done' | 'todo' | 'optional'; glyph: string; color: ThemeToken }
+export interface ChecklistStep { label: string; detail: string; state: 'done' | 'todo' | 'optional'; /** Where to read more, as text the TUI shows; the web renders it as a link. */ pointer?: string; glyph: string; color: ThemeToken }
 
-const step = (label: string, state: ChecklistStep['state'], detail: string): ChecklistStep => ({
-  label, state, detail, glyph: state === 'done' ? '✓' : state === 'todo' ? '○' : '◇', color: state === 'done' ? 'green' : state === 'todo' ? 'amber' : 'muted',
+const step = (label: string, state: ChecklistStep['state'], detail: string, pointer?: string): ChecklistStep => ({
+  label, state, detail, ...(pointer ? { pointer } : {}), glyph: state === 'done' ? '✓' : state === 'todo' ? '○' : '◇', color: state === 'done' ? 'green' : state === 'todo' ? 'amber' : 'muted',
 });
 
 /**
@@ -38,7 +38,7 @@ export function firstRunChecklist(input: { connected: boolean; sessions: number 
     steps: [
       input.connected ? step('Daemon running', 'done', 'Connected to the local pi-console daemon.') : step('Daemon running', 'todo', 'From a checkout, run: node packages/cli/bin/pi-console.mjs daemon --web-dist packages/web/dist'),
       input.sessions > 0 ? step('Sources detected', 'done', `${String(input.sessions)} pi sessions found.`) : step('Sources detected', 'todo', 'Waiting for pi session logs under ~/.pi/agent. Start pi in any repository.'),
-      step('Extension installed', 'optional', 'Optional: the pi-console extension adds memory review; the console works from logs without it. See README → Optional pi extension and memory review.'),
+      step('Extension installed', 'optional', 'Optional: the pi-console extension adds memory review; the console works from logs without it.', 'See README → Optional pi extension and memory review.'),
     ],
   };
 }

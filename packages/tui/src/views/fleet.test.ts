@@ -71,6 +71,7 @@ test('an empty fleet shows the shared empty state and the first-run checklist', 
     assert.match(frame, /Getting started/);
     assert.match(frame, /○ Daemon running \(not yet\)/);
     assert.match(frame, /◇ Extension installed \(optional\)/);
+    assert.match(frame, /See README/);
   } finally { ui.destroy(); store.dispose(); }
 });
 

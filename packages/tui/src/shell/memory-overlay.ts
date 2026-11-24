@@ -33,7 +33,7 @@ export function MemoryViewer(props: { ui: UiState; data: MemoryData; now: number
   const view = memoryViewport(props.size, { data: props.data, sessionId: props.ui.sessionId, index: props.ui.memoryIndex, now: props.now }, measure);
   const start = Math.max(0, Math.min(props.ui.memoryScroll, view.bounds.max));
   const right = `${positionOf({ start, page: view.bounds.page, total: view.lines.length })}esc closes`;
-  const keys = `[ ] prev/next · ↑↓ PgUp/PgDn Home/End scroll${view.requestable ? ' · c/x request review in pi' : ''}`;
+  const keys = `[/] prev/next · ↑↓ PgUp/PgDn Home/End scroll${view.requestable ? ' · c/x request review in pi' : ''}`;
   return h(Overlay, view.box, h(Panel, { title: 'Memory', right, focused: true, grow: 1, background: 'raised' },
     h(Lines, { lines: view.lines.slice(start, start + view.bounds.page), grow: 1 }),
     h(Lines, { lines: [blank, [t(keys, 'faint')]], height: 2 })));

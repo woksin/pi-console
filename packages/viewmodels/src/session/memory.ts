@@ -7,6 +7,8 @@ export interface MemoryPanelInput {
   memory: SessionMemory | null; items: readonly MemoryItem[]; now: number; review?: MemoryReviewSession;
   /** Optional session id → display identity; an id with no name falls back to a short id. */
   sessionNames?: ReadonlyMap<string, Pick<SessionLabel, 'name' | 'lane'>>;
+  /** The session the panel is shown in: its own session scope is implied and left off item details. */
+  currentSessionId?: string;
 }
 export interface MemoryPanelItem {
   id: string; kind: MemoryItem['kind']; scope: string; status: MemoryItem['status']; statusLabel: string;
@@ -58,13 +60,14 @@ function scopeLabel(item: MemoryItem, names: MemoryPanelInput['sessionNames']): 
   return kind === 'session' ? `session ${fitSessionLabel(names?.get(key) ?? { name: shortId(key), lane: '' }, 24)}` : `${kind}:${sanitize(key)}`;
 }
 
-function itemOf(item: MemoryItem, context: { review: MemoryReviewSession; busy: boolean; now: number; names?: MemoryPanelInput['sessionNames'] }): MemoryPanelItem {
+function itemOf(item: MemoryItem, context: { review: MemoryReviewSession; busy: boolean; now: number; names?: MemoryPanelInput['sessionNames']; currentSessionId?: string }): MemoryPanelItem {
   const { review, busy } = context;
   const scope = scopeLabel(item, context.names);
+  const implied = item.scope.kind === 'session' && item.scope.key === context.currentSessionId;
   return {
     id: item.id, kind: item.kind, scope, status: item.status, statusLabel: statusLabel(item),
     badge: { label: statusLabel(item), tone: badgeTones[item.status] },
-    details: `${item.kind} · ${scope} · ${sources[item.sourceType]} · ${age(item.at, context.now)} ago`,
+    details: [item.kind, implied ? '' : scope, sources[item.sourceType], `${age(item.at, context.now)} ago`].filter(Boolean).join(' · '),
     text: item.withheld ? withheldText : sanitize(item.text), command: item.command === null ? null : sanitize(item.command),
     rejectCommand: item.command === null ? null : `/memory reject ${sanitize(item.id)}`, sourceNote: sources[item.sourceType],
     canRequest: requestable(item, review) && !busy && memoryReviewRetryable(review.items.get(item.id)), review: review.items.get(item.id) ?? null,
@@ -91,7 +94,7 @@ export function memoryPanelViewModel(input: MemoryPanelInput): MemoryPanelViewMo
     title: 'Memory', available,
     counts: memory ? statuses.map(status => ({ status, label: status, count: memory.counts[status] })) : [],
     unresolved: { text: memory ? unresolvedText(memory) : '' },
-    items: items.map(item => itemOf(item, { review, busy, now, names: input.sessionNames })),
+    items: items.map(item => itemOf(item, { review, busy, now, names: input.sessionNames, currentSessionId: input.currentSessionId })),
     handoffs: (memory?.handoffs ?? []).map(handoff => ({ id: clip(sanitize(handoff.handoffId), 40), age: age(handoff.at, now), text: handoffText(handoff) })),
     hint: memoryReviewHint(review.availability),
   };

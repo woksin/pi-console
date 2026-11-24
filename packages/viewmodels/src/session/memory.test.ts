@@ -65,6 +65,12 @@ test('each item leads with a status badge and its text; scope, source and age go
   assert.equal(model.items[0].text, 'synthetic item-1');
 });
 
+test('a session scope equal to the current session is implied and left off the details line', () => {
+  const view = (currentSessionId: string) => memoryPanelViewModel({ memory, items: [item('item-1')], now, currentSessionId }).items[0].details;
+  assert.equal(view('s1'), 'order · from a coordinator order · 3h ago');
+  assert.equal(view('s9'), 'order · session s1 · from a coordinator order · 3h ago');
+});
+
 test('a session scope shows the session name when known and a short id otherwise', () => {
   const scoped = (key: string, names?: MemoryPanelInput['sessionNames']) =>
     memoryPanelViewModel({ memory, items: [item('item-1', { scope: { kind: 'session', key } })], now, sessionNames: names }).items[0].scope;

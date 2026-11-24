@@ -4,16 +4,40 @@ Status: M1 implementation, read-only by default, with request-only memory review
 
 ## Run it
 
+Needs Node 26 (the engine floor) because OpenTUI loads its native core through `node:ffi`. From a checkout (see the [README quick start](../README.md#quick-start)):
+
 ```sh
 npm ci
+npm run console -- --tui                    # terminal demo with sample data
+node packages/cli/bin/pi-console.mjs tui    # your own sessions: connects to a running daemon (adds --experimental-ffi in a child process)
+```
+
+For your own sessions, start the live-data daemon first, in another terminal: `node packages/cli/bin/pi-console.mjs daemon --web-dist packages/web/dist` (after `npm run build -w @pi-console/web`).
+
+### Connection settings
+
+The daemon URL resolves in order: CLI `--url`, `PI_CONSOLE_URL`, `port` in `<data-dir>/config.json`, then `http://127.0.0.1:4777`. Configured ports use `127.0.0.1`; explicit URLs must still be loopback HTTP origins. Missing or malformed configuration silently uses the default port.
+
+The data directory resolves from CLI `--data-dir`, then `PI_CONSOLE_DATA_DIR`, then the daemon's default `~/.pi-console`. Credentials resolve from `PI_CONSOLE_TOKEN`, then `PI_CONSOLE_TOKEN_FILE`, then `<data-dir>/token`, using the same directory as the configuration. A token file readable by anyone but its owner is refused.
+
+When offline, the reconnect banner shows the URL being tried. A daemon started with a one-off `--port` needs a matching TUI `--url` unless that port is also saved in `config.json`.
+
+### Appearance
+
+`PI_CONSOLE_REDUCED_MOTION=1` turns spinners and pulses off. `PI_CONSOLE_THEME=midnight|contrast|mono` picks the theme (`PI_CONSOLE_HIGH_CONTRAST=1` still means contrast, and `mono` is a grey theme with meaning carried by glyphs and bold; Settings shows a preview).
+
+A non-empty `NO_COLOR` overrides all of these (see [no-color.org](https://no-color.org)): the TUI asks for no foreground or background colour, never paints a background so the terminal keeps its own, and carries status by glyphs, bold and inverse video (selection, focus badges); the focused panel gets a double border. An empty `NO_COLOR` is ignored. OpenTUI still writes its default white on blank cells nothing was drawn on, which shows nothing; colour depth follows `COLORTERM`/`TERM`.
+
+## Developing
+
+Run the mock daemon and the TUI against it:
+
+```sh
 npm start                                   # mock daemon on 127.0.0.1:4777 (token in .pi-console-dev/token)
 export PI_CONSOLE_DATA_DIR="$PWD/.pi-console-dev"   # the TUI's default token path is ~/.pi-console/token, not the mock daemon's
 npm start -w @pi-console/tui                # the TUI, in another terminal
-node packages/cli/bin/pi-console.mjs tui    # the same through the CLI (adds --experimental-ffi in a child process)
 node packages/cli/bin/pi-console.mjs tui --data-dir "$PWD/.pi-console-dev" --url http://127.0.0.1:5888  # explicit daemon
 ```
-
-Needs Node 26 (the engine floor) because OpenTUI loads its native core through `node:ffi`. The daemon URL resolves in order: CLI `--url`, `PI_CONSOLE_URL`, `port` in `<data-dir>/config.json`, then `http://127.0.0.1:4777`. Configured ports use `127.0.0.1`; explicit URLs must still be loopback HTTP origins. Missing or malformed configuration silently uses the default port. The data directory resolves from CLI `--data-dir`, then `PI_CONSOLE_DATA_DIR`, then the daemon's default `~/.pi-console`. Credentials resolve from `PI_CONSOLE_TOKEN`, then `PI_CONSOLE_TOKEN_FILE`, then `<data-dir>/token`, using the same directory as the configuration. A token file readable by anyone but its owner is refused. When offline, the reconnect banner shows the URL being tried. A daemon started with a one-off `--port` needs a matching TUI `--url` unless that port is also saved in `config.json`. `PI_CONSOLE_REDUCED_MOTION=1` turns spinners and pulses off; `PI_CONSOLE_THEME=midnight|contrast|mono` picks the theme (`PI_CONSOLE_HIGH_CONTRAST=1` still means contrast, and `mono` is a grey theme with meaning carried by glyphs and bold; Settings shows a preview). A non-empty `NO_COLOR` overrides all of these (see [no-color.org](https://no-color.org)): the TUI asks for no foreground or background colour, never paints a background so the terminal keeps its own, and carries status by glyphs, bold and inverse video (selection, focus badges); the focused panel gets a double border. An empty `NO_COLOR` is ignored. OpenTUI still writes its default white on blank cells nothing was drawn on, which shows nothing; colour depth follows `COLORTERM`/`TERM`.
 
 ## Views
 
@@ -48,7 +72,19 @@ Help and Settings scroll with arrows or `j`/`k`, PgUp/PgDn and Home/End (or `g`/
 
 Fleet, Requests, Questions, Messages and Work load older history when you reach the last loaded row; Timeline also loads older resets. If a history page fails, press `r` to retry, or try moving forward again at the end of the list.
 
-Status glyphs follow the contract in every theme: blocked `×`, failed `#`, possibly unseen `¿` (chip: “Possibly unseen”), and stale `?`. ASCII `#` remains distinct from blocked in mono output; `¿` avoids reusing stale's `?`.
+### Glyph legend
+
+Glyphs need no icon font; labels and position carry their meaning in every theme, including mono and no-colour output.
+
+| Context | Glyphs |
+|---|---|
+| Request origin (classification, not proof) | `●` human · `◆` launch · `*` unproven (ASCII in every terminal) |
+| Request flags | `≈` uncertain · `◌` possibly unseen; the status chip uses `¿` (“Possibly unseen”) |
+| Status | `×` blocked · `#` failed · `?` stale; these contract glyphs are unchanged |
+| Transcript | `▍` user · `●` assistant · `◌` thinking · `⚙` tool · `↳` result · `±` diff · `⟲` reset |
+| Timeline markers | `◆` request · `╳` interrupted · `●` final answer · `◐` partial · `⟲` reset · `?` question · `›` message |
+
+`?` still marks a question on the Timeline or a text-labelled stale status, never an unproven request origin. Memory navigation uses `[/] prev/next` for the `[` and `]` keys, not an empty checkbox.
 
 "Needs you" also refreshes every 60 seconds while connected, even without new stream events. After a failed load, press `r` in Overview to retry.
 

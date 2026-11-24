@@ -15,7 +15,6 @@ export function OverviewView({ state, now }: ViewProps) {
   const view = useMemo(() => overviewViewModel({ needsYou: state.needsYou, sessions: state.sessions, repositories: state.repositories.length, now }), [state.needsYou, state.sessions, state.repositories.length, now]);
   const attentionStatus = attentionPresentation(state).status;
   const ready = attentionStatus === 'ready';
-  const unavailable = attentionStatus === 'unavailable';
   const histogram = useMemo(() => pressureHistogram(state.sessions), [state.sessions]);
   const coverage = useMemo(() => fleetCostCoverage(state.sessions), [state.sessions]);
   const byId = new Map(view.cards.map(card => [card.id, card]));
@@ -30,7 +29,7 @@ export function OverviewView({ state, now }: ViewProps) {
         <p className="muted">{view.fleet.sessions} sessions · {view.fleet.repositories} repositories · {view.fleet.tokens} tokens · <FleetCost cost={view.fleet.cost} coverage={coverage} /></p>
       </section>
       {state.sessions.length > 0 && <div className="summary-strip" aria-label="Fleet summary">
-        <div className={`summary-counts${unavailable ? ' muted' : ''}`}>{view.counts.map(entry => <span key={entry.status.status}><StatusBadge cell={entry.status} /> {unavailable ? <span title="Counts are hidden while attention is unavailable"><span aria-hidden="true">—</span><span className="sr-only">count unavailable</span></span> : entry.count}</span>)}</div>
+        <div className="summary-counts">{view.counts.map(entry => <span key={entry.status.status}><StatusBadge cell={entry.status} /> {entry.count}</span>)}</div>
         <Sparkline values={view.fleet.contextSeries} width={90} height={20} fill label="Average fleet context pressure" />
         <PressureHistogramFigure histogram={histogram} />
       </div>}

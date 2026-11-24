@@ -1,4 +1,4 @@
-import { columnOf, fitSessionLabel, sessionLabels, markerLegend, pan, timelineTicks, timelineViewModel, zoom, type TimeWindow } from '@pi-console/viewmodels';
+import { columnOf, displayWidth, fitSessionLabel, repositoryLabel, sessionLabels, markerLegend, pan, timelineTicks, timelineViewModel, zoom, type TimeWindow } from '@pi-console/viewmodels';
 import { useMemo, useState } from 'react';
 import type { ViewProps } from '../app/view.tsx';
 import { useActions } from '../app/commands.ts';
@@ -6,17 +6,13 @@ import { useListNav } from '../app/hooks.ts';
 import { TimelineHistory } from './timeline-history.tsx';
 import { EmptyFor } from '../ui/empty.tsx';
 import { SkeletonRows } from '../ui/primitives.tsx';
-import { groupHeight, laneHeight, timelineGroups } from './timeline-groups.ts';
+import { groupHeight, labelCellsFor, labelColumnWidth, laneHeight, timelineGroups, withoutRepositoryPrefix } from './timeline-groups.ts';
 import { indexMarkers } from './timeline-markers.ts';
 import { TimelineMarker } from './timeline-marker.tsx';
 import { TimelineDetail } from './timeline-detail.tsx';
 
 const columns = 120;
-const labelWidth = 170;
-// Reserve the glyph and margins; estimate eight pixels per cell at the 12px label font.
-const labelCells = Math.floor((labelWidth - 32) / 8);
 const plotWidth = 960;
-const x = (column: number): number => labelWidth + column / (columns - 1) * plotWidth;
 
 export function TimelineView({ state, now }: ViewProps) {
   const [window, setWindow] = useState<TimeWindow | undefined>(undefined);
@@ -39,7 +35,12 @@ export function TimelineView({ state, now }: ViewProps) {
   const ticks = timelineTicks(view.window, columns);
   const nowColumn = columnOf(now, view.window, columns);
   const names = new Map(state.sessions.map(session => [session.id, sessionLabels(session).timeline]));
-  const labels = new Map(state.sessions.map(session => [session.id, fitSessionLabel(sessionLabels(session), labelCells)]));
+  // In its repository group the name drops the repeated repository; the column grows to the longest label so the lane id stays visible.
+  const shown = new Map(state.sessions.map(session => [session.id, withoutRepositoryPrefix(sessionLabels(session), repositoryLabel(session.repositoryId))]));
+  const labelWidth = labelColumnWidth([...shown.values()].map(label => displayWidth(fitSessionLabel(label, Number.MAX_SAFE_INTEGER))));
+  const labelCells = labelCellsFor(labelWidth);
+  const labels = new Map([...shown].map(([id, label]) => [id, fitSessionLabel(label, labelCells)]));
+  const x = (column: number): number => labelWidth + column / (columns - 1) * plotWidth;
   if (!state.snapshotLoaded) return <div className="page"><SkeletonRows label="timeline" columns={4} /></div>;
   const history = <TimelineHistory state={state} />;
   if (view.lanes.length === 0) return <><EmptyFor view="timeline" />{history}</>;
@@ -56,9 +57,9 @@ export function TimelineView({ state, now }: ViewProps) {
       </div>
       <svg className="tl" viewBox={`0 0 ${String(labelWidth + plotWidth + 20)} ${String(height)}`} role="group" aria-label="Timeline of requests, answers, resets, questions and messages per session">
         {ticks.map(tick => <g key={tick.at}><line className="tick" x1={x(tick.column)} x2={x(tick.column)} y1={22} y2={height} /><text className="axis" x={x(tick.column)} y={14} textAnchor="middle">{tick.label}</text></g>)}
-        {groups.map(group => <g key={group.repositoryId} className="timeline-group" aria-label={group.repositoryId} transform={`translate(0 ${String(group.top)})`}>
+        {groups.map(group => <g key={group.repositoryId} className="timeline-group" aria-label={repositoryLabel(group.repositoryId)} transform={`translate(0 ${String(group.top)})`}>
           <rect className="repository-bg" x={0} y={0} width={labelWidth + plotWidth + 20} height={groupHeight - 4} />
-          <text className="repository-label" x={10} y={17}>{group.repositoryId}<title>{group.repositoryId} · {group.lanes.length} sessions</title></text>
+          <text className="repository-label" x={10} y={17}>{repositoryLabel(group.repositoryId)}<title>{`${group.repositoryId} · ${String(group.lanes.length)} sessions`}</title></text>
           {group.lanes.map((lane, index) => (
           <g key={lane.sessionId} transform={`translate(0 ${String(groupHeight + index * laneHeight)})`} className={`lane tone-${lane.status.color}${rows.selected === lane.sessionId ? ' selected' : ''}`} onClick={() => { rows.select(lane.sessionId); }}>
             <rect className="lane-bg" x={0} y={0} width={labelWidth + plotWidth + 20} height={laneHeight - 4} rx={6} />
