@@ -83,8 +83,10 @@ async function showReset(pty: Pty): Promise<void> {
   for (let page = 0; page < 8 && (page === 0 || pty.screen().includes('older entries above')); page++) {
     pty.send('g'); await pause(700);
   }
-  for (let step = 0; step < 80 && !pty.screen().includes('⟲ handoff'); step++) { pty.send('j'); await pause(150); }
-  await pty.waitFor('⟲ handoff');
+  // Step until the whole reset block is on screen: the heading and its carried and interrupted request rows, not just the heading.
+  const blockShown = (): boolean => { const screen = pty.screen(); return screen.includes('⟲ handoff') && /carried +r\d/.test(screen) && /interrupted +r\d/.test(screen); };
+  for (let step = 0; step < 80 && !blockShown(); step++) { pty.send('j'); await pause(150); }
+  if (!blockShown()) throw new Error(`The reset block (heading, carried and interrupted rows) never came fully on screen:\n${pty.screen()}`);
 }
 
 async function stills(rig: Rig, work: Work): Promise<void> {
