@@ -13,7 +13,8 @@ test('a connected daemon with no data shows the first-run checklist and a usable
     assert.equal(await link.getAttribute('href'), 'https://github.com/woksin/pi-console#optional-pi-extension-and-memory-review');
     assert.equal(await link.getAttribute('target'), '_blank');
     assert.equal(await link.getAttribute('rel'), 'noopener noreferrer');
-    assert.match(await page.locator('.first-run').innerText(), /See README → Optional pi extension and memory review\./);
+    assert.doesNotMatch(await page.locator('.first-run').innerText(), /See README/);
+    assert.equal(await page.locator('footer.hints').getByText('j/k move').count(), 0);
     assert.doesNotMatch(await page.locator('.first-run').innerText(), /README#/);
   });
 });
