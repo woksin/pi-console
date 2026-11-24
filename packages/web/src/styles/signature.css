@@ -48,8 +48,9 @@
 .node:hover circle, .node:focus-visible circle { r: 18; filter: drop-shadow(0 0 8px var(--tone, var(--cyan))); }
 .node:focus-visible { outline: none; }
 .node .glyph { fill: var(--tone, var(--text)); font-size: 14px; pointer-events: none; }
-.node .label { fill: var(--text); font-size: 11px; font-weight: 500; paint-order: stroke; stroke: var(--panel); stroke-width: 6px; stroke-linejoin: round; stroke-opacity: 0.92; pointer-events: none; }
-.node .label.name { fill: var(--muted); font-size: 10px; font-weight: 400; }
+/* The viewBox is 440 wide (graph-layout), drawn about 0.82x of the old 360 one, so label sizes are scaled up by the same ratio to render as before. */
+.node .label { fill: var(--text); font-size: 13.5px; font-weight: 500; paint-order: stroke; stroke: var(--panel); stroke-width: 6px; stroke-linejoin: round; stroke-opacity: 0.92; pointer-events: none; }
+.node .label.name { fill: var(--muted); font-size: 12px; font-weight: 400; }
 .graph-toolbar { padding-block: 0; }
 .graph-toolbar .scrubber { flex: 0 1 160px; min-width: 80px; }
 .graph-legend { padding: 0 18px; }
