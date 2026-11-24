@@ -1,5 +1,5 @@
 import type { GraphEdge } from '@pi-console/contract';
-import { graphViewModel, laneLabel, repositoryLabel, type GraphEdgeView, type StatusCell } from '@pi-console/viewmodels';
+import { graphViewModel, repositoryLabel, type GraphEdgeView, type StatusCell } from '@pi-console/viewmodels';
 import type { ConsoleState } from '../state/state.ts';
 
 /** `label` is the short identity (lane ID); `name` is the readable second line, or null when the lane has no name beyond its ID. */
@@ -26,7 +26,7 @@ export function webGraphModel(state: Pick<ConsoleState, 'graph' | 'sessions'>, u
     return {
       id: `sessions:${group.repositoryId}`, title: repositoryLabel(group.repositoryId), summary: `${String(group.edges.length)} spawn links`,
       nodes: group.nodes.filter(node => endpoints.has(node.sessionId)).map(node => ({
-        id: node.sessionId, label: laneLabel(repositoryLabel(group.repositoryId), node.label), name: null, sessionId: node.sessionId, status: node.status,
+        id: node.sessionId, label: node.label, name: null, sessionId: node.sessionId, status: node.status,
       })),
       edges: group.edges,
     };

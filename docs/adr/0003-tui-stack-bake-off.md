@@ -1,6 +1,6 @@
 # ADR-0003: TUI stack, decided by a visual bake-off in M0
 
-- Status: Accepted (OpenTUI). Decided by the M0 visual bake-off and delegated to the orchestrator by the owner (Q-378).
+- Status: Accepted and implemented (OpenTUI), selected by the M0 visual bake-off with the owner's delegated approval (Q-378).
 - Date: 2026-11-20
 - Supersedes: an earlier draft of this ADR that preselected pi-tui. That draft weighted ecosystem fit first; the owner's priority order is different (below).
 

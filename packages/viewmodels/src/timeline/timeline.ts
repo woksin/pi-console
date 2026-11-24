@@ -1,6 +1,6 @@
 import type { Message, Question, Request, Reset, Session, ThemeToken } from '@pi-console/contract';
-import { clock, clip, sanitize } from '../format/format.ts';
-import { sessionLabels } from '../format/session-labels.ts';
+import { clock, sanitize, type TextWidth } from '../format/format.ts';
+import { fitSessionLabel, sessionLabels } from '../format/session-labels.ts';
 import { statusCell, type StatusCell } from '../format/status-cell.ts';
 
 export interface TimeWindow { start: number; span: number }
@@ -13,7 +13,7 @@ export interface TimelineViewModel {
 }
 export interface TimelineInput {
   sessions: readonly Session[]; requests: readonly Request[]; resets: readonly Reset[]; questions: readonly Question[]; messages: readonly Message[];
-  window?: TimeWindow; width: number;
+  window?: TimeWindow; width: number; labelWidth?: number; measure?: TextWidth;
 }
 
 const MIN_SPAN = 5_000;
@@ -68,7 +68,7 @@ export function timelineViewModel(input: TimelineInput): TimelineViewModel {
       const present = cells.get(column);
       if (!present || present.rank <= marker.rank) cells.set(column, { column, glyph: marker.glyph, color: marker.color, markerId: marker.id, rank: marker.rank });
     }
-    return { sessionId: session.id, label: clip(sessionLabels(session).timeline, 22), status: statusCell(session.status), cells: [...cells.values()].map(cell => ({ column: cell.column, glyph: cell.glyph, color: cell.color, markerId: cell.markerId })) };
+    return { sessionId: session.id, label: fitSessionLabel(sessionLabels(session), input.labelWidth ?? 22, input.measure), status: statusCell(session.status), cells: [...cells.values()].map(cell => ({ column: cell.column, glyph: cell.glyph, color: cell.color, markerId: cell.markerId })) };
   });
   const ticks = Math.max(2, Math.floor(input.width / 14));
   const axis = Array.from({ length: ticks }, (_, index) => {

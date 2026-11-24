@@ -127,7 +127,7 @@ export function sessionViewModel(input: { detail: SessionDetail; transcript: rea
     context: { percent: session.contextPercent, pressure: pressure(session.contextPercent), spark: sparkline(session.samples.map(sample => sample.contextPercent), 100), resetMarks: resetMarks(session.samples, input.detail.resets) },
     requests: requestListViewModel({ requests, sessions: [session], now: input.now }).rows, questions: questionRows(input.detail.questions), jobs: jobRows(input.detail.jobs),
     resets: input.detail.resets.map(reset => ({ id: reset.id, kind: reset.kind, time: clock(reset.at), carried: reset.carriedRequestIds.length, interrupted: reset.interruptedRequestIds.length })),
-    subagents: input.detail.subagents.map(sub => ({ id: sub.id, name: sessionLabels(sub).name, status: statusCell(sub.status) })),
+    subagents: input.detail.subagents.map(sub => ({ id: sub.id, name: sessionLabels(sub).title, status: statusCell(sub.status) })),
     transcript: needle ? all.filter(item => matchesSearch(item.text, needle) || item.kind === 'reset') : all,
   };
 }

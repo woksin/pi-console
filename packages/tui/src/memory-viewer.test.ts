@@ -27,11 +27,12 @@ function entry(cursor: number, text: string): TranscriptEntry {
   return { id: `e${String(cursor)}`, cursor, sessionId: id, at: fixture.generatedAt, kind: 'assistant', text, toolCallId: null, resetId: null, requestId: null, toolResult: null };
 }
 
-interface Options { width: number; height?: number; initialState?: Partial<UiState>; history?: MemoryHistory; entries?: TranscriptEntry[] }
+interface Options { width: number; height?: number; initialState?: Partial<UiState>; history?: MemoryHistory; entries?: TranscriptEntry[]; sessionName?: string }
 
-async function mount({ width, height = 20, initialState = {}, history, entries = [] }: Options) {
+async function mount({ width, height = 20, initialState = {}, history, entries = [], sessionName = fixture.sessions[0].name }: Options) {
   const store = new Store();
-  store.apply({ seq: 1, type: 'snapshot', occurredAt: fixture.generatedAt, payload: fixture });
+  const sessions = fixture.sessions.map(session => session.id === id ? { ...session, name: sessionName } : session);
+  store.apply({ seq: 1, type: 'snapshot', occurredAt: fixture.generatedAt, payload: { ...fixture, sessions } });
   store.mergeTranscript(id, entries);
   store.mergeMemory(id, summary, items);
   store.setMemoryReview(id, review);
@@ -71,6 +72,28 @@ for (const width of [80, 100, 160]) {
       assert.match(last, /Run in a pi session|c\/x request review in pi/);
       await ui.press('HOME');
       assert.match(ui.frame(), /FIRSTMARK/);
+    } finally { done(); }
+  });
+}
+
+for (const width of [60, 80, 100]) {
+  test(`PageDown covers every word with a long session label at ${String(width)} columns`, async () => {
+    const { ui, done } = await mount({ width, sessionName: 'aurora scout coordinating implementation and verification across several repositories'.repeat(3) });
+    try {
+      await ui.press('m');
+      const seen = new Set<string>();
+      let previousEnd = 0;
+      for (let page = 0; page < 80; page++) {
+        const frame = ui.frame();
+        const range = /(\d+)–(\d+) of (\d+)/.exec(frame);
+        assert.ok(range, 'the visible row range is shown');
+        assert.ok(Number(range[1]) <= previousEnd + 1, 'PageDown never skips a row');
+        previousEnd = Number(range[2]);
+        for (const word of frame.match(/\bw\d{3}\b/g) ?? []) seen.add(word);
+        if (previousEnd === Number(range[3])) break;
+        await ui.press('\u001b[6~');
+      }
+      for (const word of words.split(' ')) assert.ok(seen.has(word), `missing ${word}`);
     } finally { done(); }
   });
 }

@@ -1,6 +1,6 @@
 {
   "id": "s2",
-  "title": "aurora / L192 / aurora implementation",
+  "title": "aurora implementation · L192",
   "status": {
     "status": "needs-you",
     "glyph": "!",
@@ -25,7 +25,7 @@
     {
       "id": "r3",
       "sessionId": "s2",
-      "session": "aurora implementation",
+      "session": "aurora implementation · L192",
       "originLabel": "Unproven origin",
       "originEvidence": "No positive origin evidence",
       "status": {
@@ -43,7 +43,7 @@
     {
       "id": "r2",
       "sessionId": "s2",
-      "session": "aurora implementation",
+      "session": "aurora implementation · L192",
       "originLabel": "Initial prompt",
       "originEvidence": "Synthetic non-relaunch session-start marker",
       "status": {
@@ -61,7 +61,7 @@
     {
       "id": "r1",
       "sessionId": "s2",
-      "session": "aurora implementation",
+      "session": "aurora implementation · L192",
       "originLabel": "Human request",
       "originEvidence": "Explicit synthetic user-input marker",
       "status": {
@@ -114,7 +114,7 @@
   "subagents": [
     {
       "id": "s4",
-      "name": "aurora explore",
+      "name": "aurora explore · L194",
       "status": {
         "status": "waiting",
         "glyph": "~",
@@ -124,7 +124,7 @@
     },
     {
       "id": "s5",
-      "name": "aurora scout",
+      "name": "aurora scout · L195",
       "status": {
         "status": "idle",
         "glyph": "–",

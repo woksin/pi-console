@@ -7,6 +7,30 @@ import { applyEvent } from '../../packages/web/src/state/reduce.ts';
 import { emptyState } from '../../packages/web/src/state/state.ts';
 import { fixedNow } from './scenes.ts';
 import { startFrozenRig } from './web.ts';
+import { startDemo } from '../demo.mjs';
+import { demoTickMs } from '../demo-data.mjs';
+import { readFileSync } from 'node:fs';
+import { setImmediate } from 'node:timers/promises';
+
+test('VHS demo seed and live ticks use the same fixed clock as the client', async t => {
+  const now = new Date(fixedNow);
+  t.mock.timers.enable({ apis: ['setInterval'] });
+  const demo = await startDemo(undefined, () => now);
+  try {
+    const token = readFileSync(demo.tokenFile, 'utf8').trim();
+    const sessions = async () => (await (await globalThis.fetch(`http://127.0.0.1:${demo.port}/api/v1/sessions`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })).json()).items;
+    const before = await sessions();
+    assert.ok(before.every(session => Date.parse(session.updatedAt) <= now.getTime()));
+    assert.ok(before.every(session => now.getTime() - Date.parse(session.updatedAt) < 86400000));
+    t.mock.timers.tick(demoTickMs);
+    await setImmediate();
+    const after = await sessions();
+    assert.equal(after.length, before.length);
+    assert.ok(after.some(session => session.updatedAt === now.toISOString()));
+  } finally { await demo.close(); }
+});
 
 // Exercise the capture fixture without launching a browser or producing media.
 test('web and TUI captures display the same ages for the expanded question', async t => {

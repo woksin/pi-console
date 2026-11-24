@@ -4,7 +4,7 @@
       {
         "id": "r10",
         "sessionId": "s10",
-        "session": "harbor scout",
+        "session": "harbor scout · L200",
         "origin": "human",
         "originLabel": "Human request",
         "status": {
@@ -25,7 +25,7 @@
       {
         "id": "r11",
         "sessionId": "s11",
-        "session": "meadow coordinator",
+        "session": "meadow coordinator · L201",
         "origin": "launch",
         "originLabel": "Initial prompt",
         "status": {
@@ -46,7 +46,7 @@
       {
         "id": "r9",
         "sessionId": "s9",
-        "session": "harbor explore",
+        "session": "harbor explore · L199",
         "origin": "unproven",
         "originLabel": "Unproven origin",
         "status": {
@@ -67,7 +67,7 @@
       {
         "id": "r12",
         "sessionId": "s12",
-        "session": "meadow implementation",
+        "session": "meadow implementation · L202",
         "origin": "unproven",
         "originLabel": "Unproven origin",
         "status": {
@@ -92,7 +92,7 @@
       {
         "id": "r8",
         "sessionId": "s8",
-        "session": "harbor review",
+        "session": "harbor review · L198",
         "origin": "launch",
         "originLabel": "Initial prompt",
         "status": {
@@ -117,7 +117,7 @@
       {
         "id": "r5",
         "sessionId": "s5",
-        "session": "aurora scout",
+        "session": "aurora scout · L195",
         "origin": "launch",
         "originLabel": "Initial prompt",
         "status": {
@@ -138,7 +138,7 @@
       {
         "id": "r4",
         "sessionId": "s4",
-        "session": "aurora explore",
+        "session": "aurora explore · L194",
         "origin": "human",
         "originLabel": "Human request",
         "status": {
@@ -163,7 +163,7 @@
       {
         "id": "r6",
         "sessionId": "s6",
-        "session": "harbor coordinator",
+        "session": "harbor coordinator · L196",
         "origin": "unproven",
         "originLabel": "Unproven origin",
         "status": {
@@ -184,7 +184,7 @@
       {
         "id": "d6",
         "sessionId": "s1",
-        "session": "aurora coordinator",
+        "session": "aurora coordinator · L0",
         "origin": "unproven",
         "originLabel": "Unproven origin",
         "status": {
@@ -209,7 +209,7 @@
       {
         "id": "d5",
         "sessionId": "s1",
-        "session": "aurora coordinator",
+        "session": "aurora coordinator · L0",
         "origin": "unproven",
         "originLabel": "Unproven origin",
         "status": {
@@ -234,7 +234,7 @@
       {
         "id": "d4",
         "sessionId": "s1",
-        "session": "aurora coordinator",
+        "session": "aurora coordinator · L0",
         "origin": "unproven",
         "originLabel": "Unproven origin",
         "status": {
@@ -268,7 +268,7 @@
       {
         "id": "d3",
         "sessionId": "s1",
-        "session": "aurora coordinator",
+        "session": "aurora coordinator · L0",
         "origin": "unproven",
         "originLabel": "Unproven origin",
         "status": {
@@ -297,7 +297,7 @@
       {
         "id": "d2",
         "sessionId": "s1",
-        "session": "aurora coordinator",
+        "session": "aurora coordinator · L0",
         "origin": "unproven",
         "originLabel": "Unproven origin",
         "status": {
@@ -326,7 +326,7 @@
       {
         "id": "d1",
         "sessionId": "s1",
-        "session": "aurora coordinator",
+        "session": "aurora coordinator · L0",
         "origin": "launch",
         "originLabel": "Initial prompt",
         "status": {
@@ -355,7 +355,7 @@
       {
         "id": "r3",
         "sessionId": "s2",
-        "session": "aurora implementation",
+        "session": "aurora implementation · L192",
         "origin": "unproven",
         "originLabel": "Unproven origin",
         "status": {
@@ -376,7 +376,7 @@
       {
         "id": "r2",
         "sessionId": "s2",
-        "session": "aurora implementation",
+        "session": "aurora implementation · L192",
         "origin": "launch",
         "originLabel": "Initial prompt",
         "status": {
@@ -397,7 +397,7 @@
       {
         "id": "r1",
         "sessionId": "s2",
-        "session": "aurora implementation",
+        "session": "aurora implementation · L192",
         "origin": "human",
         "originLabel": "Human request",
         "status": {
@@ -418,7 +418,7 @@
       {
         "id": "r7",
         "sessionId": "s7",
-        "session": "harbor implementation",
+        "session": "harbor implementation · L197",
         "origin": "human",
         "originLabel": "Human request",
         "status": {
@@ -449,47 +449,47 @@
     "sessions": [
       {
         "id": "s1",
-        "name": "aurora coordinator"
+        "name": "aurora coordinator · L0"
       },
       {
         "id": "s10",
-        "name": "harbor scout"
+        "name": "harbor scout · L200"
       },
       {
         "id": "s11",
-        "name": "meadow coordinator"
+        "name": "meadow coordinator · L201"
       },
       {
         "id": "s12",
-        "name": "meadow implementation"
+        "name": "meadow implementation · L202"
       },
       {
         "id": "s2",
-        "name": "aurora implementation"
+        "name": "aurora implementation · L192"
       },
       {
         "id": "s4",
-        "name": "aurora explore"
+        "name": "aurora explore · L194"
       },
       {
         "id": "s5",
-        "name": "aurora scout"
+        "name": "aurora scout · L195"
       },
       {
         "id": "s6",
-        "name": "harbor coordinator"
+        "name": "harbor coordinator · L196"
       },
       {
         "id": "s7",
-        "name": "harbor implementation"
+        "name": "harbor implementation · L197"
       },
       {
         "id": "s8",
-        "name": "harbor review"
+        "name": "harbor review · L198"
       },
       {
         "id": "s9",
-        "name": "harbor explore"
+        "name": "harbor explore · L199"
       }
     ]
   },
@@ -498,7 +498,7 @@
       {
         "id": "d3",
         "sessionId": "s1",
-        "session": "aurora coordinator",
+        "session": "aurora coordinator · L0",
         "origin": "unproven",
         "originLabel": "Unproven origin",
         "status": {
@@ -527,7 +527,7 @@
       {
         "id": "d2",
         "sessionId": "s1",
-        "session": "aurora coordinator",
+        "session": "aurora coordinator · L0",
         "origin": "unproven",
         "originLabel": "Unproven origin",
         "status": {
@@ -566,47 +566,47 @@
     "sessions": [
       {
         "id": "s1",
-        "name": "aurora coordinator"
+        "name": "aurora coordinator · L0"
       },
       {
         "id": "s10",
-        "name": "harbor scout"
+        "name": "harbor scout · L200"
       },
       {
         "id": "s11",
-        "name": "meadow coordinator"
+        "name": "meadow coordinator · L201"
       },
       {
         "id": "s12",
-        "name": "meadow implementation"
+        "name": "meadow implementation · L202"
       },
       {
         "id": "s2",
-        "name": "aurora implementation"
+        "name": "aurora implementation · L192"
       },
       {
         "id": "s4",
-        "name": "aurora explore"
+        "name": "aurora explore · L194"
       },
       {
         "id": "s5",
-        "name": "aurora scout"
+        "name": "aurora scout · L195"
       },
       {
         "id": "s6",
-        "name": "harbor coordinator"
+        "name": "harbor coordinator · L196"
       },
       {
         "id": "s7",
-        "name": "harbor implementation"
+        "name": "harbor implementation · L197"
       },
       {
         "id": "s8",
-        "name": "harbor review"
+        "name": "harbor review · L198"
       },
       {
         "id": "s9",
-        "name": "harbor explore"
+        "name": "harbor explore · L199"
       }
     ]
   },
@@ -615,7 +615,7 @@
       {
         "id": "r11",
         "sessionId": "s11",
-        "session": "meadow coordinator",
+        "session": "meadow coordinator · L201",
         "origin": "launch",
         "originLabel": "Initial prompt",
         "status": {
@@ -636,7 +636,7 @@
       {
         "id": "r8",
         "sessionId": "s8",
-        "session": "harbor review",
+        "session": "harbor review · L198",
         "origin": "launch",
         "originLabel": "Initial prompt",
         "status": {
@@ -661,7 +661,7 @@
       {
         "id": "r5",
         "sessionId": "s5",
-        "session": "aurora scout",
+        "session": "aurora scout · L195",
         "origin": "launch",
         "originLabel": "Initial prompt",
         "status": {
@@ -682,7 +682,7 @@
       {
         "id": "d1",
         "sessionId": "s1",
-        "session": "aurora coordinator",
+        "session": "aurora coordinator · L0",
         "origin": "launch",
         "originLabel": "Initial prompt",
         "status": {
@@ -711,7 +711,7 @@
       {
         "id": "r2",
         "sessionId": "s2",
-        "session": "aurora implementation",
+        "session": "aurora implementation · L192",
         "origin": "launch",
         "originLabel": "Initial prompt",
         "status": {
@@ -742,54 +742,54 @@
     "sessions": [
       {
         "id": "s1",
-        "name": "aurora coordinator"
+        "name": "aurora coordinator · L0"
       },
       {
         "id": "s10",
-        "name": "harbor scout"
+        "name": "harbor scout · L200"
       },
       {
         "id": "s11",
-        "name": "meadow coordinator"
+        "name": "meadow coordinator · L201"
       },
       {
         "id": "s12",
-        "name": "meadow implementation"
+        "name": "meadow implementation · L202"
       },
       {
         "id": "s2",
-        "name": "aurora implementation"
+        "name": "aurora implementation · L192"
       },
       {
         "id": "s4",
-        "name": "aurora explore"
+        "name": "aurora explore · L194"
       },
       {
         "id": "s5",
-        "name": "aurora scout"
+        "name": "aurora scout · L195"
       },
       {
         "id": "s6",
-        "name": "harbor coordinator"
+        "name": "harbor coordinator · L196"
       },
       {
         "id": "s7",
-        "name": "harbor implementation"
+        "name": "harbor implementation · L197"
       },
       {
         "id": "s8",
-        "name": "harbor review"
+        "name": "harbor review · L198"
       },
       {
         "id": "s9",
-        "name": "harbor explore"
+        "name": "harbor explore · L199"
       }
     ]
   },
   "detail": {
     "id": "d3",
     "sessionId": "s1",
-    "session": "aurora coordinator",
+    "session": "aurora coordinator · L0",
     "origin": "unproven",
     "originLabel": "Unproven origin",
     "status": {

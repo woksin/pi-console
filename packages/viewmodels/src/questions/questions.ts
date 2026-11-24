@@ -1,5 +1,6 @@
 import type { Question, Session } from '@pi-console/contract';
 import { age, sanitize } from '../format/format.ts';
+import { sessionLabels } from '../format/session-labels.ts';
 import { timeDisplay } from '../format/time.ts';
 import { questionMoot, type QuestionMoot } from './moot.ts';
 import { statusCell, type StatusCell } from '../format/status-cell.ts';
@@ -101,7 +102,7 @@ const sorters: Record<QuestionSort, (activity: ReadonlyMap<string, string>) => C
 
 /** Read-only queue: by default blocking and high urgency first and answered or closed sunk; or newest update or activity first. */
 export function questionsViewModel(input: QuestionsInput): QuestionsViewModel {
-  const names = new Map(input.sessions.map(session => [session.id, session.name]));
+  const names = new Map(input.sessions.map(session => [session.id, sessionLabels(session).title]));
   const days = input.staleDays ?? defaultStaleDays;
   const activity = new Map(input.questions.map(question => [question.id, activityOf(question)]));
   const lastAt = new Map([...activity].map(([id, found]) => [id, found.at]));

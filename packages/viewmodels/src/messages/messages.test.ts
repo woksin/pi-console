@@ -11,6 +11,15 @@ test('messages are newest first with a delivery glyph', () => {
   golden('messages', model);
 });
 
+test('same-name endpoints retain distinct lanes and their full searchable names', () => {
+  const sessions = fixture.sessions.slice(0, 2).map((session, index) => ({ ...session, name: 'aurora implementation', laneId: `L${String(index + 1)}` }));
+  const messages = [{ ...fixture.messages[0], fromSessionId: sessions[0].id, toSessionId: sessions[1].id }];
+  const { rows } = messagesViewModel({ sessions, messages, now });
+  assert.equal(rows[0].from, 'aurora implementation · L1');
+  assert.equal(rows[0].to, 'aurora implementation · L2');
+  assert.deepEqual(filterMessageRows(rows, 'implementation'), rows);
+});
+
 test('the filter matches message text and both lane names, ignoring case', () => {
   const { rows } = messagesViewModel({ messages: fixture.messages, sessions: fixture.sessions, now });
   assert.deepEqual(filterMessageRows(rows, ''), rows);

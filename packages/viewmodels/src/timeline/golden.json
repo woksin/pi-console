@@ -6,7 +6,7 @@
   "lanes": [
     {
       "sessionId": "s1",
-      "label": "L0 coordinator",
+      "label": "aurora coordinat… · L0",
       "status": {
         "status": "working",
         "glyph": "*",
@@ -72,7 +72,7 @@
     },
     {
       "sessionId": "s2",
-      "label": "L192 implementation",
+      "label": "aurora impleme… · L192",
       "status": {
         "status": "needs-you",
         "glyph": "!",
@@ -96,7 +96,7 @@
     },
     {
       "sessionId": "s3",
-      "label": "L193 review",
+      "label": "aurora review · L193",
       "status": {
         "status": "blocked",
         "glyph": "×",
@@ -114,7 +114,7 @@
     },
     {
       "sessionId": "s4",
-      "label": "L194 explore",
+      "label": "aurora explore · L194",
       "status": {
         "status": "waiting",
         "glyph": "~",
@@ -144,7 +144,7 @@
     },
     {
       "sessionId": "s5",
-      "label": "L195 scout",
+      "label": "aurora scout · L195",
       "status": {
         "status": "idle",
         "glyph": "–",
@@ -168,7 +168,7 @@
     },
     {
       "sessionId": "s6",
-      "label": "L196 coordinator",
+      "label": "harbor coordin… · L196",
       "status": {
         "status": "done",
         "glyph": "✓",
@@ -228,7 +228,7 @@
     },
     {
       "sessionId": "s7",
-      "label": "L197 implementation",
+      "label": "harbor impleme… · L197",
       "status": {
         "status": "failed",
         "glyph": "#",
@@ -252,7 +252,7 @@
     },
     {
       "sessionId": "s8",
-      "label": "L198 review",
+      "label": "harbor review · L198",
       "status": {
         "status": "working",
         "glyph": "*",
@@ -282,7 +282,7 @@
     },
     {
       "sessionId": "s9",
-      "label": "L199 explore",
+      "label": "harbor explore · L199",
       "status": {
         "status": "needs-you",
         "glyph": "!",
@@ -300,7 +300,7 @@
     },
     {
       "sessionId": "s10",
-      "label": "L200 scout",
+      "label": "harbor scout · L200",
       "status": {
         "status": "blocked",
         "glyph": "×",
@@ -318,7 +318,7 @@
     },
     {
       "sessionId": "s11",
-      "label": "L201 coordinator",
+      "label": "meadow coordin… · L201",
       "status": {
         "status": "waiting",
         "glyph": "~",
@@ -378,7 +378,7 @@
     },
     {
       "sessionId": "s12",
-      "label": "L202 implementation",
+      "label": "meadow impleme… · L202",
       "status": {
         "status": "idle",
         "glyph": "–",
@@ -402,7 +402,7 @@
     },
     {
       "sessionId": "s16",
-      "label": "L206 coordinator",
+      "label": "quartz coordin… · L206",
       "status": {
         "status": "needs-you",
         "glyph": "!",
@@ -462,7 +462,7 @@
     },
     {
       "sessionId": "s21",
-      "label": "L211 coordinator",
+      "label": "willow coordin… · L211",
       "status": {
         "status": "failed",
         "glyph": "#",
@@ -498,7 +498,7 @@
     },
     {
       "sessionId": "s26",
-      "label": "L216 coordinator",
+      "label": "zenith coordin… · L216",
       "status": {
         "status": "idle",
         "glyph": "–",
