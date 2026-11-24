@@ -19,9 +19,10 @@ test('fleet first run gives the start-pi instruction only once across the empty 
 });
 
 test('the optional extension checklist points to an existing README heading', () => {
-  const detail = firstRunChecklist({ connected: true, sessions: 0 }).steps[2].detail;
-  assert.match(detail, /See README → Optional pi extension and memory review\./);
-  assert.doesNotMatch(detail, /README#/);
+  const { detail, pointer } = firstRunChecklist({ connected: true, sessions: 0 }).steps[2];
+  assert.equal(pointer, 'See README → Optional pi extension and memory review.');
+  assert.doesNotMatch(detail, /README/);
+  assert.equal(firstRunChecklist({ connected: true, sessions: 0 }).steps[0].pointer, undefined);
   const readme = readFileSync(new URL('../../../../README.md', import.meta.url), 'utf8');
   assert.match(readme, /<summary>Optional pi extension and memory review<\/summary>/);
   assert.ok(readme.includes('<a id="optional-pi-extension-and-memory-review"></a>'), 'the collapsible README heading has a link anchor');
