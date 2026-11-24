@@ -27,10 +27,10 @@ Install **Node.js 26 or newer** and Git, then run:
 ```sh
 git clone https://github.com/woksin/pi-console.git && cd pi-console
 npm ci
-npm run console
+npm run console -- --open
 ```
 
-Open the printed web URL and paste the contents of the printed token file into the connection screen. You'll see **Needs you**, a fleet overview, and sample requests, questions and transcripts. The launcher builds the web client and starts an isolated demo daemon; it reads no local pi data. **Ctrl-C** stops it and removes its temporary data and token.
+The launcher prints a one-click login link and opens it in your browser (best effort; omit `--open` to just print the link). You'll see the gallery's synthetic fleet with recent activity, costs, memory, mixed statuses, and sample requests, questions and transcripts. Live samples run for 15 minutes with a fixed event budget. For the terminal demo, use `npm run console -- --tui` instead. The launcher builds the web client and starts an isolated demo daemon; it reads no local pi data. **Ctrl-C** stops it and removes its temporary data and token.
 
 <table>
 <tr>

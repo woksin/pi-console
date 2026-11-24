@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { emptyStates, firstRunChecklist, overviewEmpty } from './empty.ts';
 
 test('empty states use the information architecture wording', () => {
@@ -15,6 +16,15 @@ test('fleet first run gives the start-pi instruction only once across the empty 
   const checklist = firstRunChecklist({ connected: true, sessions: 0 });
   const copy = [emptyStates.fleet.body, ...checklist.steps.map(item => item.detail)].join(' ');
   assert.equal(copy.match(/Start pi in any repository/g)?.length, 1);
+});
+
+test('the optional extension checklist points to an existing README heading', () => {
+  const detail = firstRunChecklist({ connected: true, sessions: 0 }).steps[2].detail;
+  const anchor = /README#([a-z-]+)/.exec(detail)?.[1];
+  assert.ok(anchor, 'the install pointer includes a README anchor');
+  const readme = readFileSync(new URL('../../../../README.md', import.meta.url), 'utf8');
+  assert.match(readme, /<summary>Optional pi extension and memory review<\/summary>/);
+  assert.ok(readme.includes(`<a id="${anchor}"></a>`), 'the collapsible README heading has the referenced anchor');
 });
 
 test('the calm Overview promotes the working count', () => {
