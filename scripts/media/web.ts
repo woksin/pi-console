@@ -3,7 +3,8 @@ import type { Page } from 'playwright-core';
 import { startRig, type Rig } from '../../packages/web/e2e/harness.ts';
 import { memoryItems } from '../../packages/testkit/src/mock-daemon/memory.ts';
 import { fixedNow, flowIds, shots, webViews } from './scenes.ts';
-import { recordQuestionHistory, withStaleQuestion } from './questions.ts';
+import { withStaleQuestion } from './questions.ts';
+import { prepareShowcase } from './fixture.mjs';
 import { FrameSet, wanted, writeStill, type Work } from './capture.ts';
 import { quiesce, showcaseHealth } from './showcase.ts';
 import { connectLive, png, preparePage, settle, type Theme } from './web-page.ts';
@@ -11,19 +12,11 @@ import { captureFlows } from './web-flows.ts';
 
 /** A frozen-stream rig: speed ≈ 0 publishes only the t=0 events. */
 export async function startFrozenRig(): Promise<Rig> {
-  // Co-locate the checked-in memory and transcript fixtures in the session used by the gallery.
-  for (const item of memoryItems()) if (item.sessionId === 's1') {
-    item.sessionId = 's2';
-    item.scope = { kind: 'session', key: 's2' };
-  }
   const rig = await startRig({ speed: 1e-9 });
   await quiesce(rig.daemon.store);
   // Web ages follow snapshot/stream time, not the pinned browser wall clock alone.
   rig.daemon.store.fixture.generatedAt = fixedNow;
-  const question = rig.daemon.store.fixture.questions[0];
-  question.text += '\n\nKeep the cache bounded while preserving enough history to inspect a completed checkpoint. The selected window must apply consistently to the worker queue and its retry budget.\n\nWhich option should the synthetic coordinator use before the next migration checkpoint?';
-  question.options = question.options.map(option => `${option} — retain completed checkpoint metadata for this window, then expire the synthetic cache entries without changing pending decisions or the worker retry budget.`);
-  recordQuestionHistory(rig.daemon.store.fixture.questions);
+  prepareShowcase(rig.daemon.store.fixture, memoryItems());
   return rig;
 }
 

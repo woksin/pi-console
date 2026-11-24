@@ -1,6 +1,6 @@
 import type { IncomingMessage } from 'node:http';
 import { apiV1Schema as schema, validate } from '@pi-console/contract';
-import { memoryItems, sessionMemory } from './memory.ts';
+import { sessionMemory } from './memory.ts';
 import { needsYou } from './needs-you.ts';
 import { HttpError } from './security.ts';
 import { pageOf, type Collection } from './paging.ts';
@@ -86,7 +86,7 @@ const exactRoutes = new Map<string, Route>([
   ['/api/v1/questions', listing('questions', store => store.fixture.questions)],
   ['/api/v1/messages', listing('messages', store => store.fixture.messages)],
   ['/api/v1/jobs', listing('jobs', store => store.fixture.jobs)],
-  ['/api/v1/memory-items', listing('memoryItems', (_store, url) => memoryRows(url))],
+  ['/api/v1/memory-items', listing('memoryItems', (store, url) => memoryRows(store, url))],
 ]);
 export function query(store: Store, url: URL, info: MockInfo): unknown {
   if (url.pathname.startsWith('/api/v1/sessions/')) return sessionResponse(store, url);
@@ -95,10 +95,10 @@ export function query(store: Store, url: URL, info: MockInfo): unknown {
   return route(store, info, url);
 }
 const memoryStatuses = ['active', 'proposed', 'done', 'superseded', 'withdrawn', 'rejected'];
-function memoryRows(url: URL) {
+function memoryRows(store: Store, url: URL) {
   const status = url.searchParams.get('status');
   if (status !== null && !memoryStatuses.includes(status)) throw new HttpError(400, 'Invalid status');
-  return memoryItems().filter(row => status === null || row.status === status);
+  return store.memory.filter(row => status === null || row.status === status);
 }
 function requestRows(store: Store, url: URL) {
   const filter = url.searchParams.get('filter') ?? 'all';
