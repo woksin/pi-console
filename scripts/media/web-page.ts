@@ -13,7 +13,11 @@ export async function preparePage(rig: Rig, options: { theme: Theme; scale: numb
   const page = await context.newPage();
   // Fixed: Date.now never moves. Controlled: the clock is installed at the capture time and stays paused; a flow moves it only
   // through `advanceUntil`, in whole 100 ms (`stepMs`) steps, so no wall-clock delay ever reaches a rendered age.
-  if (options.clock === 'controlled') { await page.clock.install({ time: new Date(fixedNow) }); controlled.add(page); }
+  if (options.clock === 'controlled') {
+    await page.clock.install({ time: Date.parse(fixedNow) - 1000 });
+    await page.clock.pauseAt(new Date(fixedNow));
+    controlled.add(page);
+  }
   else await page.clock.setFixedTime(new Date(fixedNow));
   return page;
 }

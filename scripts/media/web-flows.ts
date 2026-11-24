@@ -77,7 +77,8 @@ export async function liveFleetFlow(snap: Snap = quiet): Promise<void> {
     const page = await preparePage(rig, { theme: 'midnight', scale: 1, clock: 'controlled' });
     await healthFor(rig, page);
     await connectLive(rig, page, '/overview');
-    await page.locator('[data-reason]').first().waitFor();
+    // The first derived read is behind the store's debounce timer, which only the stepped clock fires.
+    await advanceUntil(page, (selector: string) => document.querySelector(selector) !== null, '[data-reason]');
     await settle(page);
     const before = await headline(page);
     assert.ok(before !== null && before > 0);

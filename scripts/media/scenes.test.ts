@@ -63,7 +63,7 @@ test('the live flows never let the browser clock run on its own', () => {
   assert.doesNotMatch(page, /clock\.resume\(/);
   assert.doesNotMatch(flows, /'running'/);
   assert.match(flows, /clock: 'controlled'/);
-  assert.match(page, /clock\.install\(\{ time: new Date\(fixedNow\) \}\)/);
+  assert.match(page, /clock\.pauseAt\(new Date\(fixedNow\)\)/);
   assert.ok(stepMs > 0 && maxAdvanceMs % stepMs === 0, 'virtual time moves in whole steps up to a bound');
 });
 
