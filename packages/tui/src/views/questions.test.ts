@@ -233,8 +233,8 @@ test('80x24: history shows the readable absolute time with its zone next to the 
   try {
     await ui.press('RETURN');
     const frame = ui.frame();
-    assert.match(frame, /20 Nov 2026 09:00:00 UTC answered by Actor40 · \d+[smhd] ago/);
-    assert.doesNotMatch(frame, /2026-11-20T09:00:00/);
+    assert.match(frame, /20 Nov 2026 12:00:00 UTC answered by Actor40 · \d+[smhd] ago/);
+    assert.doesNotMatch(frame, /2026-11-20T12:00:00/);
   } finally { ui.destroy(); store.dispose(); }
 });
 

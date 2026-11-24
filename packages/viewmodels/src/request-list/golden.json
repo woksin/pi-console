@@ -1,23 +1,20 @@
 {
   "rows": [
     {
-      "id": "r12",
-      "sessionId": "s12",
-      "session": "meadow implementation",
-      "originLabel": "Unproven origin",
-      "originEvidence": "No positive origin evidence",
+      "id": "r10",
+      "sessionId": "s10",
+      "session": "harbor scout",
+      "originLabel": "Human request",
+      "originEvidence": "Explicit synthetic user-input marker",
       "status": {
-        "status": "answered",
-        "glyph": "✓",
-        "color": "green",
-        "label": "Answered"
+        "status": "open",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Open"
       },
-      "text": "Check whether the retry policy handles partial results.",
-      "age": "24m",
-      "answer": {
-        "text": "Use bounded retries with an explicit checkpoint.",
-        "age": "24m"
-      },
+      "text": "Cancel pending retries when the job is stopped.",
+      "age": "1h",
+      "answer": null,
       "partial": null,
       "resetId": null
     },
@@ -33,26 +30,8 @@
         "color": "amber",
         "label": "Unanswered"
       },
-      "text": "Write the handoff and preserve the pending decisions.",
-      "age": "24m",
-      "answer": null,
-      "partial": null,
-      "resetId": null
-    },
-    {
-      "id": "r10",
-      "sessionId": "s10",
-      "session": "harbor scout",
-      "originLabel": "Human request",
-      "originEvidence": "Explicit synthetic user-input marker",
-      "status": {
-        "status": "open",
-        "glyph": "!",
-        "color": "amber",
-        "label": "Open"
-      },
-      "text": "Compare the queue strategies and explain the trade-offs.",
-      "age": "24m",
+      "text": "Add a checkpoint after every queue batch.",
+      "age": "1h",
       "answer": null,
       "partial": null,
       "resetId": null
@@ -69,9 +48,30 @@
         "color": "pink",
         "label": "Interrupted"
       },
-      "text": "Check whether the retry policy handles partial results.",
-      "age": "24m",
+      "text": "Draft the release notes from the merged changes.",
+      "age": "1h",
       "answer": null,
+      "partial": null,
+      "resetId": null
+    },
+    {
+      "id": "r12",
+      "sessionId": "s12",
+      "session": "meadow implementation",
+      "originLabel": "Unproven origin",
+      "originEvidence": "No positive origin evidence",
+      "status": {
+        "status": "answered",
+        "glyph": "✓",
+        "color": "green",
+        "label": "Answered"
+      },
+      "text": "Trim the migration dry-run output to the changed rows.",
+      "age": "2h",
+      "answer": {
+        "text": "The dry run now prints only the changed rows and a count of the rows it skipped.",
+        "age": "1h"
+      },
       "partial": null,
       "resetId": null
     },
@@ -87,48 +87,12 @@
         "color": "green",
         "label": "Answered"
       },
-      "text": "Write the handoff and preserve the pending decisions.",
-      "age": "24m",
+      "text": "Check that old clients still read the new schema version.",
+      "age": "2h",
       "answer": {
-        "text": "Use bounded retries with an explicit checkpoint.",
-        "age": "24m"
+        "text": "Clients one version behind still parse the new schema; two versions behind fail with a clear error.",
+        "age": "1h"
       },
-      "partial": null,
-      "resetId": null
-    },
-    {
-      "id": "r7",
-      "sessionId": "s7",
-      "session": "harbor implementation",
-      "originLabel": "Human request",
-      "originEvidence": "Explicit synthetic user-input marker",
-      "status": {
-        "status": "unanswered",
-        "glyph": "!",
-        "color": "amber",
-        "label": "Unanswered"
-      },
-      "text": "Compare the queue strategies and explain the trade-offs.",
-      "age": "24m",
-      "answer": null,
-      "partial": null,
-      "resetId": null
-    },
-    {
-      "id": "r6",
-      "sessionId": "s6",
-      "session": "harbor coordinator",
-      "originLabel": "Unproven origin",
-      "originEvidence": "No positive origin evidence",
-      "status": {
-        "status": "open",
-        "glyph": "!",
-        "color": "amber",
-        "label": "Open"
-      },
-      "text": "Check whether the retry policy handles partial results.",
-      "age": "24m",
-      "answer": null,
       "partial": null,
       "resetId": null
     },
@@ -144,8 +108,8 @@
         "color": "pink",
         "label": "Interrupted"
       },
-      "text": "Write the handoff and preserve the pending decisions.",
-      "age": "24m",
+      "text": "Make the CLI help output fit an 80 column terminal.",
+      "age": "2h",
       "answer": null,
       "partial": null,
       "resetId": null
@@ -162,12 +126,30 @@
         "color": "green",
         "label": "Answered"
       },
-      "text": "Compare the queue strategies and explain the trade-offs.",
-      "age": "24m",
+      "text": "Find out why the cache expires entries before their TTL.",
+      "age": "2h",
       "answer": {
-        "text": "Use bounded retries with an explicit checkpoint.",
-        "age": "24m"
+        "text": "The sweep ran on a 60s timer, so entries outlived their TTL by up to a minute; it now sweeps on read.",
+        "age": "2h"
       },
+      "partial": null,
+      "resetId": null
+    },
+    {
+      "id": "r6",
+      "sessionId": "s6",
+      "session": "harbor coordinator",
+      "originLabel": "Unproven origin",
+      "originEvidence": "No positive origin evidence",
+      "status": {
+        "status": "open",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Open"
+      },
+      "text": "Isolate the tests that share a temporary directory.",
+      "age": "2h",
+      "answer": null,
       "partial": null,
       "resetId": null
     },
@@ -184,7 +166,7 @@
         "label": "Unanswered"
       },
       "text": "Check whether the retry policy handles partial results.",
-      "age": "24m",
+      "age": "2h",
       "answer": null,
       "partial": null,
       "resetId": null
@@ -202,7 +184,7 @@
         "label": "Open"
       },
       "text": "Write the handoff and preserve the pending decisions.",
-      "age": "24m",
+      "age": "2h",
       "answer": null,
       "partial": null,
       "resetId": null
@@ -220,13 +202,31 @@
         "label": "Interrupted"
       },
       "text": "Compare the queue strategies and explain the trade-offs.",
-      "age": "25m",
+      "age": "2h",
       "answer": null,
       "partial": {
         "text": "The first option bounds memory, but the comparison",
-        "age": "24m"
+        "age": "2h"
       },
       "resetId": "reset1"
+    },
+    {
+      "id": "r7",
+      "sessionId": "s7",
+      "session": "harbor implementation",
+      "originLabel": "Human request",
+      "originEvidence": "Explicit synthetic user-input marker",
+      "status": {
+        "status": "unanswered",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Unanswered"
+      },
+      "text": "Dry-run the schema migration and list the tables it would touch.",
+      "age": "3h",
+      "answer": null,
+      "partial": null,
+      "resetId": null
     }
   ],
   "open": 6

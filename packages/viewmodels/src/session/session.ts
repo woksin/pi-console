@@ -58,14 +58,14 @@ function line(entry: TranscriptEntry, streaming = false): TranscriptLine {
   };
 }
 
-/** Collapses a run of streaming deltas into one line. A run is consecutive deltas of the same request (`requestId`, null counting as its own request); any other entry, a different request, a reset or an abort ends it, and an ended run stays its own line keyed by its first delta. A final `assistant` entry replaces only a directly preceding run of the same request. */
+/** Collapses a run of streaming deltas into one line. A run is consecutive deltas of the same request (`requestId`, null counting as its own request); any other entry, a different request, a reset or an abort ends it, and an ended run stays its own line (not streaming) keyed by its first delta; only an unterminated run at the end of the supplied entries is streaming. A final `assistant` entry replaces only a directly preceding run of the same request. */
 export function transcriptLines(entries: readonly TranscriptEntry[]): TranscriptLine[] {
   const lines: TranscriptLine[] = [];
   let run: TranscriptEntry[] = [];
-  const flush = () => {
+  const flush = (streaming = false) => {
     if (run.length === 0) return;
     const last = run[run.length - 1];
-    lines.push({ ...line({ ...last, text: run.map(entry => entry.text).join('') }, true), id: run[0].id, cursor: last.cursor, key: run[0].cursor });
+    lines.push({ ...line({ ...last, text: run.map(entry => entry.text).join('') }, streaming), id: run[0].id, cursor: last.cursor, key: run[0].cursor });
     run = [];
   };
   const sameRequest = (entry: TranscriptEntry) => (run[0].requestId ?? null) === (entry.requestId ?? null);
@@ -80,7 +80,7 @@ export function transcriptLines(entries: readonly TranscriptEntry[]): Transcript
     flush();
     lines.push(replaced === undefined ? line(entry) : { ...line(entry), key: replaced });
   }
-  flush();
+  flush(true);
   return lines;
 }
 

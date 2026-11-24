@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
-import { generate, writeFixture } from './generate.ts';
+import { generate, observedAt, writeFixture } from './generate.ts';
 import { apiV1Schema as schema, eventPayloads, validate } from '@pi-console/contract';
 
 const cache = tmpdir();
@@ -60,4 +60,81 @@ test('schema validator rejects malformed types, timestamps, enums and extra fiel
   const input = JSON.parse(readFileSync(new URL('../../../../docs/api/schemas/intervention-input.json', import.meta.url), 'utf8'));
   validate({ type: 'steer', sessionId: 's2', text: 'Check the queue.' }, input, schema);
   assert.throws(() => validate({ type: 'pause', sessionId: 's2' }, input, schema));
+});
+
+const { fixture: f } = generate();
+const observed = Date.parse(f.generatedAt);
+const distinct = (values: readonly unknown[]) => new Set(values).size;
+const ageBucket = (updatedAt: string) => {
+  const age = (observed - Date.parse(updatedAt)) / 1000;
+  if (age < 60) return 'seconds';
+  return age < 3600 ? 'minutes' : 'hours';
+};
+
+test('requests, questions and options are distinct, and models and costs vary', () => {
+  assert.equal(f.generatedAt, observedAt);
+  assert.equal(distinct(f.requests.map(request => request.text)), 12);
+  assert.equal(distinct(f.questions.map(question => question.text)), 8);
+  assert.ok(f.questions.every(question => question.options.length >= 2 && question.options.every(option => option.length > 0)));
+  assert.ok(distinct(f.sessions.map(session => session.model)) >= 3);
+});
+
+test('session costs are distinct and positive, with deliberate unknown, known-zero and incomplete cases', () => {
+  const costs = f.sessions.map(session => session.costUsd);
+  assert.ok(distinct(costs.filter(cost => cost !== null && cost > 0)) >= 8);
+  assert.ok(costs.includes(null) && costs.includes(0));
+  assert.ok(f.sessions.some(session => session.costIncomplete));
+});
+
+test('sessions span seconds, minutes and hours of activity, never after observation', () => {
+  assert.deepEqual([...new Set(f.sessions.map(session => ageBucket(session.updatedAt)))].sort(), ['hours', 'minutes', 'seconds']);
+  assert.ok(f.sessions.every(session => Date.parse(session.updatedAt) <= observed));
+});
+
+const owners = new Map(f.sessions.map(session => [session.id, session]));
+const inLifetime = (id: string, at: string) => Date.parse(at) >= Date.parse(owners.get(id)!.startedAt) && Date.parse(at) <= Date.parse(owners.get(id)!.updatedAt);
+
+test('every entity time falls inside its owning session lifetime and answers follow prompts', () => {
+  const samples = f.sessions.flatMap(session => session.samples.map(sample => [session.id, sample.at] as const));
+  const entities: (readonly [string, string])[] = [
+    ...samples, ...f.requests.map(request => [request.sessionId, request.createdAt] as const),
+    ...f.questions.map(question => [question.sessionId, question.createdAt] as const), ...f.jobs.map(job => [job.sessionId, job.startedAt] as const),
+    ...f.messages.flatMap(message => [[message.fromSessionId, message.sentAt], [message.toSessionId, message.sentAt]] as const), ...f.transcript.map(entry => ['s2', entry.at] as const),
+  ];
+  assert.deepEqual(entities.filter(([id, at]) => !inLifetime(id, at)), []);
+  assert.ok(f.requests.every(request => !request.answer || Date.parse(request.answer.at) > Date.parse(request.createdAt)));
+});
+
+test('session samples ascend and the reset still maps to the first sample of s2', () => {
+  for (const session of f.sessions) assert.deepEqual(session.samples.map(sample => sample.at), session.samples.map(sample => sample.at).sort());
+  const [first, second] = f.sessions[1].samples;
+  assert.equal(Date.parse(f.resets[0].at) - Date.parse(first.at), 18000);
+  assert.ok(Date.parse(second.at) > Date.parse(f.resets[0].at));
+});
+
+test('transcript head, reset vicinity and tail have distinct prompts and answers per turn', () => {
+  assert.equal(f.transcript[0].text, f.requests[0].text);
+  assert.equal(f.transcript[100].kind, 'reset');
+  for (const window of [f.transcript.slice(0, 40), f.transcript.slice(80, 120), f.transcript.slice(-40)]) {
+    for (const kind of ['user', 'assistant']) {
+      const texts = window.filter(entry => entry.kind === kind).map(entry => entry.text);
+      assert.equal(distinct(texts), texts.length, `distinct ${kind} text`);
+    }
+  }
+  assert.ok(distinct(f.transcript.map(entry => entry.text)) > 500, 'not a handful of repeated sentences');
+});
+
+const toolOf = (entry: (typeof f.transcript)[number]) => [entry.toolResult?.toolName, entry.toolResult?.argsExcerpt];
+
+test('each tool call is followed by a result for the same tool and path; errors and truncation survive', () => {
+  const calls = Map.groupBy(f.transcript.filter(item => item.toolCallId && item.kind !== 'reset'), item => item.toolCallId!);
+  const pairs = [...calls.values()].filter(group => group.length === 2); // call12's call entry is the reset marker, as before
+  for (const [call, result] of pairs) {
+    assert.deepEqual([call.kind, result.kind], ['tool.call', 'tool.result']);
+    assert.deepEqual(toolOf(call), toolOf(result));
+    assert.equal(call.text, `read ${call.toolResult?.argsExcerpt}`);
+  }
+  const results = f.transcript.filter(entry => entry.kind === 'tool.result');
+  assert.ok(results.some(entry => entry.toolResult?.resultKind === 'error'));
+  assert.ok(results.some(entry => entry.toolResult?.truncated));
 });

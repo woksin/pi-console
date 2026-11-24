@@ -6,7 +6,7 @@ import { dirname } from 'node:path';
 import { generate, needsYou } from '@pi-console/testkit';
 import type { Job, Message, Question, Request, Reset, Session, TranscriptEntry } from '@pi-console/contract';
 
-export const now = Date.parse('2026-11-20T09:25:00.000Z');
+export const now = Date.parse('2026-11-20T12:00:00.000Z');
 /** The generated fixture is untyped JSON; the typed view below is checked against the schemas by the testkit's own specs. */
 export interface TypedFixture {
   repositories: { id: string; name: string }[]; sessions: Session[]; requests: Request[]; questions: Question[];
