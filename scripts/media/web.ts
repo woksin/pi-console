@@ -184,10 +184,33 @@ async function stillsFor(rig: Rig, work: Work, theme: Theme): Promise<void> {
 }
 
 async function darkOnlyStills(page: Page, work: Work): Promise<void> {
+  if (wanted(work, 'web-help')) {
+    await page.keyboard.press('?');
+    await page.getByRole('dialog', { name: 'Keyboard help' }).waitFor();
+    await settle(page);
+    writeStill(work, 'web-help', await png(page));
+    await page.keyboard.press('Escape');
+    await page.getByRole('dialog', { name: 'Keyboard help' }).waitFor({ state: 'detached' });
+  }
   if (!wanted(work, 'web-themes')) return;
   await go(page, '/settings');
   await page.locator('.theme-cards').evaluate(cards => { cards.style.gridTemplateColumns = 'repeat(3, 1fr)'; });
   writeStill(work, 'web-themes', await page.locator('.theme-cards').screenshot({ animations: 'disabled' }));
+}
+
+/** Its own rig: the daemon is stopped after the snapshot, so nothing else may share it. */
+async function offlineStill(work: Work): Promise<void> {
+  const rig = await startFrozenRig();
+  try {
+    const page = await openConsole(rig, { theme: 'midnight', scale: 2, route: '/fleet' });
+    await page.locator('tr[data-session]').first().waitFor();
+    await rig.stopDaemon();
+    await page.getByTestId('banner').filter({ hasText: 'Disconnected: showing the last data received' }).waitFor({ timeout: 30_000 });
+    await page.locator('.stale-asof').waitFor();
+    await settle(page);
+    writeStill(work, 'web-offline', await png(page));
+    await page.context().close();
+  } finally { await rig.close(); }
 }
 
 async function paletteGif(rig: Rig, work: Work): Promise<void> {
@@ -233,9 +256,10 @@ async function tourGif(rig: Rig, work: Work): Promise<void> {
 }
 
 export async function captureWeb(rig: Rig, work: Work): Promise<void> {
-  const wantsStills = shots.some(shot => shot.client === 'web' && shot.kind === 'still' && !flowIds.includes(shot.id) && wanted(work, shot.id));
+  const wantsStills = shots.some(shot => shot.client === 'web' && shot.kind === 'still' && !flowIds.includes(shot.id) && shot.id !== 'web-offline' && wanted(work, shot.id));
   if (wantsStills) { await stillsFor(rig, work, 'midnight'); await stillsFor(rig, work, 'dawn'); }
   if (wanted(work, 'web-palette')) await paletteGif(rig, work);
   if (wanted(work, 'web-tour')) await tourGif(rig, work);
+  if (wanted(work, 'web-offline')) await offlineStill(work);
   await captureFlows(work);
 }
