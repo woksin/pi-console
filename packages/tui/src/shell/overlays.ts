@@ -96,8 +96,10 @@ export function Help(props: { width: number; height: number; scroll?: number }) 
 }
 
 const tone: Record<Tone, Color> = { good: 'green', warn: 'amber', bad: 'red', plain: 'text' };
+interface SettingsColumn { labelWidth: number }
+
 /** Long labels wrap within one shared column; every value has at least two spaces of separation. */
-function settingsLine(row: SettingsRow, labelWidth: number): Line[] {
+function settingsLine(row: SettingsRow, { labelWidth }: SettingsColumn): Line[] {
   const labels = wrap(row.label, labelWidth);
   return [
     ...labels.map((label, index): Line => [t(`${pad(label, labelWidth)}  `, 'muted'), ...index === labels.length - 1 ? [t(row.value, tone[row.tone]), t(row.valueDetail ? ` · ${row.valueDetail}` : '', 'faint')] : []]),
@@ -105,10 +107,10 @@ function settingsLine(row: SettingsRow, labelWidth: number): Line[] {
   ];
 }
 
-const section = (title: string, rows: SettingsRow[], labelWidth: number): Line[] => [heading(title), ...rows.flatMap(row => settingsLine(row, labelWidth)), blank];
+const section = ({ title, rows }: { title: string; rows: SettingsRow[] }, column: SettingsColumn): Line[] => [heading(title), ...rows.flatMap(row => settingsLine(row, column)), blank];
 
 /** The same samples the web Settings shows, in the theme this terminal is drawing with. */
-function themeLines(labelWidth: number): Line[] {
+function themeLines({ labelWidth }: SettingsColumn): Line[] {
   const preview = themePreview();
   return [heading('Theme'),
     [t(`${pad('Theme', labelWidth)}  `, 'muted'), t(palette.theme, 'text', { bold: true }), t('  PI_CONSOLE_THEME=midnight|contrast|mono', 'faint')],
@@ -122,8 +124,8 @@ export function settingsViewport(size: { width: number; height: number }, input:
   const model = settingsViewModel({ ...input, daemonHealth: reported });
   const groups = [{ title: 'Health', rows: model.health }, ...healthGroups(reported, model.sources, input.now), { title: 'Data', rows: model.data }];
   const longest = Math.max(5, ...groups.flatMap(group => group.rows.map(row => displayWidth(row.label))));
-  const labelWidth = Math.max(5, Math.min(longest, 32, Math.floor((size.width - 8) / 2)));
-  const lines = [...groups.flatMap(group => section(group.title, group.rows, labelWidth)), ...themeLines(labelWidth)];
+  const column: SettingsColumn = { labelWidth: Math.max(5, Math.min(longest, 32, Math.floor((size.width - 8) / 2))) };
+  const lines = [...groups.flatMap(group => section(group, column)), ...themeLines(column)];
   return overlayViewport(size, lines, { width: 76, height: 27 });
 }
 

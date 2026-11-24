@@ -19,13 +19,16 @@ export function healthTimestamp(value: string, now: number): string | null {
   return `${age(value, now)} ago · ${timeDisplay(value).absolute}`;
 }
 
+const booleanLabels = new Map<string, readonly [string, string]>([['complete', ['In progress', 'Complete']]]);
+const millisecondsText = (value: number): string => `${Number.isInteger(value) ? String(value) : value.toFixed(1)} ms`;
+
 /** Daemon-owned scalars use the same units in both clients, including unknown fields. */
 export function healthValue(key: string, value: unknown, now: number, milliseconds = false): string {
-  if (typeof value === 'boolean') return key === 'complete' ? (value ? 'Complete' : 'In progress') : (value ? 'Yes' : 'No');
+  if (typeof value === 'boolean') return (booleanLabels.get(key) ?? ['No', 'Yes'])[Number(value)];
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) return '–';
     if (key.endsWith('Bytes')) return formatBytes(value);
-    if (milliseconds || key.endsWith('Ms')) return `${Number.isInteger(value) ? String(value) : value.toFixed(1)} ms`;
+    if (milliseconds || key.endsWith('Ms')) return millisecondsText(value);
     return value.toLocaleString('en-US');
   }
   if (typeof value === 'string') return healthTimestamp(value, now) ?? healthText(value);
