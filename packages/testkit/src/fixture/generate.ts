@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { resolve } from 'node:path';
+import { ageSeconds, jobDefs, messageText, models, questionDefs, requestAnswers, requestTexts, sessionSpend, turn, type Turn } from './content.ts';
 
 export const statuses = ['working', 'needs-you', 'blocked', 'waiting', 'idle', 'done', 'failed'] as const;
 const repositories = ['aurora', 'harbor', 'meadow', 'quartz', 'willow', 'zenith'];
@@ -13,75 +14,92 @@ export function random(seed: number) {
   };
 }
 
+const second = 1000;
+const iso = (ms: number) => new Date(Math.round(ms / second) * second).toISOString();
+/** The instant the snapshot is observed: noon, matching the media rig's fixed clock. Every fixture time is at or before it. */
+export const observedAt = '2026-11-20T12:00:00.000Z';
+const observed = Date.parse(observedAt);
+const roleNames = ['coordinator', 'implementation', 'review', 'explore', 'scout'];
+const branches = ['queue-checkpoints', 'retry-cancellation', 'cache-expiry', 'schema-compat', 'cli-help', 'test-isolation'];
+
+/** A session lives from just before the replayed transcript (s2 starts with it) to its latest activity, which varies from seconds to hours before observation. */
+function lifetime(index: number) {
+  const status = statuses[index % statuses.length];
+  const start = index === 1 ? epoch : epoch - 1800000 + (index % 6) * 300000;
+  return { start, end: observed - ageSeconds[status][Math.floor(index / statuses.length)] * second };
+}
+const within = (index: number, fraction: number) => {
+  const { start, end } = lifetime(index);
+  return iso(start + (end - start) * fraction);
+};
+
 function makeSessions(rng: () => number) {
   return Array.from({ length: 30 }, (_, i) => {
     const group = Math.floor(i / 5);
     const slot = i % 5;
+    const { start, end } = lifetime(i);
+    const { costUsd, costIncomplete } = sessionSpend(i);
     const samples = Array.from({ length: 24 }, (_, n) => ({
-      at: timestamp(n * 60000), contextPercent: Math.round(15 + rng() * 75),
-      tokens: Math.round(500 + rng() * 4000), costUsd: Math.round(rng() * 90) / 100,
+      at: iso(start + (end - start) * n / 23), contextPercent: Math.round(15 + rng() * 75),
+      tokens: Math.round(1200 + (costUsd ?? 0.3) * 900 * (0.6 + rng() * 0.8)),
+      costUsd: costUsd === null ? 0 : Math.round(costUsd / 24 * (0.6 + rng() * 0.8) * 1000) / 1000,
     }));
     return {
-      id: `s${i + 1}`, repositoryId: repositories[group], name: `${repositories[group]} ${['coordinator', 'implementation', 'review', 'explore', 'scout'][slot]}`,
+      id: `s${i + 1}`, repositoryId: repositories[group], name: `${repositories[group]} ${roleNames[slot]}`,
       laneId: ['L0', 'L192', 'L193', 'L194', 'L195'][slot],
       role: ['orchestrator', 'main', 'main', 'subagent', 'subagent'][slot],
       parentSessionId: slot >= 3 ? `s${group * 5 + 2}` : null,
-      orchestratorSessionId: `s${group * 5 + 1}`, branch: `spike/${repositories[group]}-${slot}`,
-      cwd: `/synthetic/workspaces/${repositories[group]}`, model: slot % 2 ? 'synthetic-fast' : 'synthetic-reasoner',
-      status: statuses[i % statuses.length], startedAt: timestamp(0), updatedAt: timestamp(1380000),
-      contextPercent: samples.at(-1)!.contextPercent, samples,
+      orchestratorSessionId: `s${group * 5 + 1}`, branch: `feature/${branches[(group + slot) % branches.length]}`,
+      cwd: `/synthetic/workspaces/${repositories[group]}`, model: models[(group + slot) % models.length],
+      status: statuses[i % statuses.length], startedAt: iso(start), updatedAt: iso(end),
+      contextPercent: samples.at(-1)!.contextPercent, samples, costUsd, costIncomplete,
     };
   });
 }
 
 function makeRequests() {
-  return Array.from({ length: 12 }, (_, i) => ({
-    id: `r${i + 1}`, sessionId: i < 3 ? 's2' : `s${i + 1}`,
-    text: ['Compare the queue strategies and explain the trade-offs.', 'Write the handoff and preserve the pending decisions.', 'Check whether the retry policy handles partial results.'][i % 3],
-    origin: ['human', 'launch', 'unproven'][i % 3],
-    originLabel: ['Human request', 'Initial prompt', 'Unproven origin'][i % 3],
-    originEvidence: ['Explicit synthetic user-input marker', 'Synthetic non-relaunch session-start marker', 'No positive origin evidence'][i % 3],
-    status: ['interrupted', 'open', 'unanswered', 'answered'][i % 4],
-    createdAt: timestamp(i * 1000), resetId: i === 0 ? 'reset1' : null,
-    answer: i % 4 === 3 ? { id: `a${i}`, text: 'Use bounded retries with an explicit checkpoint.', at: timestamp(10000 + i * 1000), interim: false } : null,
-    interimAnswers: i === 0 ? [{ id: 'a-partial', text: 'The first option bounds memory, but the comparison', at: timestamp(9000), interim: true }] : [],
-  }));
+  return Array.from({ length: 12 }, (_, i) => {
+    const owner = i < 3 ? 1 : i;
+    const createdAt = i < 3 ? timestamp([2000, 5000, 9000][i]) : within(owner, 0.1 + i * 0.04);
+    return {
+      id: `r${i + 1}`, sessionId: `s${owner + 1}`, text: requestTexts[i],
+      origin: ['human', 'launch', 'unproven'][i % 3],
+      originLabel: ['Human request', 'Initial prompt', 'Unproven origin'][i % 3],
+      originEvidence: ['Explicit synthetic user-input marker', 'Synthetic non-relaunch session-start marker', 'No positive origin evidence'][i % 3],
+      status: ['interrupted', 'open', 'unanswered', 'answered'][i % 4],
+      createdAt, resetId: i === 0 ? 'reset1' : null,
+      answer: i % 4 === 3 ? { id: `a${i}`, text: requestAnswers[i], at: within(owner, 0.2 + i * 0.04), interim: false } : null,
+      interimAnswers: i === 0 ? [{ id: 'a-partial', text: 'The first option bounds memory, but the comparison', at: timestamp(9000), interim: true }] : [],
+    };
+  });
 }
 
 function makeTranscript() {
   const kinds = ['user', 'thinking', 'assistant.delta', 'assistant.delta', 'tool.call', 'tool.result', 'diff', 'assistant'];
-  const texts = [
-    'Inspect the synthetic queue and propose a bounded retry policy.',
-    'I will compare the checkpoint boundaries before changing the queue.',
-    'A bounded queue ', 'keeps the retry budget predictable. ',
-    'read src/queue.ts', 'export const retryLimit = 3; // synthetic example',
-    '--- a/src/queue.ts\n+++ b/src/queue.ts\n@@ -1 +1 @@\n-export const retryLimit = 3;\n+export const retryLimit = 4;',
-    'The retry budget is bounded; the focused checks pass.',
-  ];
   const requestIds = ['r1', 'r2', 'r3'];
   return Array.from({ length: 2000 }, (_, i) => {
     const kind = i === 100 ? 'reset' : kinds[i % kinds.length];
     const call = Math.floor(i / 8);
+    const content = turn(call);
     return {
       id: `entry${i + 1}`, cursor: i + 1, sessionId: 's2', at: timestamp(i * 180), kind,
-      text: i === 100 ? 'Handoff: comparison interrupted; carried requests r1, r2.' : texts[i % texts.length],
+      text: i === 100 ? 'Handoff: comparison interrupted; carried requests r1, r2.' : content.texts[i % kinds.length],
       toolCallId: [4, 5].includes(i % 8) ? `call${call}` : null,
       resetId: i === 100 ? 'reset1' : null,
       requestId: kind === 'user' ? requestIds[call % requestIds.length] : null,
-      toolResult: toolResult(kind, call, texts[i % texts.length]),
+      toolResult: toolResult(kind, content, content.texts[i % kinds.length]),
     };
   });
 }
 
 /** Structured tool result (API v1): call and result entries of the same call share tool name and args excerpt. */
-function toolResult(kind: string, call: number, text: string) {
+function toolResult(kind: string, content: Turn, text: string) {
   if (kind !== 'tool.call' && kind !== 'tool.result') return null;
-  const failed = call % 7 === 3;
   return {
-    toolName: 'read', argsExcerpt: 'src/queue.ts',
-    resultKind: kind === 'tool.call' ? 'none' : failed ? 'error' : 'text',
-    resultExcerpt: kind === 'tool.call' ? '' : failed ? 'ENOENT: no such file' : text,
-    truncated: kind === 'tool.result' && call % 5 === 0, withheld: false,
+    toolName: 'read', argsExcerpt: content.file,
+    resultKind: kind === 'tool.call' ? 'none' : content.failed ? 'error' : 'text',
+    resultExcerpt: kind === 'tool.call' ? '' : text,
+    truncated: kind === 'tool.result' && content.truncated, withheld: false,
   };
 }
 
@@ -91,25 +109,27 @@ export function generate(seed = 192) {
   const requests = makeRequests();
   const questions = Array.from({ length: 8 }, (_, i) => ({
     id: `q${i + 1}`, sessionId: `s${i + 1}`, kind: ['question', 'decision', 'approval', 'fyi'][i % 4],
-    text: ['Which retention window should the cache use?', 'May the synthetic migration proceed?'][i % 2],
-    options: ['Keep 14 days', 'Keep 30 days'], urgency: i % 2 ? 'normal' : 'high', blocking: i % 2 === 0,
-    status: 'open', createdAt: timestamp(i * 2000),
+    text: questionDefs[i].text, options: questionDefs[i].options, urgency: i % 2 ? 'normal' : 'high', blocking: i % 2 === 0,
+    status: 'open', createdAt: within(i, 0.05 + i * 0.05),
   }));
-  const messages = Array.from({ length: 40 }, (_, i) => ({
-    id: `m${i + 1}`, fromSessionId: `s${Math.floor(i / 4) % 6 * 5 + 1}`,
-    toSessionId: `s${Math.floor(i / 4) % 6 * 5 + 2 + i % 4}`,
-    text: ['Please verify the checkpoint contract.', 'Review complete; the bounded queue looks consistent.', 'Waiting for the migration decision.', 'The focused checks passed; ready for handoff.'][i % 4],
-    status: ['sent', 'delivered', 'read'][i % 3], sentAt: timestamp(i * 3000),
-  }));
+  const messages = Array.from({ length: 40 }, (_, i) => {
+    const from = Math.floor(i / 4) % 6 * 5;
+    const to = from + 1 + i % 4;
+    const start = Math.max(lifetime(from).start, lifetime(to).start);
+    const end = Math.min(lifetime(from).end, lifetime(to).end);
+    return {
+      id: `m${i + 1}`, fromSessionId: `s${from + 1}`, toSessionId: `s${to + 1}`, text: messageText(i),
+      status: ['sent', 'delivered', 'read'][i % 3], sentAt: iso(start + (end - start) * (0.05 + (i % 10) * 0.09)),
+    };
+  });
   const jobs = Array.from({ length: 9 }, (_, i) => ({
-    id: `j${i + 1}`, sessionId: `s${i + 1}`, kind: ['job', 'phase', 'ci'][i % 3],
-    name: ['watch inbox', 'unit checks', 'release verification'][i % 3],
+    id: `j${i + 1}`, sessionId: `s${i + 1}`, kind: jobDefs[i].kind, name: jobDefs[i].name,
     status: ['running', 'queued', 'done', 'failed'][i % 4],
-    startedAt: timestamp(i * 1000), exitCode: i % 4 === 3 ? 1 : null,
+    startedAt: within(i, 0.1 + i * 0.07), exitCode: i % 4 === 3 ? 1 : null,
   }));
   const resets = [{ id: 'reset1', sessionId: 's2', kind: 'handoff', at: timestamp(18000), carriedRequestIds: ['r1', 'r2'], interruptedRequestIds: ['r1'] }];
   const transcript = makeTranscript();
-  const fixture = { version: 0, generatedAt: timestamp(0), repositories: repositories.map(id => ({ id, name: id })), sessions, requests, questions, messages, jobs, resets, transcript };
+  const fixture = { version: 0, generatedAt: observedAt, repositories: repositories.map(id => ({ id, name: id })), sessions, requests, questions, messages, jobs, resets, transcript };
   const timeline = [
     ...transcript.map((entry, i) => ({ t: i * 180, type: 'transcript.appended', payload: entry })),
     ...sessions.map((session, i) => ({ t: i * 900, type: 'session.updated', payload: { ...session, status: statuses[(i + 1) % statuses.length] } })),

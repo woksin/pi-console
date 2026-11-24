@@ -5,7 +5,7 @@
       "sessionId": "s8",
       "session": "harbor review",
       "kind": "phase",
-      "name": "unit checks",
+      "name": "test isolation checks",
       "status": {
         "status": "failed",
         "glyph": "×",
@@ -13,14 +13,14 @@
         "label": "Failed"
       },
       "exit": "exit 1",
-      "age": "24m"
+      "age": "1h"
     },
     {
       "id": "j4",
       "sessionId": "s4",
       "session": "aurora explore",
       "kind": "job",
-      "name": "watch inbox",
+      "name": "watch cache sweep logs",
       "status": {
         "status": "failed",
         "glyph": "×",
@@ -28,14 +28,14 @@
         "label": "Failed"
       },
       "exit": "exit 1",
-      "age": "24m"
+      "age": "2h"
     },
     {
       "id": "j9",
       "sessionId": "s9",
       "session": "harbor explore",
       "kind": "ci",
-      "name": "release verification",
+      "name": "release verification (rc2)",
       "status": {
         "status": "running",
         "glyph": "*",
@@ -43,14 +43,14 @@
         "label": "Running"
       },
       "exit": "",
-      "age": "24m"
+      "age": "1h"
     },
     {
       "id": "j5",
       "sessionId": "s5",
       "session": "aurora scout",
       "kind": "phase",
-      "name": "unit checks",
+      "name": "schema compatibility checks",
       "status": {
         "status": "running",
         "glyph": "*",
@@ -58,14 +58,14 @@
         "label": "Running"
       },
       "exit": "",
-      "age": "24m"
+      "age": "2h"
     },
     {
       "id": "j1",
       "sessionId": "s1",
       "session": "aurora coordinator",
       "kind": "job",
-      "name": "watch inbox",
+      "name": "watch inbox for replies",
       "status": {
         "status": "running",
         "glyph": "*",
@@ -73,29 +73,14 @@
         "label": "Running"
       },
       "exit": "",
-      "age": "25m"
-    },
-    {
-      "id": "j6",
-      "sessionId": "s6",
-      "session": "harbor coordinator",
-      "kind": "ci",
-      "name": "release verification",
-      "status": {
-        "status": "queued",
-        "glyph": "·",
-        "color": "muted",
-        "label": "Unknown"
-      },
-      "exit": "",
-      "age": "24m"
+      "age": "3h"
     },
     {
       "id": "j2",
       "sessionId": "s2",
       "session": "aurora implementation",
       "kind": "phase",
-      "name": "unit checks",
+      "name": "unit checks: queue",
       "status": {
         "status": "queued",
         "glyph": "·",
@@ -103,22 +88,22 @@
         "label": "Unknown"
       },
       "exit": "",
-      "age": "24m"
+      "age": "2h"
     },
     {
-      "id": "j7",
-      "sessionId": "s7",
-      "session": "harbor implementation",
-      "kind": "job",
-      "name": "watch inbox",
+      "id": "j6",
+      "sessionId": "s6",
+      "session": "harbor coordinator",
+      "kind": "ci",
+      "name": "lint and typecheck",
       "status": {
-        "status": "done",
-        "glyph": "✓",
-        "color": "green",
-        "label": "Done"
+        "status": "queued",
+        "glyph": "·",
+        "color": "muted",
+        "label": "Unknown"
       },
       "exit": "",
-      "age": "24m"
+      "age": "2h"
     },
     {
       "id": "j3",
@@ -133,7 +118,22 @@
         "label": "Done"
       },
       "exit": "",
-      "age": "24m"
+      "age": "2h"
+    },
+    {
+      "id": "j7",
+      "sessionId": "s7",
+      "session": "harbor implementation",
+      "kind": "job",
+      "name": "watch migration dry run",
+      "status": {
+        "status": "done",
+        "glyph": "✓",
+        "color": "green",
+        "label": "Done"
+      },
+      "exit": "",
+      "age": "3h"
     }
   ],
   "running": 3,

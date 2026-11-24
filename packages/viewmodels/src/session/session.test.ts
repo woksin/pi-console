@@ -60,11 +60,34 @@ test('transcript edge cases: null requests, a standalone final, a final after a 
   const d = 'assistant.delta';
   const table: { name: string; entries: TranscriptEntry[]; lines: [number, string, boolean][] }[] = [
     { name: 'null requestId deltas form one run and a null final replaces it', entries: [e(1, d, null, 'a'), e(2, d, null, 'b'), e(3, 'assistant', null, 'AB')], lines: [[1, 'AB', false]] },
-    { name: 'a null run and a null final after a user entry are separate lines', entries: [e(1, d, null, 'a'), e(2, 'user', null, 'q'), e(3, 'assistant', null, 'A')], lines: [[1, 'a', true], [2, 'q', false], [3, 'A', false]] },
+    { name: 'a null run and a null final after a user entry are separate lines', entries: [e(1, d, null, 'a'), e(2, 'user', null, 'q'), e(3, 'assistant', null, 'A')], lines: [[1, 'a', false], [2, 'q', false], [3, 'A', false]] },
     { name: 'a standalone final keeps its own key', entries: [e(7, 'assistant', 'r1', 'A')], lines: [[7, 'A', false]] },
-    { name: 'a final after a reset does not take over the run before it', entries: [e(1, d, 'r1', 'a'), e(2, 'reset', 'r1', 'reset'), e(3, 'assistant', 'r1', 'A')], lines: [[1, 'a', true], [2, 'reset', false], [3, 'A', false]] },
-    { name: 'interleaved requests start a new run at every switch', entries: [e(1, d, 'r1', 'a'), e(2, d, 'r2', 'b'), e(3, d, 'r1', 'c'), e(4, d, 'r2', 'd')], lines: [[1, 'a', true], [2, 'b', true], [3, 'c', true], [4, 'd', true]] },
-    { name: 'interleaved requests: a final replaces only the directly preceding run', entries: [e(1, d, 'r1', 'a'), e(2, d, 'r2', 'b'), e(3, 'assistant', 'r1', 'A')], lines: [[1, 'a', true], [2, 'b', true], [3, 'A', false]] },
+    { name: 'a final after a reset does not take over the run before it', entries: [e(1, d, 'r1', 'a'), e(2, 'reset', 'r1', 'reset'), e(3, 'assistant', 'r1', 'A')], lines: [[1, 'a', false], [2, 'reset', false], [3, 'A', false]] },
+    { name: 'interleaved requests start a new run at every switch', entries: [e(1, d, 'r1', 'a'), e(2, d, 'r2', 'b'), e(3, d, 'r1', 'c'), e(4, d, 'r2', 'd')], lines: [[1, 'a', false], [2, 'b', false], [3, 'c', false], [4, 'd', true]] },
+    { name: 'interleaved requests: a final replaces only the directly preceding run', entries: [e(1, d, 'r1', 'a'), e(2, d, 'r2', 'b'), e(3, 'assistant', 'r1', 'A')], lines: [[1, 'a', false], [2, 'b', false], [3, 'A', false]] },
+  ];
+  for (const row of table) assert.deepEqual(transcriptLines(row.entries).map(line => [line.key, line.text, line.streaming]), row.lines, row.name);
+});
+
+test('only an unterminated run at the tail streams; every ended run is not streaming', () => {
+  const base = { sessionId: 's', at: '2026-01-01T00:00:00Z', toolCallId: null, resetId: null, toolResult: null } as const;
+  const e = (cursor: number, kind: TranscriptEntry['kind'], requestId: string | null, text = String(cursor)): TranscriptEntry => ({ ...base, id: `e${String(cursor)}`, cursor, kind, text, requestId });
+  const d = 'assistant.delta';
+  const diff = { ...e(0, 'diff', null, 'd') };
+  const table: { name: string; entries: TranscriptEntry[]; lines: [number, string, boolean][] }[] = [
+    { name: 'unchanged tail run streams', entries: [e(1, d, 'r1', 'a'), e(2, d, 'r1', 'b')], lines: [[1, 'ab', true]] },
+    { name: 'tool call ends the run', entries: [e(1, d, 'r1', 'a'), e(2, 'tool.call', 'r1', 'c'), e(3, 'tool.result', 'r1', 'r')], lines: [[1, 'a', false], [2, 'c', false], [3, 'r', false]] },
+    { name: 'thinking ends the run', entries: [e(1, d, 'r1', 'a'), e(2, 'thinking', 'r1', 't')], lines: [[1, 'a', false], [2, 't', false]] },
+    { name: 'user ends the run', entries: [e(1, d, 'r1', 'a'), e(2, 'user', 'r1', 'u')], lines: [[1, 'a', false], [2, 'u', false]] },
+    { name: 'diff ends the run', entries: [e(1, d, 'r1', 'a'), { ...diff, cursor: 2, id: 'e2', requestId: 'r1' }], lines: [[1, 'a', false], [2, 'd', false]] },
+    { name: 'reset ends the run', entries: [e(1, d, 'r1', 'a'), e(2, 'reset', 'r1', 'x')], lines: [[1, 'a', false], [2, 'x', false]] },
+    { name: 'a different-request final ends the run', entries: [e(1, d, 'r1', 'a'), e(2, 'assistant', 'r2', 'B')], lines: [[1, 'a', false], [2, 'B', false]] },
+    { name: 'a different-request delta ends the run and starts the streaming tail', entries: [e(1, d, 'r1', 'a'), e(2, d, 'r2', 'b')], lines: [[1, 'a', false], [2, 'b', true]] },
+    { name: 'null then identified request', entries: [e(1, d, null, 'a'), e(2, d, 'r1', 'b')], lines: [[1, 'a', false], [2, 'b', true]] },
+    { name: 'identified then null request', entries: [e(1, d, 'r1', 'a'), e(2, d, null, 'b')], lines: [[1, 'a', false], [2, 'b', true]] },
+    { name: 'three interleaved runs: only the last streams', entries: [e(1, d, 'r1', 'a'), e(2, d, 'r2', 'b'), e(3, d, 'r1', 'c')], lines: [[1, 'a', false], [2, 'b', false], [3, 'c', true]] },
+    { name: 'a final right after the same request replaces the run', entries: [e(1, d, 'r1', 'a'), e(2, 'assistant', 'r1', 'A')], lines: [[1, 'A', false]] },
+    { name: 'a final after an intervening entry does not replace the run', entries: [e(1, d, 'r1', 'a'), e(2, 'tool.call', 'r1', 'c'), e(3, 'assistant', 'r1', 'A')], lines: [[1, 'a', false], [2, 'c', false], [3, 'A', false]] },
   ];
   for (const row of table) assert.deepEqual(transcriptLines(row.entries).map(line => [line.key, line.text, line.streaming]), row.lines, row.name);
 });

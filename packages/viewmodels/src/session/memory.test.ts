@@ -51,7 +51,7 @@ test('each item leads with a status badge and its text; scope, source and age go
   assert.deepEqual(model.items.map(row => row.badge), [
     { label: 'proposed', tone: 'amber' }, { label: 'active (assumed)', tone: 'green' }, { label: 'rejected', tone: 'red' },
   ]);
-  assert.equal(model.items[0].details, 'order · session s1 · from a coordinator order · 25m ago');
+  assert.equal(model.items[0].details, 'order · session s1 · from a coordinator order · 3h ago');
   assert.equal(model.items[0].text, 'synthetic item-1');
 });
 

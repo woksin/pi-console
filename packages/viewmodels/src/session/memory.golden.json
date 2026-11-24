@@ -47,7 +47,7 @@
         "label": "proposed",
         "tone": "amber"
       },
-      "details": "order · session s1 · from a coordinator order · 25m ago",
+      "details": "order · session s1 · from a coordinator order · 3h ago",
       "text": "synthetic item-1",
       "command": "/memory confirm item-1",
       "rejectCommand": "/memory reject item-1",
@@ -65,7 +65,7 @@
         "label": "active (assumed)",
         "tone": "green"
       },
-      "details": "directive · session s1 · from a user message · 25m ago",
+      "details": "directive · session s1 · from a user message · 3h ago",
       "text": "synthetic item-2",
       "command": null,
       "rejectCommand": null,
@@ -83,7 +83,7 @@
         "label": "rejected",
         "tone": "red"
       },
-      "details": "order · session s1 · from a coordinator order · 25m ago",
+      "details": "order · session s1 · from a coordinator order · 3h ago",
       "text": "[withheld: secret-shaped content]",
       "command": null,
       "rejectCommand": null,
@@ -95,12 +95,12 @@
   "handoffs": [
     {
       "id": "sess-1-1.md",
-      "age": "15m",
+      "age": "2h",
       "text": "4 items · 3 unresolved · 1 proposed"
     },
     {
       "id": "sess-1-2.md",
-      "age": "14m",
+      "age": "2h",
       "text": "memory degraded at handoff"
     }
   ],

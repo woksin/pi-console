@@ -18,65 +18,11 @@
         "Keep 14 days",
         "Keep 30 days"
       ],
-      "age": "25m",
+      "age": "3h",
       "updated": "–",
       "updatedAt": null,
-      "lastActivityAt": "2026-11-20T09:00:00.000Z",
-      "lastActivity": "25m ago",
-      "stale": null,
-      "history": null,
-      "links": []
-    },
-    {
-      "id": "q3",
-      "sessionId": "s3",
-      "session": "aurora review",
-      "kind": "approval",
-      "urgent": true,
-      "blocking": true,
-      "status": {
-        "status": "needs-you",
-        "glyph": "!",
-        "color": "amber",
-        "label": "Needs you"
-      },
-      "text": "Which retention window should the cache use?",
-      "options": [
-        "Keep 14 days",
-        "Keep 30 days"
-      ],
-      "age": "24m",
-      "updated": "–",
-      "updatedAt": null,
-      "lastActivityAt": "2026-11-20T09:00:04.000Z",
-      "lastActivity": "24m ago",
-      "stale": null,
-      "history": null,
-      "links": []
-    },
-    {
-      "id": "q5",
-      "sessionId": "s5",
-      "session": "aurora scout",
-      "kind": "question",
-      "urgent": true,
-      "blocking": true,
-      "status": {
-        "status": "needs-you",
-        "glyph": "!",
-        "color": "amber",
-        "label": "Needs you"
-      },
-      "text": "Which retention window should the cache use?",
-      "options": [
-        "Keep 14 days",
-        "Keep 30 days"
-      ],
-      "age": "24m",
-      "updated": "–",
-      "updatedAt": null,
-      "lastActivityAt": "2026-11-20T09:00:08.000Z",
-      "lastActivity": "24m ago",
+      "lastActivityAt": "2026-11-20T08:40:29.000Z",
+      "lastActivity": "3h ago",
       "stale": null,
       "history": null,
       "links": []
@@ -94,70 +40,70 @@
         "color": "amber",
         "label": "Needs you"
       },
-      "text": "Which retention window should the cache use?",
+      "text": "Allow the test runner to delete stale temp directories?",
       "options": [
-        "Keep 14 days",
-        "Keep 30 days"
+        "Allow",
+        "Skip cleanup"
       ],
-      "age": "24m",
+      "age": "3h",
       "updated": "–",
       "updatedAt": null,
-      "lastActivityAt": "2026-11-20T09:00:12.000Z",
-      "lastActivity": "24m ago",
+      "lastActivityAt": "2026-11-20T08:47:30.000Z",
+      "lastActivity": "3h ago",
       "stale": null,
       "history": null,
       "links": []
     },
     {
-      "id": "q2",
-      "sessionId": "s2",
-      "session": "aurora implementation",
-      "kind": "decision",
-      "urgent": false,
-      "blocking": false,
+      "id": "q3",
+      "sessionId": "s3",
+      "session": "aurora review",
+      "kind": "approval",
+      "urgent": true,
+      "blocking": true,
       "status": {
-        "status": "open",
+        "status": "needs-you",
         "glyph": "!",
         "color": "amber",
-        "label": "Open"
+        "label": "Needs you"
       },
-      "text": "May the synthetic migration proceed?",
+      "text": "May the migration dry run write its plan to disk?",
       "options": [
-        "Keep 14 days",
-        "Keep 30 days"
+        "Yes, write it",
+        "No, print only"
       ],
-      "age": "24m",
+      "age": "2h",
       "updated": "–",
       "updatedAt": null,
-      "lastActivityAt": "2026-11-20T09:00:02.000Z",
-      "lastActivity": "24m ago",
+      "lastActivityAt": "2026-11-20T09:08:57.000Z",
+      "lastActivity": "2h ago",
       "stale": null,
       "history": null,
       "links": []
     },
     {
-      "id": "q4",
-      "sessionId": "s4",
-      "session": "aurora explore",
-      "kind": "fyi",
-      "urgent": false,
-      "blocking": false,
+      "id": "q5",
+      "sessionId": "s5",
+      "session": "aurora scout",
+      "kind": "question",
+      "urgent": true,
+      "blocking": true,
       "status": {
-        "status": "open",
+        "status": "needs-you",
         "glyph": "!",
         "color": "amber",
-        "label": "Open"
+        "label": "Needs you"
       },
-      "text": "May the synthetic migration proceed?",
+      "text": "How many retries before a job is marked failed?",
       "options": [
-        "Keep 14 days",
-        "Keep 30 days"
+        "3 retries",
+        "5 retries"
       ],
-      "age": "24m",
+      "age": "2h",
       "updated": "–",
       "updatedAt": null,
-      "lastActivityAt": "2026-11-20T09:00:06.000Z",
-      "lastActivity": "24m ago",
+      "lastActivityAt": "2026-11-20T09:23:45.000Z",
+      "lastActivity": "2h ago",
       "stale": null,
       "history": null,
       "links": []
@@ -175,16 +121,70 @@
         "color": "amber",
         "label": "Open"
       },
-      "text": "May the synthetic migration proceed?",
+      "text": "Should cancelled jobs keep their partial output?",
       "options": [
-        "Keep 14 days",
-        "Keep 30 days"
+        "Keep it",
+        "Discard it"
       ],
-      "age": "24m",
+      "age": "2h",
       "updated": "–",
       "updatedAt": null,
-      "lastActivityAt": "2026-11-20T09:00:10.000Z",
-      "lastActivity": "24m ago",
+      "lastActivityAt": "2026-11-20T09:14:30.000Z",
+      "lastActivity": "2h ago",
+      "stale": null,
+      "history": null,
+      "links": []
+    },
+    {
+      "id": "q2",
+      "sessionId": "s2",
+      "session": "aurora implementation",
+      "kind": "decision",
+      "urgent": false,
+      "blocking": false,
+      "status": {
+        "status": "open",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Open"
+      },
+      "text": "Ship the schema change behind a flag or all at once?",
+      "options": [
+        "Behind a flag",
+        "All at once"
+      ],
+      "age": "2h",
+      "updated": "–",
+      "updatedAt": null,
+      "lastActivityAt": "2026-11-20T09:17:51.000Z",
+      "lastActivity": "2h ago",
+      "stale": null,
+      "history": null,
+      "links": []
+    },
+    {
+      "id": "q4",
+      "sessionId": "s4",
+      "session": "aurora explore",
+      "kind": "fyi",
+      "urgent": false,
+      "blocking": false,
+      "status": {
+        "status": "open",
+        "glyph": "!",
+        "color": "amber",
+        "label": "Open"
+      },
+      "text": "The release checklist has two unchecked items; continue anyway?",
+      "options": [
+        "Continue",
+        "Wait for the owner"
+      ],
+      "age": "2h",
+      "updated": "–",
+      "updatedAt": null,
+      "lastActivityAt": "2026-11-20T09:19:00.000Z",
+      "lastActivity": "2h ago",
       "stale": null,
       "history": null,
       "links": []
@@ -202,16 +202,16 @@
         "color": "amber",
         "label": "Open"
       },
-      "text": "May the synthetic migration proceed?",
+      "text": "The CLI help snapshot changed; accept the new wording?",
       "options": [
-        "Keep 14 days",
-        "Keep 30 days"
+        "Accept",
+        "Review first"
       ],
-      "age": "24m",
+      "age": "2h",
       "updated": "–",
       "updatedAt": null,
-      "lastActivityAt": "2026-11-20T09:00:14.000Z",
-      "lastActivity": "24m ago",
+      "lastActivityAt": "2026-11-20T09:56:41.000Z",
+      "lastActivity": "2h ago",
       "stale": null,
       "history": null,
       "links": []

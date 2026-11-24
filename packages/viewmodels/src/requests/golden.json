@@ -2,6 +2,186 @@
   "all": {
     "rows": [
       {
+        "id": "r10",
+        "sessionId": "s10",
+        "session": "harbor scout",
+        "origin": "human",
+        "originLabel": "Human request",
+        "status": {
+          "status": "open",
+          "glyph": "!",
+          "color": "amber",
+          "label": "Open"
+        },
+        "text": "Cancel pending retries when the job is stopped.",
+        "withheld": false,
+        "age": "1h",
+        "answer": null,
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Reported by the source",
+        "transcript": null
+      },
+      {
+        "id": "r11",
+        "sessionId": "s11",
+        "session": "meadow coordinator",
+        "origin": "launch",
+        "originLabel": "Initial prompt",
+        "status": {
+          "status": "unanswered",
+          "glyph": "!",
+          "color": "amber",
+          "label": "Unanswered"
+        },
+        "text": "Add a checkpoint after every queue batch.",
+        "withheld": false,
+        "age": "1h",
+        "answer": null,
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Reported by the source",
+        "transcript": null
+      },
+      {
+        "id": "r9",
+        "sessionId": "s9",
+        "session": "harbor explore",
+        "origin": "unproven",
+        "originLabel": "Unproven origin",
+        "status": {
+          "status": "interrupted",
+          "glyph": "/",
+          "color": "pink",
+          "label": "Interrupted"
+        },
+        "text": "Draft the release notes from the merged changes.",
+        "withheld": false,
+        "age": "1h",
+        "answer": null,
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Reported by the source",
+        "transcript": null
+      },
+      {
+        "id": "r12",
+        "sessionId": "s12",
+        "session": "meadow implementation",
+        "origin": "unproven",
+        "originLabel": "Unproven origin",
+        "status": {
+          "status": "answered",
+          "glyph": "✓",
+          "color": "green",
+          "label": "Answered"
+        },
+        "text": "Trim the migration dry-run output to the changed rows.",
+        "withheld": false,
+        "age": "2h",
+        "answer": {
+          "text": "The dry run now prints only the changed rows and a count of the rows it skipped.",
+          "withheld": false,
+          "age": "1h"
+        },
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Reported by the source",
+        "transcript": null
+      },
+      {
+        "id": "r8",
+        "sessionId": "s8",
+        "session": "harbor review",
+        "origin": "launch",
+        "originLabel": "Initial prompt",
+        "status": {
+          "status": "answered",
+          "glyph": "✓",
+          "color": "green",
+          "label": "Answered"
+        },
+        "text": "Check that old clients still read the new schema version.",
+        "withheld": false,
+        "age": "2h",
+        "answer": {
+          "text": "Clients one version behind still parse the new schema; two versions behind fail with a clear error.",
+          "withheld": false,
+          "age": "1h"
+        },
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Reported by the source",
+        "transcript": null
+      },
+      {
+        "id": "r5",
+        "sessionId": "s5",
+        "session": "aurora scout",
+        "origin": "launch",
+        "originLabel": "Initial prompt",
+        "status": {
+          "status": "interrupted",
+          "glyph": "/",
+          "color": "pink",
+          "label": "Interrupted"
+        },
+        "text": "Make the CLI help output fit an 80 column terminal.",
+        "withheld": false,
+        "age": "2h",
+        "answer": null,
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Reported by the source",
+        "transcript": null
+      },
+      {
+        "id": "r4",
+        "sessionId": "s4",
+        "session": "aurora explore",
+        "origin": "human",
+        "originLabel": "Human request",
+        "status": {
+          "status": "answered",
+          "glyph": "✓",
+          "color": "green",
+          "label": "Answered"
+        },
+        "text": "Find out why the cache expires entries before their TTL.",
+        "withheld": false,
+        "age": "2h",
+        "answer": {
+          "text": "The sweep ran on a 60s timer, so entries outlived their TTL by up to a minute; it now sweeps on read.",
+          "withheld": false,
+          "age": "2h"
+        },
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Reported by the source",
+        "transcript": null
+      },
+      {
+        "id": "r6",
+        "sessionId": "s6",
+        "session": "harbor coordinator",
+        "origin": "unproven",
+        "originLabel": "Unproven origin",
+        "status": {
+          "status": "open",
+          "glyph": "!",
+          "color": "amber",
+          "label": "Open"
+        },
+        "text": "Isolate the tests that share a temporary directory.",
+        "withheld": false,
+        "age": "2h",
+        "answer": null,
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Reported by the source",
+        "transcript": null
+      },
+      {
         "id": "d6",
         "sessionId": "s1",
         "session": "aurora coordinator",
@@ -15,7 +195,7 @@
         },
         "text": "## User directives ⏎ [orch message from L0] do it",
         "withheld": false,
-        "age": "17m",
+        "age": "2h",
         "answer": null,
         "uncertain": null,
         "possiblyUnseen": null,
@@ -40,7 +220,7 @@
         },
         "text": "[withheld]",
         "withheld": true,
-        "age": "18m",
+        "age": "2h",
         "answer": null,
         "uncertain": null,
         "possiblyUnseen": null,
@@ -65,11 +245,11 @@
         },
         "text": "ask d4",
         "withheld": false,
-        "age": "20m",
+        "age": "2h",
         "answer": {
           "text": "reply d4",
           "withheld": false,
-          "age": "19m"
+          "age": "2h"
         },
         "uncertain": null,
         "possiblyUnseen": {
@@ -99,11 +279,11 @@
         },
         "text": "ask d3",
         "withheld": false,
-        "age": "22m",
+        "age": "2h",
         "answer": {
           "text": "reply d3",
           "withheld": false,
-          "age": "21m"
+          "age": "2h"
         },
         "uncertain": "Uncertain: a reset came between this request and a newer prompt",
         "possiblyUnseen": null,
@@ -128,11 +308,11 @@
         },
         "text": "ask d2",
         "withheld": false,
-        "age": "23m",
+        "age": "2h",
         "answer": {
           "text": "reply d2",
           "withheld": false,
-          "age": "22m"
+          "age": "2h"
         },
         "uncertain": "Uncertain: one answer followed several prompts",
         "possiblyUnseen": null,
@@ -157,11 +337,11 @@
         },
         "text": "ask d1",
         "withheld": false,
-        "age": "24m",
+        "age": "2h",
         "answer": {
           "text": "reply d1",
           "withheld": false,
-          "age": "23m"
+          "age": "2h"
         },
         "uncertain": null,
         "possiblyUnseen": null,
@@ -171,207 +351,6 @@
           "entryId": "d1-e",
           "fileOffset": 100
         }
-      },
-      {
-        "id": "r12",
-        "sessionId": "s12",
-        "session": "meadow implementation",
-        "origin": "unproven",
-        "originLabel": "Unproven origin",
-        "status": {
-          "status": "answered",
-          "glyph": "✓",
-          "color": "green",
-          "label": "Answered"
-        },
-        "text": "Check whether the retry policy handles partial results.",
-        "withheld": false,
-        "age": "24m",
-        "answer": {
-          "text": "Use bounded retries with an explicit checkpoint.",
-          "withheld": false,
-          "age": "24m"
-        },
-        "uncertain": null,
-        "possiblyUnseen": null,
-        "source": "Reported by the source",
-        "transcript": null
-      },
-      {
-        "id": "r11",
-        "sessionId": "s11",
-        "session": "meadow coordinator",
-        "origin": "launch",
-        "originLabel": "Initial prompt",
-        "status": {
-          "status": "unanswered",
-          "glyph": "!",
-          "color": "amber",
-          "label": "Unanswered"
-        },
-        "text": "Write the handoff and preserve the pending decisions.",
-        "withheld": false,
-        "age": "24m",
-        "answer": null,
-        "uncertain": null,
-        "possiblyUnseen": null,
-        "source": "Reported by the source",
-        "transcript": null
-      },
-      {
-        "id": "r10",
-        "sessionId": "s10",
-        "session": "harbor scout",
-        "origin": "human",
-        "originLabel": "Human request",
-        "status": {
-          "status": "open",
-          "glyph": "!",
-          "color": "amber",
-          "label": "Open"
-        },
-        "text": "Compare the queue strategies and explain the trade-offs.",
-        "withheld": false,
-        "age": "24m",
-        "answer": null,
-        "uncertain": null,
-        "possiblyUnseen": null,
-        "source": "Reported by the source",
-        "transcript": null
-      },
-      {
-        "id": "r9",
-        "sessionId": "s9",
-        "session": "harbor explore",
-        "origin": "unproven",
-        "originLabel": "Unproven origin",
-        "status": {
-          "status": "interrupted",
-          "glyph": "/",
-          "color": "pink",
-          "label": "Interrupted"
-        },
-        "text": "Check whether the retry policy handles partial results.",
-        "withheld": false,
-        "age": "24m",
-        "answer": null,
-        "uncertain": null,
-        "possiblyUnseen": null,
-        "source": "Reported by the source",
-        "transcript": null
-      },
-      {
-        "id": "r8",
-        "sessionId": "s8",
-        "session": "harbor review",
-        "origin": "launch",
-        "originLabel": "Initial prompt",
-        "status": {
-          "status": "answered",
-          "glyph": "✓",
-          "color": "green",
-          "label": "Answered"
-        },
-        "text": "Write the handoff and preserve the pending decisions.",
-        "withheld": false,
-        "age": "24m",
-        "answer": {
-          "text": "Use bounded retries with an explicit checkpoint.",
-          "withheld": false,
-          "age": "24m"
-        },
-        "uncertain": null,
-        "possiblyUnseen": null,
-        "source": "Reported by the source",
-        "transcript": null
-      },
-      {
-        "id": "r7",
-        "sessionId": "s7",
-        "session": "harbor implementation",
-        "origin": "human",
-        "originLabel": "Human request",
-        "status": {
-          "status": "unanswered",
-          "glyph": "!",
-          "color": "amber",
-          "label": "Unanswered"
-        },
-        "text": "Compare the queue strategies and explain the trade-offs.",
-        "withheld": false,
-        "age": "24m",
-        "answer": null,
-        "uncertain": null,
-        "possiblyUnseen": null,
-        "source": "Reported by the source",
-        "transcript": null
-      },
-      {
-        "id": "r6",
-        "sessionId": "s6",
-        "session": "harbor coordinator",
-        "origin": "unproven",
-        "originLabel": "Unproven origin",
-        "status": {
-          "status": "open",
-          "glyph": "!",
-          "color": "amber",
-          "label": "Open"
-        },
-        "text": "Check whether the retry policy handles partial results.",
-        "withheld": false,
-        "age": "24m",
-        "answer": null,
-        "uncertain": null,
-        "possiblyUnseen": null,
-        "source": "Reported by the source",
-        "transcript": null
-      },
-      {
-        "id": "r5",
-        "sessionId": "s5",
-        "session": "aurora scout",
-        "origin": "launch",
-        "originLabel": "Initial prompt",
-        "status": {
-          "status": "interrupted",
-          "glyph": "/",
-          "color": "pink",
-          "label": "Interrupted"
-        },
-        "text": "Write the handoff and preserve the pending decisions.",
-        "withheld": false,
-        "age": "24m",
-        "answer": null,
-        "uncertain": null,
-        "possiblyUnseen": null,
-        "source": "Reported by the source",
-        "transcript": null
-      },
-      {
-        "id": "r4",
-        "sessionId": "s4",
-        "session": "aurora explore",
-        "origin": "human",
-        "originLabel": "Human request",
-        "status": {
-          "status": "answered",
-          "glyph": "✓",
-          "color": "green",
-          "label": "Answered"
-        },
-        "text": "Compare the queue strategies and explain the trade-offs.",
-        "withheld": false,
-        "age": "24m",
-        "answer": {
-          "text": "Use bounded retries with an explicit checkpoint.",
-          "withheld": false,
-          "age": "24m"
-        },
-        "uncertain": null,
-        "possiblyUnseen": null,
-        "source": "Reported by the source",
-        "transcript": null
       },
       {
         "id": "r3",
@@ -387,7 +366,7 @@
         },
         "text": "Check whether the retry policy handles partial results.",
         "withheld": false,
-        "age": "24m",
+        "age": "2h",
         "answer": null,
         "uncertain": null,
         "possiblyUnseen": null,
@@ -408,7 +387,7 @@
         },
         "text": "Write the handoff and preserve the pending decisions.",
         "withheld": false,
-        "age": "24m",
+        "age": "2h",
         "answer": null,
         "uncertain": null,
         "possiblyUnseen": null,
@@ -429,7 +408,28 @@
         },
         "text": "Compare the queue strategies and explain the trade-offs.",
         "withheld": false,
-        "age": "25m",
+        "age": "2h",
+        "answer": null,
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Reported by the source",
+        "transcript": null
+      },
+      {
+        "id": "r7",
+        "sessionId": "s7",
+        "session": "harbor implementation",
+        "origin": "human",
+        "originLabel": "Human request",
+        "status": {
+          "status": "unanswered",
+          "glyph": "!",
+          "color": "amber",
+          "label": "Unanswered"
+        },
+        "text": "Dry-run the schema migration and list the tables it would touch.",
+        "withheld": false,
+        "age": "3h",
         "answer": null,
         "uncertain": null,
         "possiblyUnseen": null,
@@ -509,11 +509,11 @@
         },
         "text": "ask d3",
         "withheld": false,
-        "age": "22m",
+        "age": "2h",
         "answer": {
           "text": "reply d3",
           "withheld": false,
-          "age": "21m"
+          "age": "2h"
         },
         "uncertain": "Uncertain: a reset came between this request and a newer prompt",
         "possiblyUnseen": null,
@@ -538,11 +538,11 @@
         },
         "text": "ask d2",
         "withheld": false,
-        "age": "23m",
+        "age": "2h",
         "answer": {
           "text": "reply d2",
           "withheld": false,
-          "age": "22m"
+          "age": "2h"
         },
         "uncertain": "Uncertain: one answer followed several prompts",
         "possiblyUnseen": null,
@@ -613,35 +613,6 @@
   "launch": {
     "rows": [
       {
-        "id": "d1",
-        "sessionId": "s1",
-        "session": "aurora coordinator",
-        "origin": "launch",
-        "originLabel": "Initial prompt",
-        "status": {
-          "status": "answered",
-          "glyph": "✓",
-          "color": "green",
-          "label": "Answered"
-        },
-        "text": "ask d1",
-        "withheld": false,
-        "age": "24m",
-        "answer": {
-          "text": "reply d1",
-          "withheld": false,
-          "age": "23m"
-        },
-        "uncertain": null,
-        "possiblyUnseen": null,
-        "source": "Derived from the session transcript",
-        "transcript": {
-          "sessionId": "s1",
-          "entryId": "d1-e",
-          "fileOffset": 100
-        }
-      },
-      {
         "id": "r11",
         "sessionId": "s11",
         "session": "meadow coordinator",
@@ -653,9 +624,9 @@
           "color": "amber",
           "label": "Unanswered"
         },
-        "text": "Write the handoff and preserve the pending decisions.",
+        "text": "Add a checkpoint after every queue batch.",
         "withheld": false,
-        "age": "24m",
+        "age": "1h",
         "answer": null,
         "uncertain": null,
         "possiblyUnseen": null,
@@ -674,13 +645,13 @@
           "color": "green",
           "label": "Answered"
         },
-        "text": "Write the handoff and preserve the pending decisions.",
+        "text": "Check that old clients still read the new schema version.",
         "withheld": false,
-        "age": "24m",
+        "age": "2h",
         "answer": {
-          "text": "Use bounded retries with an explicit checkpoint.",
+          "text": "Clients one version behind still parse the new schema; two versions behind fail with a clear error.",
           "withheld": false,
-          "age": "24m"
+          "age": "1h"
         },
         "uncertain": null,
         "possiblyUnseen": null,
@@ -699,14 +670,43 @@
           "color": "pink",
           "label": "Interrupted"
         },
-        "text": "Write the handoff and preserve the pending decisions.",
+        "text": "Make the CLI help output fit an 80 column terminal.",
         "withheld": false,
-        "age": "24m",
+        "age": "2h",
         "answer": null,
         "uncertain": null,
         "possiblyUnseen": null,
         "source": "Reported by the source",
         "transcript": null
+      },
+      {
+        "id": "d1",
+        "sessionId": "s1",
+        "session": "aurora coordinator",
+        "origin": "launch",
+        "originLabel": "Initial prompt",
+        "status": {
+          "status": "answered",
+          "glyph": "✓",
+          "color": "green",
+          "label": "Answered"
+        },
+        "text": "ask d1",
+        "withheld": false,
+        "age": "2h",
+        "answer": {
+          "text": "reply d1",
+          "withheld": false,
+          "age": "2h"
+        },
+        "uncertain": null,
+        "possiblyUnseen": null,
+        "source": "Derived from the session transcript",
+        "transcript": {
+          "sessionId": "s1",
+          "entryId": "d1-e",
+          "fileOffset": 100
+        }
       },
       {
         "id": "r2",
@@ -722,7 +722,7 @@
         },
         "text": "Write the handoff and preserve the pending decisions.",
         "withheld": false,
-        "age": "24m",
+        "age": "2h",
         "answer": null,
         "uncertain": null,
         "possiblyUnseen": null,
@@ -800,11 +800,11 @@
     },
     "text": "ask d3",
     "withheld": false,
-    "age": "22m",
+    "age": "2h",
     "answer": {
       "text": "reply d3",
       "withheld": false,
-      "age": "21m"
+      "age": "2h"
     },
     "uncertain": "Uncertain: a reset came between this request and a newer prompt",
     "possiblyUnseen": null,
@@ -827,7 +827,7 @@
       {
         "label": "Prompt",
         "at": "2026-11-20T09:03:00.000Z",
-        "age": "22m",
+        "age": "2h",
         "resetId": null,
         "transcript": {
           "sessionId": "s1",
@@ -838,7 +838,7 @@
       {
         "label": "Reset while open",
         "at": "2026-11-20T09:04:00.000Z",
-        "age": "21m",
+        "age": "2h",
         "resetId": "c1",
         "transcript": null
       }
