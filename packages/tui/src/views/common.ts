@@ -83,6 +83,6 @@ export function checklistLines(input: { connected: boolean; sessions: number }, 
   const checklist = firstRunChecklist(input);
   return [blank, [t(`  ${checklist.title}`, 'text', { bold: true })], ...checklist.steps.flatMap((step): Line[] => [
     [t(`  ${step.glyph} `, step.color, { bold: true }), t(step.label, 'text'), t(step.state === 'todo' ? ' (not yet)' : step.state === 'optional' ? ' (optional)' : '', 'muted')],
-    ...wrap(step.detail, Math.max(10, width - 6)).map((text): Line => [t(`    ${text}`, 'muted')]),
+    ...wrap(step.pointer ? `${step.detail} ${step.pointer}` : step.detail, Math.max(10, width - 6)).map((text): Line => [t(`    ${text}`, 'muted')]),
   ])];
 }
