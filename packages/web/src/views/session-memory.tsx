@@ -23,7 +23,7 @@ export function MemoryItemView({ item, request }: { item: MemoryPanelItem; reque
       {item.command && <button type="button" className="btn memory-copy" onClick={() => { void copyWithNotice(item.command ?? '', 'memory command'); }}>Copy command</button>}
     </span>}
     {item.review && <span role="status" className="small muted">{item.review.message}</span>}
-    {item.command && <details className="memory-command small mono" open={!reviewable}>
+    {item.command && <details className="memory-command small mono" open={!item.canRequest && !busy}>
       <summary>pi commands</summary>Run in a pi session: <code>{item.command}</code> or <code>{item.rejectCommand}</code>
     </details>}
   </li>;

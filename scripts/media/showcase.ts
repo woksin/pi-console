@@ -1,7 +1,6 @@
 // Gallery-only synthetic state for the web captures: health that agrees with the stream, the empty first-run fixture, the
 // controlled live events and the memory-review receipt stages. Pure helpers: nothing here launches a browser or touches production code.
 import type { MemoryActionReceipt } from '@pi-console/contract';
-import { memoryItems } from '../../packages/testkit/src/mock-daemon/memory.ts';
 import { needsYou } from '../../packages/testkit/src/mock-daemon/needs-you.ts';
 import type { Store } from '../../packages/testkit/src/mock-daemon/store.ts';
 import { fixedNow } from './scenes.ts';
@@ -66,25 +65,8 @@ export function needsYouCount(headline: string): number | null {
   return match ? Number(match[1]) : null;
 }
 
-export const memoryReviewText = 'Keep retry checkpoints before acknowledging the batch';
 export const memoryReviewItem = 'item-2';
 export const memoryReviewSession = 's2';
-
-/** Gallery-only edits of the module-global mock memory store; the returned function puts every field back. */
-export function prepareMemoryReview(): () => void {
-  const target = memoryItems().find(item => item.id === memoryReviewItem);
-  if (!target) throw new Error(`${memoryReviewItem} is not in the mock memory store`);
-  const saved = structuredClone(target);
-  Object.assign(target, { sessionId: memoryReviewSession, scope: { kind: 'session', key: memoryReviewSession }, text: memoryReviewText });
-  return () => { Object.assign(target, saved); };
-}
-
-/** What the producer records once it has applied the confirmation: the item becomes active; the receipt alone never does this. */
-export function applyProducerConfirmation(): void {
-  const target = memoryItems().find(item => item.id === memoryReviewItem);
-  if (!target) throw new Error(`${memoryReviewItem} is not in the mock memory store`);
-  Object.assign(target, { status: 'active', statusBasis: 'recorded', command: null });
-}
 
 /** A synthetic provider receipt for one stage; times are the shared capture time so the browser's fixed clock never sees it expire. */
 export function memoryReceipt(state: MemoryActionReceipt['state'], posted: { requestId: string; itemId: string; action: string }) {

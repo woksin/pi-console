@@ -45,6 +45,17 @@ test('without review support the commands stay visible beside Copy command', () 
   assert.match(html, /<button type="button" class="btn memory-copy">Copy command<\/button>/);
 });
 
+test('an unavailable receipt followed by offline readiness leaves the commands visible', () => {
+  const html = render({ canRequest: false, review: { state: 'unavailable', message: 'Review unavailable' } });
+  assert.match(html, /disabled="" aria-busy="false">Confirm…/);
+  assert.match(html, /<details class="memory-command small mono" open="">/);
+});
+
+test('a review in flight keeps the commands collapsed', () => {
+  const html = render({ canRequest: false, review: { state: 'requesting', message: 'Requesting' } });
+  assert.match(html, /<details class="memory-command small mono"><summary>/);
+});
+
 test('an item without a command has no copy button or disclosure', () => {
   const html = render({ command: null, rejectCommand: null });
   assert.doesNotMatch(html, /Copy command|<details/);
