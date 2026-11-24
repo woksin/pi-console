@@ -4958,7 +4958,7 @@
       "originLabel": "Human request",
       "originEvidence": "Explicit synthetic user-input marker",
       "status": "interrupted",
-      "createdAt": "2026-11-20T09:00:02.000Z",
+      "createdAt": "2026-11-20T09:00:00.000Z",
       "resetId": "reset1",
       "answer": null,
       "interimAnswers": [
@@ -4978,7 +4978,7 @@
       "originLabel": "Initial prompt",
       "originEvidence": "Synthetic non-relaunch session-start marker",
       "status": "open",
-      "createdAt": "2026-11-20T09:00:05.000Z",
+      "createdAt": "2026-11-20T09:00:01.000Z",
       "resetId": null,
       "answer": null,
       "interimAnswers": []
@@ -4991,7 +4991,7 @@
       "originLabel": "Unproven origin",
       "originEvidence": "No positive origin evidence",
       "status": "unanswered",
-      "createdAt": "2026-11-20T09:00:09.000Z",
+      "createdAt": "2026-11-20T09:00:02.000Z",
       "resetId": null,
       "answer": null,
       "interimAnswers": []

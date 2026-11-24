@@ -2,7 +2,7 @@ import { emptyStates, markerLegend, timelineViewModel, fitWindow, markers, clock
 import { Column, Lines, Panel, h, type Line } from '../view/renderer.ts';
 import { blank, statusParts, t, windowOf } from '../view/parts.ts';
 import { emptyLines, whenLoaded, type Env, type SectionView } from './common.ts';
-import { gridPart, inWindow, nearby } from './timeline-grid.ts';
+import { axisCells, gridPart, inWindow, nearby } from './timeline-grid.ts';
 
 const LABEL = 24;
 
@@ -16,8 +16,7 @@ function laneLine(lane: TimelineLane, selected: boolean, row: LaneRow): Line {
 }
 
 function axisLine(axis: readonly { column: number; label: string }[], width: number, scrub: number | undefined, scrubLabel: string): Line {
-  const cells = Array.from({ length: width }, () => ' ');
-  for (const tick of axis) for (const [index, character] of [...tick.label].entries()) if (tick.column + index < width) cells[tick.column + index] = character;
+  const cells = axisCells(axis, width);
   if (scrub !== undefined) for (const [index, character] of [...scrubLabel].entries()) if (scrub + index < width) cells[scrub + index] = character;
   return [t(' '.repeat(LABEL + 1)), t(cells.join(''), 'faint')];
 }

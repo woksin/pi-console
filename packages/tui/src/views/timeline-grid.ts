@@ -22,3 +22,17 @@ export function nearby(all: readonly Marker[], sessionId: string | undefined, at
 export function inWindow(all: readonly Marker[], sessionId: string | undefined, window: { start: number; span: number }): Marker[] {
   return all.filter(marker => marker.sessionId === sessionId && marker.at >= window.start && marker.at <= window.start + window.span).slice(-6).reverse();
 }
+
+/** The axis labels laid into `width` cells: a label that would run past the right edge is moved left to end there, and one that would then touch its neighbour is dropped. */
+export function axisCells(axis: readonly { column: number; label: string }[], width: number): string[] {
+  const cells = Array.from({ length: width }, () => ' ');
+  let end = 0;
+  for (const tick of axis) {
+    const characters = [...tick.label];
+    const start = Math.max(0, Math.min(tick.column, width - characters.length));
+    if (start < end) continue;
+    for (const [index, character] of characters.entries()) cells[start + index] = character;
+    end = start + characters.length + 1;
+  }
+  return cells;
+}
