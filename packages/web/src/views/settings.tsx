@@ -1,5 +1,5 @@
 import { healthGroups, pressureGradient, settingsViewModel, themePreview, type HealthGroup, type SettingsRow } from '@pi-console/viewmodels';
-import { Fragment, type CSSProperties } from 'react';
+import type { CSSProperties } from 'react';
 import type { ViewProps } from '../app/view.tsx';
 import { Panel } from '../ui/primitives.tsx';
 import { setMotionChoice, setPrefs, usePrefs, type MotionChoice } from '../app/prefs.ts';
@@ -20,7 +20,12 @@ function ThemeCard({ id, current }: { id: ThemeId; current: boolean }) {
   );
 }
 
-const rows = (items: SettingsRow[]) => <dl className="kv wide">{items.map(row => <div key={row.label}><dt>{row.label}{row.detail && <>{' '}<span className="row-id faint small mono">{row.detail}</span></>}</dt><dd className={`tone-text-${row.tone}`} style={row.valueDetail ? { display: 'flex', flexWrap: 'wrap', columnGap: '0.5em' } : undefined}><span>{row.value}</span>{row.valueDetail && <span className="faint small" title={row.valueDetail}>{row.valueDetail.split(" · ").map((part, index) => <Fragment key={part}>{index > 0 && " · "}<span className="nowrap">{part}</span></Fragment>)}</span>}</dd></div>)}</dl>;
+/** Each fact of the detail is its own unbroken block; blocks are spaced by a gap, so a wrap never leaves a dangling separator. */
+export function ValueDetail({ detail }: { detail: string }) {
+  return <span className="faint small value-detail" title={detail}>{detail.split(" · ").map(part => <span key={part} className="nowrap">{part}</span>)}</span>;
+}
+
+const rows = (items: SettingsRow[]) => <dl className="kv wide">{items.map(row => <div key={row.label}><dt>{row.label}{row.detail && <>{' '}<span className="row-id faint small mono">{row.detail}</span></>}</dt><dd className={`tone-text-${row.tone}`} style={row.valueDetail ? { display: 'flex', flexWrap: 'wrap', columnGap: '0.5em' } : undefined}><span>{row.value}</span>{row.valueDetail && <ValueDetail detail={row.valueDetail} />}</dd></div>)}</dl>;
 
 /** Both clients consume these groups; the web keeps secondary diagnostics collapsed. */
 function DaemonHealth({ groups }: { groups: HealthGroup[] }) {

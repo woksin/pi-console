@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { Header, banner, pulseLine, terminalTitle } from './chrome.ts';
+import { Header, banner, footerLine, pulseLine, terminalTitle } from './chrome.ts';
 import { initial } from '../state/ui.ts';
 import { Screen, Text, h, mountHeadless } from '../view/renderer.ts';
 import type { Connection } from '../store/store.ts';
@@ -178,4 +178,11 @@ test('the pulse row shows one cell per session, activity and the counts, and col
   assert.equal(Array.from(narrow).length, 60);
   assert.match(narrow, /\+\d+/);
   assert.doesNotMatch(narrow, /activity/);
+});
+
+test('the Overview footer offers r retry only when attention failed', () => {
+  const text = (failed?: boolean) => footerLine(initial, 120, undefined, failed).map(part => part.text).join('');
+  assert.doesNotMatch(text(), /r retry/);
+  assert.doesNotMatch(text(false), /r retry/);
+  assert.match(text(true), /r retry/);
 });

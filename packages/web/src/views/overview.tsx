@@ -26,7 +26,7 @@ export function OverviewView({ state, now }: ViewProps) {
     <div className="page overview">
       <section className={`hero${ready && view.cards.length === 0 ? ' clear' : ''}`} aria-labelledby="needs-you">
         <AttentionSummary state={state} headline={view.headline} />
-        <p className="muted">{view.fleet.sessions} sessions · {view.fleet.repositories} repositories · {view.fleet.tokens} tokens · <FleetCost cost={view.fleet.cost} coverage={coverage} /></p>
+        {state.sessions.length > 0 && <p className="muted">{view.fleet.sessions} sessions · {view.fleet.repositories} repositories · {view.fleet.tokens} tokens · <FleetCost cost={view.fleet.cost} coverage={coverage} /></p>}
       </section>
       {state.sessions.length > 0 && <div className="summary-strip" aria-label="Fleet summary">
         <div className="summary-counts">{view.counts.map(entry => <span key={entry.status.status}><StatusBadge cell={entry.status} /> {entry.count}</span>)}</div>

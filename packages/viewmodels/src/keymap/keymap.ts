@@ -131,9 +131,9 @@ export function resolve(context: KeyContext, key: string, client: KeyClient = 't
   return active.find(binding => binding.keys.includes(key) && binding.contexts.includes('global'))?.action;
 }
 
-/** Footer hints for a context, in table order, `global` hints last. */
-export function hints(context: KeyContext, client: KeyClient = 'tui'): string[] {
-  const active = bindingsFor(client);
+/** Footer hints for a context, in table order, `global` hints last; `r retry` only while attention is unavailable or stale. */
+export function hints(context: KeyContext, client: KeyClient = 'tui', attentionFailed = true): string[] {
+  const active = bindingsFor(client).filter(binding => attentionFailed || binding.action !== 'attention.retry');
   const own = active.filter(binding => binding.hint && binding.contexts.includes(context));
   const global = context === 'palette' || context === 'filter' ? [] : active.filter(binding => binding.hint && binding.contexts.includes('global'));
   return [...own, ...global].map(binding => binding.hint ?? '').filter((hint, index, all) => all.indexOf(hint) === index);

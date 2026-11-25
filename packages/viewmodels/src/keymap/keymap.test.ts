@@ -96,3 +96,9 @@ test('m opens the full Memory view from a transcript in the TUI only, and Help l
   assert.ok(hints('transcript').includes('m memory'));
   assert.ok(!bindingsFor('web').some(binding => binding.action === 'memory.open'));
 });
+
+test('the Overview footer hints `r retry` only while attention is unavailable or stale', () => {
+  assert.ok(!hints('overview', 'tui', false).includes('r retry'));
+  assert.ok(hints('overview', 'tui', true).includes('r retry'));
+  assert.deepEqual(hints('fleet', 'tui', false), hints('fleet', 'tui', true));
+});

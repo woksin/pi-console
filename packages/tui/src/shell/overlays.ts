@@ -1,4 +1,4 @@
-import { keyLabel, keymapGroups, pad, paletteScopes, paletteView, healthGroups, displayWidth, settingsViewModel, themePreview, wrap, wrapWithSources, type KeymapGroup, type PaletteItem, type PaletteView, type SettingsInput, type SettingsRow, type Tone, type TextWidth } from '@pi-console/viewmodels';
+import { keyLabel, keymapGroups, pad, paletteScopes, paletteView, healthGroups, displayWidth, settingsViewModel, themePreview, wrap, type KeymapGroup, type PaletteItem, type PaletteView, type SettingsInput, type SettingsRow, type Tone, type TextWidth } from '@pi-console/viewmodels';
 import { Lines, Overlay, Panel, h, useTextWidth, type Line, type Part } from '../view/renderer.ts';
 import { blank, fit, gap, heading, rule, selectable, split, t, windowOf } from '../view/parts.ts';
 import type { Data } from '../store/store.ts';
@@ -98,14 +98,26 @@ export function Help(props: { width: number; height: number; scroll?: number }) 
 const tone: Record<Tone, Color> = { good: 'green', warn: 'amber', bad: 'red', plain: 'text' };
 interface SettingsColumn { labelWidth: number; valueWidth: number }
 
-/** Keep secondary facts faint even when a wrapped line crosses from the value into its detail. */
+/** Value and detail facts are packed whole into the column, so a wrap never leaves a ` · ` separator at either end of a line. */
 function settingsValues(row: SettingsRow, { valueWidth }: SettingsColumn): Line[] {
-  const text = row.value + (row.valueDetail ? ` · ${row.valueDetail}` : '');
-  return wrapWithSources(text, valueWidth).map(line => {
-    const detail = line.source.findIndex(at => at >= row.value.length);
-    if (detail < 0) return [t(line.text, tone[row.tone])];
-    return [t(line.text.slice(0, detail), tone[row.tone]), t(line.text.slice(detail), 'faint')];
-  });
+  const segments = [
+    ...row.value.split(' · ').map(text => ({ text, color: tone[row.tone] })),
+    ...(row.valueDetail ?? '').split(' · ').filter(text => text !== '').map(text => ({ text, color: 'faint' as const })),
+  ];
+  const lines: Part[][] = [];
+  let used = 0;
+  for (const segment of segments) {
+    const wrapped = wrap(segment.text, valueWidth);
+    const last = lines.at(-1);
+    if (last && used + 3 + displayWidth(wrapped[0] ?? '') <= valueWidth && wrapped.length === 1) {
+      last.push(t(' · ', segment.color), t(wrapped[0], segment.color));
+      used += 3 + displayWidth(wrapped[0]);
+      continue;
+    }
+    lines.push(...wrapped.map((text): Part[] => [t(text, segment.color)]));
+    used = displayWidth(wrapped.at(-1) ?? '');
+  }
+  return lines.length === 0 ? [[t('', tone[row.tone])]] : lines;
 }
 
 /** Labels and values wrap independently, keeping every value continuation in the shared column. */

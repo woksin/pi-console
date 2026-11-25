@@ -134,7 +134,7 @@ export function describeRequestFilter(model: RequestsViewModel): string {
 
 /** Keep classification short without implying that the transcript proves who sent the prompt. */
 function provenance(request: Request): string {
-  const sources = { 'session-jsonl': 'inferred from transcript', 'intent-memory': 'reported by intent-memory' };
+  const sources = { 'session-jsonl': 'classified from transcript', 'intent-memory': 'reported by intent-memory' };
   const source = request.derivedFrom ? sources[request.derivedFrom] : 'reported by source';
   const claim = request.origin === 'unproven' ? 'Origin not proven' : request.originLabel;
   return `${claim} · ${source}`;

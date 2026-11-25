@@ -127,7 +127,7 @@ export function App(props: AppProps): ReactElement {
     ...(connectionBanner ? [h(Text, { line: connectionBanner })] : []),
     h(HistoryError, { collection: failure, width: size.width }),
     h(Column, { grow: 1, paddingX: 1 }, view.render()),
-    h(Text, { line: footerLine(ui, size.width, measure) }),
+    h(Text, { line: footerLine(ui, size.width, measure, data.needsYouError) }),
     ...overlays(ui, data, input, { size, entries: view.entries ?? [], now: clock.now }));
 }
 
