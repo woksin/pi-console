@@ -1,5 +1,5 @@
-import type { GraphEdge } from '@pi-console/contract';
-import { graphViewModel, repositoryLabel, sessionLabels, type SessionLabel, type GraphEdgeView, type StatusCell } from '@pi-console/viewmodels';
+import type { GraphEdge, GraphNode, Session } from '@pi-console/contract';
+import { graphViewModel, repositoryLabel, sessionLabels, statusCell, type SessionLabel, type GraphEdgeView, type StatusCell } from '@pi-console/viewmodels';
 import type { ConsoleState } from '../state/state.ts';
 
 /** `label` is the short identity (lane ID); `name` is the readable second line, or null when the lane has no name beyond its ID. */
@@ -12,13 +12,20 @@ export interface WebGraphGroup {
   edges: (Omit<GraphEdgeView, 'kind'> & { kind: GraphEdge['kind'] })[];
 }
 
+/** The lane's newest session (latest start, then latest update) speaks for its status; null when the lane has no session. */
+export function laneStatus(lane: GraphNode, sessions: readonly Session[]): StatusCell | null {
+  const members = sessions.filter(session => session.laneId === lane.laneId && (lane.repositoryId === null || session.repositoryId === lane.repositoryId));
+  const newest = members.sort((a, b) => b.startedAt.localeCompare(a.startedAt) || b.updatedAt.localeCompare(a.updatedAt)).at(0);
+  return newest ? statusCell(newest.status) : null;
+}
+
 /** Lane communication is authoritative; session identity is used only for the separate spawn overlay. */
 export function webGraphModel(state: Pick<ConsoleState, 'graph' | 'sessions'>, upTo = Infinity) {
   const source = state.graph ?? { nodes: [], edges: [] };
   const graph = { ...source, edges: source.edges.filter(edge => Date.parse(edge.lastAt) <= upTo) };
   const lanes: WebGraphGroup[] = graphViewModel({ graph }).groups.map(group => ({
     id: `lanes:${group.repositoryId ?? 'unassigned'}`, title: group.repositoryId === null ? 'Unassigned lanes' : repositoryLabel(group.repositoryId), summary: `${String(group.messages)} messages`,
-    nodes: group.nodes.map(node => ({ id: node.laneId, label: node.laneId, name: node.label === node.laneId ? null : node.label, sessionId: null, status: null })),
+    nodes: group.nodes.map(node => ({ id: node.laneId, label: node.laneId, name: node.label === node.laneId ? null : node.label, sessionId: null, status: laneStatus(node, state.sessions) })),
     edges: group.edges.map(edge => ({ ...edge, from: edge.fromLane, to: edge.toLane })),
   }));
   const identities = new Map(state.sessions.map(session => [session.id, sessionLabels(session)]));
