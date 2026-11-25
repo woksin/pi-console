@@ -109,6 +109,9 @@ export function keymapGroups(client: KeyClient): KeymapGroup[] {
 }
 
 const keyLabels: Readonly<Record<string, string>> = { ArrowUp: '↑', ArrowDown: '↓', ArrowLeft: '←', ArrowRight: '→', Enter: '⏎', PageUp: 'PgUp', PageDown: 'PgDn', 'Shift+Tab': '⇧Tab' };
+/** The one safety sentence both clients show in Help; it qualifies read-only access for opt-in memory review. */
+export const helpSafetyText = 'Ordinary access is read-only. Opt-in memory review only requests a review; a human must confirm it in pi. The console never writes memory directly.';
+
 export const keyLabel = (key: string): string => keyLabels[key] ?? key;
 
 /** Resolves a neutral key name in a context; `global` bindings apply everywhere unless the context text-captures keys. */

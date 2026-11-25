@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { bindingsFor, paletteScopes, paletteView, resolve, type Action, type MatchSegment, type PaletteInput, type PaletteItem } from '@pi-console/viewmodels';
+import { helpSafetyText, keyLabel, keymapGroups, paletteScopes, paletteView, resolve, type Action, type MatchSegment, type PaletteInput, type PaletteItem } from '@pi-console/viewmodels';
 import { neutralKey } from './keys.ts';
 import { useModalFocus } from './modal-focus.ts';
 import { Kbd } from '../ui/primitives.tsx';
@@ -96,12 +96,19 @@ export function Help({ onClose }: { onClose: () => void }) {
     <div className="overlay" onMouseDown={event => { event.preventDefault(); onClose(); }}>
       <div ref={dialog} tabIndex={-1} className="dialog help" role="dialog" aria-modal="true" aria-label="Keyboard help" onMouseDown={event => { event.stopPropagation(); }}>
         <header className="help-head"><h2>Keyboard</h2><button type="button" className="btn ghost" onClick={onClose}>Close <Kbd>Esc</Kbd></button></header>
-        <p className="muted">Read-only console: nothing here can change a session. Same keys as the terminal UI.</p>
-        <dl className="help-list">
-          {bindingsFor('web').map(binding => (
-            <div key={binding.action}><dt>{binding.keys.map(key => <Kbd key={key}>{key}</Kbd>)}</dt><dd>{binding.label}</dd></div>
+        <p className="muted">{helpSafetyText}</p>
+        <div className="help-groups">
+          {keymapGroups('web').filter(group => group.bindings.length > 0).map(group => (
+            <section key={group.title} className="help-group" aria-label={group.title}>
+              <h3>{group.title}</h3>
+              <dl className="help-list">
+                {group.bindings.map(binding => (
+                  <div key={binding.action + binding.contexts.join()}><dt>{binding.keys.map(key => <Kbd key={key}>{keyLabel(key)}</Kbd>)}</dt><dd>{binding.label}</dd></div>
+                ))}
+              </dl>
+            </section>
           ))}
-        </dl>
+        </div>
       </div>
     </div>
   );

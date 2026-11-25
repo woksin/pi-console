@@ -120,6 +120,8 @@ test('Settings names a missing agent directory and source, then shows them avail
   assert.ok(missing.some(line => /^Agent directory\s+missing directory — check startup paths/.test(line)), missing.join('\n'));
   assert.ok(missing.some(line => /^Issue register\s+missing directory — check startup paths/.test(line)));
   assert.ok(missing.some(line => /^\s+issue-work\s*$/.test(line)), 'the daemon id stays as secondary text');
+  const label = missing.findIndex(line => /^Issue register\s+missing/.test(line));
+  assert.match(missing[label + 1] ?? '', /^\s+issue-work\s*$/, 'the source id sits directly under its label');
   const recovered = plain(size, { status: 'ok', agentRootAvailability: 'available', sources: [{ source: 'issue-work', availability: 'available' }] });
   assert.ok(recovered.some(line => /^Issue register\s+available/.test(line)));
   assert.ok(!recovered.some(line => line.includes('missing directory')));
@@ -162,11 +164,13 @@ for (const width of [60, 80, 120]) {
     try {
       const viewport = settingsViewport(size, input, health);
       const start = viewport.lines.findIndex(line => line[0]?.text.trim() === 'Session transcripts');
-      const end = viewport.lines.findIndex(line => line[0]?.text === '  session-jsonl');
-      assert.ok(start >= 0 && end > start);
-      const expected = viewport.lines.slice(start, end);
+      const detail = viewport.lines.findIndex(line => line[0]?.text === '  session-jsonl');
+      assert.equal(detail, start + 1, 'the source id sits directly under its label');
+      const end = viewport.lines.findIndex((line, index) => index > detail && line.map(part => part.text).join('').trim() === '');
+      assert.ok(start >= 0 && end > detail);
+      const expected = viewport.lines.slice(start, end).filter((_, index) => start + index !== detail);
       const rendered = await scrollSettings({ ui, viewport });
-      const source = rendered.slice(start, end);
+      const source = rendered.slice(start, end).filter((_, index) => start + index !== detail);
       assert.deepEqual(source, expected.map(line => line.map(part => part.text).join('').trimEnd()), 'headless frames show every wrapped character');
       const indent = expected[0][0].text.length;
       assert.ok(source.slice(1).every(line => line.slice(0, indent) === ' '.repeat(indent)), 'continuations align with the value column');

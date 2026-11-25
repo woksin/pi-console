@@ -1,4 +1,4 @@
-import { keyLabel, keymapGroups, pad, paletteScopes, paletteView, healthGroups, displayWidth, settingsViewModel, themePreview, wrap, type KeymapGroup, type PaletteItem, type PaletteView, type SettingsInput, type SettingsRow, type Tone, type TextWidth } from '@pi-console/viewmodels';
+import { helpSafetyText, keyLabel, keymapGroups, pad, paletteScopes, paletteView, healthGroups, displayWidth, settingsViewModel, themePreview, wrap, type KeymapGroup, type PaletteItem, type PaletteView, type SettingsInput, type SettingsRow, type Tone, type TextWidth } from '@pi-console/viewmodels';
 import { Lines, Overlay, Panel, h, useTextWidth, type Line, type Part } from '../view/renderer.ts';
 import { blank, fit, gap, heading, rule, selectable, split, t, windowOf } from '../view/parts.ts';
 import type { Data } from '../store/store.ts';
@@ -58,11 +58,9 @@ function helpLines(groups: KeymapGroup[], width: number): Line[] {
   }), blank]);
 }
 
-const safetyText = 'Ordinary access is read-only. Opt-in memory review only requests a review; a human must confirm it in pi. The console never writes memory directly.';
-
 function helpContent({ width }: { width: number }): Line[] {
   const groups = keymapGroups('tui');
-  const safety: Line[] = [...wrap(safetyText, width - 4).map((text): Line => [t(text, 'muted')]), blank];
+  const safety: Line[] = [...wrap(helpSafetyText, width - 4).map((text): Line => [t(text, 'muted')]), blank];
   if (width < 100) return [...safety, ...helpLines(groups, width - 4)];
   const column = Math.floor((width - 6) / 2);
   const left = helpLines(groups.slice(0, 2), column), right = helpLines(groups.slice(2), column);
@@ -123,10 +121,12 @@ function settingsValues(row: SettingsRow, { valueWidth }: SettingsColumn): Line[
 /** Labels and values wrap independently, keeping every value continuation in the shared column. */
 function settingsLine(row: SettingsRow, column: SettingsColumn): Line[] {
   const labels = wrap(row.label, column.labelWidth);
+  const values = settingsValues(row, column).map((value, index): Line => [t(`${pad(index === 0 ? labels.at(-1) ?? '' : '', column.labelWidth)}  `, 'muted'), ...value]);
+  /** The source id sits directly under the label's own line, before any value continuation. */
+  const detail = row.detail ? wrap(row.detail, column.labelWidth + column.valueWidth).map((text): Line => [t(`  ${text}`, 'faint')]) : [];
   return [
     ...labels.slice(0, -1).map((label): Line => [t(`${pad(label, column.labelWidth)}  `, 'muted')]),
-    ...settingsValues(row, column).map((value, index): Line => [t(`${pad(index === 0 ? labels.at(-1) ?? '' : '', column.labelWidth)}  `, 'muted'), ...value]),
-    ...row.detail ? wrap(row.detail, column.labelWidth + column.valueWidth).map((detail): Line => [t(`  ${detail}`, 'faint')]) : [],
+    ...values.slice(0, 1), ...detail, ...values.slice(1),
   ];
 }
 
