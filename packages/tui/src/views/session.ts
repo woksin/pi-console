@@ -116,7 +116,7 @@ function header(model: SessionViewModel, width: number, phase: number, measure: 
 type SidePaneBuilder = (model: SessionViewModel, inner: number, measure?: TextWidth) => Line[];
 
 const requestLines: SidePaneBuilder = (model, inner, measure) => model.requests.flatMap(request => [
-  fit([...statusParts(request.status, 0, false), t(` ${request.originLabel}`, request.originLabel === 'Human request' ? 'blue' : 'amber'), t(` · ${request.status.label}`, request.status.color)], inner, undefined, measure),
+  fit([...statusParts(request.status, undefined, false), t(` ${request.originLabel}`, request.originLabel === 'Human request' ? 'blue' : 'amber'), t(` · ${request.status.label}`, request.status.color)], inner, undefined, measure),
   ...wrap(request.text, inner - 2, 2, measure).map((text): Line => [t('  ' + text, 'text')]),
   ...(request.answer ? [fit([t('  ✓ final: ', 'green'), t(request.answer.text, 'muted')], inner, undefined, measure)] : []),
   ...(request.partial ? [fit([t('  ◐ partial, not final: ', 'amber'), t(request.partial.text, 'muted')], inner, undefined, measure)] : []),
@@ -129,8 +129,8 @@ const questionLines: SidePaneBuilder = (model, inner, measure) => model.question
 ]);
 
 const jobLines: SidePaneBuilder = (model, inner, measure) => [
-  ...model.jobs.map(job => fit([...statusParts(job.status, 0, false), t(` ${job.name} `, 'text'), t(`${job.kind} ${job.exit}`, 'faint')], inner, undefined, measure)),
-  ...model.subagents.map(sub => fit([...statusParts(sub.status, 0, false), t(` ↳ ${fitSessionLabel(sub.identity, inner - 4, measure)}`, 'muted')], inner, undefined, measure)),
+  ...model.jobs.map(job => fit([...statusParts(job.status, undefined, false), t(` ${job.name} `, 'text'), t(`${job.kind} ${job.exit}`, 'faint')], inner, undefined, measure)),
+  ...model.subagents.map(sub => fit([...statusParts(sub.status, undefined, false), t(` ↳ ${fitSessionLabel(sub.identity, inner - 4, measure)}`, 'muted')], inner, undefined, measure)),
 ];
 
 const resetLines: SidePaneBuilder = (model, inner, measure) => model.resets.flatMap((reset): Line[] => [

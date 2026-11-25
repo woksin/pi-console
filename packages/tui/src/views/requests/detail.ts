@@ -17,7 +17,7 @@ export function requestDetailLines(request: Request | undefined | false, env: En
   const detail = requestDetail({ request, sessions: env.data.sessions, now: env.now });
   const inner = paneWidth - 4;
   return [
-    [...statusParts(detail.status, 0, true), t(`  ${detail.age} ago`, 'faint')],
+    [...statusParts(detail.status, undefined, true), t(`  ${detail.age} ago`, 'faint')],
     ...wrap(detail.provenance, inner, undefined, env.measure).map((text): Line => [t(text, detail.origin === 'human' ? 'blue' : 'amber', { bold: true })]),
     [t(`(${detail.provenanceQualifier})`, 'faint', { italic: true })],
     ...wrap(`Source says: ${detail.originEvidence}`, inner, undefined, env.measure).map((text): Line => [t(text, 'faint')]),

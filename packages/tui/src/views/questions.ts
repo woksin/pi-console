@@ -46,7 +46,7 @@ const historySummary = (row: QuestionRow): Line => [t(row.history ? `History (${
 function detail(row: QuestionRow | undefined, width: number, full = false, measure?: TextWidth): Line[] {
   if (!row) return [[t('Select a question', 'faint')]];
   return [
-    [...statusParts(row.status, 0, true), t(`  ${row.age} ago`, 'faint')], ...activityLines(row, width, measure),
+    [...statusParts(row.status, undefined, true), t(`  ${row.age} ago`, 'faint')], ...activityLines(row, width, measure),
     [t(row.kind, 'violet', { bold: true }), ...(row.urgent ? [t('  urgent', 'red', { bold: true })] : []), ...(row.blocking ? [t('  blocking', 'amber', { bold: true })] : [])], blank,
     ...wrap(row.text, width - 4, full ? Infinity : 8, measure).map((text): Line => [t(text, 'text')]), blank,
     ...(row.options.length ? [heading('Options'), ...optionLines(row.options, width, full, measure)] : []), blank,
