@@ -26,6 +26,8 @@ Read-only by default; opt-in memory review requests require human confirmation i
 - **Keyboard-first**: a command palette (`Ctrl+P`) and single-key view switching in both clients.
 - **Local-only and token-protected**: the daemon binds to loopback, requires a token, and is read-only by default.
 
+<img src="docs/media/web-tour.gif" alt="Web keyboard tour moving from Overview to Fleet, a session reset divider and the Timeline" width="900">
+
 ## Quick start
 
 Install **Node.js 26 or newer** and Git, then run:
@@ -106,13 +108,16 @@ The console can read pi session logs without an extension. The extension adds an
 
 ## Tour
 
-> The name `pi-console` is provisional. All images below use sample data, not live sessions.
+> All images use sample data, not live sessions.
 
 Long-running work spreads across sessions, lanes and file stores. Context resets make it harder to follow what was asked and what still needs an answer. pi-console brings those records together without treating uncertain or missing history as complete. See [request coverage and limitations](docs/requests.md).
 
 ### Needs you first
 
 Overview groups attention by reason: blocking questions, open requests, possibly unseen answers, lanes waiting on you, proposed memory, then stale sessions. Each section has a count and shows the newest items first. Human replies take priority over lane and memory actions, with passive staleness last. Web and TUI share this order. The fleet pulse and context-pressure histogram sit alongside them. Fleet, Requests, Questions, Messages, Timeline and Work are one keypress away.
+
+<details>
+<summary>Status glyphs</summary>
 
 Status glyphs carry meaning even without colour:
 
@@ -121,6 +126,7 @@ Status glyphs carry meaning even without colour:
 | `needs-you` | `!` | Needs you |
 | `working` | `*` | Working |
 | `running` | `*` | Running |
+| `queued` | `◷` | Queued |
 | `blocked` | `×` | Blocked |
 | `failed` | `#` | Failed |
 | `waiting` | `~` | Waiting |
@@ -135,7 +141,7 @@ Status glyphs carry meaning even without colour:
 
 Failed uses ASCII `#` to stay clearly distinct from blocked `×` in monospace fonts. Possibly unseen uses `¿` because `?` already means stale; its chip reads “Possibly unseen”, never “Unanswered”.
 
-<img src="docs/media/web-tour.gif" alt="Web keyboard tour moving from Overview to Fleet, a session reset divider and the Timeline" width="900">
+</details>
 
 ### Follow live updates
 
@@ -296,6 +302,8 @@ See the [threat model](docs/security.md) and [security policy](SECURITY.md) for 
 `npm run generate` rebuilds the sample fixture. `npm run media` regenerates the gallery; it needs Chromium, `ffmpeg` and `cwebp`. VHS recording also needs `vhs` and `ttyd`; otherwise the runner reports a PTY-capture fallback. Media generation is manual, not part of CI. See the [media guide](docs/media/README.md) for individual captures, budgets and determinism notes.
 
 ## Status
+
+The name `pi-console` is provisional.
 
 Web and TUI clients, filesystem ingestion and opt-in memory review are implemented. [M1 acceptance](docs/m1-acceptance.md) records the verified scope and retained request/view coverage limitations. The [milestone plan](docs/milestones.md) includes future general interventions, remote access and MCP/Direct integration; those are not current capabilities.
 

@@ -80,7 +80,7 @@ Glyphs need no icon font; labels and position carry their meaning in every theme
 |---|---|
 | Request origin (classification, not proof) | `●` human · `◆` launch · `○` unproven |
 | Request flags | `≈` uncertain · `◌` possibly unseen; the status chip uses `¿` (“Possibly unseen”) |
-| Status | `×` blocked · `#` failed · `?` stale; these contract glyphs are unchanged |
+| Status | `×` blocked · `#` failed · `?` stale · `◷` queued |
 | Urgency | `‼` urgent question or message |
 | Transcript | `▍` user · `●` assistant · `◌` thinking · `⚙` tool · `↳` result · `±` diff · `⟲` reset |
 | Timeline markers | `◆` request · `/` interrupted · `●` final answer · `◐` partial · `⟲` reset · `?` question · `›` message |
