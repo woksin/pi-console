@@ -16,7 +16,7 @@ after(async () => { await server.close(); });
 test('the token screen points at the launch link and the token file, not at a command that does not exist', () => {
   const html = renderToStaticMarkup(createElement(TokenScreen, { rejected: false, onToken: () => undefined }));
   assert.match(html, /launch link the daemon printed/);
-  assert.match(html, /<code>~\/\.pi-console\/token<\/code>/);
+  assert.match(html, /<code class="nowrap">~\/\.pi-console\/token<\/code>/);
   assert.equal(html.match(/launch link/g)?.length, 1, 'the instruction is not repeated in a footnote');
   assert.equal(html.includes('pi-console open'), false);
 });

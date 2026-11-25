@@ -184,7 +184,7 @@ describe('web console e2e', () => {
     assert.equal(await details.getByText('Projection position', { exact: true }).locator('..').locator('dd').innerText(), '40');
     const source = page.getByRole('region', { name: 'Sources' });
     await source.getByText('available · 12 files · no lag', { exact: true }).waitFor();
-    assert.match(await source.locator('dd .faint.small').innerText(), /polled .* ago · .*\d{2}:\d{2}:\d{2}/);
+    assert.match(await source.locator('dd .faint.small').innerText(), /polled .* ago\s+.*\d{2}:\d{2}:\d{2}/);
     await page.getByText('6.3 ms', { exact: true }).waitFor();
     const settingsText = await page.locator('.settings').innerText();
     assert.doesNotMatch(settingsText, /\[object|\bNaN\b|\btrue\b|\bfalse\b|\d+\.\d{2,}/);

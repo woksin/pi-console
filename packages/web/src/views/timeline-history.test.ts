@@ -47,7 +47,7 @@ test('all five bounded collections expose separate row counts and named controls
     assert.ok(html.includes(`aria-label="Load older ${collection}"`));
   }
   assert.match(html, /Limited history/);
-  assert.match(html, /independent of zoom/);
+  assert.doesNotMatch(html, /Loaded history counts/);
 });
 
 test('legacy and unbounded snapshots suppress history claims and unknown totals do not fabricate counts', () => {

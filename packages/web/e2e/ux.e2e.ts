@@ -193,7 +193,7 @@ test('questions distinguish blocking and urgent, with read-only lettered options
   try {
     await page.locator('[data-question="neutral-ux"]').waitFor();
     await page.getByRole('img', { name: 'Urgent', exact: true }).waitFor();
-    assert.match(await page.locator('.question-options').innerText(), /A · Proceed/);
+    assert.match(await page.locator('.question-options').innerText(), /1 Proceed/);
     assert.equal(await page.locator('.question-options button').count(), 0);
     const borders = await page.locator('.question').evaluateAll(nodes => nodes.map(node => getComputedStyle(node).borderLeftColor));
     assert.notEqual(borders[0], borders[1]);
@@ -434,13 +434,13 @@ test('compact human requests fit six per viewport while detail keeps full text',
     assert.ok(await fullyVisible(page, '.human-request') >= 6);
     const detail = page.getByRole('complementary', { name: 'Request detail' });
     assert.ok((await detail.innerText()).includes(fixture.requests[0].text.trim()));
-    const classification = detail.locator('p').filter({ hasText: 'Human request · inferred from transcript' });
-    assert.equal(await classification.innerText(), 'Human request · inferred from transcript (not verified)');
+    const classification = detail.locator('p').filter({ hasText: 'Human request · classified from transcript' });
+    assert.equal(await classification.innerText(), 'Human request · classified from transcript (not verified)');
     assert.equal(await classification.locator('.muted').innerText(), '(not verified)');
-    const evidence = detail.locator('p').filter({ hasText: /^Evidence:/ });
-    assert.equal(await evidence.innerText(), `Evidence: ${seed.originEvidence}`);
+    const evidence = detail.locator('p').filter({ hasText: /^Source says:/ });
+    assert.equal(await evidence.innerText(), `Source says: ${seed.originEvidence}`);
     assert.equal(await evidence.evaluate(element => element.previousElementSibling?.textContent), await classification.textContent());
-    assert.doesNotMatch(await classification.innerText(), /Evidence:|Classified as/);
+    assert.doesNotMatch(await classification.innerText(), /Source says:|Classified as/);
     await page.keyboard.press('j');
     assert.equal(await page.locator('.request-card.selected').count(), 1);
   } finally { fixture.requests = original; await page.context().close(); }

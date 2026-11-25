@@ -170,7 +170,8 @@ for (const width of [60, 80, 120]) {
       assert.deepEqual(source, expected.map(line => line.map(part => part.text).join('').trimEnd()), 'headless frames show every wrapped character');
       const indent = expected[0][0].text.length;
       assert.ok(source.slice(1).every(line => line.slice(0, indent) === ' '.repeat(indent)), 'continuations align with the value column');
-      assert.equal(source.map(line => line.slice(indent).trim()).join(' '), `available · 12 files · no lag · 2 errors · polled ${healthTimestamp(polled, 0)}`);
+      assert.ok(source.every(line => !/^·|·$/.test(line.slice(indent).trim())), 'no dangling separator');
+      assert.equal(source.map(line => line.slice(indent).trim()).join(' ').replaceAll(' · ', ' '), `available · 12 files · no lag · 2 errors · polled ${healthTimestamp(polled, 0)}`.replaceAll(' · ', ' '));
       assert.ok(expected.some(line => line.some(part => part.text.includes('polled') && part.color === 'faint')));
       assert.match(rendered.join('\n'), /Daemon head\s+42/);
       assert.match(rendered.join('\n'), /Projection position\s+40/);
@@ -193,5 +194,6 @@ for (const width of [50, 60, 76]) {
     assert.ok(hint.every(line => displayWidth(line) <= width - 4), lines.join('\n'));
     const text = hint.join(' ').replace(/\s+/g, '');
     assert.ok(text.includes('PI_CONSOLE_THEME=midnight|contrast|mono'), lines.join('\n'));
+    assert.ok(hint.every(line => !/^\s*·|·\s*$/.test(line.replace(/^Theme\s+/, ''))), `no dangling separator\n${hint.join('\n')}`);
   });
 }

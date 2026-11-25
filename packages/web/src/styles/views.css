@@ -219,3 +219,4 @@
 .questions .field { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
 
 .motion-control { display: flex; align-items: center; gap: 12px; }
+.settings .value-detail { display: flex; flex-wrap: wrap; column-gap: 0.75em; }
