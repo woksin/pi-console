@@ -39,7 +39,7 @@ export interface SessionViewModel {
 
 const style: Record<TranscriptEntry['kind'], { kind: LineKind; glyph: string; label: string; color: ThemeToken }> = {
   user: { kind: 'user', glyph: glyphs.user, label: 'you', color: 'blue' },
-  thinking: { kind: 'thinking', glyph: glyphs.thinking, label: 'thinking', color: 'faint' },
+  thinking: { kind: 'thinking', glyph: glyphs.thinking, label: 'thinking', color: 'muted' },
   'assistant.delta': { kind: 'assistant', glyph: glyphs.assistant, label: 'assistant', color: 'text' },
   assistant: { kind: 'assistant', glyph: glyphs.assistant, label: 'assistant', color: 'text' },
   'tool.call': { kind: 'tool', glyph: glyphs.tool, label: 'tool', color: 'cyan' },

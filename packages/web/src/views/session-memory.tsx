@@ -1,5 +1,5 @@
 import { sessionLabels, memoryPanelViewModel, memoryReviewPending, type MemoryPanelItem, type MemoryPanelViewModel } from '@pi-console/viewmodels';
-import { Fragment, useEffect, useMemo, type ReactNode } from 'react';
+import { useEffect, useMemo, type ReactNode } from 'react';
 import { copyWithNotice } from '../app/copy-notice.ts';
 import { clockNow, useConsole, useStore } from '../app/hooks.ts';
 import { Panel } from '../ui/primitives.tsx';
@@ -52,7 +52,7 @@ function UnavailableMemory({ title, status, notice }: { title: string; status: M
 function MemoryCounts({ counts }: { counts: MemoryPanelViewModel['counts'] }) {
   const shown = counts.filter(cell => cell.count > 0);
   if (shown.length === 0) return <p className="small muted">no items</p>;
-  return <p className="small muted memory-counts">{shown.map((cell, index) => <Fragment key={cell.status}>{index > 0 && ' '}<span className="memory-count">{`${String(cell.count)} ${cell.label}`}</span></Fragment>)}</p>;
+  return <p className="small muted memory-counts">{shown.map(cell => <span key={cell.status} className="memory-count">{`${String(cell.count)} ${cell.label}`}</span>)}</p>;
 }
 
 export function MemorySummary({ view }: { view: MemoryPanelViewModel }) {
@@ -75,7 +75,7 @@ export function SessionMemory({ id }: { id: string }) {
   const notice = <MemoryNotice status={status} stale={view.available} retry={() => { void store.loadSessionMemory(id); }} />;
   if (!view.available) return <UnavailableMemory title={view.title} status={status} notice={notice} />;
   return (
-    <Panel title={view.title} aside={memory?.counts.proposed ? `${String(memory.counts.proposed)} proposed` : undefined} className="memory-panel">
+    <Panel title={view.title} className="memory-panel">
       {notice}
       <MemorySummary view={view} />
       <ul className="mini-list stacked">
