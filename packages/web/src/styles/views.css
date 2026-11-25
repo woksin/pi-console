@@ -154,6 +154,7 @@
 .targs { color: var(--muted); } .ttext.withheld { color: var(--faint); font-style: italic; }
 .kind-thinking { --tone: var(--muted); }
 .kind-thinking .ttext { color: var(--muted); }
+.kind-thinking .tglyph { color: var(--text); font-weight: 700; font-size: calc(var(--type-section) * 1.35); line-height: 1; }
 .kind-user .ttext, .kind-assistant .ttext { font-family: var(--sans); font-size: var(--type-body); }
 .reset-marker { margin: var(--space-3) 14px; padding: var(--space-2) var(--space-3); border: 1px solid color-mix(in oklab, var(--pink) 45%, var(--border)); border-left: 3px solid var(--pink); border-radius: 6px; background: color-mix(in oklab, var(--pink) 7%, transparent); }
 .reset-rule { display: flex; align-items: center; gap: var(--space-3); color: var(--pink); }
@@ -184,8 +185,8 @@
 .help-group { break-inside: avoid; margin-bottom: 10px; }
 .help-group h3 { margin: 0 0 2px; font-size: var(--type-caption); color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
 .help-list { margin: 0; }
-.help-list > div { display: grid; grid-template-columns: 72px minmax(0, 1fr); align-items: baseline; gap: 8px; padding: 2px 0; border-bottom: 1px solid color-mix(in oklab, var(--border) 50%, transparent); }
-.help-list dt { display: flex; flex-wrap: wrap; gap: 4px; } .help-list dd { margin: 0; color: var(--muted); font-size: var(--type-caption); }
+.help-list > div { display: grid; grid-template-columns: 96px minmax(0, 1fr); align-items: baseline; gap: 8px; padding: 2px 0; border-bottom: 1px solid color-mix(in oklab, var(--border) 50%, transparent); }
+.help-list dt { display: flex; flex-wrap: nowrap; gap: 4px; white-space: nowrap; } .help-list dd { margin: 0; color: var(--muted); font-size: var(--type-caption); }
 .help-list .kbd { margin: 0; }
 .check { display: inline-flex; gap: 8px; align-items: center; }
 .settings { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); align-items: start; }

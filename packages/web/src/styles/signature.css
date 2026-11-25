@@ -56,7 +56,7 @@
 .node .label { fill: var(--text); font-size: 13.5px; font-weight: 500; pointer-events: none; }
 .node .label.name { fill: var(--muted); font-size: 12px; font-weight: 400; }
 /* A solid panel-coloured box behind a node's labels (graph.tsx): edges pass under it, never through the text. */
-.label-plate { flood-color: var(--panel); flood-opacity: 1; }
+.label-plate { flood-color: var(--panel); flood-opacity: 0.62; }
 .graph-scrub { display: inline-flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
 .graph-scrub .scrubber { flex: 0 1 160px; min-width: 80px; }
 .graph-legend { padding: 0 18px; }

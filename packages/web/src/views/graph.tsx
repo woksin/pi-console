@@ -63,7 +63,7 @@ function GroupGraph({ group }: { group: WebGraphGroup }) {
       <svg className="graph" viewBox={`0 0 ${String(size)} ${String(graphHeight)}`} role="group" aria-label={`Graph for ${group.title}`}>
         <defs>
           <marker id={arrowId} viewBox="0 0 10 10" refX="0" refY="5" markerUnits="userSpaceOnUse" markerWidth="10" markerHeight="10" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" className="arrow" /></marker>
-          <filter id={plateId} colorInterpolationFilters="sRGB" x="-0.04" y="-0.04" width="1.08" height="1.08"><feFlood className="label-plate" /><feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+          <filter id={plateId} colorInterpolationFilters="sRGB" x="-0.015" y="-0.08" width="1.03" height="1.16"><feFlood className="label-plate" /><feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge></filter>
         </defs>
         {group.edges.map(edge => <GraphEdge key={`${edge.kind}:${edge.from}>${edge.to}`} edge={edge} positions={positions} arrowId={arrowId} />)}
         {group.nodes.map(node => <GraphNode key={node.id} node={node} at={positions.get(node.id)} plateId={plateId} />)}
@@ -84,7 +84,7 @@ function sessionLink(id: string) {
   return { role: 'link' as const, tabIndex: 0, onClick: open, onKeyDown: (event: KeyboardEvent<SVGGElement>) => { if (event.key === 'Enter') open(); } };
 }
 
-/** The labels sit on a panel-coloured plate (a flood the size of their box) so an edge passing beneath never strikes the text. */
+/** The labels sit on a panel-coloured plate (a tight, slightly translucent flood the size of their box) so an edge passing beneath stays faintly visible yet never strikes the text. */
 function GraphNode({ node, at, plateId }: { node: WebGraphNode; at: NodePlace | undefined; plateId: string }) {
   if (!at) return null;
   const label = placeLabel(node.label, at, node.identity);
