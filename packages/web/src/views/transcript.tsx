@@ -28,13 +28,14 @@ export function Transcript({ lines, focusEntry, searching, progress, onPage, onL
       <TranscriptHistoryBar scroll={scroll} day={current.day} progress={progress} onPage={history.page} onLive={onLive} />
       <div ref={scroll.pane} onScroll={() => { history.onScroll(); current.update(); }} className="transcript" role="log" aria-live="off" aria-label="Transcript lines">
       <TranscriptEmptyState empty={lines.length === 0} searching={searching} progress={progress} />
+      <div ref={scroll.body}>
       {dayGroups(lines).map(group => (
         <section key={group.key} className="tday" data-day={group.date}>
           {group.date && <h2 className="tday-head">{group.date}</h2>}
           {group.lines.map(line => <Line key={line.key} line={line} selected={nav.selected === String(line.key)} focused={line.id === focusEntry} tail={line === lines.at(-1)} onSelect={() => { nav.select(String(line.key)); scroll.pause(); }} />)}
         </section>
       ))}
-      <div ref={scroll.end} />
+      </div>
       </div>
     </div>
   );

@@ -31,9 +31,10 @@ const behindTail = (page: Page): Promise<number> => page.evaluate(() => {
   return pane ? Math.round(pane.scrollHeight - pane.clientHeight - pane.scrollTop) : -1;
 });
 
-const openSession = async (): Promise<Page> => {
+const openSession = async (viewport: { width?: number; height?: number } = {}): Promise<Page> => {
   let historyLoaded: Promise<Response> | undefined;
   const page = await rig.open('/session/s2', {
+    ...viewport,
     beforeNavigate: page => {
       historyLoaded = page.waitForResponse(response => new URL(response.url()).pathname === '/api/v1/sessions/s2/transcript' && response.ok());
     },
@@ -170,6 +171,33 @@ describe('transcript chrome polish', () => {
     assert.equal(layout.position, 'static', 'day headings scroll with the lines instead of overlaying them');
     assert.ok(layout.day, 'the controls name the current day');
     assert.equal(layout.day, layout.topDay, 'the label is the day at the top of the pane');
+    await page.context().close();
+  });
+
+  test('in the single-column layout, following never scrolls the page and a wheel pause does not snap back', async () => {
+    const page = await openSession({ width: 900, height: 900 });
+    await waitForSettledTail(page);
+    const contentTop = (): Promise<number> => page.evaluate(() => (document.scrollingElement?.scrollTop ?? 0) + (document.querySelector('.content')?.scrollTop ?? 0));
+    await page.evaluate(() => {
+      // Either the shell's .content or the document scrolls the rail into view, depending on the layout.
+      for (const scroller of [document.querySelector('.content'), document.scrollingElement]) if (scroller) scroller.scrollTop = scroller.scrollHeight;
+    });
+    const scrolled = await contentTop();
+    assert.ok(scrolled > 0, 'the page scrolls down to the rail under the transcript');
+    await page.waitForTimeout(2500);
+    // The page may get a few pixels shorter as relative times tick, which clamps its scroll; it must still be at its bottom, not pulled up to the transcript.
+    const pageBelow = await page.evaluate(() => [document.querySelector('.content'), document.scrollingElement].reduce((sum, scroller) => sum + (scroller ? Math.round(scroller.scrollHeight - scroller.clientHeight - scroller.scrollTop) : 0), 0));
+    assert.ok(await contentTop() > 0, 'the page is still scrolled down');
+    assert.ok(pageBelow <= 1, 'a following transcript leaves the page at the rail where the user put it');
+    assert.equal(await page.getByRole('button', { name: /Following/ }).count(), 1, 'still following');
+    await page.locator('.transcript').hover();
+    await page.mouse.wheel(0, -600);
+    await page.getByRole('button', { name: /Follow tail/ }).waitFor();
+    await page.waitForTimeout(300);
+    const paused = await behindTail(page);
+    await page.waitForTimeout(2500);
+    assert.ok(paused > 100, 'the wheel moved the pane up from the tail');
+    assert.equal(await behindTail(page), paused, 'the paused pane is not pulled back to the tail');
     await page.context().close();
   });
 
