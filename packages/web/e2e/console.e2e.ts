@@ -305,6 +305,20 @@ describe('web console e2e', () => {
     await page.context().close();
   });
 
+  test('help is grouped with key labels and fits a 1280x800 viewport without scrolling', async () => {
+    const page = await rig.open('/overview', { width: 1280, height: 800 });
+    await page.locator('.conn[data-connection="live"]').waitFor();
+    await page.keyboard.press('?');
+    const help = page.getByRole('dialog', { name: 'Keyboard help' });
+    await help.waitFor();
+    assert.ok((await help.locator('h3').count()) >= 4, 'groups are titled');
+    const text = await help.innerText();
+    assert.ok(text.includes('↓') && !text.includes('ArrowDown'), 'human key labels');
+    assert.ok(text.includes('Opt-in memory review only requests a review'), 'qualified safety copy');
+    assert.equal(await help.evaluate(node => node.scrollHeight <= node.clientHeight), true, 'no scrollbar');
+    await page.context().close();
+  });
+
   test('keyboard map: sections, help, palette, selection, open and back', async () => {
     const page = await rig.open('/overview');
     await page.locator('.conn[data-connection="live"]').waitFor();
