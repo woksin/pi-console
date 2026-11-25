@@ -7,8 +7,10 @@ import { apiV0Schema } from './api.ts';
 
 test('every v0 session status and request/job status word has a glyph, label and a real theme colour', () => {
   const session = (apiV0Schema.$defs.session as { properties: { status: { enum: string[] } } }).properties.status.enum;
+  const job = (apiV0Schema.$defs.job as { properties: { status: { enum: string[] } } }).properties.status.enum;
+  const request = (apiV0Schema.$defs.request as { properties: { status: { enum: string[] } } }).properties.status.enum;
   assert.deepEqual([...sessionStatuses], session);
-  for (const word of [...session, 'running', 'interrupted', 'answered', 'unanswered', 'open', 'answer-possibly-unseen']) {
+  for (const word of [...session, ...job, ...request, 'answer-possibly-unseen']) {
     const token = statusToken(word);
     assert.notEqual(token.label, 'Unknown', word);
     assert.equal(token.glyph.length, 1, word);
@@ -29,6 +31,17 @@ for (const doc of ['README.md', 'docs/ui-web.md']) {
     assert.deepEqual(rows, Object.entries(statusTaxonomy).map(([state, { glyph, label }]) => ({ state, glyph, label })));
   });
 }
+
+test('queued carries a distinct muted clock glyph', () => {
+  const queued = statusToken('queued');
+  assert.equal(queued.glyph, '◷');
+  assert.equal(queued.color, 'muted');
+  assert.equal(queued.label, 'Queued');
+  for (const [word, token] of Object.entries(statusTaxonomy)) {
+    if (word !== 'queued') assert.notEqual(queued.glyph, token.glyph, word);
+  }
+  assert.notEqual(queued.glyph, statusToken('nonsense').glyph);
+});
 
 test('stale carries an explicit neutral question mark', () => {
   assert.equal(statusToken('stale').glyph, '?');
