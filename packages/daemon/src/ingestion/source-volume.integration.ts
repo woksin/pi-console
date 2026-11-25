@@ -6,6 +6,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { setFlagsFromString } from 'node:v8';
+import { runInNewContext } from 'node:vm';
 import type { EventEnvelope, Health } from '@pi-console/contract';
 import { buildLargeTree, call } from '@pi-console/testkit';
 import { loadConfig } from '../config.ts';
@@ -15,6 +17,18 @@ import { describeTurns, LoopTurns } from '../testing/loop-turns.ts';
 
 const mebibyte = 1024 * 1024;
 const wait = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
+// Expose GC only to this spec's isolated context; no shared runner flags or global.gc are needed.
+setFlagsFromString('--expose-gc');
+const collectGarbage = runInNewContext('gc') as () => void;
+
+async function memoryAfterGc(): Promise<NodeJS.MemoryUsage> {
+  collectGarbage();
+  // Let finalizers run, then collect again so external/ArrayBuffer accounting has caught up too.
+  await new Promise(resolve => { setImmediate(resolve); });
+  collectGarbage();
+  return process.memoryUsage();
+}
 
 async function allEvents(daemon: RunningDaemon): Promise<EventEnvelope[]> {
   const found: EventEnvelope[] = [];
@@ -28,7 +42,7 @@ test('a large tree backfills in the background: /health stays fast, memory flat,
   const tree = buildLargeTree(join(base, 'agent'), { ledgerRows: 50_000, statusFiles: 20_000, registryRows: 54_000, questionFiles: 1_500, eventRows: 200_000, sessionFiles: 100, sessionBytes: 300 * 1024 });
   const dataDir = join(base, 'data');
   const config = loadConfig(dataDir, { port: 0, agentRoot: tree.root, orchRoot: tree.orchRoot, sessionRoots: [tree.sessionRoot], pollMs: 1_000, sourcePollMs: 250 });
-  const baseline = process.memoryUsage().rss;
+  const baseline = await memoryAfterGc();
   const turns = new LoopTurns();
   turns.start();
   const started = performance.now();
@@ -52,8 +66,16 @@ test('a large tree backfills in the background: /health stays fast, memory flat,
   }
   const summary = await turns.stop();
   console.log(describeTurns(summary));
-  const grown = process.memoryUsage().rss - baseline;
-  console.log(`volume: first 200 ${firstOk?.toFixed(0)} ms, worst /health ${worst.toFixed(0)} ms, backfill ${((performance.now() - started) / 1000).toFixed(1)} s, rss growth ${(grown / mebibyte).toFixed(0)} MiB`);
+  // Forced collections sit outside the loop-turn/health measurements, not inside the daemon's latency budget.
+  const memory = await memoryAfterGc();
+  const heapGrowth = memory.heapUsed - baseline.heapUsed;
+  const externalGrowth = memory.external - baseline.external;
+  // arrayBuffers is included in external: log it separately, but do not double-count it. A drop in one category
+  // must not hide retention in the other.
+  const retainedGrowth = Math.max(0, heapGrowth) + Math.max(0, externalGrowth);
+  const rssGrowth = memory.rss - baseline.rss;
+  console.log(`volume: first 200 ${firstOk?.toFixed(0)} ms, worst /health ${worst.toFixed(0)} ms, backfill ${((performance.now() - started) / 1000).toFixed(1)} s, rss growth ${(rssGrowth / mebibyte).toFixed(0)} MiB (informational)`);
+  console.log(`retained memory: heap growth ${(heapGrowth / mebibyte).toFixed(1)} MiB, external growth ${(externalGrowth / mebibyte).toFixed(1)} MiB, arrayBuffers growth ${((memory.arrayBuffers - baseline.arrayBuffers) / mebibyte).toFixed(1)} MiB, total ${(retainedGrowth / mebibyte).toFixed(1)} MiB`);
   console.log(`event loop: p50 ${loop.p50.toFixed(1)} ms, p99 ${loop.p99.toFixed(1)} ms, max ${loop.max.toFixed(1)} ms`);
   assert.ok(complete, 'backfill finished');
   assert.ok((firstOk ?? Infinity) < 3_000, `first 200 after ${firstOk} ms`);
@@ -66,7 +88,9 @@ test('a large tree backfills in the background: /health stays fast, memory flat,
   // CPU in the turn, so it only proves the daemon is not hung.
   assert.ok(worst < 5_000, `worst /health ${worst} ms`);
   assert.ok(loop.max < 5_000, `event-loop max ${loop.max} ms`);
-  assert.ok(grown < 150 * mebibyte, `rss grew ${grown / mebibyte} MiB`);
+  // Healthy backfill retained 4.7 MiB after GC on a loaded host. 32 MiB leaves ~7x headroom for bounded caches,
+  // but not for retaining the input tree; unlike RSS, this excludes unused allocator pages and collectible garbage.
+  assert.ok(retainedGrowth < 32 * mebibyte, `retained memory grew ${retainedGrowth / mebibyte} MiB`);
   const events = await allEvents(daemon);
   assert.equal(events.filter(event => event.type === 'SessionStarted').length, 100, 'every synthetic session was ingested');
   const warnings = events.filter(event => event.type === 'SourceSchemaUnknown');
