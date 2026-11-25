@@ -1,7 +1,10 @@
 import type { Message, Question, Request, Reset, Session, ThemeToken } from '@pi-console/contract';
-import { clock, sanitize, type TextWidth } from '../format/format.ts';
+import { sanitize, type TextWidth } from '../format/format.ts';
 import { fitSessionLabel, sessionLabels } from '../format/session-labels.ts';
 import { statusCell, type StatusCell } from '../format/status-cell.ts';
+import { timelineTicks } from './ticks.ts';
+
+export { timelineGroups, withoutRepositoryPrefix, type TimelineGroup } from './groups.ts';
 
 export interface TimeWindow { start: number; span: number }
 export interface Marker { id: string; sessionId: string; at: number; glyph: string; kind: string; text: string; color: ThemeToken; rank: number }
@@ -70,10 +73,6 @@ export function timelineViewModel(input: TimelineInput): TimelineViewModel {
     }
     return { sessionId: session.id, label: fitSessionLabel(sessionLabels(session), input.labelWidth ?? 22, input.measure), status: statusCell(session.status), cells: [...cells.values()].map(cell => ({ column: cell.column, glyph: cell.glyph, color: cell.color, markerId: cell.markerId })) };
   });
-  const ticks = Math.max(2, Math.floor(input.width / 14));
-  const axis = Array.from({ length: ticks }, (_, index) => {
-    const at = window.start + window.span * index / (ticks - 1);
-    return { column: columnOf(at, window, input.width), label: clock(new Date(at).toISOString()) };
-  });
+  const axis = timelineTicks(window, input.width).map(({ column, label }) => ({ column, label }));
   return { window, lanes, axis, markers: all, legend: [...markerLegend] };
 }

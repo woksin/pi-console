@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { markers, pan, timelineViewModel, zoom } from './timeline.ts';
 import { fixture, golden } from '../test-support.ts';
 import { displayWidth } from '../format/format.ts';
+import { timelineTicks } from './ticks.ts';
 
 const input = { sessions: fixture.sessions, requests: fixture.requests, resets: fixture.resets, questions: fixture.questions, messages: fixture.messages, width: 80 };
 
@@ -13,6 +14,16 @@ test('timeline builds one lane per session with markers, within the window', () 
   assert.ok(model.markers.some(marker => marker.glyph === '/'), 'interrupted request marker');
   assert.ok(model.markers.some(marker => marker.glyph === '⟲'), 'reset marker');
   golden('timeline', { ...model, markers: model.markers.length });
+});
+
+test('the axis uses the same clock-aligned tick times and columns as the web at every width', () => {
+  const start = Date.parse('2026-01-01T12:00:17Z');
+  for (const width of [20, 80, 120]) for (const span of [60_000, 420_000, 7_341_000]) {
+    const window = { start, span };
+    const { axis } = timelineViewModel({ ...input, window, width });
+    assert.deepEqual(axis, timelineTicks(window, width).map(({ column, label }) => ({ column, label })));
+    assert.ok(axis[0].column > 0, 'panned window does not force a tick at its unaligned start');
+  }
 });
 
 test('same-name timeline lanes stay distinct at the viewmodel and renderer label widths', () => {

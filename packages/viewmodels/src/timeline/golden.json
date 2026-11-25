@@ -535,24 +535,20 @@
   ],
   "axis": [
     {
-      "column": 0,
-      "label": "08:40:29"
+      "column": 13,
+      "label": "09:00"
     },
     {
-      "column": 20,
-      "label": "09:11:04"
+      "column": 32,
+      "label": "09:30"
     },
     {
-      "column": 40,
-      "label": "09:41:39"
+      "column": 51,
+      "label": "10:00"
     },
     {
-      "column": 59,
-      "label": "10:12:14"
-    },
-    {
-      "column": 79,
-      "label": "10:42:49"
+      "column": 71,
+      "label": "10:30"
     }
   ],
   "markers": 65,
