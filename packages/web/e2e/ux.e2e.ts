@@ -377,7 +377,7 @@ test('session labels, readable timeline ticks and selected row survive zoom and 
   await page.getByRole('button', { name: 'Zoom in', exact: true }).click();
   await page.getByRole('button', { name: 'Pan later', exact: true }).click();
   const labels = await page.locator('.tl .axis').allTextContents();
-  assert.ok(labels.length >= 2 && labels.every(label => /^\d{2}:\d{2}:[0-5]0$/.test(label)));
+  assert.ok(labels.length >= 2 && labels.every(label => /^\d{2}:\d{2}$/.test(label)));
   const selected = await page.locator('.lane.selected .lane-label').textContent();
   assert.ok(selected?.includes(' · L'));
   await page.keyboard.press('j');

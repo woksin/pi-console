@@ -47,8 +47,8 @@ for (const width of [80, 100, 120, 160]) {
       const ui = await mountHeadless(h(Screen, {}, view(env).render()), { width, height: 24 });
       try {
         await ui.settle();
-        assert.match(ui.frame(), /… · L1/);
-        assert.match(ui.frame(), /… · L2/);
+        assert.match(ui.frame(), name === 'Timeline' ? /implementation · L1/ : /… · L1/);
+        assert.match(ui.frame(), name === 'Timeline' ? /implementation · L2/ : /… · L2/);
         if (name === 'Messages') assert.match(ui.frame(), /… · L1\s+→\s+aurora.*… · L2/);
         if (name === 'Questions') {
           assert.match(ui.frame(), /· L1\s+1d\s*│/);

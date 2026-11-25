@@ -1,7 +1,7 @@
 import { clock } from '../format/format.ts';
 import { columnOf, type TimeWindow } from './timeline.ts';
 
-/** Clock-aligned steps, independent of the terminal's column-based axis. */
+/** Clock-aligned steps shared by both clients. */
 export function timelineTickStep(span: number): number {
   const target = span / 7;
   return [1000, 5000, 10_000, 30_000, 60_000, 300_000, 900_000, 1_800_000, 3_600_000].find(step => step >= target) ?? 3_600_000;
@@ -13,6 +13,7 @@ export function timelineTicks(window: TimeWindow, width: number): { at: number; 
   const count = Math.max(0, Math.floor((window.start + window.span - first) / step) + 1);
   return Array.from({ length: count }, (_, index) => {
     const at = first + index * step;
-    return { at, column: columnOf(at, window, width), label: clock(new Date(at).toISOString()) };
+    const label = clock(new Date(at).toISOString());
+    return { at, column: columnOf(at, window, width), label: step >= 60_000 ? label.slice(0, 5) : label };
   });
 }
