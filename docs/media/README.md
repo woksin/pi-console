@@ -41,7 +41,7 @@ The list below mirrors `scripts/media/scenes.ts`, which drives capture, encoding
 | `web-messages.webp`, `web-messages-light.webp` | web | Messages list, midnight and dawn |
 | `web-work.webp`, `web-work-light.webp` | web | Jobs, phases and CI, midnight and dawn |
 | `web-session.webp`, `web-session-light.webp` | web | Transcript tail and producer-owned native pi review controls, midnight and dawn |
-| `web-transcript-history.webp`, `web-transcript-history-light.webp` | web | Load older from the live tail, paused history mode and Return to live |
+| `web-transcript-history.webp`, `web-transcript-history-light.webp` | web | Load older from the live tail, then paused on the loaded older entries with Follow tail |
 | `web-timeline-history.webp`, `web-timeline-history-light.webp` | web | Loaded/total counts and Load older messages, midnight and dawn |
 | `web-attention-retry.webp`, `web-attention-retry-light.webp` | web | Attention unavailable with Retry, midnight and dawn |
 | `web-settings.webp`, `web-settings-light.webp` | web | Settings, midnight and dawn |
