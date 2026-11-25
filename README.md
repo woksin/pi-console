@@ -192,7 +192,7 @@ Click any thumbnail for the full-size image. The web client offers midnight (def
 </tr>
 <tr>
 <td><a href="docs/media/web-pulse.webp"><img src="docs/media/web-pulse.webp" width="280" alt="Fleet pulse status counts and context-pressure histogram"></a><br>Fleet pulse</td>
-<td><a href="docs/media/web-transcript-history.webp"><img src="docs/media/web-transcript-history.webp" width="280" alt="Midnight session transcript paused on older entries with a Return to live action"></a><br>Transcript history</td>
+<td><a href="docs/media/web-transcript-history.webp"><img src="docs/media/web-transcript-history.webp" width="280" alt="Midnight session transcript paused on older entries with a Follow tail action"></a><br>Transcript history</td>
 <td><a href="docs/media/web-timeline-history.webp"><img src="docs/media/web-timeline-history.webp" width="280" alt="Midnight Timeline with loaded and total counts and a Load older messages control"></a><br>Timeline history</td>
 </tr>
 <tr>

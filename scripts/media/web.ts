@@ -7,7 +7,7 @@ import { withStaleQuestion } from './questions.ts';
 import { memoryClock, prepareShowcase, rebase } from './fixture.mjs';
 import { FrameSet, wanted, writeStill, type Work } from './capture.ts';
 import { quiesce } from './showcase.ts';
-import { connectLive, png, preparePage, settle, type Theme } from './web-page.ts';
+import { connectLive, png, preparePage, settle, size, type Theme } from './web-page.ts';
 import { captureFlows } from './web-flows.ts';
 
 /** A frozen-stream rig: speed ≈ 0 publishes only the t=0 events. */
@@ -181,8 +181,11 @@ async function darkOnlyStills(page: Page, work: Work): Promise<void> {
   if (wanted(work, 'web-help')) {
     await page.keyboard.press('?');
     await page.getByRole('dialog', { name: 'Keyboard help' }).waitFor();
+    // The overlay scrolls internally at short heights; capture it on a taller viewport so the still shows whole rows.
+    await page.setViewportSize({ width: size.width, height: 900 });
     await settle(page);
     writeStill(work, 'web-help', await png(page));
+    await page.setViewportSize(size);
     await page.keyboard.press('Escape');
     await page.getByRole('dialog', { name: 'Keyboard help' }).waitFor({ state: 'detached' });
   }

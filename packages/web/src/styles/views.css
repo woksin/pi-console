@@ -178,7 +178,7 @@
 .dialog.token input { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
 .dialog.token input:focus { border-color: var(--cyan); outline: none; box-shadow: var(--focus); }
 .dialog.token input[aria-invalid='true'] { border-color: var(--red); }
-.help { width: min(920px, 94vw); padding: 18px 22px; max-height: 76vh; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+.help { width: min(920px, 94vw); padding: 18px 22px; max-height: 90vh; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
 .help-head { display: flex; justify-content: space-between; align-items: center; }
 .help-list { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; }
 .help-list > div { display: grid; grid-template-columns: 112px minmax(0, 1fr); align-items: baseline; gap: 12px; padding: 3px 0; border-bottom: 1px solid color-mix(in oklab, var(--border) 50%, transparent); }

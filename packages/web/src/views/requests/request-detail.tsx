@@ -30,7 +30,7 @@ export function RequestDetailPane({ detail }: { detail: RequestDetail }) {
         {link && <a className="btn" href={sessionHref(link.sessionId, link.entryId)} data-testid="request-jump">Open in transcript →</a>}
       </Panel>
       <Panel title="Answer" aside={detail.answer ? `${detail.answer.age} ago` : undefined}>
-        {detail.answer ? <Lines lines={detail.answerLines} withheld={detail.answer.withheld} /> : <span className="muted">No final answer recorded.</span>}
+        {detail.answer ? <Lines lines={detail.answerLines} withheld={detail.answer.withheld} /> : <span className="muted">No final answer recorded yet.</span>}
         {detail.interim.map((item, index) => <blockquote key={index} className="answer partial"><span className="faint small">Partial answer, not final · {item.age} ago</span><p>{item.text}</p></blockquote>)}
       </Panel>
       <Panel title="Evidence" aside={detail.source}>

@@ -1,4 +1,4 @@
-import { columnOf, displayWidth, fitSessionLabel, repositoryLabel, sessionLabels, markerLegend, pan, timelineTicks, timelineViewModel, zoom, type TimeWindow } from '@pi-console/viewmodels';
+import { columnOf, displayWidth, fitSessionLabel, repositoryLabel, sessionLabels, glyphs, markerLegend, pan, timelineTicks, timelineViewModel, zoom, type TimeWindow } from '@pi-console/viewmodels';
 import { useMemo, useState } from 'react';
 import type { ViewProps } from '../app/view.tsx';
 import { useActions } from '../app/commands.ts';
@@ -53,7 +53,7 @@ export function TimelineView({ state, now }: ViewProps) {
           <button type="button" onClick={() => { setWindow(zoom(window ?? view.window, 0.5)); }} aria-label="Zoom in">+</button><button type="button" onClick={() => { setWindow(pan(window ?? view.window, 1)); }} aria-label="Pan later">→</button>
           <button type="button" onClick={() => { setWindow(undefined); }}>Fit</button>
         </div>
-        <ul className="legend" aria-label="Legend">{markerLegend.map(item => <li key={item.label} className={`tone-${item.color}`}><span className="legend-glyph" aria-hidden="true">{item.glyph}</span>{item.label}</li>)}</ul>
+        <ul className="legend" aria-label="Legend">{markerLegend.map(item => <li key={item.label} className={`tone-${item.color}`}><span className={`legend-glyph${item.glyph === glyphs.reset ? " legend-glyph-reset" : ""}`} aria-hidden="true">{item.glyph}</span>{item.label}</li>)}</ul>
       </div>
       <svg className="tl" viewBox={`0 0 ${String(labelWidth + plotWidth + 20)} ${String(height)}`} role="group" aria-label="Timeline of requests, answers, resets, questions and messages per session">
         {ticks.map(tick => <g key={tick.at}><line className="tick" x1={x(tick.column)} x2={x(tick.column)} y1={22} y2={height} /><text className="axis" x={x(tick.column)} y={14} textAnchor="middle">{tick.label}</text></g>)}
