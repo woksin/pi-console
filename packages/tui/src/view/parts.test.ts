@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { displayWidth } from '@pi-console/viewmodels';
-import { fit, rule, split, t } from './parts.ts';
+import { fit, rule, split, statusParts, t } from './parts.ts';
 import type { Line } from './renderer.ts';
 
 const textOf = (line: Line): string => line.map(part => part.text).join('');
@@ -35,4 +35,10 @@ test('split and rules budget their Unicode labels in cells', () => {
   assert.equal(displayWidth(textOf(line)), 8);
   assert.ok(textOf(line).endsWith(' 🇳🇴'));
   assert.equal(displayWidth(textOf(rule(12, '界😀'))), 12);
+});
+
+test('status parts show the contract glyph at rest and animate only when given a phase', () => {
+  const working = { status: 'working', glyph: '*', label: 'Working', color: 'green' } as Parameters<typeof statusParts>[0];
+  assert.equal(statusParts(working, undefined, false)[0]?.text, '*');
+  assert.notEqual(statusParts(working, 3, false)[0]?.text, '*');
 });

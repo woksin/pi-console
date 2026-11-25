@@ -42,7 +42,7 @@ function sessionLine(row: SessionRow, layout: Columns, env: Env, selected: boole
 
 function preview(row: FleetRow | undefined, sessions: number): ReturnType<typeof h> {
   const lines: Line[] = row?.kind === 'session' ? [
-    [t(row.name, 'text', { bold: true })], [...statusParts(row.status, 0, true)], blank,
+    [t(row.name, 'text', { bold: true })], [...statusParts(row.status, undefined, true)], blank,
     ...metadataLines(row), heading('Model'), [t(row.model, 'muted')], blank,
     heading('Context'), [...pressureBar(row.contextPercent, 20), t(` ${String(row.contextPercent)}%`, pressureTone(row.pressure))], [t(row.spark, 'cyan')], blank,
     [t('cost ', 'muted'), t(row.cost, 'text'), t('   updated ', 'muted'), t(`${row.age} ago`, 'text')], blank, [t('⏎ ', 'cyan'), t('open transcript', 'muted')],

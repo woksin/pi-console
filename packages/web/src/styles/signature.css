@@ -39,7 +39,8 @@
 .attention-body a { flex-shrink: 0; font-size: var(--type-caption); }
 .graph-page { display: flex; flex-direction: column; gap: 14px; }
 .graph-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; }
-.graph { width: 100%; height: auto; max-height: 520px; background: radial-gradient(circle at 50% 50%, color-mix(in oklab, var(--cyan) 7%, transparent), transparent 70%); }
+/* A flat panel background, so the label plates (below) read as part of it rather than as boxes. */
+.graph { width: 100%; height: auto; max-height: 520px; }
 .edge { fill: none; stroke: var(--violet); opacity: 0.8; stroke-linecap: round; }
 .edge.spawn { stroke: var(--cyan); stroke-dasharray: 3 5; }
 .edge.message { stroke-dasharray: 8 4; animation: pulse-dash 1.4s linear infinite; }
@@ -52,10 +53,12 @@
 .node:focus-visible { outline: none; }
 .node .glyph { fill: var(--tone, var(--text)); font-size: 14px; pointer-events: none; }
 /* The viewBox is 440 wide (graph-layout), drawn about 0.82x of the old 360 one, so label sizes are scaled up by the same ratio to render as before. */
-.node .label { fill: var(--text); font-size: 13.5px; font-weight: 500; paint-order: stroke; stroke: var(--panel); stroke-width: 6px; stroke-linejoin: round; stroke-opacity: 0.92; pointer-events: none; }
+.node .label { fill: var(--text); font-size: 13.5px; font-weight: 500; pointer-events: none; }
 .node .label.name { fill: var(--muted); font-size: 12px; font-weight: 400; }
-.graph-toolbar { padding-block: 0; }
-.graph-toolbar .scrubber { flex: 0 1 160px; min-width: 80px; }
+/* A solid panel-coloured box behind a node's labels (graph.tsx): edges pass under it, never through the text. */
+.label-plate { flood-color: var(--panel); flood-opacity: 0.62; }
+.graph-scrub { display: inline-flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+.graph-scrub .scrubber { flex: 0 1 160px; min-width: 80px; }
 .graph-legend { padding: 0 18px; }
 .graph-legend li { display: flex; align-items: center; gap: 6px; }
 .graph-legend svg { width: 32px; height: 12px; }

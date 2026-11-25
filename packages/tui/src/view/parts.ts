@@ -25,12 +25,12 @@ export { pressureTone } from '@pi-console/viewmodels';
 
 const spinner = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
 
-/** Status glyph and label. Colour is never the only carrier: the label always travels with it. `phase` drives the motion. */
-export function statusParts(status: StatusCell, phase = 0, withLabel = true): Part[] {
+/** Status glyph and label. Colour is never the only carrier: the label always travels with it. `phase` drives the motion; without it (legends, counts) the resting contract glyph shows. */
+export function statusParts(status: StatusCell, phase?: number, withLabel = true): Part[] {
   const working = status.status === 'working' || status.status === 'running';
   const urgent = status.status === 'needs-you';
-  const glyph = working ? spinner[phase % spinner.length] : status.glyph;
-  return [t(glyph, status.color, { bold: urgent && phase % 2 === 0 }), ...(withLabel ? [t(` ${status.label}`, status.color)] : [])];
+  const glyph = working && phase !== undefined ? spinner[phase % spinner.length] : status.glyph;
+  return [t(glyph, status.color, { bold: urgent && (phase ?? 0) % 2 === 0 }), ...(withLabel ? [t(` ${status.label}`, status.color)] : [])];
 }
 
 /** `████░░░░` meter, coloured by pressure. */

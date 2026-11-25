@@ -76,11 +76,15 @@ test('default mock graph groups six repositories with named nodes, a plain legen
     for (const text of ['Messages sent', 'Started a session', 'Waiting for', 'Blocked by', 'Thicker lines mean more messages.']) assert.match(await legend.innerText(), new RegExp(text));
     await page.keyboard.press('t');
     const slider = page.getByRole('slider', { name: 'Time scrubber' });
-    const toolbar = page.locator('.graph-toolbar');
-    const [button, range] = await Promise.all([toolbar.getByRole('button').boundingBox(), slider.boundingBox()]);
+    const toggle = page.getByRole('button', { name: /^Time scrubber/ });
+    const [button, range, views] = await Promise.all([toggle.boundingBox(), slider.boundingBox(), page.getByRole('group', { name: 'Messages view' }).boundingBox()]);
     assert.ok(button && range && Math.abs(button.y - range.y) < button.height, 'toggle and range share one row');
+    const middle = button.y + button.height / 2;
+    assert.ok(views && views.y <= middle && middle <= views.y + views.height, `the scrubber shares the List/Graph row: ${JSON.stringify([views, button])}`);
+    assert.match(await page.locator('.graph-scrub time').innerText(), /^\d{2}:\d{2}:\d{2}$/);
+    assert.ok(await lanes.locator('.node[class*="tone-"]').count() > 0, 'lane nodes carry their newest session tone');
     assert.ok(range.width <= 200, 'the scrubber is compact');
-    for (const bounds of await lanes.locator('.node text').evaluateAll(nodes => nodes.map(node => { const box = node.getBoundingClientRect(); const svg = (node.closest('svg') ?? node).getBoundingClientRect(); return [box.left - svg.left, svg.right - box.right, svg.bottom - box.bottom]; }))) {
+    for (const bounds of await lanes.locator('.node text').evaluateAll(nodes => nodes.map(node => { const box = node.getBoundingClientRect(); const svg = (node.closest('svg') ?? node).getBoundingClientRect(); return [box.left - svg.left, svg.right - box.right, svg.bottom - box.bottom, box.top - svg.top]; }))) {
       assert.ok(bounds.every(edge => edge >= -1), `label stays inside its drawing: ${bounds.join(',')}`);
     }
   } finally { await page.context().close(); await rig.close(); }

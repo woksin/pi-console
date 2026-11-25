@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { activeBindings, bindings, bindingsFor, hints, keyLabel, keymapGroups, listContexts, resolve } from './keymap.ts';
+import { activeBindings, bindings, bindingsFor, hints, helpSafetyText, keyLabel, keymapGroups, listContexts, resolve } from './keymap.ts';
 
 test('no key is bound twice within one context', () => {
   const seen = new Map<string, string>();
@@ -101,4 +101,8 @@ test('the Overview footer hints `r retry` only while attention is unavailable or
   assert.ok(!hints('overview', 'tui', false).includes('r retry'));
   assert.ok(hints('overview', 'tui', true).includes('r retry'));
   assert.deepEqual(hints('fleet', 'tui', false), hints('fleet', 'tui', true));
+});
+
+test('the shared help safety copy qualifies read-only access for opt-in memory review', () => {
+  assert.match(helpSafetyText, /^Ordinary access is read-only\. Opt-in memory review only requests a review/);
 });

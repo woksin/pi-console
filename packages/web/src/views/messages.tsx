@@ -8,6 +8,7 @@ import { EmptyList } from '../ui/empty.tsx';
 import { SearchBox, SkeletonRows } from '../ui/primitives.tsx';
 import { useScrollIntoView } from '../ui/hooks.ts';
 import { GraphView } from './graph.tsx';
+import { GraphScrubber, useGraphScrub } from './graph-scrubber.tsx';
 import { LoadOlder } from './load-older.tsx';
 
 type Mode = 'list' | 'graph';
@@ -23,13 +24,21 @@ function useMessageRows(state: ViewProps['state'], now: number, mode: Mode, quer
   return { view, total: model.rows.length };
 }
 
+/** Navigates between the list and the graph; `v` toggles them. */
+function useModeSwitch(mode: Mode): (next: Mode) => void {
+  const go = (next: Mode): void => { navigate(hrefFor('messages', null, next === 'graph' ? { view: 'graph' } : {})); };
+  useActions(action => { if (action !== 'view.toggle') return false; go(mode === 'graph' ? 'list' : 'graph'); return true; });
+  return go;
+}
+
 export function MessagesView({ state, now, mode }: ViewProps & { mode: Mode }) {
   const [query, setQuery] = useState('');
   const search = useRef<HTMLInputElement>(null);
   useSearchFocus(search);
   const { view, total } = useMessageRows(state, now, mode, query);
-  const go = (next: Mode): void => { navigate(hrefFor('messages', null, next === 'graph' ? { view: 'graph' } : {})); };
-  useActions(action => { if (action !== 'view.toggle') return false; go(mode === 'graph' ? 'list' : 'graph'); return true; });
+  const graphReady = mode === 'graph' && state.graph !== null;
+  const scrub = useGraphScrub(state.graph, graphReady);
+  const go = useModeSwitch(mode);
   const rows = new Map(view.rows.map(row => [row.id, row]));
   const nav = useListNav(view.rows.map(row => row.id), { enabled: mode === 'list', onOpen: id => { const row = rows.get(id); if (row) navigate(sessionHref(row.fromSessionId)); } });
   return (
@@ -37,10 +46,11 @@ export function MessagesView({ state, now, mode }: ViewProps & { mode: Mode }) {
       <div className="toolbar">
         <div className="seg" role="group" aria-label="Messages view"><button type="button" aria-pressed={mode === 'list'} onClick={() => { go('list'); }}>List</button><button type="button" aria-pressed={mode === 'graph'} onClick={() => { go('graph'); }}>Graph <kbd className="kbd">v</kbd></button></div>
         {mode === 'list' && <SearchBox value={query} onChange={setQuery} placeholder="Filter messages…" inputRef={search} />}
+        {graphReady && <GraphScrubber scrub={scrub} />}
         <span className="muted">{view.rows.length} messages</span>
       </div>
       {mode === 'list' && <LoadOlder state={state} collection="messages" shown={total} noun="messages" />}
-      {mode === 'graph' ? <GraphView state={state} /> : <MessageList loaded={state.snapshotLoaded} rows={view.rows} total={total} nav={nav} />}
+      {mode === 'graph' ? <GraphView state={state} upTo={scrub.upTo} /> : <MessageList loaded={state.snapshotLoaded} rows={view.rows} total={total} nav={nav} />}
     </div>
   );
 }

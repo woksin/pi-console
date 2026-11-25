@@ -96,7 +96,7 @@ function statusLines(model: OverviewViewModel, width: number): Line[] {
   return model.counts.map(entry => {
     const tone = entry.count ? 'text' : 'faint';
     return fit([
-      ...statusParts(entry.status, 0, false), t(` ${entry.status.label.padEnd(10)}`, tone), t(String(entry.count).padStart(3), tone), t(' '),
+      ...statusParts(entry.status, undefined, false), t(` ${entry.status.label.padEnd(10)}`, tone), t(String(entry.count).padStart(3), tone), t(' '),
       ...bar(entry.count / peak * 100, Math.max(4, width - 19), entry.count ? entry.status.color : 'border'),
     ], width);
   });

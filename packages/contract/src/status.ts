@@ -21,6 +21,7 @@ export const statusTaxonomy: Record<string, StatusToken> = {
   'needs-you': token('!', 'amber', 'Needs you'),
   working: token('*', 'cyan', 'Working'),
   running: token('*', 'cyan', 'Running'),
+  queued: token('◷', 'muted', 'Queued'),
   blocked: token('×', 'orange', 'Blocked'),
   failed: token('#', 'red', 'Failed'),
   waiting: token('~', 'violet', 'Waiting'),

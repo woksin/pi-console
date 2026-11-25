@@ -181,11 +181,8 @@ async function darkOnlyStills(page: Page, work: Work): Promise<void> {
   if (wanted(work, 'web-help')) {
     await page.keyboard.press('?');
     await page.getByRole('dialog', { name: 'Keyboard help' }).waitFor();
-    // The overlay scrolls internally at short heights; capture it on a taller viewport so the still shows whole rows.
-    await page.setViewportSize({ width: size.width, height: 900 });
     await settle(page);
     writeStill(work, 'web-help', await png(page));
-    await page.setViewportSize(size);
     await page.keyboard.press('Escape');
     await page.getByRole('dialog', { name: 'Keyboard help' }).waitFor({ state: 'detached' });
   }

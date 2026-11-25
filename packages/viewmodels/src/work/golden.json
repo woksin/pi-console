@@ -137,9 +137,9 @@
       "name": "unit checks: queue",
       "status": {
         "status": "queued",
-        "glyph": "·",
+        "glyph": "◷",
         "color": "muted",
-        "label": "Unknown"
+        "label": "Queued"
       },
       "exit": "",
       "age": "2h"
@@ -161,9 +161,9 @@
       "name": "lint and typecheck",
       "status": {
         "status": "queued",
-        "glyph": "·",
+        "glyph": "◷",
         "color": "muted",
-        "label": "Unknown"
+        "label": "Queued"
       },
       "exit": "",
       "age": "2h"
