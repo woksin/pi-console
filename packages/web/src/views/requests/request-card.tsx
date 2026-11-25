@@ -1,4 +1,4 @@
-import type { RequestsRow } from '@pi-console/viewmodels';
+import { requestOriginGlyphs, type RequestsRow } from '@pi-console/viewmodels';
 import { sessionHref } from '../../app/routes.ts';
 import { StatusBadge } from '../../ui/primitives.tsx';
 import { useScrollIntoView } from '../../ui/hooks.ts';
@@ -10,7 +10,7 @@ export function RequestCard({ row, selected, onSelect }: { row: RequestsRow; sel
     <li ref={ref} className={`card request-card tone-${row.status.color}${row.origin === 'human' ? ' human-request' : ''}${selected ? ' selected' : ''}`} onClick={onSelect} data-request={row.id} aria-current={selected || undefined}>
       <div className="card-head">
         <StatusBadge cell={row.status} />
-        <span className="chip" data-origin={row.origin}>{row.originLabel}</span>
+        <span className="chip" data-origin={row.origin}><span aria-hidden="true">{requestOriginGlyphs[row.origin]} </span>{row.originLabel}</span>
         {row.uncertain && <span className="chip tone-amber" data-testid="uncertain">{row.uncertain}</span>}
         {row.possiblyUnseen && <StatusBadge cell={row.possiblyUnseen} />}
         <a href={sessionHref(row.sessionId)}>{row.session.title}</a><span className="grow" /><span className="faint tnum">{row.age}</span>

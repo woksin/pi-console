@@ -7,7 +7,7 @@ import { withStaleQuestion } from './questions.ts';
 import { memoryClock, prepareShowcase, rebase } from './fixture.mjs';
 import { FrameSet, wanted, writeStill, type Work } from './capture.ts';
 import { quiesce } from './showcase.ts';
-import { connectLive, png, preparePage, settle, type Theme } from './web-page.ts';
+import { connectLive, png, preparePage, settle, size, type Theme } from './web-page.ts';
 import { captureFlows } from './web-flows.ts';
 
 /** A frozen-stream rig: speed ≈ 0 publishes only the t=0 events. */
@@ -76,29 +76,15 @@ const questionsStill = (rig: Rig, theme: Theme): Promise<Buffer> => withStaleQue
   return still;
 });
 
-/** Moves the transcript up just far enough that the entry the sticky day header covers starts directly below it, so no entry header is shown half hidden. */
-async function clearStickyHeader(page: Page): Promise<void> {
-  await page.evaluate(() => {
-    const pane = document.querySelector('.transcript');
-    const head = pane?.querySelector('.tday-head');
-    if (!pane || !head) return;
-    const edge = head.getBoundingClientRect().bottom;
-    const covered = [...pane.querySelectorAll('.tline, .reset-marker')].find(line => line.getBoundingClientRect().bottom > edge);
-    const top = covered?.getBoundingClientRect().top ?? edge;
-    if (top < edge) pane.scrollTop -= edge - top;
-  });
-  await settle(page);
-}
-
 /** What a view needs on screen before its still: the tail, the memory panel, older history, the settings check or the graph edges. */
 async function prepareView(page: Page, rig: Rig, id: string): Promise<void> {
   if (id === 'session') {
     await showTranscriptTail(page);
     await page.locator('.memory-panel').scrollIntoViewIfNeeded();
     await page.evaluate(() => { window.scrollTo(0, 0); });
-    await clearStickyHeader(page);
+    await settle(page);
   }
-  if (id === 'transcript-history') { await showOlderTranscript(page); await clearStickyHeader(page); }
+  if (id === 'transcript-history') await showOlderTranscript(page);
   if (id === 'settings') await assertSettingsSequence(page, rig);
   if (id === 'graph') await page.locator('[aria-label="Lane communication"] .edge.message').first().waitFor({ state: 'attached' });
 }
@@ -124,9 +110,17 @@ async function assertSettingsSequence(page: Page, rig: Rig): Promise<void> {
 
 async function showOlderTranscript(page: Page): Promise<void> {
   await showTranscriptTail(page);
+  const boundary = await page.locator('.transcript [id^="line-"]').first().getAttribute('id');
   await page.getByRole('button', { name: 'Load older', exact: true }).click();
   // A paused transcript shows one tail action (#222): "Return to live" when newer lines are below, otherwise "Follow tail".
   await page.locator('.transcript-controls .btn.follow').filter({ hasText: /Return to live|Follow tail/ }).waitFor();
+  await page.waitForFunction(id => document.querySelector('.transcript [id^="line-"]')?.id !== id, boundary);
+  // The anchor keeps the viewport on the old lines; scroll up so the newly loaded older lines fill the pane above the previous first line.
+  await page.evaluate(id => {
+    const pane = document.querySelector('.transcript');
+    const line = id ? document.getElementById(id) : null;
+    if (pane && line) pane.scrollTop += line.getBoundingClientRect().top - pane.getBoundingClientRect().top - pane.clientHeight * 2 / 3;
+  }, boundary);
   await settle(page);
 }
 
@@ -184,10 +178,36 @@ async function stillsFor(rig: Rig, work: Work, theme: Theme): Promise<void> {
 }
 
 async function darkOnlyStills(page: Page, work: Work): Promise<void> {
+  if (wanted(work, 'web-help')) {
+    await page.keyboard.press('?');
+    await page.getByRole('dialog', { name: 'Keyboard help' }).waitFor();
+    // The overlay scrolls internally at short heights; capture it on a taller viewport so the still shows whole rows.
+    await page.setViewportSize({ width: size.width, height: 900 });
+    await settle(page);
+    writeStill(work, 'web-help', await png(page));
+    await page.setViewportSize(size);
+    await page.keyboard.press('Escape');
+    await page.getByRole('dialog', { name: 'Keyboard help' }).waitFor({ state: 'detached' });
+  }
   if (!wanted(work, 'web-themes')) return;
   await go(page, '/settings');
   await page.locator('.theme-cards').evaluate(cards => { cards.style.gridTemplateColumns = 'repeat(3, 1fr)'; });
   writeStill(work, 'web-themes', await page.locator('.theme-cards').screenshot({ animations: 'disabled' }));
+}
+
+/** Its own rig: the daemon is stopped after the snapshot, so nothing else may share it. */
+async function offlineStill(work: Work): Promise<void> {
+  const rig = await startFrozenRig();
+  try {
+    const page = await openConsole(rig, { theme: 'midnight', scale: 2, route: '/fleet' });
+    await page.locator('tr[data-session]').first().waitFor();
+    await rig.stopDaemon();
+    await page.getByTestId('banner').filter({ hasText: 'Disconnected: showing the last data received' }).waitFor({ timeout: 30_000 });
+    await page.locator('.stale-asof').waitFor();
+    await settle(page);
+    writeStill(work, 'web-offline', await png(page));
+    await page.context().close();
+  } finally { await rig.close(); }
 }
 
 async function paletteGif(rig: Rig, work: Work): Promise<void> {
@@ -233,9 +253,10 @@ async function tourGif(rig: Rig, work: Work): Promise<void> {
 }
 
 export async function captureWeb(rig: Rig, work: Work): Promise<void> {
-  const wantsStills = shots.some(shot => shot.client === 'web' && shot.kind === 'still' && !flowIds.includes(shot.id) && wanted(work, shot.id));
+  const wantsStills = shots.some(shot => shot.client === 'web' && shot.kind === 'still' && !flowIds.includes(shot.id) && shot.id !== 'web-offline' && wanted(work, shot.id));
   if (wantsStills) { await stillsFor(rig, work, 'midnight'); await stillsFor(rig, work, 'dawn'); }
   if (wanted(work, 'web-palette')) await paletteGif(rig, work);
   if (wanted(work, 'web-tour')) await tourGif(rig, work);
+  if (wanted(work, 'web-offline')) await offlineStill(work);
   await captureFlows(work);
 }

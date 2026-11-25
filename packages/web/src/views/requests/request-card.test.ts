@@ -5,6 +5,7 @@ import { createElement, type ComponentType } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { createServer, type ViteDevServer } from 'vite';
 import type { RequestsRow } from '@pi-console/viewmodels';
+import { statusToken } from '@pi-console/contract';
 
 let server: ViteDevServer;
 let RequestCard: ComponentType<{ row: RequestsRow; selected: boolean; onSelect: () => void }>;
@@ -16,7 +17,7 @@ after(async () => { await server.close(); });
 
 const row: RequestsRow = {
   id: 'request-a11y', sessionId: 's2', session: { name: 'Session two', lane: '', title: 'Session two' }, origin: 'human', originLabel: 'Classified as human',
-  status: { status: 'open', label: 'Open', color: 'cyan', glyph: '○' }, text: 'Explain <this> request', withheld: false, age: '1m',
+  status: { status: 'open', ...statusToken('open') }, text: 'Explain <this> request', withheld: false, age: '1m',
   answer: null, uncertain: null, possiblyUnseen: null, source: 'Session transcript', transcript: null,
 };
 
@@ -31,6 +32,14 @@ test('request card has a labelled native selection button and retains its separa
   assert.match(html, /aria-pressed="false"/);
   assert.match(html, /<a href="#\/session\/s2">Session two<\/a>/);
   assert.match(html, />Explain &lt;this&gt; request<\/button>/);
+});
+
+test('request origin chips distinguish human, launch and unproven classifications beside the status', () => {
+  for (const [origin, glyph] of [['human', '●'], ['launch', '◆'], ['unproven', '○']] as const) {
+    const html = render(false, { ...row, origin, originLabel: `Classified as ${origin}` });
+    assert.ok(html.includes(`data-origin="${origin}"><span aria-hidden="true">${glyph} </span>Classified as ${origin}`));
+    assert.ok(html.includes(row.status.label));
+  }
 });
 
 test('selected and withheld request cards expose selection without losing their displayed text', () => {

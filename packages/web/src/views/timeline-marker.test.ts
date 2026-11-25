@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from 'react-dom/server';
 import { createServer, type ViteDevServer } from 'vite';
 import type { Marker } from '@pi-console/viewmodels';
 
-interface MarkerProps { marker: Marker; lane: string; x: number; cellWidth: number; selected: boolean; onSelect: () => void }
+interface MarkerProps { marker: Marker; lane: string; x: number; cellWidth: number; offsetY?: number; selected: boolean; onSelect: () => void }
 let server: ViteDevServer;
 let TimelineMarker: ComponentType<MarkerProps>;
 let TimelineDetail: ComponentType<{ marker: Marker; lane: string }>;
@@ -40,6 +40,12 @@ test('selected state and HTML details expose the full text without interpreting 
   assert.match(detail, /2026-01-01T00:00:00.000Z/);
   assert.match(detail, /&lt;img src=x onerror=&quot;alert\(1\)&quot;&gt; &amp; details/);
   assert.doesNotMatch(detail, /<img|<script/);
+});
+
+test('reset markers have optical sizing and offsets move only the visible glyph', () => {
+  const html = renderToStaticMarkup(createElement(TimelineMarker, { marker: { ...marker, glyph: '⟲' }, lane: 'repo/L1', x: 170, cellWidth: 8, offsetY: -4, selected: false, onSelect: () => undefined }));
+  assert.match(html, /class="mark tone-green mark-reset" x="170" y="16"/);
+  assert.match(html, /class="marker-hit" x="166" y="3" width="8"/);
 });
 
 test('adjacent marker hit boxes stay within their cells and decorations do not take clicks', () => {

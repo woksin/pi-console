@@ -114,11 +114,11 @@ export function banner(connection: Connection, width: number, endpoint?: string,
 }
 
 /** The footer: the text being typed while a field is open, otherwise the shared keymap's hints for the context. */
-export function footerLine(ui: UiState, width: number, measure?: TextWidth): Line {
+export function footerLine(ui: UiState, width: number, measure?: TextWidth, attentionFailed = false): Line {
   if (ui.overlay === 'filter' || ui.overlay === 'search') {
     return fit([t(ui.overlay === 'filter' ? ' / filter ' : ' / search ', 'bg', { background: 'cyan', bold: true }), t(` ${ui.input}`, 'text'), t('▌', 'cyan'), t('   ⏎ apply · esc cancel', 'faint')], width, 'raised', measure);
   }
-  const keys = hints(contextOf(ui)).map(hint => { const space = hint.indexOf(' '); return [t(hint.slice(0, space), 'cyan'), t(`${hint.slice(space)}  `, 'muted')]; });
+  const keys = hints(contextOf(ui), 'tui', attentionFailed).map(hint => { const space = hint.indexOf(' '); return [t(hint.slice(0, space), 'cyan'), t(`${hint.slice(space)}  `, 'muted')]; });
   const notice = ui.notice ? [t(`  ${ui.notice}`, 'amber')] : [];
   return fit([t(' '), ...keys.flat(), ...notice], width, 'raised', measure);
 }

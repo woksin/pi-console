@@ -116,13 +116,22 @@ Overview groups attention by reason: blocking questions, open requests, possibly
 
 Status glyphs carry meaning even without colour:
 
-| Status | Glyph |
-|---|---|
-| Needs you | `!` |
-| Blocked | `×` |
-| Failed | `#` |
-| Possibly unseen | `¿` |
-| Stale | `?` |
+| Status / request state | Glyph | Label |
+|---|---|---|
+| `needs-you` | `!` | Needs you |
+| `working` | `*` | Working |
+| `running` | `*` | Running |
+| `blocked` | `×` | Blocked |
+| `failed` | `#` | Failed |
+| `waiting` | `~` | Waiting |
+| `interrupted` | `/` | Interrupted |
+| `done` | `✓` | Done |
+| `answered` | `✓` | Answered |
+| `unanswered` | `!` | Unanswered |
+| `open` | `!` | Open |
+| `answer-possibly-unseen` | `¿` | Possibly unseen |
+| `idle` | `–` | Idle |
+| `stale` | `?` | Stale |
 
 Failed uses ASCII `#` to stay clearly distinct from blocked `×` in monospace fonts. Possibly unseen uses `¿` because `?` already means stale; its chip reads “Possibly unseen”, never “Unanswered”.
 
@@ -136,7 +145,7 @@ A session finishes in Fleet, then a new blocking question raises the **Needs you
 
 ### Find a session without leaving the keyboard
 
-`Ctrl+P` or `:` opens the command palette. Prefixes narrow the search: `>` commands, `@` sessions and lanes, `#` questions and requests, `/` messages. Use `1`–`7` to switch views, `j`/`k` to move, `Enter` to open, `Esc` to go back and `?` for help.
+`Ctrl+P` or `:` opens the command palette. Prefixes narrow the search: `>` commands, `@` sessions and lanes, `#` questions and requests, `/` messages. Use `1`–`7` to switch views, `j`/`k` to move, `Enter` to open, `Esc` to go back and `?` for help (see the [gallery](#gallery)).
 
 <img src="docs/media/web-palette.gif" alt="Command palette filtering sessions, lanes and questions, then opening the selected session" width="900">
 
@@ -169,7 +178,7 @@ Click any thumbnail for the full-size image. The web client offers midnight (def
 <tr>
 <td><a href="docs/media/web-questions.webp"><img src="docs/media/web-questions.webp" width="280" alt="Midnight Questions with history, sorting and a stale marker"></a><br>Questions and history</td>
 <td><a href="docs/media/web-messages.webp"><img src="docs/media/web-messages.webp" width="280" alt="Midnight Messages list showing lane communications"></a><br>Messages</td>
-<td><a href="docs/media/web-graph.webp"><img src="docs/media/web-graph.webp" width="280" alt="Midnight lane communication graph and separate session spawn graph"></a><br>Communication graph</td>
+<td><a href="docs/media/web-graph.webp"><img src="docs/media/web-graph.webp" width="280" alt="Midnight lane communication graph"></a><br>Lane communication graph</td>
 </tr>
 <tr>
 <td><a href="docs/media/web-timeline.webp"><img src="docs/media/web-timeline.webp" width="280" alt="Midnight Timeline with request, answer and reset markers"></a><br>Timeline</td>
@@ -179,10 +188,17 @@ Click any thumbnail for the full-size image. The web client offers midnight (def
 <tr>
 <td><a href="docs/media/web-attention-retry.webp"><img src="docs/media/web-attention-retry.webp" width="280" alt="Midnight Overview reporting unavailable attention with Retry"></a><br>Unavailable, not all clear</td>
 <td><a href="docs/media/web-settings.webp"><img src="docs/media/web-settings.webp" width="280" alt="Midnight Settings with source health and theme preferences"></a><br>Settings</td>
+<td><a href="docs/media/web-session-resets.webp"><img src="docs/media/web-session-resets.webp" width="280" alt="Transcript reset divider listing carried and interrupted requests"></a><br>Context resets</td>
 </tr>
 <tr>
-<td><a href="docs/media/web-session-resets.webp"><img src="docs/media/web-session-resets.webp" width="280" alt="Transcript reset divider listing carried and interrupted requests"></a><br>Context resets</td>
 <td><a href="docs/media/web-pulse.webp"><img src="docs/media/web-pulse.webp" width="280" alt="Fleet pulse status counts and context-pressure histogram"></a><br>Fleet pulse</td>
+<td><a href="docs/media/web-transcript-history.webp"><img src="docs/media/web-transcript-history.webp" width="280" alt="Midnight session transcript paused on older entries with a Follow tail action"></a><br>Transcript history</td>
+<td><a href="docs/media/web-timeline-history.webp"><img src="docs/media/web-timeline-history.webp" width="280" alt="Midnight Timeline with loaded and total counts and a Load older messages control"></a><br>Timeline history</td>
+</tr>
+<tr>
+<td><a href="docs/media/web-help.webp"><img src="docs/media/web-help.webp" width="280" alt="Midnight keyboard help overlay listing the shortcuts"></a><br>Keyboard help (<code>?</code>)</td>
+<td><a href="docs/media/web-offline.webp"><img src="docs/media/web-offline.webp" width="280" alt="Midnight Fleet kept on screen under a Disconnected banner after the daemon stopped"></a><br>Daemon unreachable, data kept</td>
+<td><a href="docs/media/web-themes.webp"><img src="docs/media/web-themes.webp" width="280" alt="Settings preview cards for midnight, dawn and high contrast"></a><br>Theme previews</td>
 </tr>
 </table>
 
@@ -204,6 +220,11 @@ Click any thumbnail for the full-size image. The web client offers midnight (def
 <td><a href="docs/media/tui-settings-scroll.webp"><img src="docs/media/tui-settings-scroll.webp" width="280" alt="Terminal Settings scrolled to fit a short viewport"></a><br>Scrollable Settings</td>
 <td><a href="docs/media/tui-mono.webp"><img src="docs/media/tui-mono.webp" width="280" alt="Terminal Fleet in mono using glyphs instead of colour"></a><br>Mono theme</td>
 </tr>
+<tr>
+<td><a href="docs/media/tui-question-expanded.webp"><img src="docs/media/tui-question-expanded.webp" width="280" alt="Terminal expanded question with wrapped text, options and recorded history"></a><br>Expanded question</td>
+<td><a href="docs/media/tui-requests.webp"><img src="docs/media/tui-requests.webp" width="280" alt="Terminal Requests list showing the origin of each request"></a><br>Request origins</td>
+<td><a href="docs/media/tui-tour.gif"><img src="docs/media/tui-tour.gif" width="280" alt="Terminal tour of Overview, Fleet, a session, the command palette and Timeline"></a><br>Tour (animated)</td>
+</tr>
 </table>
 
 <details><summary>Dawn theme</summary>
@@ -217,7 +238,7 @@ Click any thumbnail for the full-size image. The web client offers midnight (def
 <tr>
 <td><a href="docs/media/web-questions-light.webp"><img src="docs/media/web-questions-light.webp" width="280" alt="Dawn Questions with history and a text-labelled stale marker"></a><br>Questions and history</td>
 <td><a href="docs/media/web-messages-light.webp"><img src="docs/media/web-messages-light.webp" width="280" alt="Dawn Messages list showing lane communications"></a><br>Messages</td>
-<td><a href="docs/media/web-graph-light.webp"><img src="docs/media/web-graph-light.webp" width="280" alt="Dawn lane communication graph and separate session spawn graph"></a><br>Communication graph</td>
+<td><a href="docs/media/web-graph-light.webp"><img src="docs/media/web-graph-light.webp" width="280" alt="Dawn lane communication graph"></a><br>Lane communication graph</td>
 </tr>
 <tr>
 <td><a href="docs/media/web-timeline-light.webp"><img src="docs/media/web-timeline-light.webp" width="280" alt="Dawn Timeline with request, answer and reset markers"></a><br>Timeline</td>
@@ -227,10 +248,7 @@ Click any thumbnail for the full-size image. The web client offers midnight (def
 <tr>
 <td><a href="docs/media/web-attention-retry-light.webp"><img src="docs/media/web-attention-retry-light.webp" width="280" alt="Dawn Overview reporting unavailable attention with Retry"></a><br>Unavailable, not all clear</td>
 <td><a href="docs/media/web-settings-light.webp"><img src="docs/media/web-settings-light.webp" width="280" alt="Dawn Settings with source health and theme preferences"></a><br>Settings</td>
-</tr>
-<tr>
 <td><a href="docs/media/web-session-resets-light.webp"><img src="docs/media/web-session-resets-light.webp" width="280" alt="Dawn transcript reset divider with carried and interrupted requests"></a><br>Context resets</td>
-<td><a href="docs/media/web-themes.webp"><img src="docs/media/web-themes.webp" width="280" alt="Settings preview cards for midnight, dawn and high contrast"></a><br>Theme previews</td>
 </tr>
 </table>
 

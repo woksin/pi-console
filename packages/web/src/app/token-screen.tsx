@@ -14,7 +14,7 @@ export function TokenScreen({ rejected, onToken }: { rejected: boolean; onToken:
           <input type="password" autoComplete="off" spellCheck={false} autoFocus value={value} onChange={event => { setValue(event.target.value); }} aria-invalid={rejected} />
         </label>
         <button type="submit" className="btn primary" disabled={!valid}>Connect</button>
-        <p className="muted small">The token is the file <code>token</code> in the daemon's data directory (<code>~/.pi-console/token</code> by default).</p>
+        <p className="muted small">The token is the file <code>token</code> in the daemon's data directory (<code className="nowrap">~/.pi-console/token</code> by default).</p>
       </form>
     </main>
   );

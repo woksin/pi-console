@@ -47,24 +47,39 @@ const tailSignature = (lines: readonly TranscriptLine[]): string => {
   return `${String(tail?.key)}:${String(lines.length)}:${String(tail?.text.length)}`;
 };
 
+/** Moves only the transcript pane to its end; `scrollIntoView` would also scroll the page around it. */
+const toEnd = (pane: HTMLElement | null): void => { if (pane) pane.scrollTop = pane.scrollHeight; };
+
+/** While following, a line that grows after the tail scroll (an off-screen `content-visibility: auto` line rendering at full height, a wrap change) must not push the tail out of view. One observer per follow period watches the wrapper of all lines; it does nothing once paused, even before its cleanup runs. */
+function useKeepTail(pane: RefObject<HTMLDivElement | null>, body: RefObject<HTMLDivElement | null>, follow: boolean, following: RefObject<boolean>): void {
+  useEffect(() => {
+    const content = follow ? body.current : null;
+    if (!content || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => { if (following.current) toEnd(pane.current); });
+    observer.observe(content);
+    return () => { observer.disconnect(); };
+  }, [pane, body, follow, following]);
+}
+
 export interface TranscriptScroll {
   follow: boolean;
   pause: () => void;
   toggleFollow: () => void;
   pane: RefObject<HTMLDivElement | null>;
-  end: RefObject<HTMLDivElement | null>;
+  body: RefObject<HTMLDivElement | null>;
   onScroll: () => void;
   remember: () => void;
 }
 
 /** Follow-the-tail, pause on user scroll, anchoring on a line id while paused, and the one-time scroll to a jump target. */
 export function useTranscriptScroll(lines: readonly TranscriptLine[], focusEntry: string | null, onResume: () => void, onFollow: (following: boolean) => void): TranscriptScroll {
-  const { follow, pause, toggleFollow } = useFollow(focusEntry === null, onResume, onFollow);
+  const { follow, following, pause, toggleFollow } = useFollow(focusEntry === null, onResume, onFollow);
   const pane = useRef<HTMLDivElement>(null);
-  const end = useRef<HTMLDivElement>(null);
+  const body = useRef<HTMLDivElement>(null);
   const tail = tailSignature(lines);
-  useEffect(() => { if (follow) end.current?.scrollIntoView({ block: 'end' }); }, [follow, tail]);
+  useEffect(() => { if (follow) toEnd(pane.current); }, [follow, tail]);
+  useKeepTail(pane, body, follow, following);
   const { remember } = useAnchor(pane, follow, lines);
   useJumpOnce(lines, focusEntry, remember);
-  return { follow, pause, toggleFollow, pane, end, onScroll: () => { if (!follow) remember(); }, remember };
+  return { follow, pause, toggleFollow, pane, body, onScroll: () => { if (!follow) remember(); }, remember };
 }

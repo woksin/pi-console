@@ -131,9 +131,14 @@ export function resolve(context: KeyContext, key: string, client: KeyClient = 't
   return active.find(binding => binding.keys.includes(key) && binding.contexts.includes('global'))?.action;
 }
 
-/** Footer hints for a context, in table order, `global` hints last. */
-export function hints(context: KeyContext, client: KeyClient = 'tui'): string[] {
+function hintBindings(client: KeyClient, attentionFailed: boolean) {
   const active = bindingsFor(client);
+  return attentionFailed ? active : active.filter(binding => binding.action !== 'attention.retry');
+}
+
+/** Footer hints for a context, in table order, `global` hints last; `r retry` only while attention is unavailable or stale. */
+export function hints(context: KeyContext, client: KeyClient = 'tui', attentionFailed = true): string[] {
+  const active = hintBindings(client, attentionFailed);
   const own = active.filter(binding => binding.hint && binding.contexts.includes(context));
   const global = context === 'palette' || context === 'filter' ? [] : active.filter(binding => binding.hint && binding.contexts.includes('global'));
   return [...own, ...global].map(binding => binding.hint ?? '').filter((hint, index, all) => all.indexOf(hint) === index);

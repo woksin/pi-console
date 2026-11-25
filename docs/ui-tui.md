@@ -78,11 +78,12 @@ Glyphs need no icon font; labels and position carry their meaning in every theme
 
 | Context | Glyphs |
 |---|---|
-| Request origin (classification, not proof) | `●` human · `◆` launch · `*` unproven (ASCII in every terminal) |
+| Request origin (classification, not proof) | `●` human · `◆` launch · `○` unproven |
 | Request flags | `≈` uncertain · `◌` possibly unseen; the status chip uses `¿` (“Possibly unseen”) |
 | Status | `×` blocked · `#` failed · `?` stale; these contract glyphs are unchanged |
+| Urgency | `‼` urgent question or message |
 | Transcript | `▍` user · `●` assistant · `◌` thinking · `⚙` tool · `↳` result · `±` diff · `⟲` reset |
-| Timeline markers | `◆` request · `╳` interrupted · `●` final answer · `◐` partial · `⟲` reset · `?` question · `›` message |
+| Timeline markers | `◆` request · `/` interrupted · `●` final answer · `◐` partial · `⟲` reset · `?` question · `›` message |
 
 `?` still marks a question on the Timeline or a text-labelled stale status, never an unproven request origin. Memory navigation uses `[/] prev/next` for the `[` and `]` keys, not an empty checkbox.
 
@@ -91,6 +92,8 @@ Glyphs need no icon font; labels and position carry their meaning in every theme
 Header: brand, tabs, a "N need you" pill and the live/offline link. Attention shows "checking…" before the first load and "attention unavailable" if it fails ("unavailable" at compact widths). Cached counts after a failed refresh are marked "stale" in the header and Overview; only a successful empty load shows a current "all clear". Footer: the keymap's hints for the current context (so a new binding appears here without TUI changes). While the stream is down a banner says the daemon is unreachable, when the visible data was last received and the last error (the as-of time gives way to the error on narrow terminals; the endpoint clips first); the client reconnects with capped backoff and resumes through `Last-Event-ID`. If the daemon refuses that sequence (HTTP 400, for example after its event store was reset), the client drops it, clears its mirrored state and reconnects at once for a fresh snapshot. A rejected token (HTTP 401) is reported as "Token rejected · check PI_CONSOLE_TOKEN or --data-dir" and retried only every 30 seconds, since the same token works again only if the daemon behind the port changes. Below 112 columns the tab labels collapse to numbers and side panels drop; the header also collapses tabs when its status text needs the room; transcript text is sanitised, so terminal escapes in a session cannot reach the screen.
 
 Screenshots and a tour, captured from the real TUI on a pty against the mock daemon's synthetic fixture by `npm run media` ([docs/media/README.md](media/README.md)). `npm run media -w @pi-console/tui` still writes a full per-view SVG and plain-text capture into `docs/media/tui/` as scratch output (not committed).
+
+The `tui-requests.webp` gallery scene shows all three request origins beside their status chips.
 
 ![Overview](media/tui-overview.webp)
 ![Command palette](media/tui-palette.webp)

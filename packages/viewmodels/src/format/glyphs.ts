@@ -1,7 +1,12 @@
+import type { Request } from '@pi-console/contract';
+
+/** Request classification stays distinct from the adjacent status chip. */
+export const requestOriginGlyphs = { human: '●', launch: '◆', unproven: '○' } as const satisfies Record<Request['origin'], string>;
+
 /** Shared transcript and event-marker glyphs. Unicode only; no icon font is required. */
 export const glyphs = {
   user: '▍', assistant: '●', thinking: '◌', tool: '⚙', result: '↳', diff: '±', reset: '⟲',
-  request: '◆', answer: '●', partial: '◐', question: '?', message: '›', interrupted: '╳',
+  request: '◆', answer: '●', partial: '◐', question: '?', message: '›', interrupted: '/',
 } as const;
 
 /** The same marker legend is rendered in web SVG and terminal cells. */

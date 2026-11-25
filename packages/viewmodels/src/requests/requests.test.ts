@@ -65,10 +65,10 @@ test('stored text is data: one line, no control sequences, withheld text a visib
 
 test('the detail gives a short inferred classification, never verified, and links every evidence entry to the transcript', () => {
   const detail = requestDetail({ request: derived[0], sessions: fixture.sessions, now });
-  assert.equal(detail.provenance, 'Initial prompt · inferred from transcript');
+  assert.equal(detail.provenance, 'Initial prompt · classified from transcript');
   assert.equal(detail.provenanceQualifier, 'not verified');
   const human = requestDetail({ request: { ...derived[0], origin: 'human', originLabel: 'Human request' }, sessions: fixture.sessions, now });
-  assert.equal(human.provenance, 'Human request · inferred from transcript');
+  assert.equal(human.provenance, 'Human request · classified from transcript');
   assert.equal(human.provenanceQualifier, 'not verified');
   const stored = requestDetail({ request: { ...derived[0], derivedFrom: 'intent-memory' }, sessions: fixture.sessions, now });
   assert.equal(stored.provenance, 'Initial prompt · reported by intent-memory');

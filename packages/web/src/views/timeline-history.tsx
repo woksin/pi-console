@@ -9,7 +9,6 @@ export function TimelineHistory({ state }: { state: ConsoleState }) {
   const pending = bounded.filter(collection => state.history[collection]?.more !== false);
   return (
     <section className="timeline-history" aria-label="Timeline history">
-      <p className="muted small">Loaded history counts, independent of zoom.</p>
       {pending.length > 0 && <p className="muted small">Limited history: older {pending.join(', ')} may be missing.</p>}
       <div className="timeline-history-rows">
         {bounded.map(collection => <div key={collection} role="group" aria-label={`${collection} history`}>

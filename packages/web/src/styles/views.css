@@ -130,17 +130,17 @@
 .transcript-pane { display: flex; flex-direction: column; gap: 10px; min-height: 0; }
 .transcript { position: relative; flex: 1; overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--panel); padding: 0 0 8px; max-height: calc(100vh - 230px); }
 .transcript-shell { display: flex; flex-direction: column; flex: 1; min-height: 0; }
-.transcript-controls { display: flex; justify-content: flex-end; padding: 4px 8px; border: 1px solid var(--border); border-bottom: 0; border-radius: var(--radius) var(--radius) 0 0; background: var(--panel); }
+.transcript-controls { display: flex; justify-content: flex-end; align-items: center; gap: var(--space-2); padding: 4px 8px; border: 1px solid var(--border); border-bottom: 0; border-radius: var(--radius) var(--radius) 0 0; background: var(--panel); }
 .transcript-shell .transcript { border-radius: 0 0 var(--radius) var(--radius); max-height: calc(100vh - 274px); }
 .follow { margin: 0; display: flex; width: max-content; }
+.transcript-day { margin-right: auto; color: var(--muted); font-size: var(--type-caption); font-weight: 650; letter-spacing: 0.02em; }
 @media (min-width: 761px) and (max-width: 1179px) {
   .grid[aria-label='Fleet'] td, .grid[aria-label='Fleet'] th { padding-left: 8px; padding-right: 8px; }
   .grid[aria-label='Fleet'] .pressure-track { width: 64px; }
 }
-/* The pane has no top padding, so the sticky header sits flush at the edge and no line can show above it; the first day carries the 8px instead. */
+/* Day boundaries are inline rules that scroll with the lines; the current day is labelled in .transcript-controls, outside the scroller, so nothing covers a line. */
 .tday:first-of-type { padding-top: 8px; }
-.tday-head { position: sticky; top: 0; z-index: 2; margin: 0; padding: 11px 14px 3px; background-color: var(--panel); opacity: 1; border-bottom: 1px solid var(--border); color: var(--muted); font-size: var(--type-caption); font-weight: 650; letter-spacing: 0.02em; }
-.tday .tline, .tday .reset-marker { scroll-margin-top: 36px; }
+.tday-head { margin: 0; padding: 11px 14px 3px; border-bottom: 1px solid var(--border); color: var(--muted); font-size: var(--type-caption); font-weight: 650; letter-spacing: 0.02em; }
 .tline { display: grid; grid-template-columns: 28px 1fr; gap: 6px; padding: 7px 14px; border-left: 3px solid transparent; cursor: default; }
 .tline:hover { background: color-mix(in oklab, var(--raised) 55%, transparent); }
 .tline.selected { background: var(--select); border-left-color: var(--cyan); }
@@ -178,7 +178,7 @@
 .dialog.token input { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
 .dialog.token input:focus { border-color: var(--cyan); outline: none; box-shadow: var(--focus); }
 .dialog.token input[aria-invalid='true'] { border-color: var(--red); }
-.help { width: min(920px, 94vw); padding: 18px 22px; max-height: 76vh; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
+.help { width: min(920px, 94vw); padding: 18px 22px; max-height: 90vh; overflow: auto; display: flex; flex-direction: column; gap: 10px; }
 .help-head { display: flex; justify-content: space-between; align-items: center; }
 .help-list { margin: 0; display: grid; grid-template-columns: 1fr 1fr; gap: 6px 24px; }
 .help-list > div { display: grid; grid-template-columns: 112px minmax(0, 1fr); align-items: baseline; gap: 12px; padding: 3px 0; border-bottom: 1px solid color-mix(in oklab, var(--border) 50%, transparent); }
@@ -219,3 +219,4 @@
 .questions .field { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; }
 
 .motion-control { display: flex; align-items: center; gap: 12px; }
+.settings .value-detail { display: flex; flex-wrap: wrap; column-gap: 0.75em; }
