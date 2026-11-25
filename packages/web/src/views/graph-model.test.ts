@@ -58,3 +58,19 @@ test('lane nodes carry the lane ID as label and the readable name separately; an
   const bare = webGraphModel({ graph: { nodes: [], edges: [{ fromLane: 'L7', toLane: 'L8', kind: 'message', count: 1, lastAt: '2026-01-01T00:00:01Z' }] }, sessions: [] });
   assert.deepEqual(bare.lanes[0].nodes.map(node => [node.label, node.name]), [['L7', null], ['L8', null]]);
 });
+
+test('a lane node shows its newest session status; a lane without a session keeps the hollow status', () => {
+  const base = generate().fixture.sessions[0] as unknown as Session;
+  const sessions: Session[] = [
+    { ...base, id: 'old', laneId: 'L0', repositoryId: 'repo', status: 'idle', startedAt: '2026-01-01T00:00:00Z', updatedAt: '2026-01-01T00:09:00Z' },
+    { ...base, id: 'new', laneId: 'L0', repositoryId: 'repo', status: 'blocked', startedAt: '2026-01-01T00:05:00Z', updatedAt: '2026-01-01T00:06:00Z' },
+    { ...base, id: 'elsewhere', laneId: 'L192', repositoryId: 'other', status: 'working', startedAt: '2026-01-01T00:07:00Z', updatedAt: '2026-01-01T00:07:00Z' },
+  ];
+  const nodes = webGraphModel({ graph, sessions }).lanes.flatMap(group => group.nodes);
+  const status = (id: string) => nodes.find(node => node.id === id)?.status ?? null;
+  assert.equal(status('L0')?.status, 'blocked');
+  assert.ok(status('L0')?.glyph && status('L0')?.color);
+  assert.equal(status('L192'), null, 'a session in another repository does not speak for this lane');
+  assert.equal(status('L404'), null);
+  assert.ok(nodes.every(node => node.sessionId === null), 'lane nodes never become session links');
+});
