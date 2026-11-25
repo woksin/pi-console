@@ -62,6 +62,7 @@ export const shots: readonly Shot[] = [
   tui('session-resets', 'TUI transcript at a reset divider'),
   tui('palette', 'TUI command palette with typed groups'),
   tui('mono', 'TUI in the mono theme (NO_COLOR-safe)'),
+  tui('requests', 'Requests list with human, launch and unproven origin glyphs'),
   tui('questions', 'Questions list with sort and stale threshold in the title and a stale marker on idle open questions'),
   tui('question-expanded', 'Expanded question with wrapped text, options and its recorded history at a wide terminal size'),
   tui('memory-paging', 'Memory loaded/total progress and older-item navigation'),

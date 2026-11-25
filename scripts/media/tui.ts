@@ -116,6 +116,14 @@ async function monoStill(rig: Rig, work: Work): Promise<void> {
   });
 }
 
+async function requestsStill(rig: Rig, work: Work): Promise<void> {
+  await withTerminal(rig, { cols: 140, rows: 30, scale: 2, opaque: false }, async term => {
+    term.pty.send('3'); await term.pty.waitFor('Requests and answers');
+    await term.pty.waitFor('○ unproven');
+    writeStill(work, 'tui-requests', await snap(term, 'pi-console TUI request origins'));
+  });
+}
+
 async function questionStill(rig: Rig, work: Work): Promise<void> {
   await withStaleQuestion(rig, () => withTerminal(rig, { cols: 140, rows: 30, scale: 2, opaque: false }, async term => {
     term.pty.send('4'); await term.pty.waitFor('Questions');
@@ -214,6 +222,7 @@ const scenes = [
   { ids: ['tui-overview', 'tui-palette'], capture: stills },
   { ids: ['tui-session-resets'], capture: sessionStill },
   { ids: ['tui-mono'], capture: monoStill },
+  { ids: ['tui-requests'], capture: requestsStill },
   { ids: ['tui-question-expanded', 'tui-questions'], capture: questionStill },
   { ids: ['tui-settings-scroll'], capture: settingsStill },
   { ids: ['tui-memory-paging', 'tui-memory-review'], capture: memoryStills },

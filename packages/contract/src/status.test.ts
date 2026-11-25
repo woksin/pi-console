@@ -1,5 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { sessionStatuses, statusTaxonomy, statusToken } from './status.ts';
 import { highContrastOverrides, themeColors, themeTokens } from './theme.ts';
 import { apiV0Schema } from './api.ts';
@@ -14,6 +15,17 @@ test('every v0 session status and request/job status word has a glyph, label and
     assert.ok(token.color in themeTokens, word);
     assert.ok(token.tint.includes(`var(--${token.color})`), word);
   }
+});
+
+test('README status table exactly matches every contract status and request-state glyph and label', () => {
+  const readme = readFileSync(new URL('../../../README.md', import.meta.url), 'utf8');
+  const table = /\| Status \/ request state \| Glyph \| Label \|\r?\n\|[^\n]+\|\r?\n((?:\|[^\n]+\|\r?\n)+)/.exec(readme);
+  assert.ok(table, 'README must contain the Status / request state table');
+  const rows = table[1].trim().split('\n').map(line => {
+    const [state, glyph, label] = line.split('|').slice(1, -1).map(cell => cell.trim().replace(/`/g, ''));
+    return { state, glyph, label };
+  });
+  assert.deepEqual(rows, Object.entries(statusTaxonomy).map(([state, { glyph, label }]) => ({ state, glyph, label })));
 });
 
 test('stale carries an explicit neutral question mark', () => {

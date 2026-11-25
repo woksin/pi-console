@@ -55,6 +55,7 @@ The list below mirrors `scripts/media/scenes.ts`, which drives capture, encoding
 | `web-memory-review.gif` | web | A proposed memory item: Confirm… then awaiting confirmation in pi, awaiting producer ingestion, and active only after the producer's own update |
 | `web-palette.gif`, `web-tour.gif` | web | Palette typing `aur`; keyboard tour of four views |
 | `tui-overview.webp`, `tui-palette.webp`, `tui-session-resets.webp`, `tui-mono.webp` | tui | TUI stills, including the mono theme |
+| `tui-requests.webp` | tui | Requests list: human `●`, launch `◆` and unproven `○` origins beside status chips |
 | `tui-questions.webp` | tui | Questions list: sort and stale threshold in the title, a stale marker on an idle open question |
 | `tui-question-expanded.webp` | tui | Wide-terminal expanded question with wrapped text, options and recorded history |
 | `tui-memory-paging.webp`, `tui-memory-review.webp` | tui | 100/107 loaded; backfill to 107/107 and an older proposed item's review commands |

@@ -85,7 +85,7 @@ test('the live flows never let the browser clock run on its own', () => {
 });
 
 test('terminal-only detail scenes are registered within the gallery budget', () => {
-  for (const id of ['question-expanded', 'memory-paging', 'memory-review', 'attention-retry', 'settings-scroll']) {
+  for (const id of ['requests', 'question-expanded', 'memory-paging', 'memory-review', 'attention-retry', 'settings-scroll']) {
     assert.ok(ids.has(`tui-${id}`), id);
   }
   assert.ok(budget.totalKb <= 6144);

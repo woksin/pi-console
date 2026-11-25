@@ -76,6 +76,8 @@
 .lane-label { fill: var(--text); font-size: 12px; } .lane-glyph { fill: var(--tone, var(--muted)); }
 .lane-line { stroke: var(--border); }
 .mark { fill: var(--tone, var(--text)); font-size: 13px; cursor: default; }
+/* The reset symbol has a smaller ink box than the other marker glyphs. */
+.mark-reset { font-size: 17px; }
 .tl .timeline-marker, .tl .timeline-marker .mark { cursor: pointer; }
 .tl .timeline-marker:focus-visible { outline: none; box-shadow: none; }
 .tl .marker-ring { fill: none; stroke: none; }

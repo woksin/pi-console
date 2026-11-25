@@ -1,5 +1,5 @@
 import type { Request } from '@pi-console/contract';
-import { fitSessionLabel, describeRequestFilter, emptyStates, pad, requestsViewModel, type RequestsRow, type RequestsViewModel } from '@pi-console/viewmodels';
+import { fitSessionLabel, describeRequestFilter, emptyStates, pad, requestOriginGlyphs, requestsViewModel, type RequestsRow, type RequestsViewModel } from '@pi-console/viewmodels';
 import { Column, Lines, Panel, Row, h, type Line } from '../../view/renderer.ts';
 import { fit, selectable, split, statusParts, t, windowOf } from '../../view/parts.ts';
 import { emptyLines, shownOf, whenLoaded, type Env, type SectionView } from '../common.ts';
@@ -10,8 +10,8 @@ const DETAIL_WIDTH = 56;
 const detailWidth = (env: Env): number => env.width < 140 ? 34 : DETAIL_WIDTH;
 export const originColor = (row: { origin: RequestsRow['origin'] }) => (row.origin === 'human' ? 'blue' as const : 'amber' as const);
 
-const originGlyph: Record<RequestsRow['origin'], string> = { human: '●', launch: '◆', unproven: '*' };
-const legend: Line = [t(' ● human · ◆ launch · * unproven', 'muted'), t(' · ≈ uncertain · ◌ unseen?', 'amber')];
+const originGlyph = requestOriginGlyphs;
+const legend: Line = [t(' ● human · ◆ launch · ○ unproven', 'muted'), t(' · ≈ uncertain · ◌ unseen?', 'amber')];
 
 /** Fixed glyph columns stay before the text, so clipping never hides uncertainty or possibly-unseen. */
 const flags = (row: RequestsRow): Line => [t(row.uncertain ? '≈' : ' ', 'amber'), t(row.possiblyUnseen ? '◌' : ' ', 'amber'), t(' ')];

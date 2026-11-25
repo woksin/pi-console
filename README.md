@@ -116,13 +116,22 @@ Overview groups attention by reason: blocking questions, open requests, possibly
 
 Status glyphs carry meaning even without colour:
 
-| Status | Glyph |
-|---|---|
-| Needs you | `!` |
-| Blocked | `×` |
-| Failed | `#` |
-| Possibly unseen | `¿` |
-| Stale | `?` |
+| Status / request state | Glyph | Label |
+|---|---|---|
+| `needs-you` | `!` | Needs you |
+| `working` | `*` | Working |
+| `running` | `*` | Running |
+| `blocked` | `×` | Blocked |
+| `failed` | `#` | Failed |
+| `waiting` | `~` | Waiting |
+| `interrupted` | `/` | Interrupted |
+| `done` | `✓` | Done |
+| `answered` | `✓` | Answered |
+| `unanswered` | `!` | Unanswered |
+| `open` | `!` | Open |
+| `answer-possibly-unseen` | `¿` | Possibly unseen |
+| `idle` | `–` | Idle |
+| `stale` | `?` | Stale |
 
 Failed uses ASCII `#` to stay clearly distinct from blocked `×` in monospace fonts. Possibly unseen uses `¿` because `?` already means stale; its chip reads “Possibly unseen”, never “Unanswered”.
 

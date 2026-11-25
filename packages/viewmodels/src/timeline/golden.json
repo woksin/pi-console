@@ -160,7 +160,7 @@
         },
         {
           "column": 29,
-          "glyph": "╳",
+          "glyph": "/",
           "color": "pink",
           "markerId": "r5"
         }
@@ -292,7 +292,7 @@
       "cells": [
         {
           "column": 53,
-          "glyph": "╳",
+          "glyph": "/",
           "color": "pink",
           "markerId": "r9"
         }
@@ -563,7 +563,7 @@
       "label": "request"
     },
     {
-      "glyph": "╳",
+      "glyph": "/",
       "color": "pink",
       "label": "interrupted"
     },

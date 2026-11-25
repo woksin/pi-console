@@ -7,7 +7,7 @@ import { TimelineHistory } from './timeline-history.tsx';
 import { EmptyFor } from '../ui/empty.tsx';
 import { SkeletonRows } from '../ui/primitives.tsx';
 import { groupHeight, labelCellsFor, labelColumnWidth, laneHeight, timelineGroups, withoutRepositoryPrefix } from './timeline-groups.ts';
-import { indexMarkers } from './timeline-markers.ts';
+import { indexMarkers, offsetTimelineMarkers } from './timeline-markers.ts';
 import { TimelineMarker } from './timeline-marker.tsx';
 import { TimelineDetail } from './timeline-detail.tsx';
 
@@ -65,9 +65,9 @@ export function TimelineView({ state, now }: ViewProps) {
             <rect className="lane-bg" x={0} y={0} width={labelWidth + plotWidth + 20} height={laneHeight - 4} rx={6} />
             <text className="lane-label" x={10} y={20}><title>{names.get(lane.sessionId) ?? lane.label}</title><tspan className="lane-glyph">{lane.status.glyph}</tspan> {labels.get(lane.sessionId) ?? lane.label}</text>
             <line className="lane-line" x1={labelWidth} x2={labelWidth + plotWidth} y1={15} y2={15} />
-            {lane.cells.map(cell => {
+            {offsetTimelineMarkers(lane.cells, plotWidth / (columns - 1)).map(cell => {
               const marker = markersById.get(cell.markerId);
-              return marker && <TimelineMarker key={cell.markerId} marker={marker} lane={names.get(lane.sessionId) ?? lane.label} x={x(cell.column)} cellWidth={plotWidth / (columns - 1)} selected={selectedMarkerId === marker.id} onSelect={() => { setSelectedMarkerId(marker.id); rows.select(lane.sessionId); }} />;
+              return marker && <TimelineMarker key={cell.markerId} marker={marker} lane={names.get(lane.sessionId) ?? lane.label} offsetY={cell.offsetY} x={x(cell.column)} cellWidth={plotWidth / (columns - 1)} selected={selectedMarkerId === marker.id} onSelect={() => { setSelectedMarkerId(marker.id); rows.select(lane.sessionId); }} />;
             })}
           </g>))}
         </g>)}

@@ -19,13 +19,13 @@ for (const width of [80, 100, 110, 120, 140, 160]) {
     try {
       await ui.settle();
       const frame = ui.frame();
-      assert.match(frame, /● human · ◆ launch · \* unproven · ≈ uncertain · ◌ unseen\?/);
+      assert.match(frame, /● human · ◆ launch · ○ unproven · ≈ uncertain · ◌ unseen\?/);
       assert.equal(frame.includes('Provenance'), width >= 110);
       const rows = frame.split('\n').filter(line => line.includes('≈◌'));
       assert.equal(rows.length, 3);
       assert.ok(rows.every(line => line.includes('TEXT-FREE-SPACE for the')));
       assert.ok(rows.every(line => line.includes('lane-220')));
-      for (const glyph of ['●', '◆', '*']) assert.ok(rows.some(line => line.includes(` ${glyph} ≈◌`)));
+      for (const glyph of ['●', '◆', '○']) assert.ok(rows.some(line => line.includes(` ${glyph} ≈◌`)));
       assert.equal(view.length, 3);
       assert.equal(view.rowAt(0).sessionId, requests[0].sessionId);
     } finally { ui.destroy(); store.dispose(); }
