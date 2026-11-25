@@ -47,6 +47,17 @@ const tailSignature = (lines: readonly TranscriptLine[]): string => {
   return `${String(tail?.key)}:${String(lines.length)}:${String(tail?.text.length)}`;
 };
 
+/** While following, a line that grows after the tail scroll (an off-screen `content-visibility: auto` line rendering at full height, a wrap change) must not push the tail out of view. */
+function useKeepTail(pane: RefObject<HTMLDivElement | null>, end: RefObject<HTMLDivElement | null>, follow: boolean, lines: readonly TranscriptLine[]): void {
+  useEffect(() => {
+    const root = follow ? pane.current : null;
+    if (!root || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => { end.current?.scrollIntoView({ block: 'end' }); });
+    for (const section of root.querySelectorAll('.tday')) observer.observe(section);
+    return () => { observer.disconnect(); };
+  }, [pane, end, follow, lines]);
+}
+
 export interface TranscriptScroll {
   follow: boolean;
   pause: () => void;
@@ -64,6 +75,7 @@ export function useTranscriptScroll(lines: readonly TranscriptLine[], focusEntry
   const end = useRef<HTMLDivElement>(null);
   const tail = tailSignature(lines);
   useEffect(() => { if (follow) end.current?.scrollIntoView({ block: 'end' }); }, [follow, tail]);
+  useKeepTail(pane, end, follow, lines);
   const { remember } = useAnchor(pane, follow, lines);
   useJumpOnce(lines, focusEntry, remember);
   return { follow, pause, toggleFollow, pane, end, onScroll: () => { if (!follow) remember(); }, remember };

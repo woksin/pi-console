@@ -3,6 +3,7 @@ import { useListNav } from '../app/hooks.ts';
 import { focusKey } from './transcript-jump.ts';
 import { dayGroups } from './transcript-days.ts';
 import { useTranscriptScroll } from './transcript-scroll.ts';
+import { useCurrentDay } from './transcript-current-day.ts';
 import { TranscriptEmptyState, TranscriptHistoryBar, useTranscriptHistoryPaging } from './transcript-history-bar.tsx';
 import type { TranscriptProgress } from '../state/transcript-history.ts';
 
@@ -17,17 +18,18 @@ interface TranscriptProps {
 export function Transcript({ lines, focusEntry, searching, progress, onPage, onLive, onResume, onFollow }: TranscriptProps) {
   const scroll = useTranscriptScroll(lines, focusEntry, onResume, onFollow);
   const history = useTranscriptHistoryPaging(scroll, progress, searching, onPage);
+  const current = useCurrentDay(scroll.pane, lines);
   const nav = useListNav(lines.map(line => String(line.key)), {
     initial: focusKey(lines, focusEntry), fallback: String(lines.at(-1)?.key), copy: false,
     onMove: key => { scroll.pause(); document.getElementById(`line-${key}`)?.scrollIntoView({ block: 'nearest' }); scroll.remember(); },
   });
   return (
     <div className="transcript-shell">
-      <TranscriptHistoryBar scroll={scroll} progress={progress} onPage={history.page} onLive={onLive} />
-      <div ref={scroll.pane} onScroll={history.onScroll} className="transcript" role="log" aria-live="off" aria-label="Transcript lines">
+      <TranscriptHistoryBar scroll={scroll} day={current.day} progress={progress} onPage={history.page} onLive={onLive} />
+      <div ref={scroll.pane} onScroll={() => { history.onScroll(); current.update(); }} className="transcript" role="log" aria-live="off" aria-label="Transcript lines">
       <TranscriptEmptyState empty={lines.length === 0} searching={searching} progress={progress} />
       {dayGroups(lines).map(group => (
-        <section key={group.key} className="tday">
+        <section key={group.key} className="tday" data-day={group.date}>
           {group.date && <h2 className="tday-head">{group.date}</h2>}
           {group.lines.map(line => <Line key={line.key} line={line} selected={nav.selected === String(line.key)} focused={line.id === focusEntry} tail={line === lines.at(-1)} onSelect={() => { nav.select(String(line.key)); scroll.pause(); }} />)}
         </section>

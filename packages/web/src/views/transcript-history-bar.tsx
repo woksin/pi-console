@@ -31,8 +31,9 @@ function FollowControls({ scroll, progress, onLive }: Pick<HistoryActions, 'prog
   return <button type="button" className="btn follow" aria-pressed={scroll.follow} disabled={busy} onClick={scroll.toggleFollow}>{scroll.follow ? '● Following' : '○ Follow tail'} <kbd className="kbd">f</kbd></button>;
 }
 
-export function TranscriptHistoryBar({ scroll, progress, onPage, onLive }: HistoryActions & { scroll: TranscriptScroll }) {
+export function TranscriptHistoryBar({ scroll, day, progress, onPage, onLive }: HistoryActions & { scroll: TranscriptScroll; day?: string }) {
   return <div className="transcript-controls">
+    {day && <span className="transcript-day" title="Day at the top of the transcript">{day}</span>}
     <FollowControls scroll={scroll} progress={progress} onLive={onLive} />
     <HistoryControls progress={progress} onPage={onPage} onLive={onLive} />
   </div>;

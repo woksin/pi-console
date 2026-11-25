@@ -45,6 +45,21 @@ const openSession = async (): Promise<Page> => {
 };
 
 /** History responses can finish before React's tail scroll; sample a stable bottom across two frames. */
+/** How far the selected line sits inside the pane's nearer edge (negative when that edge cuts it), and its height. */
+const selectedInset = (page: Page): Promise<{ inset: number; height: number } | null> => page.evaluate(() => {
+  const pane = document.querySelector('.transcript')?.getBoundingClientRect();
+  const line = document.querySelector('.tline.selected')?.getBoundingClientRect();
+  return pane && line ? { inset: Math.min(line.top - pane.top, pane.bottom - line.bottom), height: line.height } : null;
+});
+
+/** Where the selected line sits in the pane: fully inside, partly cut by an edge, or out of view. */
+const selectedPlacement = async (page: Page): Promise<'full' | 'partial' | 'hidden'> => {
+  const found = await selectedInset(page);
+  if (!found) return 'hidden';
+  if (found.inset >= 0) return 'full';
+  return found.inset > -found.height ? 'partial' : 'hidden';
+};
+
 const waitForSettledTail = async (page: Page): Promise<void> => {
   await page.waitForFunction(async () => {
     const pane = document.querySelector('.transcript');
@@ -93,11 +108,7 @@ describe('transcript scrolling', () => {
 
   test('PageUp and Home move the selection and scroll it into view', async () => {
     const page = await openSession();
-    const selectedInView = (): Promise<boolean> => page.evaluate(() => {
-      const pane = document.querySelector('.transcript')?.getBoundingClientRect();
-      const line = document.querySelector('.tline.selected')?.getBoundingClientRect();
-      return Boolean(pane && line && line.bottom > pane.top && line.top < pane.bottom);
-    });
+    const selectedInView = async (): Promise<boolean> => await selectedPlacement(page) !== 'hidden';
     const scrollTop = (): Promise<number> => page.evaluate(() => document.querySelector('.transcript')?.scrollTop ?? -1);
     await waitForSettledTail(page);
     const atTail = await scrollTop();
@@ -107,7 +118,8 @@ describe('transcript scrolling', () => {
     await page.getByRole('button', { name: /Follow tail/ }).waitFor();
     assert.notEqual(await page.locator('.tline.selected').getAttribute('id'), tailSelection, 'PageUp moves the selection');
     assert.ok(await selectedInView(), 'the selected line is visible after PageUp');
-    assert.ok(await scrollTop() < atTail, 'the pane scrolled up');
+    assert.ok(await scrollTop() <= atTail, 'the pane did not scroll down');
+    assert.equal(await selectedPlacement(page), 'full', 'no heading covers the selected line: it is fully inside the pane');
     await page.keyboard.press('Home');
     await page.waitForFunction(id => document.querySelector('.tline.selected')?.id === id, firstLine);
     assert.equal(await page.locator('.tline.selected').getAttribute('id'), firstLine, 'Home selects the first line');
@@ -136,18 +148,37 @@ describe('transcript times', () => {
 });
 
 describe('transcript chrome polish', () => {
-  test('a paused transcript offers one tail action and the sticky day heading sits flush at the pane edge', async () => {
+  test('while following, the last line is fully visible and no day heading covers a line; the current day is in the controls', async () => {
+    const page = await openSession();
+    await page.getByRole('button', { name: /Following/ }).waitFor();
+    await waitForSettledTail(page);
+    // The last line ends inside the pane: nothing at the bottom is cut off while following.
+    await page.waitForFunction(() => {
+      const pane = document.querySelector('.transcript');
+      const last = [...document.querySelectorAll('.transcript .tline')].at(-1);
+      return Boolean(pane && last && last.getBoundingClientRect().bottom <= pane.getBoundingClientRect().bottom + 0.5);
+    }, undefined, { timeout: 5000 });
+    const layout = await page.evaluate(() => {
+      const pane = document.querySelector('.transcript');
+      const head = document.querySelector('.tday-head');
+      return pane && head ? {
+        position: getComputedStyle(head).position, day: document.querySelector('.transcript-controls .transcript-day')?.textContent,
+        topDay: [...document.querySelectorAll<HTMLElement>('.tday')].find(section => section.getBoundingClientRect().bottom > pane.getBoundingClientRect().top)?.dataset.day,
+      } : null;
+    });
+    assert.ok(layout);
+    assert.equal(layout.position, 'static', 'day headings scroll with the lines instead of overlaying them');
+    assert.ok(layout.day, 'the controls name the current day');
+    assert.equal(layout.day, layout.topDay, 'the label is the day at the top of the pane');
+    await page.context().close();
+  });
+
+  test('a paused transcript offers one tail action', async () => {
     const page = await openSession();
     await page.locator('.transcript').hover();
     await page.mouse.wheel(0, -900);
     await page.getByRole('button', { name: /Follow tail/ }).waitFor();
     assert.equal(await page.locator('.transcript-controls').getByRole('button', { name: /Follow tail|Return to live/ }).count(), 1, 'one tail action while paused');
-    const gap = await page.evaluate(() => {
-      const pane = document.querySelector('.transcript');
-      const head = [...document.querySelectorAll('.tday-head')].find(node => node.getBoundingClientRect().top <= (pane?.getBoundingClientRect().top ?? 0) + 40);
-      return pane && head ? Math.round(head.getBoundingClientRect().top - pane.getBoundingClientRect().top - pane.clientTop) : null;
-    });
-    assert.equal(gap, 0, 'no band above the sticky heading where a cut line could show');
     await page.context().close();
   });
 
