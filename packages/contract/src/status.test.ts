@@ -17,16 +17,18 @@ test('every v0 session status and request/job status word has a glyph, label and
   }
 });
 
-test('README status table exactly matches every contract status and request-state glyph and label', () => {
-  const readme = readFileSync(new URL('../../../README.md', import.meta.url), 'utf8');
-  const table = /\| Status \/ request state \| Glyph \| Label \|\r?\n\|[^\n]+\|\r?\n((?:\|[^\n]+\|\r?\n)+)/.exec(readme);
-  assert.ok(table, 'README must contain the Status / request state table');
-  const rows = table[1].trim().split('\n').map(line => {
-    const [state, glyph, label] = line.split('|').slice(1, -1).map(cell => cell.trim().replace(/`/g, ''));
-    return { state, glyph, label };
+for (const doc of ['README.md', 'docs/ui-web.md']) {
+  test(`${doc} status table exactly matches every contract status and request-state glyph and label`, () => {
+    const text = readFileSync(new URL(`../../../${doc}`, import.meta.url), 'utf8');
+    const table = /\| Status \/ request state \| Glyph \| Label \|\r?\n\|[^\n]+\|\r?\n((?:\|[^\n]+\|\r?\n)+)/.exec(text);
+    assert.ok(table, `${doc} must contain the Status / request state table`);
+    const rows = table[1].trim().split('\n').map(line => {
+      const [state, glyph, label] = line.split('|').slice(1, -1).map(cell => cell.trim().replace(/`/g, ''));
+      return { state, glyph, label };
+    });
+    assert.deepEqual(rows, Object.entries(statusTaxonomy).map(([state, { glyph, label }]) => ({ state, glyph, label })));
   });
-  assert.deepEqual(rows, Object.entries(statusTaxonomy).map(([state, { glyph, label }]) => ({ state, glyph, label })));
-});
+}
 
 test('stale carries an explicit neutral question mark', () => {
   assert.equal(statusToken('stale').glyph, '?');
