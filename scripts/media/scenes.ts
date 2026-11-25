@@ -38,7 +38,7 @@ export const webViews = [
   { id: 'requests', route: '/requests', what: 'Requests and answers' },
   { id: 'questions', route: '/questions', what: 'Questions and decisions' },
   { id: 'messages', route: '/messages', what: 'Messages list' },
-  { id: 'graph', route: '/messages?view=graph', what: 'Lane-to-lane message edges and separate session spawn relationships' },
+  { id: 'graph', route: '/messages?view=graph', what: 'Lane communication graph: lane-to-lane message edges' },
   { id: 'timeline', route: '/timeline', what: 'Timeline of requests, answers, resets, questions and messages' },
   { id: 'work', route: '/work', what: 'Work: jobs, phases and CI' },
   { id: 'session', route: '/session/s2', what: 'Session transcript at the tail with producer-owned memory review controls' },
@@ -53,6 +53,8 @@ export const shots: readonly Shot[] = [
   web('pulse', 'Close-up of the fleet pulse, status strip and pressure histogram', 'dark', 1100),
   web('session-resets', 'Session transcript scrolled to a ⟲ reset divider with what was carried over and interrupted'),
   web('session-resets', 'Reset divider on the dawn theme', 'light'),
+  web('help', 'The ? keyboard help overlay, generated from the keymap'),
+  web('offline', 'Daemon unreachable: the last data stays on screen under the Disconnected banner, with the as-of time'),
   web('themes', 'Theme preview cards in Settings: midnight, dawn, high contrast', 'dark', 1100),
   ...(['dark', 'light'] as const).flatMap(theme => [
     web('timeline-history', 'Timeline with explicit loaded/total counts and older-message history controls', theme),
